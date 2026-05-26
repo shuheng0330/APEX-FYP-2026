@@ -1,0 +1,364 @@
+<div class="centered-padding-body">
+  <div>
+    <h1 class="text-center">{{ titleKey | translate }}</h1>
+  </div>
+
+  <nz-skeleton *ngIf="loading"></nz-skeleton>
+
+  <div *ngIf="!loading" class="evaluation-overview-container">
+
+    <div *ngIf="currentCycle && (currentCycle.status === 'OPEN' || currentCycle.status === 'UPCOMING')"
+         style="margin-bottom: 24px;">
+      <nz-alert [nzType]="currentCycle.status === 'OPEN' ? 'info' : 'warning'"
+                [nzMessage]="currentCycle.status === 'OPEN' ? 'Evaluation Period Open' : 'Upcoming Evaluation Period'"
+                [nzDescription]="'The evaluation period is from ' + (currentCycle.startDate | date:'mediumDate') + ' to ' + (currentCycle.endDate | date:'mediumDate') + '. ' + (currentCycle.status === 'OPEN' ? 'Please complete your evaluations.' : 'Please prepare for the upcoming cycle.')"
+                nzShowIcon>
+      </nz-alert>
+    </div>
+
+    <!-- Top Section - Summary Cards -->
+    <div class="summary-cards-section">
+      <div class="summary-card evaluate-card">
+        <nz-card class="card-style">
+          <div class="card-content">
+            <nz-statistic [nzValue]="staffEvaluatedCount" [nzSuffix]="'/' + totalStaffCount"
+              [nzTitle]="'Staff Evaluated'" [nzValueStyle]="{ color: '#52c41a' }">
+            </nz-statistic>
+            <button nz-button nzType="primary" (click)="navigateToEvaluation()" [disabled]="!isEvaluationOpen">
+              Evaluate
+            </button>
+          </div>
+        </nz-card>
+      </div>
+
+      <div class="summary-card">
+        <nz-card class="card-style">
+          <div class="performer-card">
+            <div class="performer-header">
+              <nz-icon nzType="trophy" nzTheme="fill" style="color: #faad14;"></nz-icon>
+              <span class="performer-label">Best Performer</span>
+            </div>
+            <div class="performer-name" *ngIf="bestPerformer">
+              {{ bestPerformer.staff.name }}
+            </div>
+            <div class="performer-score" *ngIf="bestPerformer">
+              {{ bestPerformer.averageScore | number: '1.2-2' }}%
+            </div>
+            <div class="no-data" *ngIf="!bestPerformer">No data</div>
+          </div>
+        </nz-card>
+      </div>
+
+      <!--      <div class="summary-card">-->
+      <!--        <nz-card>-->
+      <!--          <div class="performer-card">-->
+      <!--            <div class="performer-header">-->
+      <!--              <nz-icon nzType="warning" nzTheme="fill" style="color: #ff4d4f;"></nz-icon>-->
+      <!--              <span class="performer-label">Worst Performer</span>-->
+      <!--            </div>-->
+      <!--            <div class="performer-name" *ngIf="worstPerformer">-->
+      <!--              {{ worstPerformer.staff.name }}-->
+      <!--            </div>-->
+      <!--            <div class="performer-score" *ngIf="worstPerformer">-->
+      <!--              {{ worstPerformer.averageScore | number: '1.0-1' }}%-->
+      <!--            </div>-->
+      <!--            <div class="no-data" *ngIf="!worstPerformer">No data</div>-->
+      <!--          </div>-->
+      <!--        </nz-card>-->
+      <!--      </div>-->
+
+      <div class="summary-card">
+        <nz-card class="card-style">
+          <div class="card-content">
+            <nz-statistic [nzValue]="(teamAverage | number:'1.2-2')!" nzSuffix="%" nzTitle="Team Average"
+              [nzValueStyle]="{ color: '#1890ff' }">
+            </nz-statistic>
+          </div>
+        </nz-card>
+      </div>
+
+      <div class="summary-card">
+        <nz-card class="card-style" nz-tooltip nzTooltipTitle="Percentage of staff whose average score is 60% or above">
+          <nz-statistic [nzValue]="(meetingExpectationsPercent | number: '1.2-2')!" [nzSuffix]="'%'"
+            [nzTitle]="'Meeting Expectations'" [nzValueStyle]="{ color: '#1890ff' }">
+          </nz-statistic>
+        </nz-card>
+      </div>
+    </div>
+
+    <!-- Middle Section - Visuals -->
+    <h3>Overall Performance</h3>
+    <div class="charts-section">
+      <!-- Performance Trend Line Chart -->
+      <div class="chart-card">
+        <nz-card [nzTitle]="'Performance Trend'">
+          <div class="chart-container">
+            <canvas baseChart [data]="lineChartData" [options]="lineChartOptions" [type]="'line'">
+            </canvas>
+          </div>
+        </nz-card>
+      </div>
+
+      <!-- Performance Distribution Donut Chart -->
+      <div class="chart-card">
+        <nz-card [nzTitle]="'Performance Distribution'">
+          <div class="chart-container">
+            <canvas *ngIf="hasDonutData" baseChart [data]="donutChartData" [options]="donutChartOptions"
+              [type]="'doughnut'">
+            </canvas>
+            <div *ngIf="!hasDonutData" class="no-data-container"
+              style="height: 100%; display: flex; justify-content: center; align-items: center;">
+              <nz-empty [nzNotFoundContent]="contentTpl"></nz-empty>
+            </div>
+          </div>
+        </nz-card>
+      </div>
+
+      <ng-template #contentTpl>
+        <span class="no-data">
+          No Data
+        </span>
+      </ng-template>
+
+      <!-- Skill Heatmap -->
+      <div class="chart-card heatmap-card">
+        <nz-card [nzTitle]="'Team Competency Overview'">
+          <div class="heatmap-container">
+            <div *ngFor="let item of heatmapData" class="heatmap-item">
+              <div class="heatmap-label">{{ item.competency }}</div>
+              <div class="heatmap-bar">
+                <div class="heatmap-fill" [style.width.%]="(item.average / 10) * 100"
+                  [style.background-color]="getHeatmapColor(item.average)"></div>
+                <span class="heatmap-value">{{ item.average | number: '1.2-2' }}</span>
+              </div>
+            </div>
+            <div *ngIf="heatmapData.length === 0" class="no-data">No competency data available</div>
+          </div>
+        </nz-card>
+      </div>
+    </div>
+
+    <!-- Bottom Section - Detailed Tables -->
+    <div class="tables-section">
+      <!-- Top/Bottom Performers -->
+      <!--      <div class="table-card">-->
+      <!--        <nz-card [nzTitle]="'Top Performers'">-->
+      <!--          <nz-table #topTable [nzData]="topPerformers" [nzPageSize]="5" [nzShowPagination]="false">-->
+      <!--            <thead>-->
+      <!--              <tr>-->
+      <!--                <th>Rank</th>-->
+      <!--                <th>Name</th>-->
+      <!--                <th>Department</th>-->
+      <!--                <th>Role</th>-->
+      <!--                <th>Average Score</th>-->
+      <!--                <th>Status</th>-->
+      <!--                <th>Action</th>-->
+      <!--              </tr>-->
+      <!--            </thead>-->
+      <!--            <tbody>-->
+      <!--              <tr *ngFor="let performer of topPerformers; let i = index"-->
+      <!--                  (click)="navigateToStaffPerformance(performer.staff.id)"-->
+      <!--                  style="cursor: pointer;">-->
+      <!--                <td>{{ i + 1 }}</td>-->
+      <!--                <td>{{ performer.staff.name }}</td>-->
+      <!--                <td>{{ performer.staff.role.orgChart.name }}</td>-->
+      <!--                <td>{{ performer.staff.role.name }}</td>-->
+      <!--                <td>-->
+      <!--                  <strong>{{ performer.averageScore | number: '1.0-1' }}%</strong>-->
+      <!--                </td>-->
+      <!--                <td>-->
+      <!--                  <nz-tag [nzColor]="getPerformanceCategory(performer.averageScore || 0).color">-->
+      <!--                    {{ getPerformanceCategory(performer.averageScore || 0).label }}-->
+      <!--                  </nz-tag>-->
+      <!--                </td>-->
+      <!--                <td>-->
+      <!--                  <nz-icon [nzType]="getTrendIcon(performer.trend)"-->
+      <!--                          [style.color]="getTrendColor(performer.trend)"></nz-icon>-->
+      <!--                </td>-->
+      <!--              </tr>-->
+      <!--              <tr *ngIf="topPerformers.length === 0">-->
+      <!--                <td colspan="7" class="no-data">No top performers data</td>-->
+      <!--              </tr>-->
+      <!--            </tbody>-->
+      <!--          </nz-table>-->
+      <!--        </nz-card>-->
+      <!--      </div>-->
+
+      <!--      <div class="table-card">-->
+      <!--        <nz-card [nzTitle]="'Bottom Performers'">-->
+      <!--          <nz-table #bottomTable [nzData]="bottomPerformers" [nzPageSize]="5" [nzShowPagination]="false">-->
+      <!--            <thead>-->
+      <!--              <tr>-->
+      <!--                <th>Rank</th>-->
+      <!--                <th>Name</th>-->
+      <!--                <th>Department</th>-->
+      <!--                <th>Role</th>-->
+      <!--                <th>Average Score</th>-->
+      <!--                <th>Status</th>-->
+      <!--                <th>Action</th>-->
+      <!--              </tr>-->
+      <!--            </thead>-->
+      <!--            <tbody>-->
+      <!--              <tr *ngFor="let performer of bottomPerformers; let i = index"-->
+      <!--                  (click)="navigateToStaffPerformance(performer.staff.id)"-->
+      <!--                  style="cursor: pointer;">-->
+      <!--                <td>{{ fullTeamRanking.length - bottomPerformers.length + i + 1 }}</td>-->
+      <!--                <td>{{ performer.staff.name }}</td>-->
+      <!--                <td>{{ performer.staff.role.orgChart.name }}</td>-->
+      <!--                <td>{{ performer.staff.role.name }}</td>-->
+      <!--                <td>-->
+      <!--                  <strong>{{ performer.averageScore | number: '1.0-1' }}%</strong>-->
+      <!--                </td>-->
+      <!--                <td>-->
+      <!--                  <nz-tag [nzColor]="getPerformanceCategory(performer.averageScore || 0).color">-->
+      <!--                    {{ getPerformanceCategory(performer.averageScore || 0).label }}-->
+      <!--                  </nz-tag>-->
+      <!--                </td>-->
+      <!--                <td>-->
+      <!--                  <nz-icon [nzType]="getTrendIcon(performer.trend)"-->
+      <!--                          [style.color]="getTrendColor(performer.trend)"></nz-icon>-->
+      <!--                </td>-->
+      <!--              </tr>-->
+      <!--              <tr *ngIf="bottomPerformers.length === 0">-->
+      <!--                <td colspan="7" class="no-data">No bottom performers data</td>-->
+      <!--              </tr>-->
+      <!--            </tbody>-->
+      <!--          </nz-table>-->
+      <!--        </nz-card>-->
+      <!--      </div>-->
+
+      <!-- Full Team Ranking -->
+      <div class="table-card full-width">
+        <nz-card [nzTitle]="'Full Team Ranking'">
+          <nz-table #rankingTable [nzData]="filteredRankingStaffList" [nzPageSize]="10" [nzShowSizeChanger]="true">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <!--                <th>Name</th>-->
+                <!--                <th>Department</th>-->
+                <!--                <th>Role</th>-->
+                <!--                <th>Average Score</th>-->
+                <!--                <th>Latest Score</th>-->
+                <!--                <th>Status</th>-->
+                <!--                <th>Trend</th>-->
+                <!--                <th>Action</th>-->
+                <th nzCustomFilter nzWidth="200px">
+                  Name
+                  <nz-filter-trigger [(nzVisible)]="visibleRanking" [nzActive]="staffSearchRanking.length > 0"
+                    [nzDropdownMenu]="menuInvite">
+                    <nz-icon nzType="search" />
+                  </nz-filter-trigger>
+                </th>
+                @for (column of listOfColumnRankingTable; track column) {
+                <th [nzSortOrder]="column.sortOrder" [nzSortFn]="column.sortFn"
+                  [nzSortDirections]="column.sortDirections" [nzFilterMultiple]="column.filterMultiple"
+                  [nzFilters]="column.listOfFilter" [nzFilterFn]="column.filterFn" [nzShowFilter]="!!column.filterFn">
+                  {{ column.name }}
+                </th>
+                }
+                <nz-dropdown-menu #menuInvite="nzDropdownMenu">
+                  <div class="ant-table-filter-dropdown">
+                    <div class="search-box">
+                      <input type="text" nz-input placeholder="Search name" [(ngModel)]="staffSearchRanking"
+                        (ngModelChange)="filterStaffRanking()" />
+                    </div>
+                  </div>
+                </nz-dropdown-menu>
+                <th>Status</th>
+                <th>Trend</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let performer of rankingTable.data; let i = index"
+                (click)="navigateToStaffPerformance(performer.staff.id)" style="cursor: pointer;">
+                <td>{{ i + 1 }}</td>
+                <td>{{ performer.staff.name }}</td>
+                <td>{{ performer.staff.role.orgChart.name }}</td>
+                <td>{{ performer.staff.role.name }}</td>
+                <td><strong>{{ performer.averageScore | number: '1.2-2' }}%</strong></td>
+                <td>{{ performer.latestScore | number: '1.2-2' }}%</td>
+                <td>
+                  <nz-tag [nzColor]="getPerformanceCategory(performer.averageScore || 0).color">
+                    {{ getPerformanceCategory(performer.averageScore || 0).label }}
+                  </nz-tag>
+                </td>
+                <td>
+                  <nz-icon [nzType]="getTrendIcon(performer.trend)"
+                    [style.color]="getTrendColor(performer.trend)"></nz-icon>
+                </td>
+                <td>
+                  <button nz-button nzType="link" nzSize="small"
+                    (click)="navigateToStaffPerformance(performer.staff.id); $event.stopPropagation()">
+                    View Details
+                  </button>
+                </td>
+              </tr>
+              <!--              <tr *ngIf="fullTeamRanking.length === 0">-->
+              <!--                <td colspan="9" class="no-data">No team ranking data</td>-->
+              <!--              </tr>-->
+            </tbody>
+          </nz-table>
+        </nz-card>
+      </div>
+
+      <!-- At-Risk Staff -->
+      <div class="table-card full-width">
+        <nz-card [nzTitle]="'At-Risk Staff (Score < 60)'">
+          <nz-table #atRiskTable [nzData]="filteredAtRiskStaffList" [nzPageSize]="10" [nzShowSizeChanger]="true">
+            <thead>
+              <tr>
+                <th nzCustomFilter nzWidth="200px">
+                  Name
+                  <nz-filter-trigger [(nzVisible)]="visible" [nzActive]="staffSearch.length > 0"
+                    [nzDropdownMenu]="menuInvite">
+                    <nz-icon nzType="search" />
+                  </nz-filter-trigger>
+                </th>
+                @for (column of listOfColumnsAtRiskTable; track column) {
+                <th [nzSortOrder]="column.sortOrder" [nzSortFn]="column.sortFn"
+                  [nzSortDirections]="column.sortDirections" [nzFilterMultiple]="column.filterMultiple"
+                  [nzFilters]="column.listOfFilter" [nzFilterFn]="column.filterFn" [nzShowFilter]="!!column.filterFn">
+                  {{ column.name }}
+                </th>
+                }
+                <nz-dropdown-menu #menuInvite="nzDropdownMenu">
+                  <div class="ant-table-filter-dropdown">
+                    <div class="search-box">
+                      <input type="text" nz-input placeholder="Search name" [(ngModel)]="staffSearch"
+                        (ngModelChange)="filterStaff()" />
+                    </div>
+                  </div>
+                </nz-dropdown-menu>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let staff of atRiskTable.data" (click)="navigateToStaffPerformance(staff.staff.id)"
+                style="cursor: pointer;">
+                <td>{{ staff.staff.name }}</td>
+                <td>{{ staff.staff.role.orgChart.name }}</td>
+                <td>{{ staff.staff.role.name }}</td>
+                <td><strong style="color: #ff4d4f;">{{ staff.averageScore | number: '1.2-2' }}%</strong></td>
+                <td>{{ staff.latestScore | number: '1.2-2' }}%</td>
+                <td>
+                  <nz-tag nzColor="red">Needs Improvement</nz-tag>
+                </td>
+                <td>
+                  <button nz-button nzType="link" nzSize="small"
+                    (click)="navigateToStaffPerformance(staff.staff.id); $event.stopPropagation()">
+                    View Details
+                  </button>
+                </td>
+              </tr>
+              <!--              <tr *ngIf="atRiskStaff.length === 0">-->
+              <!--                <td colspan="7" class="no-data">No at-risk staff</td>-->
+              <!--              </tr>-->
+            </tbody>
+          </nz-table>
+        </nz-card>
+      </div>
+    </div>
+  </div>
+</div>

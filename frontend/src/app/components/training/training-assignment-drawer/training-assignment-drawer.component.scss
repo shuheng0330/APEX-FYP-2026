@@ -1,0 +1,54 @@
+:host { display: block; padding: 16px; }
+.mr-2 { margin-right: 8px; }
+
+.button-container{
+  margin: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.green-button {
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 0 16px;
+  border: none;
+  background: #28a745;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color .2s ease, transform .05s ease;
+}
+.green-button:hover:not([disabled]) {
+  background: #218838;
+}
+.green-button:active:not([disabled]) {
+  transform: translateY(1px);
+}
+.green-button[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.red-button-drawer {
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 0 16px;
+  border: none;
+  background: #dc3545;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color .2s ease, transform .05s ease;
+}
+.red-button-drawer:hover:not([disabled]) {
+  background: #c82333;
+}
+.red-button-drawer:active:not([disabled]) {
+  transform: translateY(1px);
+}
+.red-button-drawer[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
+}
+

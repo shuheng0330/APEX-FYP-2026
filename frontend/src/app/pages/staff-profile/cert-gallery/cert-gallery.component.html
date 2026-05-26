@@ -1,0 +1,89 @@
+<app-add-cert (formSubmitted)="loadList()" *ngIf="!isVisiting$.value"></app-add-cert>
+<app-edit-cert (formSubmitted)="loadList()" *ngIf="!isVisiting$.value"></app-edit-cert>
+
+<div class="centered-padding-body">
+
+    <div class="space-between-button-group">
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.PROFILE.CERT.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="!isVisiting$.value">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteCert()">
+                {{ 'PAGE.PROFILE.CERT.BUTTON.DELETE' | translate }}
+                <nz-icon nzType="delete" />
+            </button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addCert()">
+                {{ 'PAGE.PROFILE.CERT.BUTTON.ADD' | translate }}
+                <nz-icon nzType="plus" />
+            </button>
+        </div>
+    </div>
+
+    <p class="num-item-selected" *ngIf="!isVisiting$.value">
+        Selected {{setOfCheckedId.size}} items
+    </p>
+
+    <nz-empty *ngIf="listOfDisplayData.length === 0" style="margin-top: 10px;"></nz-empty>
+
+    <div nz-row [nzGutter]=" [24, 24]" class="cert-grid">
+        <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="8" [nzXl]="6" *ngFor="let row of listOfDisplayData">
+
+            <nz-card [nzHoverable]="true" class="cert-card" [class.selected-card]="setOfCheckedId.has(row.id)">
+                <div class="card-top-actions">
+                    <label nz-checkbox *ngIf="!isVisiting$.value" [nzChecked]="setOfCheckedId.has(row.id)"
+                        (nzCheckedChange)="onItemChecked(row.id, $event)"></label>
+
+                    <div class="action-buttons" *ngIf="!isVisiting$.value">
+                        <a (click)="editCert(row)" class="edit-btn"><nz-icon nzType="edit" /></a>
+                        <a (click)="deleteCert(row)" class="delete-btn"><nz-icon nzType="delete" /></a>
+                    </div>
+                </div>
+
+                <div class="card-content">
+                    <div class="icon-wrapper">
+                        <nz-icon nzType="file-pdf" nzTheme="twotone" [nzTwotoneColor]="'#ff4d4f'"
+                            style="font-size: 36px;"></nz-icon>
+                    </div>
+
+                    <h4 class="cert-title" nz-tooltip [nzTooltipTitle]="row.certName">
+                        {{row.certName}}
+                    </h4>
+
+                    <a (click)="viewCert(row)" target="_blank" class="file-link">
+                        <nz-icon nzType="link" nzTheme="outline" />
+                        {{row.fileName}}
+                    </a>
+
+                    <p class="cert-desc">{{row.description || 'No description provided'}}</p>
+                </div>
+            </nz-card>
+        </div>
+    </div>
+
+
+</div>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" (click)="search()">
+        <nz-icon nzType="search" />
+    </button>
+</ng-template>
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

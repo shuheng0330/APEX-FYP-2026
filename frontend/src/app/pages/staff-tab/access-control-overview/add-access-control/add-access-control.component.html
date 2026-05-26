@@ -1,0 +1,85 @@
+<nz-drawer [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false" [nzWidth]="drawerWidth"
+    [nzVisible]="visible$ | async" nzTitle="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.TITLE' | translate}}"
+    [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired nzLabelAlign="left">
+                        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.INPUT.DEPARTMENT' | translate}}
+                    </nz-form-label>
+                    <nz-form-control
+                        [nzErrorTip]="( 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.ERR.DEPARTMENT' | translate)">
+                        <nz-select nzShowSearch nzAllowClear
+                            nzPlaceHolder="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.PLACEHOLDER.DEPARTMENT' | translate}}"
+                            id="department" formControlName="department" (ngModelChange)="onDepartmentChange($event)">
+                            <nz-option *ngFor="let department of orgChartList" [nzLabel]="department.name"
+                                [nzValue]="department.id!"></nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired nzLabelAlign="left">
+                        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.INPUT.ROLE' | translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="('PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.ERR.ROLE' | translate)">
+                        <nz-select nzShowSearch nzAllowClear [nzNotFoundContent]="notFoundContent"
+                            nzPlaceHolder="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.PLACEHOLDER.ROLE' | translate}}"
+                            id="role" formControlName="role">
+                            <nz-option *ngFor="let role of selectedDepartmentRoleList" [nzLabel]="role.name"
+                                [nzValue]="role.id!"></nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired nzLabelAlign="left">
+                        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.INPUT.ACCESS' | translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.ERR.ACCESS' | translate)">
+                        <nz-checkbox-wrapper>
+                            <nz-checkbox-group formControlName="authorities">
+                                @for(authority of translatedAuthorityList; track authority){
+                                <nz-form-label nzLabelAlign="left" nzNoColon>
+                                    <label nz-checkbox nzValue="{{authority.id}}">{{authority.label}}
+                                        <nz-icon nzType="info-circle" nzTheme="outline"
+                                            [nzTooltipTitle]="authority.description" nzTooltipPlacement="top"
+                                            nz-tooltip />
+                                    </label>
+                                </nz-form-label><br />
+                                }
+                            </nz-checkbox-group>
+                        </nz-checkbox-wrapper>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.BUTTON.CANCEL' | translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.BUTTON.SUBMIT' | translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>
+
+<ng-template #notFoundContent>
+    <span class="text-gray-500" *ngIf="!validateForm.get('department')?.valid">
+        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.ERR.DEPARTMENT_FIRST' | translate }}
+    </span>
+
+    <nz-empty *ngIf="validateForm.get('department')?.valid" nzNotFoundImage="simple"></nz-empty>
+</ng-template>

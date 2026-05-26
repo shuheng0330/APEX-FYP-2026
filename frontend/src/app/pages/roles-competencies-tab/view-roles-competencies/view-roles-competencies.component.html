@@ -1,0 +1,107 @@
+<nz-drawer [nzWidth]="drawerWidth" [nzVisible]="visible$.value" nzPlacement="right"
+    [nzTitle]="data?.roleName+' ( '+ data?.orgChartName +' )'" (nzOnClose)="close()">
+    <ng-container *nzDrawerContent>
+        <div *ngIf="!data; else dataFound" class="data-not-found">
+            <nz-empty [nzNotFoundContent]="contentTpl">
+            </nz-empty>
+            <ng-template #contentTpl>
+                <p>
+                    {{'PAGE.ROLES_COMPETENCIES.VIEW.NOT_FOUND.NO_AVAILABLE' |translate}}
+                    <br />
+                    {{'PAGE.ROLES_COMPETENCIES.VIEW.NOT_FOUND.REASON' |translate}}
+                </p>
+            </ng-template>
+        </div>
+        <ng-template #dataFound>
+            <h3>{{'PAGE.ROLES_COMPETENCIES.VIEW.ABOUT' | translate}}</h3>
+            <nz-empty nzNotFoundImage="simple" *ngIf="!data?.roleDescription"></nz-empty>
+            <p *ngIf="data?.roleDescription">{{ data?.roleDescription }}</p>
+
+            <h3>{{'PAGE.ROLES_COMPETENCIES.VIEW.JOB_SCOPE' | translate}}</h3>
+            <nz-table #jobScopesTable nzBordered [nzData]="data?.jobScopes!" nzShowPagination="false">
+                <tbody *ngIf="jobScopesTable.data?.length != 0">
+                    <tr *ngFor="let row of jobScopesTable.data">
+                        <td>
+                            {{row.jobScope}}
+                        </td>
+                    </tr>
+                </tbody>
+                <nz-empty nzNotFoundImage="simple" *ngIf="jobScopesTable.data?.length == 0"></nz-empty>
+            </nz-table>
+
+            <h3>{{'PAGE.ROLES_COMPETENCIES.VIEW.COMPETENCY' | translate}}
+                <span *ngIf="data?.competencies!.length > 0">({{data?.totalWeightage ?? '0'}} %)</span>
+            </h3>
+
+            <nz-empty nzNotFoundImage="simple" *ngIf="data?.competencies?.length! === 0"></nz-empty>
+
+            <div *ngFor="let row of data?.competencies" class="competency-card-wrapper">
+                <nz-card [nzTitle]="row.competency.name" [nzExtra]="weightTemplate" class="competency-card">
+
+                    <div class="card-desc">
+                        <span class="label">
+                            {{'PAGE.ROLES_COMPETENCIES.VIEW.COMPETENCY_TABLE.COMPETENCY' |translate}}:
+                        </span>
+                        <p>{{ row.competency.name }}</p>
+                    </div>
+
+                    <div class="card-desc">
+                        <span class="label">{{'PAGE.ROLES_COMPETENCIES.VIEW.COMPETENCY_TABLE.DESC' | translate}}:</span>
+                        <p>{{ row.competency.description ? row.competency.description : '-' }}</p>
+                    </div>
+
+                    <div class="card-tags" *ngIf="data?.compTags?.[row.competency.id!]">
+                        <nz-tag *ngFor="let compTag of data?.compTags?.[row.competency.id!] || []; let i = index"
+                            [nzColor]="colorCodes[i % colorCodes.length]" style="margin-top: 10px;">
+                            <span># {{ compTag }}</span>
+                        </nz-tag>
+                    </div>
+                </nz-card>
+
+                <ng-template #weightTemplate>
+                    <span class="weight-badge">{{ row.weightage }}%</span>
+                </ng-template>
+            </div>
+
+            <div class="mobile-total-card" *ngIf="data?.competencies!.length > 0">
+                <span>{{'PAGE.ROLES_COMPETENCIES.VIEW.COMPETENCY_TABLE.TOTAL' | translate}}</span>
+                <span class="total-value">{{ data?.totalWeightage ?? '0' }} %</span>
+            </div>
+
+            <h3 *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF'])">
+                {{'PAGE.ROLES_COMPETENCIES.VIEW.STAFF' | translate}}
+                <span *ngIf="data?.staffs?.length! === 1">(1 {{'PAGE.ROLES_COMPETENCIES.VIEW.PERSON' |
+                    translate}})</span>
+                <span *ngIf="data?.staffs?.length! > 1">({{data?.staffs?.length!}}
+                    {{'PAGE.ROLES_COMPETENCIES.VIEW.PEOPLE' | translate}})</span>
+            </h3>
+
+            <nz-empty nzNotFoundImage="simple"
+                *ngIf="data?.staffs?.length! === 0 && hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF', 'CAN_VIEW_STAFF'])"></nz-empty>
+
+            <div class="staff-card-container"
+                *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF', 'CAN_VIEW_STAFF'])">
+                <div nz-row [nzGutter]="[16, 16]">
+
+                    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" *ngFor="let row of data?.staffs">
+
+                        <nz-card [nzActions]="[actionView]" nzHoverable class="staff-card">
+                            <nz-card-meta [nzTitle]="row.name ?? '-'" [nzDescription]="row.email">
+                            </nz-card-meta>
+                        </nz-card>
+
+                        <ng-template #actionView>
+                            <div (click)="viewProfile(row.id)" class="card-action">
+                                <nz-icon nzType="eye" nzTheme="outline" />
+                                <span style="margin-left: 8px;">
+                                    {{'PAGE.ROLES_COMPETENCIES.VIEW.STAFF_CARD.VIEW' |translate}}
+                                </span>
+                            </div>
+                        </ng-template>
+
+                    </div>
+                </div>
+            </div>
+        </ng-template>
+    </ng-container>
+</nz-drawer>

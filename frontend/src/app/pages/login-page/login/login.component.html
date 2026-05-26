@@ -1,0 +1,58 @@
+<div class="login-wrapper">
+  <div class="login-left">
+    <div class="brand">
+      <img src="assets\TBM_logo.webp" alt="TBM logo" class="company-logo" />
+    </div>
+
+    <div class="login-title-container">
+      <h1>{{ 'AUTH.LOGIN.TITLE' | translate}}</h1>
+      <p>{{ 'AUTH.LOGIN.INPUT.DETAILS' | translate}}</p>
+    </div>
+
+    <div class="login-error-container" *ngIf="hasError">
+      <nz-alert *ngIf="hasError" nzType="error" [nzMessage]="errorTitle" [nzDescription]="errorMessage" nzShowIcon>
+      </nz-alert>
+    </div>
+
+    <form [formGroup]="validateForm" (ngSubmit)="submitForm()" method="post" action="/login" autocomplete="on">
+      <nz-form-item>
+        <nz-form-control nzErrorTip="{{ 'AUTH.LOGIN.ERR.EMAIL' | translate}}">
+          <nz-input-group nzPrefixIcon="mail">
+            <input type="email" maxlength="255" nz-input formControlName="email"
+              placeholder="{{ 'AUTH.LOGIN.INPUT.EMAIL' | translate}}" class="login-input" autocomplete="username"
+              oninput="this.value = this.value.trim().toLowerCase();" />
+          </nz-input-group>
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-control nzErrorTip="{{ 'AUTH.LOGIN.ERR.PASS' | translate}}">
+          <nz-input-group nzPrefixIcon="lock">
+            <input [type]="isPasswordVisible ? 'text' : 'password'" maxlength="128" nz-input formControlName="password"
+              placeholder="Password" class="login-input" autocomplete="current-password" />
+            <nz-icon *ngIf="isPasswordVisible" nzType="eye" nzTheme="outline"
+              (click)="isPasswordVisible = !isPasswordVisible" class="login-visible-icon" />
+            <nz-icon *ngIf="!isPasswordVisible" nzType="eye-invisible" nzTheme="outline"
+              (click)="isPasswordVisible = !isPasswordVisible" class="login-visible-icon" />
+          </nz-input-group>
+        </nz-form-control>
+      </nz-form-item>
+      <div nz-row class="login-form-margin">
+        <div nz-col [nzXs]="24" [nzSm]="12">
+          <a class="login-form-first" (click)="firstTimeLogin()">{{ 'AUTH.LOGIN.FIRST' | translate}}</a>
+        </div>
+
+        <div nz-col [nzXs]="24" [nzSm]="12">
+          <a class="login-form-forgot" (click)="forgotPassword()">{{ 'AUTH.LOGIN.FORGOT' | translate}}</a>
+        </div>
+      </div>
+      <button [disabled]="!(validateForm.valid)" nz-button class="login-form-button" [nzType]="'primary'">{{
+        'AUTH.LOGIN.SIGNIN' |
+        translate}}</button>
+    </form>
+
+  </div>
+
+  <div class="login-right">
+    <img src="assets\login-illustration.svg" alt="Illustration" />
+  </div>
+</div>

@@ -1,0 +1,211 @@
+@use '@angular/material' as mat;
+@use '../../../../app/theme' as app-theme;
+
+@media (max-width: 768px) {
+    .meta-column {
+        margin-top: 20px;
+    }
+}
+
+.space-between-button-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+
+    .search-container {
+        flex: 1;
+        max-width: 500px;
+    }
+}
+
+.tab-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+
+.proposal-card {
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+    transition: all 0.25s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+
+    ::ng-deep .ant-card-body {
+        padding: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        border-color: #d9d9d9;
+    }
+
+    &.selected-card {
+        border-color: #1890ff;
+        background-color: #f0f9ff;
+        
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 4px;
+            background: #1890ff;
+        }
+    }
+}
+
+.card-header-row {
+    padding: 16px 16px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .checkbox-wrapper {
+        margin-right: auto;
+    }
+
+    .more-menu-btn {
+        margin-left: auto; 
+        cursor: pointer;
+        &:hover { color: #595959; }
+    }
+}
+
+.card-content {
+    padding: 0 16px 16px;
+    flex: 1;
+    cursor: pointer;
+
+    .competency-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #262626;
+        margin-bottom: 8px;
+        
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .description {
+        font-size: 13px;
+        color: #8c8c8c;
+        line-height: 1.5;
+        margin-bottom: 12px;
+        height: 40px;
+        overflow: hidden;
+    }
+
+    .tags-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        
+        nz-tag {
+            margin: 0;
+            font-size: 10px;
+            border: none;
+            background-color: #f5f5f5;
+        }
+
+        .more-tags {
+            font-size: 10px;
+            color: #8c8c8c;
+            align-self: center;
+        }
+    }
+}
+
+.card-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #f5f5f5;
+    background-color: #fafafa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .text-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+
+            .label {
+                font-size: 10px;
+                color: #bfbfbf;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .name {
+                font-size: 12px;
+                font-weight: 500;
+                color: #595959;
+            }
+        }
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+
+        .icon-btn {
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+
+            &.reject {
+                background: mat.m2-get-color-from-palette(app-theme.$my-accent, 50);
+                color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+                &:hover { background: mat.m2-get-color-from-palette(app-theme.$my-accent, 500); color: white; }
+            }
+
+            &.approve {
+                background: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+                color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+                &:hover { background: mat.m2-get-color-from-palette(app-theme.$my-primary, 500); color: white; }
+            }
+        }
+    }
+}
+
+/* Tab Overrides */
+::ng-deep .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+    margin-right: 4px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid #e8e8e8;
+    background: mat.m2-get-color-from-palette(app-theme.$my-primary, 10);
+    
+    &.ant-tabs-tab-active {
+        background: #fff;
+        font-weight: 600;
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+        border-bottom-color: #fff;
+    }
+}
+
+.proposal-id {
+    font-size: 13px;
+    color: #bfbfbf; /* Muted gray */
+}

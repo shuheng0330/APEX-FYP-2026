@@ -1,0 +1,22 @@
+@use '@angular/material' as mat;
+@use '../../../_theme.scss' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+.file-selected {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    cursor: pointer;
+
+    transition: color 0.3s ease;
+
+    &:hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+    }
+}
+
+.confirm-button {
+    &:disabled:hover {
+        color: white !important;
+    }
+}

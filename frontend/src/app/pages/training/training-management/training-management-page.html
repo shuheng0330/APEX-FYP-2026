@@ -1,0 +1,617 @@
+<div>
+  <h1 class="text-center">{{ titleKey | translate }}</h1>
+</div>
+<nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex" (nzSelectedIndexChange)="onTabChange($event)">
+  <nz-tab nzTitle="Active"></nz-tab>
+  <nz-tab nzTitle="Completed"></nz-tab>
+</nz-tabset>
+<div class="centered-padding-body">
+  <nz-skeleton *ngIf="loading"></nz-skeleton>
+  <div *ngIf="!loading">
+    <div class="filter-container">
+      <div class="filter-bar search-filter-group">
+        <div>
+          <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+            [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+            <input placeholder="{{'PAGE.TRAINING_MANAGEMENT.SEARCH.PLACEHOLDER' | translate}}" nz-input
+              [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+          </nz-input-group>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Department:</span>
+          <nz-select class="chip-select" [(ngModel)]="selectedDepartmentIds" nzMode="multiple" [nzMaxTagCount]="1"
+            nzBorderless [nzPlaceHolder]="'All'" (ngModelChange)="search()">
+            <nz-option *ngFor="let dept of departments" [nzLabel]="dept.name" [nzValue]="dept.id"></nz-option>
+          </nz-select>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Competency:</span>
+          <nz-select class="chip-select" [(ngModel)]="selectedCompetenciesIds" nzBorderless nzMode="multiple"
+            [nzMaxTagCount]="1" (ngModelChange)="search()">
+            <nz-option *ngFor="let opt of competencies" [nzLabel]="opt.name" [nzValue]="opt.id"></nz-option>
+          </nz-select>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Type:</span>
+          <nz-select class="chip-select" [(ngModel)]="visibilityFilter" nzBorderless (ngModelChange)="search()">
+            <nz-option *ngFor="let opt of visibilityOptions" [nzLabel]="opt.label" [nzValue]="opt.value"></nz-option>
+          </nz-select>
+        </div>
+      </div>
+      <div class="filter-bar action-group">
+        <!-- View Toggle Buttons -->
+        <nz-radio-group [(ngModel)]="viewMode" (ngModelChange)="onViewModeChange($event)" nzButtonStyle="solid"
+          class="mr-14">
+          <label nz-radio-button nzValue="card"><span nz-icon nzType="appstore"></span></label>
+          <label nz-radio-button nzValue="table"><span nz-icon nzType="bars"></span></label>
+        </nz-radio-group>
+
+        <button class="blue-button" (click)="onAddTrainingFormPopup()">Add New Training
+          <nz-icon nzType="plus" class="button-icon" /></button>
+      </div>
+    </div>
+
+
+    <!-- Card View -->
+    <div class="card-grid" *ngIf="viewMode === 'card' && listOfDisplayData.length > 0">
+      <training-card *ngFor="let training of listOfDisplayData" [title]="training.title" [venue]="training.venue"
+        [startDate]="training.startDate" [endDate]="training.endDate" [startTime]="training.startTime"
+        [endTime]="training.endTime" [capacity]="training.capacity" [isPublic]="training.isPublic" [visible]="true"
+        [participantsNumber]="training.registeredCount" [isPast]="selectedTabIndex === 1"
+        (onEdit)="onEditTrainingFormPopup(training.trainingId)" (onDelete)="onDeleteTraining(training.trainingId)"
+        (onAssign)="onOpenInvitationDrawer(training.trainingId)" (click)="onOpenTrainingDetails(training.trainingId)">
+      </training-card>
+    </div>
+
+    <div *ngIf="viewMode === 'card' && listOfDisplayData.length < total" class="text-center mt-4 mb-4">
+      <button nz-button nzType="default" (click)="onLoadMore()" [nzLoading]="loading">Load More</button>
+    </div>
+
+    <!-- Table View -->
+    <div *ngIf="viewMode === 'table'" class="mt-4">
+      <nz-table #basicTable [nzData]="listOfDisplayData" [nzPageSize]="pageSize" nzTableLayout="fixed"
+        [nzScroll]="{x: '1800px'}">
+        <thead>
+          <tr>
+            <th nzLeft nzAlign="center" nzWidth="100px">Action</th>
+            <th nzLeft nzWidth="300px">Title</th>
+            <th nzLeft nzWidth="150px">Date & Time</th>
+            <th nzLeft nzWidth="200px">Venue</th>
+            <th nzLeft nzWidth="250px">Department</th>
+            <th nzLeft nzWidth="250px">Competency</th>
+            <th nzWidth="450px">Address</th>
+            <th nzWidth="150px">Capacity</th>
+            <th nzWidth="150px">Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let data of basicTable.data" class="cursor-pointer"
+            (click)="onOpenTrainingDetails(data.trainingId)">
+            <td nzLeft nzAlign="center">
+              <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click"
+                (click)="$event.stopPropagation()">
+                <nz-icon nzType="more" nzTheme="outline" />
+                <nz-dropdown-menu #menu="nzDropdownMenu">
+                  <ul nz-menu>
+                    <li nz-menu-item> <a (click)="onEditTrainingFormPopup(data.trainingId)">
+                        <nz-icon nzType="edit" nzTheme="outline" />
+                        <span> Edit Training</span>
+                      </a>
+                    </li>
+                    <li nz-menu-item> <a (click)="onDeleteTraining(data.trainingId)">
+                        <nz-icon nzType="delete" nzTheme="outline" />
+                        <span> Delete Training</span>
+                      </a>
+                    </li>
+                    <li nz-menu-item *ngIf="selectedTabIndex !== 1"> <a
+                        (click)="onOpenInvitationDrawer(data.trainingId)">
+                        <nz-icon nzType="user-add" nzTheme="outline" />
+                        <span> Assign Training</span>
+                      </a>
+                    </li>
+                  </ul>
+                </nz-dropdown-menu>
+              </a>
+            </td>
+            <td nzLeft>{{ data.title }}</td>
+            <td nzLeft>
+              <div>{{ data.startDate | date:'d MMM' }} - {{ data.endDate | date:'d MMM' }}</div>
+              <div class="text-grey">{{ formatTimeToAMPM(data.startTime) }} - {{ formatTimeToAMPM(data.endTime) }}</div>
+            </td>
+            <td nzLeft>{{ data.venue }}</td>
+            <td nzLeft *ngIf="!data.departments || data.departments!.length == 0"> - </td>
+            <td nzLeft *ngIf="data.departments!.length > 0">
+              <div class="department-tags">
+                <nz-tag class="tag" *ngFor="let dept of data.departments" [nzColor]="'blue'">{{ dept.name }}</nz-tag>
+              </div>
+            </td>
+            <td nzLeft *ngIf="!data.competencies || data.competencies!.length == 0"> - </td>
+            <td nzLeft *ngIf="data.competencies!.length > 0">
+              <div class="department-tags">
+                <nz-tag class="tag" *ngFor="let comp of data.competencies" [nzColor]="'purple'">{{ comp.name }}</nz-tag>
+              </div>
+            </td>
+            <td>{{ data.locationName }}</td>
+            <td>{{ data.capacity }}</td>
+            <td>
+              <nz-tag [nzColor]="data.isPublic ? 'green' : 'gold'">{{ data.isPublic ? 'Public' : 'Private' }}</nz-tag>
+            </td>
+          </tr>
+        </tbody>
+      </nz-table>
+    </div>
+  </div>
+  <!-- Empty state when no trainings -->
+  <div *ngIf="listOfDisplayData.length === 0 && !loading" class="empty-container">
+    <ng-template [ngTemplateOutlet]="noTraining"></ng-template>
+  </div>
+</div>
+
+<ng-template #addModalTpl>
+  <form nz-form [formGroup]="form" (ngSubmit)="handleSubmitAndClose()">
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Title</nz-form-label>
+      <nz-form-control [nzSpan]="16" [nzErrorTip]="titleErrorTpl">
+        <input nz-input formControlName="title" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Description</nz-form-label>
+      <nz-form-control [nzSpan]="16" [nzErrorTip]="DescriptionStringErrorTpl">
+        <textarea nz-input formControlName="description" rows="4"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Venue</nz-form-label>
+      <nz-form-control [nzSpan]="16">
+        <input nz-input formControlName="venue" placeholder="e.g.: Name, Floor, Unit" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired>Address</nz-form-label>
+      <nz-form-control [nzSm]="16" [nzXs]="24" nzErrorTip="Please input venue/address">
+        <input id="venueInput" nz-input formControlName="locationName" placeholder="Search location" />
+
+      </nz-form-control>
+    </nz-form-item>
+
+    <!-- Optional map preview -->
+    <!--    <div id="map" style="height: 250px; border-radius: 8px; margin-top: 10px;"></div>-->
+
+    <!-- Hidden fields -->
+    <input type="hidden" formControlName="latitude" />
+    <input type="hidden" formControlName="longitude" />
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Date</nz-form-label>
+      <nz-form-control class="mr-4" [nzSpan]="8" nzErrorTip="Please select start date">
+        <input nz-input type="date" formControlName="startDate" [min]="minDate" />
+      </nz-form-control>
+      <p class="dash-class">-</p>
+      <nz-form-control class="ml-4" [nzSpan]="8" [nzErrorTip]="dateErrorTpl">
+        <input nz-input type="date" formControlName="endDate" [min]="minDate" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Time</nz-form-label>
+      <nz-form-control class="mr-4" [nzSpan]="8" nzErrorTip="Please select start time">
+        <input nz-input type="time" formControlName="startTime" />
+      </nz-form-control>
+      <p class="dash-class">-</p>
+      <nz-form-control class="ml-4" [nzSpan]="8" [nzErrorTip]="timeErrorTpl">
+        <input nz-input type="time" formControlName="endTime" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSm]="6" [nzXs]="24" nzFor="departments" nzRequired>Department</nz-form-label>
+      <nz-form-control [nzSm]="16" [nzXs]="24" nzErrorTip="Please select department(s)">
+        <nz-select formControlName="departmentIds" nzPlaceHolder="Select department(s)" nzMode="multiple">
+          <nz-option *ngFor="let dept of departments" [nzValue]="dept.id" [nzLabel]="dept.name"></nz-option>
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired>Competency</nz-form-label>
+      <nz-form-control [nzSm]="16" [nzXs]="24" nzErrorTip="Please select competency">
+        <nz-select formControlName="competencyIds" nzPlaceHolder="Select competency(s)" nzMode="multiple">
+          <nz-option *ngFor="let c of competencies" [nzLabel]="c.name" [nzValue]="c.id"></nz-option>
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Capacity</nz-form-label>
+      <nz-form-control [nzSpan]="16" [nzErrorTip]="capacityErrorTpl">
+        <input nz-input type="text" formControlName="capacity" />
+      </nz-form-control>
+    </nz-form-item>
+
+
+    <!--    <nz-form-item >-->
+    <!--      <nz-form-label [nzSpan]="6">Target Roles</nz-form-label>-->
+    <!--      <nz-form-control [nzSpan]="10">-->
+    <!--        <ng-container *ngIf="showCascader">-->
+    <!--        <nz-cascader-->
+    <!--          [nzOptions]="nzOptions"-->
+    <!--          formControlName="targetRoles"-->
+    <!--          nzMultiple-->
+    <!--          [nzMaxTagCount]="3"-->
+    <!--        ></nz-cascader>-->
+    <!--        </ng-container>-->
+    <!--      </nz-form-control>-->
+    <!--      <nz-form-label class="ml-10" [nzSpan]="4">Mandatory</nz-form-label>-->
+    <!--      <nz-form-control [nzSpan]="2">-->
+    <!--        <nz-switch formControlName="isMandatory"></nz-switch>-->
+    <!--      </nz-form-control>-->
+    <!--    </nz-form-item>-->
+
+    <form [formGroup]="importantNoteForm">
+      @for (control of importantNotes; track control; let i = $index) {
+      <nz-form-item>
+        @if (i === 0) {
+        <nz-form-label [nzXs]="24" [nzSm]="6" [nzFor]="control.controlInstance"> Important Notes</nz-form-label>
+        }
+        <nz-form-control [nzXs]="24" [nzSm]="{ span: 16, offset: i === 0 ? 0 : 6 }"
+          nzErrorTip="Please input important notes">
+          <div class="inline-field">
+            <textarea class="passenger-input" nz-input rows="2" placeholder="Important Notes" [attr.id]="control.id"
+              [formControlName]="control.controlInstance"></textarea>
+            <nz-icon nzType="minus-circle-o" class="dynamic-delete-button" (click)="removeField(control, $event)" />
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+      }
+
+      <nz-form-item>
+        <nz-col [nzSpan]="6"></nz-col>
+        <nz-form-control [nzSpan]="6">
+          <button nz-button nzType="dashed" class="add-button" (click)="addField($event)">
+            <nz-icon nzType="plus" />
+            Add field
+          </button>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="6" nzRequired>Open to all staff</nz-form-label>
+      <nz-form-control [nzSpan]="16">
+        <nz-switch formControlName="isPublic"></nz-switch>
+      </nz-form-control>
+    </nz-form-item>
+
+    <!--    <div class="modal-footer" style="text-align: right; margin-top: 16px;">-->
+    <!--      <button nz-button class="mr-4" (click)="onCloseFormModal()">Cancel</button>-->
+    <!--      <button nz-button class="ml-4" nzType="primary" [disabled]="!form.valid" (click)="submit()">-->
+    <!--        Submit-->
+    <!--      </button>-->
+    <!--    </div>-->
+  </form>
+</ng-template>
+
+<ng-template #suffixSearchButton>
+  <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+    <nz-icon nzType="search" nzTheme="outline" />
+  </button>
+</ng-template>
+
+<ng-template #inputClearTpl>
+  @if (searchValue) {
+  <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+  }
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+  <div>
+    <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+      <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+      </nz-option>
+    </nz-select>
+  </div>
+</ng-template>
+
+<ng-template #capacityErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please input capacity
+  </ng-container>
+  <ng-container *ngIf="control.hasError('notNumber')">
+    Please enter a valid number
+  </ng-container>
+  <ng-container *ngIf="control.hasError('min')">
+    Value must be greater than 0
+  </ng-container>
+  <ng-container *ngIf="control.hasError('notInteger')">
+    Capacity cannot be a decimal
+  </ng-container>
+</ng-template>
+
+<ng-template #timeErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please select end time
+  </ng-container>
+  <ng-container *ngIf="control.hasError('endTimeSameAsStartTime')">
+    Start time and end time cannot be same
+  </ng-container>
+  <ng-container *ngIf="control.hasError('endTimeBeforeStartTime')">
+    End time must be after start time
+  </ng-container>
+</ng-template>
+
+<ng-template #titleErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please input title
+  </ng-container>
+  <ng-container *ngIf="control.hasError('maxlength')">
+    Title cannot be longer than 100 characters
+  </ng-container>
+</ng-template>
+
+<ng-template #dateErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please input end date
+  </ng-container>
+  <ng-container *ngIf="control.hasError('endDateBeforeStartDate')">
+    End Date must be later than Start Date
+  </ng-container>
+</ng-template>
+
+<ng-template #invitationDrawerTpl>
+  <nz-tabset>
+    <nz-tab nzTitle="Invite Staff">
+      <div class="invite-container">
+        <button class="invite-button" (click)="sendInvitations(selectedTraining?.trainingId)" [disabled]="
+    (invitationResponse.length ?? 0) >= (selectedTraining?.capacity ?? 0) || setOfCheckedId.size === 0
+  ">Invite</button>
+        <span class="invite-style">Invited: {{invitationResponse.length}} / {{selectedTraining?.capacity}}</span>
+      </div>
+      <div class="filter-bar" style="margin-bottom: 12px;">
+      </div>
+      <nz-table #rowSelectionTable nzShowSizeChanger [nzData]="filteredStaffList" [nzScroll]="{ x: '700px' }"
+        (nzCurrentPageDataChange)="onCurrentPageDataChange($event)" [nzLoading]="isInvitationLoading">
+        <thead>
+          <tr>
+            <th nzWidth="60px" [nzChecked]="checked" [nzIndeterminate]="indeterminate"
+              (nzCheckedChange)="onAllChecked($event)">
+            </th>
+            <th nzCustomFilter nzWidth="200px">
+              Staff
+              <nz-filter-trigger [(nzVisible)]="visible" [nzActive]="staffSearch.length > 0"
+                [nzDropdownMenu]="menuInvite">
+                <nz-icon nzType="search" />
+              </nz-filter-trigger>
+            </th>
+            @for (column of listOfColumns; track column) {
+            <th [nzSortOrder]="column.sortOrder" [nzSortFn]="column.sortFn" [nzSortDirections]="column.sortDirections"
+              [nzFilterMultiple]="column.filterMultiple" [nzFilters]="column.listOfFilter"
+              [nzFilterFn]="column.filterFn" [nzShowFilter]="!!column.filterFn" [nzWidth]="column.nzWidth">
+              {{ column.name }}
+            </th>
+
+            }
+            <th nzWidth="120px">Availability</th>
+            <th nzWidth="150px" nzAlign="center">Conflict Detail</th>
+            <nz-dropdown-menu #menuInvite="nzDropdownMenu">
+              <div class="ant-table-filter-dropdown">
+                <div class="search-box">
+                  <input type="text" nz-input placeholder="Search name" [(ngModel)]="staffSearch"
+                    (ngModelChange)="filterStaff()" />
+                </div>
+              </div>
+            </nz-dropdown-menu>
+          </tr>
+        </thead>
+        <tbody>
+          @for (data of rowSelectionTable.data; track data) {
+          <tr [class.occupied-row]="isStaffOccupied(data.id)">
+            <td [nzChecked]="setOfCheckedId.has(data.id)"
+              [nzDisabled]="isStaffAlreadyInvited(data.id) || isStaffOccupied(data.id)"
+              (nzCheckedChange)="onItemChecked(data.id, $event)"></td>
+            <td>
+              {{ data.name }}
+            </td>
+            <td>{{ data.role.orgChart.name }}</td>
+            <td>{{ data.role.name }}</td>
+            <td>
+              <ng-container *ngIf="isStaffAlreadyInvited(data.id); else checkConflict">
+                <nz-tag [nzColor]="'blue'">Invited</nz-tag>
+              </ng-container>
+              <ng-template #checkConflict>
+                <nz-tag [nzColor]="isStaffOccupied(data.id) ? 'error' : 'success'">
+                  {{ isStaffOccupied(data.id) ? 'Conflict' : 'Available' }}
+                </nz-tag>
+              </ng-template>
+            </td>
+            <td nzAlign="center">
+              <ng-container *ngIf="isStaffOccupied(data.id)">
+                <span nz-icon nzType="info-circle" nzTheme="outline" class="info-icon" nz-tooltip
+                  [nzTooltipTitle]="conflictTooltip" [nzTooltipOverlayStyle]="{'max-width': '300px'}"></span>
+                <ng-template #conflictTooltip>
+                  <div class="text-left">
+                    <div style="font-weight: bold; margin-bottom: 4px;">Current Training:</div>
+                    <div style="margin-bottom: 4px;">{{ getConflictDetails(data.id)?.trainingTitle }}</div>
+                    <div style="margin-bottom: 4px;">
+                      {{ formatTime(getConflictDetails(data.id)?.startTime) }} -
+                      {{ formatTime(getConflictDetails(data.id)?.endTime) }}
+                    </div>
+                    <div>Venue: {{ getConflictDetails(data.id)?.venue }}</div>
+                  </div>
+                </ng-template>
+              </ng-container>
+              <span *ngIf="!isStaffOccupied(data.id)">-</span>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+    <nz-tab nzTitle="Response">
+      <nz-table #basicTable [nzData]="invitationResponse" [nzScroll]="{ x: '750px' }">
+        <thead>
+          <tr>
+            <th nzWidth="200px">Staff</th>
+            <th nzWidth="150px">Department</th>
+            <th nzWidth="150px">Role</th>
+            <th nzWidth="150px">Status</th>
+            <th nzWidth="150px">Invited At</th>
+            <th nzWidth="100px">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (data of basicTable.data; track data) {
+          <tr>
+            <td>{{ data.staff.name }}</td>
+            <td>{{ data.staff.role?.orgChart?.name }}</td>
+            <td>{{ data.staff.role?.name }}</td>
+            <td><span class="status-badge" [ngClass]="{
+              'pending': data.status === 'PENDING',
+              'accepted': data.status === 'ACCEPTED',
+              'rejected': data.status === 'REJECTED',
+              'no-response': data.status === 'NO_RESPONSE',
+
+            }">
+                {{ data.status === 'NO_RESPONSE' ? 'NO RESPONSE' : data.status }}
+              </span></td>
+            <td>{{data.invitedAt | date: 'medium' }}</td>
+            <td nzAlign="center">
+              <a *ngIf="data.status === 'REJECTED' " (click)="onViewRejectionReason(data)">View</a>
+              <span *ngIf="data.status !== 'REJECTED'">-</span>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+  </nz-tabset>
+
+</ng-template>
+
+<ng-template #rejectReasonTpl>
+  <div>
+    <div class="training-detail-grid">
+      <div><strong>Staff</strong></div>
+      <div>{{ selectedRejection?.staff?.name }}</div>
+      <div><strong>Status</strong></div>
+      <div><span class="status-badge" [ngClass]="'rejected'">{{ selectedRejection?.status }}</span></div>
+      <div><strong>Reason</strong></div>
+      <div>{{ selectedRejection?.reason || '-' }}</div>
+      <div><strong>Responded At</strong></div>
+      <div>{{ selectedRejection?.respondAt | date: 'medium' }}</div>
+      <div><strong>Invited At</strong></div>
+      <div>{{ selectedRejection?.invitedAt | date: 'medium' }}</div>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #DescriptionStringErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please input description
+  </ng-container>
+  <ng-container *ngIf="control.hasError('maxlength')">
+    Description cannot be longer than 1000 characters
+  </ng-container>
+</ng-template>
+
+<ng-template #trainingDetailTpl>
+  <nz-tabset [nzTabBarExtraContent]="extraTemplate">
+    <nz-tab nzTitle="Training Details">
+      <div class="training-detail-grid">
+        <div><strong>Title</strong></div>
+        <div>{{ selectedTraining?.title }}</div>
+        <div><strong>Description</strong></div>
+        <div>{{ selectedTraining?.description }}</div>
+        <div><strong>Date</strong></div>
+        <div> <span class="text-14px mt-2">{{ selectedTraining?.startDate |   date:'dd/MM/yyyy' }} - {{
+            selectedTraining?.endDate |
+              date:'dd/MM/yyyy' }}</span></div>
+        <div><strong>Time</strong></div>
+        <div>{{formatTimeToAMPM(selectedTraining?.startTime)}} - {{formatTimeToAMPM(selectedTraining?.endTime)}}</div>
+        <div><strong>Capacity</strong></div>
+        <div>{{ selectedTraining?.capacity }}</div>
+        <div><strong>Department(s)</strong></div>
+        <div class="department-tags">
+          <nz-tag class="tag" *ngFor="let dept of selectedTraining?.departments" [nzColor]="'blue'">{{ dept.name
+            }}</nz-tag>
+        </div>
+        <div><strong>Competency(s)</strong></div>
+        <div class="department-tags">
+          <nz-tag class="tag" *ngFor="let comp of selectedTraining?.competencies" [nzColor]="'purple'">{{ comp.name
+            }}</nz-tag>
+        </div>
+        <div><strong>Venue / Address</strong></div>
+        <div>{{ selectedTraining?.locationName }}</div>
+        <div><strong>Venue Detail</strong></div>
+        <div class="venue-container">{{ selectedTraining?.venue }}<br>
+          <!--    <div class="address-class">398 & 399, Jalan 1a/1, Bandar Baru Sungai Buloh, 47000 Sungai Buloh, Selangor, Malaysia</div>-->
+        </div>
+        <div *ngIf="selectedTraining?.importantNotes?.length"><strong>Important Notes</strong></div>
+        <div>
+          <ul>
+            <li *ngFor="let note of selectedTraining?.importantNotes">{{ note }}</li>
+          </ul>
+        </div>
+      </div>
+    </nz-tab>
+    <nz-tab nzTitle="Participants ({{registeredStaffList.length}})">
+      <nz-table #participantsTable nzShowSizeChanger [nzData]="filteredRegisteredStaffList" [nzScroll]="{ x: '750px' }">
+        <thead>
+          <tr>
+            <th nzCustomFilter nzWidth="200px">
+              Staff
+              <nz-filter-trigger [(nzVisible)]="visibleParticipants" [nzActive]="registeredStaffSearch.length > 0"
+                [nzDropdownMenu]="menu">
+                <nz-icon nzType="search" />
+              </nz-filter-trigger>
+            </th>
+            @for (column of listOfColumnsParticipants; track column) {
+            <th [nzSortOrder]="column.sortOrder" [nzSortFn]="column.sortFn" [nzSortDirections]="column.sortDirections"
+              [nzFilterMultiple]="column.filterMultiple" [nzFilters]="column.listOfFilter"
+              [nzFilterFn]="column.filterFn" [nzShowFilter]="!!column.filterFn" [nzWidth]="column.nzWidth">
+              {{ column.name }}
+            </th>
+            }
+            <th *ngIf="trainingHasStarted" nzWidth="150px"> Attendance </th>
+            <nz-dropdown-menu #menu="nzDropdownMenu">
+              <div class="ant-table-filter-dropdown">
+                <div class="search-box">
+                  <input type="text" nz-input placeholder="Search name" [(ngModel)]="registeredStaffSearch"
+                    (ngModelChange)="filterRegisteredStaff()" />
+                </div>
+              </div>
+            </nz-dropdown-menu>
+          </tr>
+        </thead>
+        <tbody>
+          @for (data of participantsTable.data; track data) {
+          <tr>
+            <td>{{ data.name }}</td>
+            <td>{{ data.role.orgChart.name }}</td>
+            <td>{{ data.role.name }}</td>
+            <td *ngIf="trainingHasStarted" nzAlign="center">{{ data.attendance }}</td>
+          </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+  </nz-tabset>
+  <ng-template #extraTemplate>
+    <i nz-icon nzType="close" nzTheme="outline" class="cursor-pointer"
+      style="margin-right: 24px; font-size: 16px; color: rgba(0,0,0,0.45);" (click)="onCloseTrainingDetailDrawer()"></i>
+  </ng-template>
+</ng-template>
+
+
+<ng-template #noTraining>
+  <div class="empty-container">
+    <nz-empty nzNotFoundContent="No Trainings"></nz-empty>
+  </div>
+</ng-template>

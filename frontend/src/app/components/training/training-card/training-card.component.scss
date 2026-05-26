@@ -1,0 +1,96 @@
+.container-tag {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+
+  .ant-tag {
+    margin-right: 0 !important;
+  }
+}
+
+.card {
+  background-color: #e0e6f6;
+  border-radius: 14px;
+  border: 2px solid #d9d9d9;
+
+  &.grey-card {
+    background-color: #e0e0e0;
+    border-color: #d0d0d0;
+  }
+}
+
+.detail-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* Two equal-width columns */
+  row-gap: 8px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr; // Stack on very small screens
+  }
+}
+
+//.row{
+//  display: flex;
+//  align-items: center;
+//  gap: 6px;
+//  margin-bottom: 10px; //spacing
+//}
+
+.icon-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon {
+  font-size: 14px;
+}
+
+text-14px {
+  font-size: 14px;
+}
+
+.venue-text {
+  max-width: 130px;
+  /* or whatever fits your layout */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+::ng-deep .ant-card-head-title {
+  font-weight: bold;
+}
+
+.action-class {
+  margin-left: 15px;
+}
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  //justify-content: center;
+  justify-content: flex-end;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #999999;
+  font-size: 20px;
+
+  nz-icon {
+    font-size: 20px;
+    color: #999999;
+  }
+}
+
+::ng-deep .dropdown-neutral .ant-dropdown-menu,
+::ng-deep .dropdown-neutral .ant-dropdown-menu-item,
+::ng-deep .dropdown-neutral .ant-dropdown-menu-item a,
+::ng-deep .dropdown-neutral .ant-dropdown-menu-item span,
+::ng-deep .dropdown-neutral .ant-dropdown-menu-item nz-icon {
+  color: gray !important;
+}

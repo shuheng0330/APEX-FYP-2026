@@ -1,0 +1,275 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false"
+    [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.TITLE'| translate}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <nz-form-item>
+                    <nz-form-label nzRequired [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.DEPARTMENT'|translate}}
+                    </nz-form-label>
+                    <nz-form-control
+                        [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.DEPARTMENT' | translate )">
+                        <nz-select nzShowSearch nzAllowClear formControlName="department" id="department"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.DEPARTMENT' | translate}}"
+                            (ngModelChange)="onDepartmentChange($event)">
+                            <nz-option *ngFor="let department of orgChartList" [nzLabel]="department.name"
+                                [nzValue]="department.id!">
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <nz-form-item>
+                    <nz-form-label nzRequired [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.ROLE'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.ROLE' | translate )">
+                        <nz-select nzShowSearch nzAllowClear [nzNotFoundContent]="notFoundContent"
+                            nzPlaceHolder="{{ 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.ROLE' | translate}}"
+                            id="role" formControlName="role" (ngModelChange)="onRoleChange($event)">
+                            <nz-option *ngFor="let role of selectedRoleList" [nzLabel]="role.name" [nzValue]="role.id!">
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.DESC'|translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-input-group [nzSuffix]="textAreaClearTpl">
+                            <textarea nz-input formControlName="description" id="description" maxlength="1000"
+                                placeholder="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.DESC' | translate}}">
+                                </textarea>
+                        </nz-input-group>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <ng-container formArrayName="jobScopeList">
+                    <nz-form-item *ngIf="listOfJobScopeControl.controls.length == 0">
+                        <nz-form-label [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                            {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.JOB_SCOPE'| translate}}
+                        </nz-form-label>
+                        <nz-form-control>
+                            <button nz-button nzType="dashed" (click)="addJobScopeField()">
+                                <span nz-icon nzType="plus"></span>
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.JOB_SCOPE.ADD' | translate}}
+                            </button>
+                        </nz-form-control>
+                    </nz-form-item>
+
+                    @for (control of listOfJobScopeControl.controls; track control; let i = $index) {
+                    <nz-form-item *ngIf="listOfJobScopeControl.controls.length > 0">
+                        <nz-form-label *ngIf="i===0" [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                            {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.JOB_SCOPE'| translate}}
+                        </nz-form-label>
+                        <nz-form-control
+                            [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.JOB_SCOPE' | translate )">
+                            <nz-input-group [nzSuffix]="dynamicDeleteJobScopeButton">
+                                <input
+                                    placeholder="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.JOB_SCOPE'| translate}}"
+                                    nz-input [formControlName]="i" (ngModelChange)="onJobScopeInputChange($event)"
+                                    [nzAutocomplete]="auto" (click)="onJobScopeClick(i, $event)" />
+                                <nz-autocomplete [nzDataSource]="filteredJobScopeList" nzBackfill
+                                    #auto></nz-autocomplete>
+                            </nz-input-group>
+                        </nz-form-control>
+                    </nz-form-item>
+
+                    <ng-template #dynamicDeleteJobScopeButton>
+                        <nz-icon nzType="minus-circle-o" class="dynamic-delete-button"
+                            (click)="removeJobScopeField(i, $event)" />
+                    </ng-template>
+                    }
+
+                    <nz-form-control *ngIf="listOfJobScopeControl.controls.length > 0">
+                        <button nz-button nzType="dashed" (click)="addJobScopeField()" class="add-button">
+                            <span nz-icon nzType="plus"></span>
+                            {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.JOB_SCOPE.ADD' | translate}}
+                        </button>
+                    </nz-form-control>
+                </ng-container>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <ng-container formArrayName="competencyList">
+                    <nz-form-item *ngIf="listOfCompetencyControl.controls.length == 0">
+                        <nz-form-label nzRequired [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                            {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.COMPETENCY'| translate}}
+                        </nz-form-label>
+                        <nz-form-control nzSpan="120"
+                            [nzValidateStatus]="validateForm.get('competencyList')?.errors?.['minLengthArray']? 'error':'success'"
+                            [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.AT_LEAST_ONE_COMPETENCY' | translate )">
+                            <button nz-button nzType="dashed" (click)="addCompetencyField()">
+                                <span nz-icon nzType="plus"></span>
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.COMPETENCY.ADD' | translate}}
+                            </button>
+                        </nz-form-control>
+                    </nz-form-item>
+
+                    @for (control of listOfCompetencyControl.controls; track control; let i = $index) {
+                    <div [formGroupName]="i">
+                        <nz-form-item *ngIf="listOfCompetencyControl.controls.length > 0">
+                            <nz-form-label nzRequired *ngIf="i===0" [nzSm]="24" [nzXs]="24" nzLabelAlign="left">
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.COMPETENCY'| translate}}
+                            </nz-form-label>
+                            <nz-form-control [nzSm]="24" [nzXs]="24" [nzValidateStatus]="(listOfCompetencyControl.at(i).get('id')?.invalid 
+                            && listOfCompetencyControl.at(i).get('id')?.dirty) ||
+                            ( listOfCompetencyControl.at(i).get('weightage')?.hasError('required')
+                            && listOfCompetencyControl.at(i).get('weightage')?.dirty)
+                            ? 'error': ( listOfCompetencyControl.at(i).get('weightage')?.hasError('pattern')
+                            && listOfCompetencyControl.at(i).get('weightage')?.dirty) ? 'warning' :'success'"
+                                [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.COMPETENCY' | translate )"
+                                [nzWarningTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.WARN.WEIGHTAGE' | translate )">
+                                <div class="competency-input">
+                                    <nz-form-item class="competency-select">
+                                        <nz-form-control [nzValidateStatus]="(listOfCompetencyControl.at(i).get('id')?.invalid 
+                                    && listOfCompetencyControl.at(i).get('id')?.dirty)? 'error':'success'">
+                                            <nz-select nzShowSearch nzAllowClear nz-input class="custom-option"
+                                                nzPlaceHolder="{{ 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.COMPETENCY' | translate}}"
+                                                id="id" formControlName="id">
+                                                <nz-option *ngFor="let competency of selectedCompetencyList"
+                                                    [nzLabel]="competency.name" [nzValue]="competency.id!"
+                                                    [nzDisabled]="competencyCheck(competency.id!)" nzCustomContent>
+                                                    <p *ngIf="competency.id.proposal">
+                                                        <b>{{competency.name}}</b> <br />
+                                                        proposed by {{competency.proposerEmail}}
+                                                    </p>
+                                                    <p *ngIf="!competency.id.proposal">
+                                                        <b>{{competency.name}}</b>
+                                                    </p>
+                                                </nz-option>
+                                            </nz-select>
+                                        </nz-form-control>
+                                    </nz-form-item>
+                                    <nz-form-item class="weightage-input">
+                                        <nz-form-control [nzValidateStatus]="( listOfCompetencyControl.at(i).get('weightage')?.hasError('required')
+                                    && listOfCompetencyControl.at(i).get('weightage')?.dirty)
+                                    ? 'error': ( listOfCompetencyControl.at(i).get('weightage')?.hasError('pattern')
+                                    && listOfCompetencyControl.at(i).get('weightage')?.dirty)? 'warning':'success'">
+                                            <nz-input-group [nzSuffix]="inputClearTpl">
+                                                <input nz-input type="number" formControlName="weightage" nzSize="large"
+                                                    placeholder="{{ 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.WEIGHTAGE' | translate }}"
+                                                    min="1" max="100" step="1" (input)="onWeightageInput(i, $event)" />
+                                                <ng-template #inputClearTpl>
+                                                    <nz-icon class="ant-input-clear-icon" nzTheme="fill"
+                                                        nzType="close-circle"
+                                                        (click)="listOfCompetencyControl.at(i).get('weightage')!.setValue(''); listOfCompetencyControl.at(i).get('weightage')!.markAsDirty();"
+                                                        *ngIf="listOfCompetencyControl.at(i).get('weightage')!.value != ''" />
+                                                </ng-template>
+                                            </nz-input-group>
+                                        </nz-form-control>
+                                    </nz-form-item>
+                                    <nz-form-item class="dynamic-delete-button">
+                                        <nz-icon nzType="minus-circle" nzTheme="outline"
+                                            (click)="removeCompetencyField(i, $event)" />
+                                    </nz-form-item>
+                                </div>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                    }
+                    <nz-form-item>
+                        <nz-form-control *ngIf="listOfCompetencyControl.controls.length > 0">
+                            <button nz-button nzType="dashed" (click)="addCompetencyField()">
+                                <span nz-icon nzType="plus"></span>
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.COMPETENCY.ADD' | translate}}
+                            </button>
+                        </nz-form-control>
+                    </nz-form-item>
+                </ng-container>
+
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                        <span>
+                            {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.REVIEWER'| translate}}
+                            <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.TOOLTIP.REVIEWER'| translate}}" />
+                        </span>
+                    </nz-form-label>
+                    <nz-form-control
+                        [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.REVIEWER' | translate )">
+                        <nz-select nzShowSearch nzAllowClear formControlName="reviewerList" id="reviewerList"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.REVIEWER'| translate}}"
+                            nzMode="multiple">
+                            <nz-option class="custom-option" *ngFor="let reviewer of listOfSelectedReviewer"
+                                nzCustomContent [nzValue]="reviewer.id!" [nzLabel]="reviewer.email">
+                                <p *ngIf="reviewer.email && !reviewer.name">{{reviewer.email}}</p>
+                                <p *ngIf="reviewer.email && reviewer.name">{{reviewer.name}}
+                                    <br /><b>({{reviewer.email}})</b>
+                                </p>
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="22">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="25" nzLabelAlign="left">
+                        <span>
+                            {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.INPUT.PROPOSER'| translate}}
+                            <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.TOOLTIP.PROPOSER'| translate}}" />
+                        </span>
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-select nzShowSearch nzAllowClear formControlName="proposerList" id="proposerList"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.PLACEHOLDER.PROPOSER'| translate}}"
+                            nzMode="multiple">
+                            <nz-option class="custom-option" *ngFor="let proposer of listOfSelectedProposer"
+                                nzCustomContent [nzValue]="proposer.id!" [nzLabel]="proposer.email">
+                                <p *ngIf="proposer.email && !proposer.name">{{proposer.email}}</p>
+                                <p *ngIf="proposer.email && proposer.name">{{proposer.name}}
+                                    <br /><b>({{proposer.email}})</b>
+                                </p>
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.BUTTON.CANCEL'| translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.BUTTON.SUBMIT'| translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>
+
+<ng-template #textAreaClearTpl>
+    <nz-icon *ngIf="this.validateForm.get('description')?.value" class="ant-input-clear-icon" nzTheme="fill"
+        nzType="close-circle" (click)="validateForm.get('description')?.setValue('')" />
+</ng-template>
+
+<ng-template #notFoundContent>
+    <span class="text-gray-500" *ngIf="!validateForm.get('department')?.value">
+        {{ 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ADD.ERR.DEPARTMENT_FIRST' | translate }}
+    </span>
+
+    <nz-empty nzNotFoundImage="simple" *ngIf="validateForm.get('department')?.value"></nz-empty>
+</ng-template>

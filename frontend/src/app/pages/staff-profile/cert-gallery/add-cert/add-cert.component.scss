@@ -1,0 +1,20 @@
+@use '@angular/material' as mat;
+@use '../../../../theme' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+textarea {
+    padding: 0;
+}
+
+.file-selected {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    cursor: pointer;
+
+    transition: color 0.3s ease;
+
+    &:hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+    }
+}

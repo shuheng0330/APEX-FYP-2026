@@ -1,0 +1,174 @@
+<app-add-career-pathway-assignment (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_STAFF', 'CAN_MANAGE_CAREER_PATHWAY'])">
+</app-add-career-pathway-assignment>
+<app-edit-career-pathway-assignment (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_STAFF', 'CAN_MANAGE_CAREER_PATHWAY'])">
+</app-edit-career-pathway-assignment>
+<app-view-career-pathway-assignment *ngIf="hasAccess(['CAN_MANAGE_STAFF', 'CAN_MANAGE_CAREER_PATHWAY'])">
+</app-view-career-pathway-assignment>
+
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.UPLOAD.INSTRUCTION' | translate}}"
+    *ngIf="hasAccess(['CAN_MANAGE_STAFF', 'CAN_MANAGE_CAREER_PATHWAY'])"
+    uploadHint="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.UPLOAD.HINT' | translate}}"
+    templateName="CareerPathwayAssignmentUploadTemplate" (confirm)="importData()">
+</app-file-upload>
+
+<div class="centered-padding-body">
+    <div class="space-between-button-group">
+        <div class="button-group">
+            <button class="blue-button" (click)="export()">
+                {{ 'PAGE.CAREER_PATHWAY.ASSIGNMENT.BUTTON.EXPORT' | translate }}
+                <nz-icon nzType="export" class="button-icon" /></button>
+            <button class="blue-button" (click)="openFileSelector()">
+                {{ 'PAGE.CAREER_PATHWAY.ASSIGNMENT.BUTTON.IMPORT' | translate }}
+                <nz-icon nzType="import" class="button-icon" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group-text-wrap">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0"
+                (click)="bulkDeleteCareerPathwayAssignment()">{{
+                'PAGE.CAREER_PATHWAY.ASSIGNMENT.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addCareerPathwayAssignment()">{{
+                'PAGE.CAREER_PATHWAY.ASSIGNMENT.BUTTON.ADD' | translate }} <nz-icon nzType="plus"
+                    class="button-icon" /></button>
+        </div>
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected"> Selected {{setOfCheckedId.size}} items</p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" nzBordered #careerPathwayAssignmentOverviewTable
+        class="role-assignment-overview-table" [nzData]="listOfDisplayData"
+        (nzCurrentPageDataChange)="onCurrentPageDataChange($event)" [nzScroll]="{x: '900px', y:'400px'}">
+        <thead>
+            <tr>
+                <th nzWidth="40px"></th>
+                <th nzWidth="40px" nzAlign="center" [(nzChecked)]="checked" [nzIndeterminate]="indeterminate"
+                    (nzCheckedChange)="onAllChecked($event)">
+                </th>
+                <th nzWidth=" 80px" nzAlign="center">
+                    {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.TABLE.ACTION' | translate}}
+                </th>
+
+                <th [nzSortFn]="sortByOrgChartName">
+                    {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.TABLE.DEPARTMENT' | translate}}
+                </th>
+                <th [nzSortFn]="sortByCareerPathwayName">
+                    {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.TABLE.CAREER_PATHWAY' | translate}}
+                </th>
+                <th>
+                    {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.TABLE.STAFF.STAFF' | translate}}
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of careerPathwayAssignmentOverviewTable.data; track row) {
+            <tr>
+                <td nzAlign="center">
+                    <a (click)="viewCareerPathwayAssignment(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td nzAlign="center" [nzChecked]="setOfCheckedId.has(row.careerPathwayId)"
+                    (nzCheckedChange)="onItemChecked(row.careerPathwayId, $event)">
+                </td>
+
+                <td nzAlign="center">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                    </a>
+                    <nz-dropdown-menu #menu="nzDropdownMenu">
+                        <ul nz-menu>
+                            <a (click)="editCareerPathwayAssignment(row)">
+                                <li nz-menu-item>
+                                    <a>
+                                        <nz-icon nzType="edit" nzTheme="outline" />
+                                        {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ACTION.EDIT' | translate}}
+                                    </a>
+                                </li>
+                            </a>
+                            <a (click)="deleteCareerPathwayAssignment(row)">
+                                <li nz-menu-item>
+                                    <a>
+                                        <nz-icon nzType="delete" nzTheme="outline" />
+                                        {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ACTION.DELETE' | translate}}
+                                    </a>
+                                </li>
+                            </a>
+                        </ul>
+                    </nz-dropdown-menu>
+                </td>
+
+                <td>
+                    <nz-icon *ngIf="row.orgChartDeleted" nzType="warning" nzTheme="twotone" [nzTwotoneColor]="red"
+                        nz-tooltip
+                        nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.WARNING.DEPARTMENT' | translate}}" />
+                    {{ row.orgChartName }}
+                </td>
+
+                <td>
+                    <b>{{ row.careerPathwayName }}</b>
+                    <div class="sub-info">
+                        <nz-tag [nzColor]="'blue'">
+                            <span>
+                                {{row.staffs.length || 0 }}
+                                {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.TABLE.STAFF.STAFF' | translate}}
+                            </span>
+                        </nz-tag>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="sub-info">
+                        <nz-tag *ngFor="let staff of row.staffs; let i = index"
+                            [nzColor]="staffColorCodes[i % staffColorCodes.length]" nz-tooltip
+                            nzTooltipTitle="{{ staff.email }}">
+                            <span *ngIf="staff.name">{{ staff.name }}</span>
+                            <span *ngIf="!staff.name">{{ staff.email }}</span>
+                        </nz-tag>
+                        <span *ngIf="row.staffs?.length === 0">-</span>
+                    </div>
+                </td>
+            </tr>
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" nzTheme="outline" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" nzTheme="outline" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

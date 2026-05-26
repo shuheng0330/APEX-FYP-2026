@@ -1,0 +1,101 @@
+@use '@angular/material' as mat;
+@use '../../../../theme' as app-theme;
+
+
+.detail-column {
+    &:first-child {
+        border-right: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 100);
+    }
+}
+
+.detail-title {
+    color: #000000;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.detail-content {
+    color: #595959;
+    line-height: 1.6;
+}
+
+.text-muted {
+    color: #bfbfbf;
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .detail-column {
+        &:first-child {
+            border-right: none;
+            border-bottom: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 100);
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+        }
+    }
+}
+
+.competency-card-wrapper {
+    margin-bottom: 16px;
+}
+
+.competency-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+
+    .weight-badge {
+        font-weight: bold;
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+        font-size: 1.1em;
+        background: #e6f7ff;
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    .card-desc {
+        margin-bottom: 12px;
+
+        .label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
+            color: #555;
+        }
+
+        p {
+            color: #666;
+            margin: 0;
+            font-style: italic;
+        }
+    }
+
+    .card-tags {
+        margin-top: 10px;
+        border-top: 1px dashed #f0f0f0;
+        padding-top: 10px;
+    }
+}
+
+.mobile-total-card {
+    background-color: #fafafa;
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 1.1em;
+
+    .total-value {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+        font-size: 1.2em;
+    }
+}

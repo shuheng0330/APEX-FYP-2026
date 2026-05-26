@@ -1,0 +1,44 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF'])" [nzBodyStyle]="{ overflow: 'auto' }"
+    [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{data?.roleName}} ({{data?.orgChartName}})" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <div *nzDrawerContent>
+        <nz-empty nzNotFoundImage="simple" *ngIf="!data"></nz-empty>
+        <div class="expanded-panel">
+            <h4 class="detail-title">
+                <nz-icon nzType="ordered-list" nzTheme="outline" />
+                {{'PAGE.ROLE.ASSIGNMENT.TABLE.STAFF.STAFF' | translate}}
+            </h4>
+            <nz-empty nzNotFoundImage="simple" *ngIf="data?.staffList?.length! === 0"></nz-empty>
+            <div nz-row [nzGutter]="[16, 16]" *ngIf="data?.staffList?.length! > 0">
+                <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="8" *ngFor="let data of data?.staffList">
+
+                    <nz-card [nzActions]="[actionView]" nzHoverable class="staff-card">
+                        <nz-card-meta [nzTitle]="data.name ?? '-'" [nzDescription]="data.email">
+                        </nz-card-meta>
+                    </nz-card>
+
+                    <ng-template #actionView>
+                        <div (click)="viewProfile(data.id)" class="card-action"
+                            *ngIf="hasAccess(['CAN_MANAGE_STAFF', 'CAN_VIEW_STAFF'])">
+                            <nz-icon nzType="eye" nzTheme="outline" />
+                            <span style="margin-left: 8px;">
+                                {{'PAGE.ROLE.ASSIGNMENT.TABLE.STAFF.VIEW' | translate}}
+                            </span>
+                        </div>
+                    </ng-template>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.OVERVIEW.BUTTON.CANCEL'| translate}}
+            </button>
+        </div>
+    </ng-template>
+</nz-drawer>

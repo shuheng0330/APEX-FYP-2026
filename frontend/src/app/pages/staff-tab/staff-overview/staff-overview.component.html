@@ -1,0 +1,188 @@
+<app-add-staff (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])"></app-add-staff>
+<app-edit-staff (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])"></app-edit-staff>
+
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.COMPETENCY.ASSIGNMENT.UPLOAD.INSTRUCTION' | translate}}"
+    *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" uploadHint="{{'PAGE.COMPETENCY.ASSIGNMENT.UPLOAD.HINT' | translate}}"
+    templateName="StaffAccountUploadTemplate" (confirm)="importData()">
+</app-file-upload>
+
+<div class="centered-padding-body">
+    <div class="space-between-button-group">
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])">
+            <button class="blue-button" (click)="export()">
+                {{ 'PAGE.STAFF.STAFF_OVERVIEW.BUTTON.EXPORT' | translate }}
+                <nz-icon nzType="export" class="button-icon" /></button>
+            <button class="blue-button" (click)="openFileSelector()">
+                {{ 'PAGE.STAFF.STAFF_OVERVIEW.BUTTON.IMPORT' | translate }}
+                <nz-icon nzType="import" class="button-icon" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.STAFF.STAFF_OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteStaff()">{{
+                'PAGE.STAFF.STAFF_OVERVIEW.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addStaff()">{{
+                'PAGE.STAFF.STAFF_OVERVIEW.BUTTON.ADD' | translate }} <nz-icon nzType="plus"
+                    class="button-icon" /></button>
+        </div>
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])">
+            Selected {{setOfCheckedId.size}} items
+        </p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" nzBordered #staffOverviewTable nzTableLayout="fixed" class="staff-overview-table"
+        [nzData]="listOfDisplayData" (nzCurrentPageDataChange)="onCurrentPageDataChange($event)"
+        [nzScroll]="{x: '900px', y:'400px'}">
+        <thead>
+            <tr>
+                <th nzWidth="40px"></th>
+
+                <th nzAlign="center" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" nzWidth="40px" [(nzChecked)]="checked"
+                    [nzIndeterminate]="indeterminate" (nzCheckedChange)="onAllChecked($event)">
+                </th>
+
+                <th nzAlign="center" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" nzWidth="80px" nzAlign="center">
+                    {{'PAGE.STAFF.STAFF_OVERVIEW.TABLE.ACTION' |translate}}
+                </th>
+
+                <th nzAlign="center" *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" nzWidth="110px"
+                    [nzSortFn]="sortByAccountStatus">
+                    {{'PAGE.STAFF.STAFF_OVERVIEW.TABLE.ACCOUNT_STATUS' | translate}}
+                </th>
+
+                <th [nzSortFn]="sortByEmail">
+                    {{'PAGE.STAFF.STAFF_OVERVIEW.TABLE.STAFF' | translate}}
+                </th>
+
+                <th [nzSortFn]="sortByManagerName">
+                    {{'PAGE.STAFF.STAFF_OVERVIEW.TABLE.MANAGER' | translate}}
+                </th>
+
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of staffOverviewTable.data; track row) {
+            <tr>
+                <td nzAlign="center">
+                    <a (click)="viewStaff(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" [nzChecked]="setOfCheckedId.has(row.staffId)"
+                    (nzCheckedChange)="onItemChecked(row.staffId, $event)">
+                </td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" nzAlign="center">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editStaff(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" />
+                                            <span> {{'PAGE.STAFF.STAFF_OVERVIEW.ACTION.EDIT' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deleteStaff(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" />
+                                            <span> {{'PAGE.STAFF.STAFF_OVERVIEW.ACTION.DELETE' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_STAFF'])" class="blue-red-switch" nzAlign="center">
+                    <nz-switch [nzCheckedChildren]="checkedTemplate" [nzUnCheckedChildren]="unCheckedTemplate"
+                        [disabled]="!hasAccess(['CAN_MANAGE_STAFF'])" [ngModel]="row.accountStatus" nzControl="true"
+                        [nzLoading]="isSwitchLoading" (click)="toggleAccountStatus(row)">
+                    </nz-switch>
+                </td>
+
+                <td>
+                    <span><b>{{row.staffEmail}}</b> <b *ngIf="row.staffName"> ({{row.staffName}})</b></span>
+                    <div class="sub-info">
+                        <nz-tag [nzColor]="'blue'" *ngIf="row.orgChartName">
+                            <span>
+                                <nz-icon *ngIf="row.orgChartDeleted" nzType="warning" nzTheme="twotone"
+                                    [nzTwotoneColor]="red" nz-tooltip
+                                    nzTooltipTitle="{{'PAGE.STAFF.STAFF_OVERVIEW.WARNING.DEPARTMENT' | translate}}" />
+                                {{row.orgChartName}}
+                            </span>
+                        </nz-tag>
+                        <nz-tag [nzColor]="'green'" *ngIf="row.roleName">
+                            <span>
+                                <nz-icon *ngIf="row.roleDeleted" nzType="warning" nzTheme="twotone"
+                                    [nzTwotoneColor]="red" nz-tooltip
+                                    nzTooltipTitle="{{'PAGE.STAFF.STAFF_OVERVIEW.WARNING.ROLE' | translate}}" />
+                                {{row.roleName}}
+                            </span>
+                        </nz-tag>
+                        <nz-tag [nzColor]="'purple'" *ngIf="row.careerPathwayName">
+                            <span>
+                                <nz-icon *ngIf="row.careerPathwayDeleted" nzType="warning" nzTheme="twotone"
+                                    [nzTwotoneColor]="red" nz-tooltip
+                                    nzTooltipTitle="{{'PAGE.STAFF.STAFF_OVERVIEW.WARNING.CAREER_PATHWAY' | translate}}" />
+                                {{row.careerPathwayName}}
+                            </span>
+                        </nz-tag>
+                    </div>
+                </td>
+
+                <td>
+                    <span>
+                        <nz-icon *ngIf="row.managerDeleted" nzType="warning" nzTheme="twotone" [nzTwotoneColor]="red"
+                            nz-tooltip nzTooltipTitle="{{'PAGE.STAFF.STAFF_OVERVIEW.WARNING.MANAGER' | translate}}" />
+                        {{row.managerEmail ?? '-'}} <b *ngIf="row.managerName">({{row.managerName}})</b>
+                    </span>
+                </td>
+            </tr>
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" nzTheme="outline" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" nzTheme="outline" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

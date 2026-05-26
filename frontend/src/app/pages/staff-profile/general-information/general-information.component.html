@@ -1,0 +1,180 @@
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.PROFILE.GENERAL.UPLOAD.INSTRUCTION' | translate}}"
+    uploadHint="{{'PAGE.PROFILE.GENERAL.UPLOAD.HINT' | translate}}" (confirm)="uploadProfilePicture()">
+</app-file-upload>
+
+<div class="centered-padding-body">
+    <div class="user-general-info">
+        <div class="left-body">
+            <div class="profile-section">
+                <img nz-image class="profile-image" [nzSrc]="profileImageUrl" alt="Profile image" />
+                <div class="email-info">
+                    <a [href]="mailto" target="_blank">
+                        <nz-icon nzType="mail" nzTheme="outline" class="email-icon"></nz-icon>
+                        <span class="email-text" style="margin-left: 10px;">{{profileData?.staff?.email}}</span>
+                    </a>
+                </div>
+
+                <button *ngIf="!isVisiting$.value" nz-button nzType="default" class="blue-button"
+                    (click)="openFileSelector()">
+                    <nz-icon nzType="cloud-upload" nzTheme="outline"></nz-icon>
+                    {{'PAGE.PROFILE.GENERAL.BUTTON.PROFILE'| translate}}
+                </button>
+            </div>
+        </div>
+
+        <div class="right-body">
+            <div class="button-group" *ngIf="!isVisiting$.value">
+                <button nz-button nzType="default" class="red-button" (click)="onResetPassword()"
+                    *ngIf="!isEditing$.value">
+                    <nz-icon nzType="key" nzTheme="outline"></nz-icon>
+                    {{'PAGE.PROFILE.GENERAL.BUTTON.RESET'| translate}}
+                </button>
+
+                <button nz-button nzType="primary" class="blue-button" (click)="onEditInformation()"
+                    *ngIf="!isEditing$.value">
+                    <nz-icon nzType="edit" nzTheme="outline"></nz-icon>
+                    {{'PAGE.PROFILE.GENERAL.BUTTON.EDIT'| translate}}
+                </button>
+
+                <button nz-button nzType="primary" class="red-button" (click)="resetForm()" *ngIf="isEditing$.value">
+                    <nz-icon nzType="close" nzTheme="outline" />
+                    {{'PAGE.PROFILE.GENERAL.BUTTON.CANCEL'| translate}}
+                </button>
+
+                <button nz-button nzType="primary" class="blue-button" (click)="showConfirm()" *ngIf="isEditing$.value">
+                    <nz-icon nzType="save" nzTheme="outline" />
+                    {{'PAGE.PROFILE.GENERAL.BUTTON.SAVE'| translate}}
+                </button>
+            </div>
+
+            <form nz-form [formGroup]="validateForm" nzLayout="vertical" class="user-info-form">
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.EMAIL'|translate}}
+                            </nz-form-label>
+                            <nz-form-control nzErrorTip="{{'PAGE.PROFILE.GENERAL.TABLE.ERROR.EMAIL' | translate}}">
+                                <nz-input-group>
+                                    <input type="email" nz-input formControlName="email" id="email" maxlength="255"
+                                        placeholder="{{'PAGE.PROFILE.GENERAL.TABLE.PLACEHOLDER.EMAIL' | translate}}" />
+                                </nz-input-group>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.NAME'|translate}}
+                            </nz-form-label>
+                            <nz-form-control nzErrorTip="{{'PAGE.PROFILE.GENERAL.TABLE.ERROR.NAME' | translate}}">
+                                <nz-input-group>
+                                    <input type="text" nz-input formControlName="name" id="name" maxlength="255"
+                                        placeholder="{{'PAGE.PROFILE.GENERAL.TABLE.PLACEHOLDER.NAME' | translate}}" />
+                                </nz-input-group>
+
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.CONTACT'|translate}}
+                            </nz-form-label>
+                            <nz-form-control nzErrorTip="{{'PAGE.PROFILE.GENERAL.TABLE.ERROR.CONTACT' | translate}}">
+                                <nz-input-group>
+                                    <input type="text" nz-input formControlName="contact" id="contact" maxlength="15"
+                                        placeholder="{{'PAGE.PROFILE.GENERAL.TABLE.PLACEHOLDER.CONTACT' | translate}}" />
+                                </nz-input-group>
+
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.DEPARTMENT'|translate}}
+                            </nz-form-label>
+                            <nz-form-control>
+                                <nz-input-group>
+                                    <input type="text" nz-input formControlName="department" id="department"
+                                        maxlength="255" />
+                                </nz-input-group>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.ROLE'|translate}}
+                            </nz-form-label>
+                            <nz-form-control>
+                                <nz-input-group>
+                                    <input type="text" nz-input formControlName="role" id="role" maxlength="255" />
+                                </nz-input-group>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.CAREER_PATHWAY'|translate}}
+                            </nz-form-label>
+                            <nz-form-control>
+                                <nz-input-group>
+                                    <input type="text" nz-input formControlName="careerPathway" id="careerPathway"
+                                        maxlength="255" />
+                                </nz-input-group>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzRequired nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.MANAGER'|translate}}
+                            </nz-form-label>
+                            <nz-form-control>
+                                <nz-input-group>
+                                    <input type="text" nz-input formControlName="manager" id="manager"
+                                        maxlength="255" />
+                                </nz-input-group>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                </div>
+                <div nz-row [nzGutter]="8">
+                    <div nz-col nzSpan="19">
+                        <nz-form-item>
+                            <nz-form-label nzLabelAlign="left">
+                                {{'PAGE.PROFILE.GENERAL.TABLE.INPUT.ABOUT'|translate}}
+                            </nz-form-label>
+                            <nz-input-group [nzSuffix]="aboutClearTpl">
+                                <textarea nz-input formControlName="about" id="about" maxlength="1000"
+                                    placeholder="{{'PAGE.PROFILE.GENERAL.TABLE.PLACEHOLDER.ABOUT' | translate}}">
+                                </textarea>
+                            </nz-input-group>
+                            <ng-template #aboutClearTpl>
+                                <nz-icon *ngIf="this.validateForm.get('about')?.value" class="ant-input-clear-icon"
+                                    nzTheme="fill" nzType="close-circle"
+                                    (click)="isEditing$.value ? validateForm.get('about')?.setValue('') : null" />
+                            </ng-template>
+                        </nz-form-item>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

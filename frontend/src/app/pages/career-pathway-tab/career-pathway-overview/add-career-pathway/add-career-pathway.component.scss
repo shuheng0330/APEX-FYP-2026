@@ -1,0 +1,106 @@
+@use '@angular/material' as mat;
+@use '../../../../../app/theme' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+
+.role-input {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+::ng-deep .role-input .parent-select {
+    flex: 1;
+    min-width: 235px;
+    margin: 0;
+
+    @media (max-width: 576px) {
+        flex: 0 0 100%;
+        order: 1;
+    }
+
+    .ant-select-selector {
+        border: 0;
+        box-shadow: 0 !important;
+    }
+
+    .ant-input-affix-wrapper {
+        padding: 0 11px 0 11px;
+    }
+}
+
+::ng-deep .tool-tip.anticon {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+}
+
+::ng-deep .role-input .child-select {
+    flex: 1;
+    min-width: 235px;
+    margin: 0;
+
+    @media (max-width: 576px) {
+        flex: 1;
+        order: 2;
+    }
+
+    .ant-select-selector {
+        border: 0;
+        box-shadow: 0 !important;
+    }
+
+    .ant-input-affix-wrapper {
+        padding: 0 11px 0 11px;
+    }
+}
+
+::ng-deep .root-input .root-select {
+
+    .ant-select-selector {
+        border: 0;
+        box-shadow: 0 !important;
+    }
+
+    .ant-input-affix-wrapper {
+        border-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 200); ;
+        padding: 0 11px 0 11px;
+    }
+}
+
+.role-input .dynamic-delete-button {
+    flex: 0 0 10px;
+    font-size: large;
+    cursor: pointer;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+
+    transition: color 0.3s ease;
+
+    &:not(:disabled):hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+    }
+
+    @media (max-width: 576px) {
+        order: 3;
+    }
+}
+
+.dynamic-delete-button {
+    transition: color 0.3s ease;
+
+    &:not(:disabled):hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+    }
+}
+
+::ng-deep .ant-input {
+    padding: 0 !important;
+}
+
+.add-button {
+    margin-bottom: 10%;
+}

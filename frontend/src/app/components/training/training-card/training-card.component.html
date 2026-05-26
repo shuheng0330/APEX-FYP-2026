@@ -1,0 +1,54 @@
+<nz-card class="card" [class.grey-card]="isPast" [nzTitle]="title" [nzExtra]="extraTemplate">
+  <div class="detail-container">
+    <div class="icon-container">
+      <nz-icon class="icon" nzType="calendar" nzTheme="outline" />
+      <span class="text-14px mt-2">{{ startDate | date:'d MMM'}} - {{ endDate | date: 'd MMM'}}</span>
+    </div>
+    <div class="icon-container">
+      <nz-icon class="icon" nzType="clock-circle" nzTheme="outline" />
+      <span class="text-14px mt-2">{{formatTimeToAMPM(startTime)}} - {{formatTimeToAMPM(endTime)}}</span>
+    </div>
+  </div>
+  <div class="detail-container">
+    <div class="icon-container">
+      <nz-icon nzType="environment" nzTheme="outline" />
+      <span class="text-14px mt-2 venue-text">{{ venue }}</span>
+    </div>
+    <div class="icon-container">
+      <nz-icon nzType="team" nzTheme="outline" />
+      <span class="text-14px mt-2">{{ participantsNumber || 0 }} / {{ capacity }}</span>
+    </div>
+  </div>
+  <div class="container-tag">
+    <nz-tag *ngIf="attendanceStatus === 'present'" nzColor="success">Present</nz-tag>
+    <nz-tag *ngIf="attendanceStatus === 'absent'" nzColor="error">Absent</nz-tag>
+    <nz-tag class="ml-4" *ngIf="isPublic !== null && isPublic !== undefined" nzColor="warning">{{ isPublic ? 'Public' :
+      'Private' }}</nz-tag>
+  </div>
+</nz-card>
+<!--<ng-template #extraTemplate>-->
+<!--  <a class="action-class text-bold text-blue" (click)="onActionClicked($event)">{{actionLabel}}</a>-->
+<!--</ng-template>-->
+<ng-template #extraTemplate>
+  <a *ngIf="hasAccess(['CAN_MANAGE_TRAINING','CAN_ASSIGN_TRAINING']) && visible" class="action-trigger" nz-dropdown
+    [nzDropdownMenu]="menu" nzOverlayClassName="dropdown-neutral" nzPlacement="bottomLeft" nzTrigger="click"
+    (click)="onMenuTriggerClick($event)">
+    <nz-icon nzType="more" nzTheme="outline" />
+    <nz-dropdown-menu #menu="nzDropdownMenu">
+      <ul nz-menu>
+        <li nz-menu-item (click)="onEditClicked($event)" *ngIf="hasAccess(['CAN_MANAGE_TRAINING'])">
+          <nz-icon class="mr-4" nzType="edit" nzTheme="outline" />
+          <span>{{ 'PAGE.TRAINING_MANAGEMENT.ACTION.EDIT' | translate }}</span>
+        </li>
+        <li nz-menu-item (click)="onDeleteClicked($event)" *ngIf="hasAccess(['CAN_MANAGE_TRAINING'])">
+          <nz-icon class="mr-4" nzType="delete" nzTheme="outline" />
+          <span>{{ 'PAGE.TRAINING_MANAGEMENT.ACTION.DELETE' | translate }}</span>
+        </li>
+        <li nz-menu-item *ngIf=" hasAccess(['CAN_ASSIGN_TRAINING']) && !isPast" (click)="onAssignClicked($event)">
+          <nz-icon class="mr-4" nzType="team" nzTheme="outline" />
+          <span>{{ 'PAGE.TRAINING_MANAGEMENT.ACTION.ASSIGN' | translate }}</span>
+        </li>
+      </ul>
+    </nz-dropdown-menu>
+  </a>
+</ng-template>

@@ -1,0 +1,179 @@
+@use '@angular/material' as mat;
+@use '../../../_theme.scss' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+::ng-deep .main-content {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+.first-time-login-wrapper {
+    display: flex;
+    height: 100%;
+    width: 100%;
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        height: auto;
+    }
+}
+
+.first-time-login-left,
+.first-time-login-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.first-time-login-left {
+    background-color: white;
+    padding: 5%;
+
+    @media (max-width: 768px) {
+        display: none;
+    }
+}
+
+.first-time-login-right {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7%;
+
+    @media (max-width: 768px) {
+        width: 100%;
+        padding: 40px 20px;
+        flex: none;
+    }
+}
+
+.first-time-login-left img {
+    max-width: 100%;
+    height: auto;
+}
+
+.first-time-login-text {
+    width: 100%;
+    margin-bottom: 5%;
+}
+
+.first-time-login-text h1 {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+    font-size: xx-large;
+}
+
+.first-time-login-text span {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+}
+
+.first-time-login-image {
+    width: 85%;
+    height: auto;
+}
+
+.first-time-login-image-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.first-time-login-error-container {
+    width: 100%;
+    margin-bottom: 5%;
+}
+
+::ng-deep .ant-alert-error {
+    color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-accent, 50);
+    border-color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+}
+
+::ng-deep .ant-alert-with-description .ant-alert-message {
+    color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+}
+
+.first-time-login-form {
+    width: 100%;
+}
+
+::ng-deep .ant-input-affix-wrapper input::placeholder {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 100);
+}
+
+::ng-deep .ant-input {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 700) !important;
+}
+
+::ng-deep .ant-input-affix-wrapper {
+    border-radius: 3px;
+    border-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+::ng-deep .ant-input-affix-wrapper-status-error .ant-input-prefix {
+    color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+}
+
+::ng-deep .ant-input-affix-wrapper-status-error:not(.ant-input-affix-wrapper-disabled):not(.ant-input-affix-wrapper-borderless).ant-input-affix-wrapper {
+    border-color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+}
+
+::ng-deep .ant-form-item-explain-error {
+    color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+}
+
+::ng-deep .ant-input-prefix {
+    font-weight: bold;
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+}
+
+.first-time-login-input {
+    margin-left: 1%;
+}
+
+.first-time-login-form-button {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    color: white !important;
+    border-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    border: none;
+    border-radius: 6px;
+    width: 100%;
+    cursor: pointer;
+    text-align: center;
+    margin-bottom: 4%;
+
+    transition: background-color 0.3s ease, color 0.3s ease, border 0.3s ease;
+
+    &:not(:disabled):hover {
+        background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 800);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 200) !important;
+    }
+}
+
+.first-time-login-form-button-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.first-time-login-form-button-container span {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+    cursor: pointer;
+
+    transition: color 0.5 ease;
+
+    &:not(:disabled):hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    }
+}

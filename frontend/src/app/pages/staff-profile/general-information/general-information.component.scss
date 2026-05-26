@@ -1,0 +1,133 @@
+@use '@angular/material' as mat;
+@use '../../../../app/theme' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+.centered-padding-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    @media (max-width: 768px) {
+        height: auto;
+    }
+}
+
+.user-general-info {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 40px;
+    padding: 30px;
+
+    @media (max-width: 992px) {
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
+        gap: 20px;
+    }
+
+    .left-body {
+        background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+        padding: 25px;
+        border-radius: 12px;
+        min-width: 260px;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        height: 100%;
+
+        @media (max-width: 992px) {
+            width: 100%;
+            height: auto;
+        }
+
+        .profile-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            height: 100%;
+
+            .profile-image {
+                width: 160px;
+                height: 160px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 3px solid mat.m2-get-color-from-palette(app-theme.$my-primary, A900);
+            }
+
+            .email-info {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                margin-top: 10px;
+                font-size: 14px;
+                color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+
+                .email-icon {
+                    color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+                }
+
+                a {
+                    word-break: break-all;
+                }
+            }
+        }
+    }
+
+    .right-body {
+        flex: 1;
+        background-color: #f8fafc;
+        padding: 30px 40px;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        position: relative;
+
+        @media (max-width: 768px) {
+            padding: 20px;
+        }
+
+        .button-group {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            display: flex;
+            gap: 12px;
+
+            @media (max-width: 768px) {
+                position: static;
+                justify-content: flex-end;
+                margin-bottom: 20px;
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        }
+
+        .user-info-form {
+            margin-top: 70px;
+            color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+
+            @media (max-width: 768px) {
+                margin-top: 0;
+            }
+        }
+    }
+}
+
+textarea {
+    padding: 0;
+}
+
+::ng-deep .ant-input[disabled] {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+}
+
+::ng-deep .ant-input-affix-wrapper-disabled {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+}

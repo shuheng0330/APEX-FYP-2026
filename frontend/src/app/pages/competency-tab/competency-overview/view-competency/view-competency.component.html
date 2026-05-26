@@ -1,0 +1,29 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY', 'CAN_PROPOSE_ROLE_COMPETENCIES'])" [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false"
+    [nzWidth]="drawerWidth" [nzVisible]="visible$.value" nzTitle="{{data?.competencyName}}" [nzFooter]="footerTpl"
+    (nzOnClose)="close()">
+    <div *nzDrawerContent>
+        <nz-empty nzNotFoundImage="simple" *ngIf="!data"></nz-empty>
+        <h3 style="padding-top: 5px; padding-bottom: 5px;">
+            {{'PAGE.COMPETENCY.OVERVIEW.TABLE.DESC' | translate}}
+        </h3>
+        <i>{{data?.competencyDescription ?? '-'}}</i>
+        <div style="border-bottom: solid 0.1px #f0f0f0; margin-top: 20px;"></div>
+        <br />
+        <div class="sub-info">
+            @if(data?.assignedCompTags?.length != 0){
+            <nz-tag *ngFor="let compTag of data?.assignedCompTags; let i = index"
+                [nzColor]="colorCodes[i % colorCodes.length]">
+                # {{ compTag.tag }}
+            </nz-tag>
+            }
+        </div>
+    </div>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.OVERVIEW.BUTTON.CANCEL'| translate}}
+            </button>
+        </div>
+    </ng-template>
+</nz-drawer>

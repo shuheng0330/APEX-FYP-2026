@@ -1,0 +1,96 @@
+<app-view-roles-competencies></app-view-roles-competencies>
+<div class="centered-padding-body data-not-found" *ngIf="!assignedCareerPathway">
+    <nz-empty [nzNotFoundContent]="contentTpl">
+    </nz-empty>
+    <ng-template #contentTpl>
+        <p>
+            {{'PAGE.CAREER_PATHWAY.MY.NOT_FOUND.NO_AVAILABLE' |translate}}
+            <br />
+            {{'PAGE.CAREER_PATHWAY.MY.NOT_FOUND.REASON' |translate}}
+        </p>
+    </ng-template>
+</div>
+<div class="centered-padding-body" *ngIf="assignedCareerPathway">
+    <div class="org-chart-header">
+        <div class="title-section">
+            <h2 *ngIf="assignedCareerPathway">
+                {{assignedCareerPathway.careerPathwayName}}
+            </h2>
+            <span *ngIf="assignedCareerPathway?.trackDtoList!.length > 0" class="tags-container">
+                <nz-tag *ngFor="let track of assignedCareerPathway?.trackDtoList; let i = index"
+                    [nzColor]="colorCodes[i % colorCodes.length]">
+                    # {{ track.track }}
+                </nz-tag>
+            </span>
+        </div>
+
+        <div class="button-group">
+            <button *ngIf="orgChart" class="blue-button org-chart-button"
+                (click)="orgChart.zoomIn({ by: 10, relative: true })">
+                <span><nz-icon nzType="zoom-in" nzTheme="outline" /></span>
+            </button>
+            <button *ngIf="orgChart" class="blue-button org-chart-button"
+                (click)="orgChart.zoomOut({ by: 10, relative: true })">
+                <span><nz-icon nzType="zoom-out" nzTheme="outline" /></span>
+            </button>
+            <button *ngIf="orgChart" class="blue-button org-chart-button" (click)="orgChart.resetPanAndZoom(50)">
+                <nz-icon nzType="compress" nzTheme="outline" />
+            </button>
+            <button *ngIf="orgChart && !isAllExpanded$.value" class="blue-button org-chart-button"
+                (click)="orgChart.toggleCollapseAll(); toggleCollapse();">
+                <nz-icon nzType="arrows-alt" nzTheme="outline" />
+            </button>
+            <button *ngIf="orgChart && isAllExpanded$.value" class="red-button org-chart-button"
+                (click)="orgChart.toggleCollapseAll(); toggleCollapse()">
+                <nz-icon nzType="shrink" nzTheme="outline" />
+            </button>
+        </div>
+    </div>
+
+
+    <div class="org-chart-container">
+        <ngx-interactive-org-chart *ngIf="orgChartDataReady" [hidden]="!orgChartData" #orgChart [data]="orgChartData!"
+            [highlightZoomNodeWidthRatio]="0.4" [highlightZoomNodeHeightRatio]="0.5" [highlightZoomMinimum]="1.0"
+            class="org-chart">
+            <ng-template #nodeTemplate let-node="node">
+                @let nodeData = node?.data;
+                <nz-card *ngIf="nodeData.hasVisited === 1" [nzTitle]="visitedTitle" class="visited-node">
+                    <a (click)="viewRoleDetails(node.id)" (touchstart)="$event.stopPropagation()"
+                        (mousedown)="$event.stopPropagation()"
+                        style="cursor: pointer; position: relative; z-index: 10; display: block; text-align: center;">
+                        {{'PAGE.CAREER_PATHWAY.MY.CLICK'|translate}}
+                    </a>
+                </nz-card>
+                <ng-template #visitedTitle>
+                    <span><nz-icon nzType="check-circle" nzTheme="outline" /><b
+                            style="padding-left: 10px;">{{node.name}}
+                        </b></span>
+                </ng-template>
+
+                <nz-card *ngIf="nodeData.hasVisited === 0" [nzTitle]="currentTitle" class="current-node">
+                    <a (click)="viewRoleDetails(node.id)" (touchstart)="$event.stopPropagation()"
+                        (mousedown)="$event.stopPropagation()"
+                        style="cursor: pointer; position: relative; z-index: 10; display: block; text-align: center;">
+                        {{'PAGE.CAREER_PATHWAY.MY.CLICK'|translate}}
+                    </a>
+                </nz-card>
+                <ng-template #currentTitle>
+                    <span><nz-icon nzType="aim" nzTheme="outline" /><b style="padding-left: 10px;">{{node.name}}
+                        </b></span>
+                </ng-template>
+
+                <nz-card *ngIf="nodeData.hasVisited === -1" [nzTitle]="nextTitle" class="next-node">
+                    <a (click)="viewRoleDetails(node.id)" (touchstart)="$event.stopPropagation()"
+                        (mousedown)="$event.stopPropagation()"
+                        style="cursor: pointer; position: relative; z-index: 10; display: block; text-align: center;">
+                        {{'PAGE.CAREER_PATHWAY.MY.CLICK'|translate}}
+                    </a>
+                </nz-card>
+                <ng-template #nextTitle>
+                    <span><nz-icon nzType="flag" nzTheme="outline" /><b style="padding-left: 10px;">{{node.name}}
+                        </b></span>
+                </ng-template>
+            </ng-template>
+        </ngx-interactive-org-chart>
+    </div>
+</div>

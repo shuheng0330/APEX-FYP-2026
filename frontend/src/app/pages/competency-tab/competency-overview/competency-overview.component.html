@@ -1,0 +1,148 @@
+<app-add-competency (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])"></app-add-competency>
+<app-edit-competency (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])"></app-edit-competency>
+<app-view-competency *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY', 'CAN_PROPOSE_ROLE_COMPETENCIES'])"></app-view-competency>
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.COMPETENCY.OVERVIEW.UPLOAD.INSTRUCTION' | translate}}"
+    *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])" uploadHint="{{'PAGE.COMPETENCY.OVERVIEW.UPLOAD.HINT' | translate}}"
+    templateName="CompetencyDefinitionUploadTemplate" (confirm)="importData()">
+</app-file-upload>
+
+<div class="centered-padding-body"
+    *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_COMPETENCY', 'CAN_PROPOSE_ROLE_COMPETENCIES'])">
+    <div class="space-between-button-group">
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+            <button class="blue-button" (click)="export()">
+                {{ 'PAGE.COMPETENCY.OVERVIEW.BUTTON.EXPORT' | translate }}
+                <nz-icon nzType="export" class="button-icon" /></button>
+            <button class="blue-button" (click)="openFileSelector()">
+                {{ 'PAGE.COMPETENCY.OVERVIEW.BUTTON.IMPORT' | translate }}
+                <nz-icon nzType="import" class="button-icon" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.COMPETENCY.OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteCompetency()">{{
+                'PAGE.COMPETENCY.OVERVIEW.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addCompetency()">{{
+                'PAGE.COMPETENCY.OVERVIEW.BUTTON.ADD' | translate }} <nz-icon nzType="plus"
+                    class="button-icon" /></button>
+        </div>
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])"> Selected {{setOfCheckedId.size}}
+            items</p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" nzBordered #competencyOverviewTable nzTableLayout="fixed" class="competency-overview-table"
+        [nzData]="listOfDisplayData" (nzCurrentPageDataChange)="onCurrentPageDataChange($event)"
+        [nzScroll]="{x: '900px', y:'400px'}">
+        <thead>
+            <tr>
+                <th nzWidth="40px"></th>
+                <th nzWidth="40px" [(nzChecked)]="checked" [nzIndeterminate]="indeterminate"
+                    (nzCheckedChange)="onAllChecked($event)" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+                </th>
+                <th nzWidth="80px" nzAlign="center" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+                    {{'PAGE.COMPETENCY.OVERVIEW.TABLE.ACTION' | translate}}</th>
+                <th [nzSortFn]="sortByCompetencyName">
+                    {{'PAGE.COMPETENCY.OVERVIEW.TABLE.NAME' | translate}}
+                </th>
+                <th [nzSortFn]="sortByCompetencyDescription">
+                    {{'PAGE.COMPETENCY.OVERVIEW.TABLE.DESC' | translate}}
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of competencyOverviewTable.data; track row) {
+            <tr>
+                <td>
+                    <a (click)="viewCompetency(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td [nzChecked]="setOfCheckedId.has(row.competencyId!)"
+                    (nzCheckedChange)="onItemChecked(row.competencyId!, $event)"
+                    *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+                </td>
+
+                <td nzAlign="center" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editCompetency(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" /> <span>
+                                                {{'PAGE.COMPETENCY.OVERVIEW.ACTION.EDIT' | translate}}</span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deleteCompetency(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" /><span>
+                                                {{'PAGE.COMPETENCY.OVERVIEW.ACTION.DELETE' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td>
+                    {{row.competencyName}}
+                </td>
+
+                <td>
+                    {{row.competencyDescription ? row.competencyDescription : '-'}}
+                    <br />
+                    @if(row.assignedCompTags.length != 0){
+                    <nz-tag *ngFor="let compTag of row.assignedCompTags; let i = index"
+                        [nzColor]="colorCodes[i % colorCodes.length]">
+                        # {{ compTag.tag }}
+                    </nz-tag>
+                    }
+                </td>
+            </tr>
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" nzTheme="outline" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" nzTheme="outline" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

@@ -1,0 +1,57 @@
+<nz-drawer [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{'PAGE.PROFILE.CERT.EDIT.TITLE'| translate}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.PROFILE.CERT.EDIT.INPUT.CERT'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.PROFILE.CERT.EDIT.ERR.CERT' | translate )">
+                        <nz-input-group [nzSuffix]="certInputClearTlp">
+                            <input type="text" nz-input formControlName="cert" id="cert" maxlength="255"
+                                placeholder="{{'PAGE.PROFILE.CERT.EDIT.PLACEHOLDER.CERT' | translate}}" />
+                        </nz-input-group>
+                        <ng-template #certInputClearTlp>
+                            <nz-icon *ngIf="this.validateForm.get('cert')?.value" class="ant-input-clear-icon"
+                                nzTheme="fill" nzType="close-circle" (click)="validateForm.get('cert')?.setValue('')" />
+                        </ng-template>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzLabelAlign="left">
+                        {{'PAGE.PROFILE.CERT.EDIT.INPUT.DESC'|translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-input-group [nzSuffix]="textAreaClearTpl">
+                            <textarea nz-input formControlName="description" id="description" maxlength="1000"
+                                placeholder="{{'PAGE.PROFILE.CERT.EDIT.PLACEHOLDER.DESC' | translate}}">
+                                </textarea>
+                        </nz-input-group>
+                        <ng-template #textAreaClearTpl>
+                            <nz-icon *ngIf="this.validateForm.get('description')?.value" class="ant-input-clear-icon"
+                                nzTheme="fill" nzType="close-circle"
+                                (click)="validateForm.get('description')?.setValue('')" />
+                        </ng-template>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.PROFILE.CERT.EDIT.BUTTON.CANCEL'| translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.PROFILE.CERT.EDIT.BUTTON.SUBMIT'| translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>

@@ -1,0 +1,27 @@
+<nz-drawer [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false" [nzWidth]="drawerWidth"
+    [nzVisible]="visible$.value" nzTitle="{{data?.skill}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <div *nzDrawerContent>
+        <nz-empty nzNotFoundImage="simple" *ngIf="!data"></nz-empty>
+
+
+        <h3 style="padding-top: 5px; padding-bottom: 5px;">
+            {{'PAGE.PROFILE.SKILL.TABLE.DESC' | translate}}
+        </h3>
+        <i>{{data?.description ?? '-'}}</i>
+        <div style="border-bottom: solid 0.1px #f0f0f0; margin-top: 20px;"></div>
+        <br />
+        <div class="sub-info">
+            <nz-tag style="margin-top: 10px;" [nzColor]="getProficiencyColor(data?.proficiency!)">
+                # {{data?.proficiency}}
+            </nz-tag>
+        </div>
+    </div>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.OVERVIEW.BUTTON.CANCEL'| translate}}
+            </button>
+        </div>
+    </ng-template>
+</nz-drawer>

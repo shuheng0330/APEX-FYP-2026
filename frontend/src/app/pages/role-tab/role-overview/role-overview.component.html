@@ -1,0 +1,154 @@
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.ROLE.OVERVIEW.UPLOAD.INSTRUCTION' | translate}}"
+    uploadHint="{{'PAGE.ROLE.OVERVIEW.UPLOAD.HINT' | translate}}" templateName="RoleUploadTemplate"
+    (confirm)="importData()">
+</app-file-upload>
+
+<app-add-role (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])"></app-add-role>
+<app-edit-role (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])"></app-edit-role>
+<app-view-role *ngIf="hasAccess(['CAN_MANAGE_ROLE'])"></app-view-role>
+<div class="centered-padding-body" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+    <div class="space-between-button-group">
+        <div class="button-group">
+            <button class="blue-button" (click)="export()">
+                {{ 'PAGE.ROLE.OVERVIEW.BUTTON.EXPORT' | translate }}
+                <nz-icon nzType="export" class="button-icon" /></button>
+            <button class="blue-button" (click)="openFileSelector()">
+                {{ 'PAGE.ROLE.OVERVIEW.BUTTON.IMPORT' | translate }}
+                <nz-icon nzType="import" class="button-icon" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.ROLE.OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteRole()">{{
+                'PAGE.ROLE.OVERVIEW.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addRole()">{{
+                'PAGE.ROLE.OVERVIEW.BUTTON.ADD' | translate }} <nz-icon nzType="plus" class="button-icon" /></button>
+        </div>
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected">
+            Selected {{setOfCheckedId.size}} items
+        </p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" nzBordered #roleOverviewTable nzTableLayout="fixed" class="role-overview-table"
+        [nzScroll]="{x: '900px', y:'400px'}" [nzData]="listOfDisplayData"
+        (nzCurrentPageDataChange)="onCurrentPageDataChange($event)">
+        <thead>
+            <tr>
+                <th nzWidth="40px"></th>
+                <th nzWidth="40px" [(nzChecked)]="checked" [nzIndeterminate]="indeterminate"
+                    (nzCheckedChange)="onAllChecked($event)"></th>
+
+                <th nzWidth="80px" nzAlign="center">{{'PAGE.ROLE.OVERVIEW.TABLE.ACTION' |translate}}</th>
+                <th nzWidth="100px" [nzSortFn]="sortByVisibility">{{'PAGE.ROLE.OVERVIEW.TABLE.VISIBILITY' |
+                    translate}}
+                </th>
+                <th [nzSortFn]="sortByOrgChartName">{{'PAGE.ROLE.OVERVIEW.TABLE.DEPARTMENT' | translate}}</th>
+                <th [nzSortFn]="sortByRoleName">{{'PAGE.ROLE.OVERVIEW.TABLE.ROLE' | translate}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of roleOverviewTable.data; track row) {
+            <tr>
+                <td nzAlign="center">
+                    <a (click)="viewRole(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td [nzChecked]="setOfCheckedId.has(row.roleId)" (nzCheckedChange)="onItemChecked(row.roleId, $event)">
+                </td>
+
+                <td nzAlign="center">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editRole(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" /> <span>
+                                                {{'PAGE.ROLE.OVERVIEW.ACTION.EDIT' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deleteRole(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" /><span>
+                                                {{'PAGE.ROLE.OVERVIEW.ACTION.DELETE' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td class="blue-red-switch" nzAlign="center">
+                    <nz-switch [nzCheckedChildren]="checkedTemplate" [nzUnCheckedChildren]="unCheckedTemplate"
+                        [ngModel]="row.visible" [nzLoading]="isSwitchLoading"
+                        (click)="toggleVisibility(row)"></nz-switch>
+                </td>
+
+                <td>
+                    <span *ngIf="row.orgChartDeleted" nz-tooltip
+                        [nzTooltipTitle]="'PAGE.ROLE.OVERVIEW.WARNING.DEPARTMENT' | translate">
+                        <nz-icon nzType="warning" nzTheme="twotone" [nzTwotoneColor]="'#ff4d4f'" />
+                    </span>
+                    {{row.orgChartName}}
+                </td>
+
+                <td>
+                    <b>{{row.roleName}}</b>
+                    <div class="sub-info">
+                        <nz-tag [nzColor]="'blue'">
+                            <span>
+                                {{row.assignedJobScopes?.length || 0 }}
+                                {{'PAGE.ROLE.OVERVIEW.TABLE.JOB_SCOPE' |translate}}
+                            </span>
+                        </nz-tag>
+                    </div>
+                </td>
+            </tr>
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

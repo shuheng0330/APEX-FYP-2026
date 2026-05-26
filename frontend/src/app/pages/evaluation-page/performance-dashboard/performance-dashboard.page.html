@@ -1,0 +1,127 @@
+<div class="centered-padding-body">
+  <div>
+    <h1 class="text-center">{{ titleKey | translate }}</h1>
+  </div>
+  <nz-skeleton *ngIf="loading"></nz-skeleton>
+
+  <div *ngIf="!loading">
+    <div>
+      <nz-alert *ngIf="!latestEvaluation" class="no-evaluation-records" nzType="info" nzMessage="No Evaluation Records"
+        nzDescription="This staff has not been evaluated yet. Once an evaluation is completed, the records will appear here."
+        nzShowIcon></nz-alert>
+    </div>
+
+    <div class="dashboard-container">
+      <!-- Left Column: Profile Section -->
+      <div class="profile-section">
+        <h2 class="section-heading">Profile</h2>
+        <div class="profile-content">
+          <img nz-image class="circle-image" [nzSrc]="profileImageUrl" alt="Profile image" />
+          <div class="staff-info">
+            <div class="staff-name">{{profileData?.staff?.name}}</div>
+            <div class="staff-email">{{profileData?.staff?.email}}</div>
+            <div class="staff-detail-item">
+              <span class="detail-label">Department:</span>
+              <span class="detail-value">{{profileData?.staff?.role?.orgChart?.name}}</span>
+            </div>
+            <div class="staff-detail-item">
+              <span class="detail-label">Role:</span>
+              <span class="detail-value">{{profileData?.staff?.role?.name}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="performance-section">
+        <h2 class="section-heading">Performance Details</h2>
+        <div class="performance-content">
+          <!-- Performance Trend Line Chart - Full Width at Top -->
+          <div class="performance-chart" *ngIf="staffEvaluations.length > 0">
+            <canvas baseChart [data]="lineChartData" [options]="lineChartOptions" [type]="'line'">
+            </canvas>
+          </div>
+
+          <!-- Evaluation Boxes - Side by Side Below Chart -->
+          <div class="evaluation-boxes-container">
+            <div class="evaluation-box">
+              <h3 class="evaluation-title">Latest Evaluation</h3>
+              <div *ngIf="latestEvaluation; else noLatestEvaluation">
+                <div class="evaluation-header">
+                  <span class="evaluation-date">{{latestEvaluation?.createdAt | date: 'yyyy-MM-dd' }}</span>
+                  <span class="view-all" *ngIf="latestEvaluation.ratings.length > 5" (click)="onClickViewAll()">View
+                    All</span>
+                </div>
+                <div class="evaluation-body" *ngIf="latestEvaluation.ratings.length > 0">
+                  <div class="evaluation-rating" *ngIf="latestEvaluation && latestEvaluation.ratings.length > 0">
+                    <nz-progress [nzPercent]="latestEvaluation?.overallScore" nzType="circle"
+                      [nzWidth]="80"></nz-progress>
+                    <div>
+                      <div *ngFor="let rating of latestEvaluation?.ratings | slice:0:5; let i = index"
+                        class="rating-row">
+                        <strong class="text-12">{{rating.competencyName}}</strong>
+                        <!--                        <nz-rate [nzCharacter]="characterNumber" [nzDisabled]="true"  [(ngModel)]="rating.rating"  [nzCount]="10" [nzTooltips]="tooltips"  [name]=" 'rating_' + i"></nz-rate>-->
+                        <nz-progress [nzPercent]="(rating.rating / 10) * 100" [nzSteps]="5"
+                          [nzFormat]="formatScore.bind(this, rating.rating)" nzStrokeColor="#1890ff"
+                          [nzShowInfo]="true">
+                        </nz-progress>
+
+                      </div>
+                    </div>
+                  </div>
+                  <div class="evaluation-description"
+                    *ngIf="latestEvaluation.overallScore !== undefined && latestEvaluation.overallScore !== null">
+                    <p>{{profileData?.staff?.name}}'s overall performance score is {{latestEvaluation?.overallScore}}%.
+                      {{getPerformanceCategory(latestEvaluation.overallScore).description}}</p>
+                  </div>
+                </div>
+              </div>
+              <ng-template #noLatestEvaluation>
+                <div class="empty-state-container">
+                  <nz-empty class="empty-icon" nzNotFoundContent="No evaluation available"></nz-empty>
+                </div>
+              </ng-template>
+            </div>
+
+            <!-- Historical Evaluation -->
+            <div class="evaluation-box">
+              <h3 class="evaluation-title">Historical Evaluation</h3>
+              <div *ngIf="getHistoricalEvaluations().length > 0; else noHistoricalEvaluation">
+                <div class="historical-list">
+                  <div *ngFor="let eval of getHistoricalEvaluations()" class="historical-item">
+                    <div class="historical-date">{{eval.createdAt | date: 'yyyy-MM-dd' }}</div>
+                    <div class="historical-score">Score: {{eval.overallScore}}%</div>
+                  </div>
+                </div>
+              </div>
+              <ng-template #noHistoricalEvaluation>
+                <div class="empty-state-container">
+                  <nz-empty class="empty-icon" nzNotFoundContent="No historical evaluations"></nz-empty>
+                </div>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #empty>
+  <nz-empty class="empty-icon"></nz-empty>
+</ng-template>
+
+<ng-template #ratingFormTpl>
+  <div *ngFor="let comp of latestCompetenciesRatings; let i = index" class="modal-rating-row">
+    <strong>{{comp.competencyName}}</strong>
+    <nz-rate [nzDisabled]="true" [(ngModel)]="comp.rating" [nzCount]="10" [nzTooltips]="tooltips"
+      [name]=" 'rating_' + i"></nz-rate>
+  </div>
+  <textarea disabled nz-input placeholder="Optional comment" class="comment-box" rows="4"
+    [(ngModel)]="comment"></textarea>
+  @if (value) {
+  <span class="ant-rate-text">{{ value ? tooltips[value - 1] : '' }}</span>
+  }
+</ng-template>
+<ng-template #characterNumber let-index>
+  {{ index + 1 }}
+</ng-template>

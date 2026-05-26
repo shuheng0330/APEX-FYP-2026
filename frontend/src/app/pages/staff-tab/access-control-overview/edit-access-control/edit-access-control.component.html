@@ -1,0 +1,75 @@
+<nz-drawer [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false" [nzWidth]="drawerWidth"
+    [nzVisible]="visible$ | async" nzTitle="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.TITLE' | translate}}"
+    [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="24" nzLabelAlign="left">
+                        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.INPUT.DEPARTMENT' | translate}}
+                    </nz-form-label>
+                    <nz-form-control
+                        [nzErrorTip]="( 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.ERR.DEPARTMENT' | translate)">
+                        <nz-select nzShowSearch nzAllowClear nzDisabled="true"
+                            nzPlaceHolder="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.PLACEHOLDER.DEPARTMENT' | translate}}"
+                            id="department" formControlName="department">
+                            <nz-option [nzLabel]="selectedOrgChartName" [nzValue]="selectedOrgChartId"></nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="24" nzLabelAlign="left">
+                        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.INPUT.ROLE' | translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="
+                    ((validateForm.get('role')?.errors?.['departmentRequired']) ||
+                    (validateForm.get('role')?.touched && validateForm.get('department')?.invalid))
+                    ? ('PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.ERR.DEPARTMENT_FIRST' | translate)
+                    : ('PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.ERR.ROLE' | translate)">
+                        <nz-select nzShowSearch nzAllowClear nzDisabled="true"
+                            nzPlaceHolder="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.PLACEHOLDER.ROLE' | translate}}"
+                            id="role" formControlName="role">
+                            <nz-option [nzLabel]="selectedRoleName" [nzValue]="selectedRoleId"></nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired nzLabelAlign="left">
+                        {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.INPUT.ACCESS' | translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.EDIT.ERR.ACCESS' | translate)">
+                        <nz-checkbox-wrapper>
+                            <nz-checkbox-group formControlName="authorities">
+                                @for(authority of translatedAuthorityList; track authority){
+                                <nz-form-label nzLabelAlign="left" nzNoColon>
+                                    <label nz-checkbox nzValue="{{authority.id}}">{{authority.label}}
+                                        <nz-icon nzType="info-circle" nzTheme="outline"
+                                            [nzTooltipTitle]="authority.description" nzTooltipPlacement="top"
+                                            nz-tooltip />
+                                    </label>
+                                </nz-form-label><br />
+                                }
+                            </nz-checkbox-group>
+                        </nz-checkbox-wrapper>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">Cancel</button>
+            <button nz-button nzType="primary" (click)="showConfirm()">Submit</button>
+        </div>
+    </ng-template>
+
+</nz-drawer>

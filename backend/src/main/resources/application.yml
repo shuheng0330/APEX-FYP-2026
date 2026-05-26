@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: career-path-learning-backend
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: false
+    baseline-on-migrate: true
+    baseline-version: 1
+    out-of-order: true
+
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 502MB
+      enabled: true
+
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS}
+      mail.smtp.starttls.required: ${MAIL_STARTTLS}
+      mail.smtp.ssl.trust: "*"
+      mail.smtp.connectiontimeout: 30000
+      mail.smtp.timeout: 30000
+      mail.smtp.writetimeout: 30000
+      mail.debug: true
+
+  mvc:
+    pathMatch:
+      matching-strategy: ANT_PATH_MATCHER
+
+jwt:
+  secret: ${JWT_SECRET}
+
+server:
+  port: ${SERVER_PORT:8443}
+  name: ${APP_NAME}
+
+cookies:
+  expiry:
+    day: 7
+
+account:
+  max:
+    login:
+      failed:
+        attempts: 5
+    reset:
+      password:
+        attempts: 7
+
+otp:
+  expiry:
+    minutes: 5
+
+logging:
+  level:
+    org.springframework.boot.context.config: DEBUG
+    me.paulschwarz.springdotenv: DEBUG
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR}
+  template-dir: ${TEMPLATE_DIR}
+
+frontend:
+  origin: ${FRONTEND_ORIGIN}
+
+mail-server:
+  no-reply: ${MAIL_FROM_NO_REPLY}
+

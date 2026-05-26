@@ -1,0 +1,101 @@
+.status-section {
+    padding: 16px 0;
+
+    .status-badge {
+        display: flex;
+        align-items: center;
+        margin-bottom: 24px;
+
+        .label {
+            font-weight: 500;
+            color: #595959;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        nz-badge {
+            ::ng-deep .ant-badge-status-text {
+                font-size: 16px;
+                font-weight: 600;
+            }
+        }
+    }
+
+    .cycle-info {
+        margin-bottom: 24px;
+        background: #f5f5f5;
+        padding: 16px;
+        border-radius: 8px;
+
+        &.empty {
+            background: #fafafa;
+            border: 1px dashed #d9d9d9;
+        }
+
+        .info-item {
+            .label {
+                display: block;
+                font-size: 12px;
+                color: #8c8c8c;
+                margin-bottom: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .value {
+                font-size: 16px;
+                font-weight: 500;
+                color: #262626;
+            }
+        }
+    }
+
+    .actions {
+        margin-top: 32px;
+    }
+}
+
+.history-section {
+
+    ::ng-deep .ant-collapse-header {
+        font-weight: 500;
+    }
+
+    .history-item {
+        display: flex;
+        flex-direction: column;
+
+        .year {
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .status {
+            font-size: 12px;
+            color: #8c8c8c;
+            margin: 2px 0;
+        }
+
+        .date-range {
+            font-size: 12px;
+            color: #595959;
+        }
+    }
+}
+
+.target-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    color: #595959;
+    font-size: 13px;
+    background: #e6f7ff;
+    border: 1px solid #91d5ff;
+    padding: 8px 12px;
+    border-radius: 4px;
+
+    span[nz-icon] {
+        color: #1890ff;
+    }
+}

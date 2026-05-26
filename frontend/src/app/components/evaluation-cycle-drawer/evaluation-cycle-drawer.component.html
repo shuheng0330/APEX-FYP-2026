@@ -1,0 +1,95 @@
+<nz-drawer [nzClosable]="true" [nzVisible]="visible" nzPlacement="right" nzTitle="Evaluation Cycle"
+    (nzOnClose)="close()" [nzWidth]="drawerWidth">
+    <ng-container *nzDrawerContent>
+        <nz-spin [nzSpinning]="loading">
+
+            <!-- Current Status Section -->
+            <div class="status-section">
+                <div class="status-badge">
+                    <span class="label">Status:</span>
+                    <nz-badge [nzStatus]="getStatusColor(currentCycle?.status)"
+                        [nzText]="getStatusText(currentCycle?.status)"></nz-badge>
+                </div>
+
+                <div class="cycle-info" *ngIf="currentCycle">
+                    <div class="info-item">
+                        <span class="label">Current Cycle:</span>
+                        <div class="value" style="display: flex; align-items: center; gap: 8px;">
+                            <span>{{ currentCycle.startDate | date:'dd MMM yyyy' }} → {{ currentCycle.endDate | date:'dd MMM yyyy' }}</span>
+                            <button nz-button nzType="text" nzSize="small" (click)="showNewCycleModal(true)">
+                                <span nz-icon nzType="edit" nzTheme="outline"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cycle-info empty" *ngIf="!currentCycle">
+                    <div class="info-item">
+                        <span class="label">Current Cycle:</span>
+                        <div class="value">Not Scheduled</div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <span nz-tooltip
+                        [nzTooltipTitle]="hasActiveCycle ? 'An evaluation cycle is already active or upcoming.' : null"
+                        style="display: block; width: 100%;">
+                        <button nz-button nzType="primary" nzBlock (click)="showNewCycleModal()"
+                            [disabled]="hasActiveCycle">
+                            Open New Evaluation Cycle
+                        </button>
+                    </span>
+                </div>
+            </div>
+
+            <nz-divider></nz-divider>
+
+            <!-- History Section -->
+            <div class="history-section">
+                <nz-collapse [nzBordered]="false">
+                    <nz-collapse-panel nzHeader="History" [nzActive]="false">
+                        <nz-spin [nzSpinning]="historyLoading">
+                            <nz-timeline>
+                                <nz-timeline-item *ngFor="let cycle of history"
+                                    [nzColor]="getStatusColor(cycle.status)">
+                                    <div class="history-item">
+                                        <span class="year">{{ cycle.endDate | date:'yyyy' }}</span>
+                                        <span class="status">{{ cycle.status }}</span>
+                                        <div class="date-range">
+                                            {{ cycle.startDate | date:'dd MMM' }} - {{ cycle.endDate | date:'dd MMM' }}
+                                        </div>
+                                    </div>
+                                </nz-timeline-item>
+                                <nz-timeline-item *ngIf="history.length === 0 && !historyLoading" nzColor="gray">
+                                    No history available
+                                </nz-timeline-item>
+                            </nz-timeline>
+                        </nz-spin>
+                    </nz-collapse-panel>
+                </nz-collapse>
+            </div>
+
+        </nz-spin>
+    </ng-container>
+</nz-drawer>
+
+<!-- Open/Edit Cycle Modal -->
+<nz-modal [(nzVisible)]="isModalVisible" [nzTitle]="isEditMode ? 'Edit Evaluation Cycle' : 'Open Evaluation Cycle'"
+    (nzOnCancel)="handleCancelModal()" (nzOnOk)="handleOkModal()" [nzOkLoading]="isSubmitting" [nzWidth]="400">
+    <ng-container *nzModalContent>
+        <form nz-form [formGroup]="newCycleForm" nzLayout="vertical">
+            <nz-form-item>
+                <nz-form-label nzRequired>Duration</nz-form-label>
+                <nz-form-control nzErrorTip="Please select start and end dates">
+                    <nz-range-picker formControlName="dateRange" style="width: 100%;"
+                        [nzDisabledDate]="disabledDate"></nz-range-picker>
+                </nz-form-control>
+            </nz-form-item>
+
+            <div class="target-info">
+                <span nz-icon nzType="info-circle" nzTheme="outline"></span>
+                <span>Target: All Departments</span>
+            </div>
+        </form>
+    </ng-container>
+</nz-modal>

@@ -1,0 +1,102 @@
+<app-view-roles-competencies></app-view-roles-competencies>
+
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])" [nzBodyStyle]="{ overflow: 'auto' }"
+    [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{data?.careerPathwayName}} ({{data?.orgChartName}})" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <div *nzDrawerContent>
+        <nz-empty nzNotFoundImage="simple" *ngIf="!data"></nz-empty>
+        <div class="expanded-panel">
+            <h3 style="padding-top: 5px; padding-bottom: 5px;">
+                {{'PAGE.CAREER_PATHWAY.OVERVIEW.TABLE.DESC' | translate}}
+            </h3>
+            <i>{{data?.careerPathwayDescription ?? '-'}} </i>
+
+            <div style="border-bottom: solid 1px #f0f0f0; margin-top: 20px;"></div>
+
+            @if(data?.trackDtoList?.length != 0){
+            <div style="margin-top: 10px;">
+                <nz-tag *ngFor="let track of data?.trackDtoList; let i = index"
+                    [nzColor]="colorCodes[i % colorCodes.length]">
+                    # {{ track.track }}
+                </nz-tag>
+            </div>
+            }
+
+            <div class="chart-column">
+                <div class="org-chart-container">
+                    <ngx-interactive-org-chart *ngIf="data?.graph" [hidden]="!data?.graph" #orgChart
+                        [data]="data?.graph!" class="org-chart">
+                        <ng-template #nodeTemplate let-node="node">
+                            @let nodeData = node?.data;
+                            <nz-card *ngIf="nodeData.hasVisited === 1" [nzTitle]="visitedTitle" class="visited-node">
+                                <a (click)="viewRoleDetails(node.id)" (touchstart)="$event.stopPropagation()"
+                                    (mousedown)="$event.stopPropagation()"
+                                    style="cursor: pointer; position: relative; z-index: 10;">
+                                    {{'PAGE.CAREER_PATHWAY.MY.CLICK'|translate}}
+                                </a>
+                            </nz-card>
+                            <ng-template #visitedTitle>
+                                <span>
+                                    <nz-icon *ngIf="nodeData.deleted" nzType="warning" nzTheme="twotone"
+                                        [nzTwotoneColor]="red" nz-tooltip
+                                        nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.WARNING.ROLE' | translate}}" />
+                                    <nz-icon *ngIf="!nodeData.deleted" nzType="check-circle" nzTheme="outline" />
+                                    <b style="padding-left: 10px;">
+                                        {{node.name}}
+                                    </b>
+                                </span>
+                            </ng-template>
+
+                            <nz-card *ngIf="nodeData.hasVisited === 0" [nzTitle]="currentTitle" class="current-node">
+                                <a (click)="viewRoleDetails(node.id)" (touchstart)="$event.stopPropagation()"
+                                    (mousedown)="$event.stopPropagation()"
+                                    style="cursor: pointer; position: relative; z-index: 10;">
+                                    {{'PAGE.CAREER_PATHWAY.MY.CLICK'|translate}}
+                                </a>
+                            </nz-card>
+                            <ng-template #currentTitle>
+                                <span>
+                                    <nz-icon *ngIf="nodeData.deleted" nzType="warning" nzTheme="twotone"
+                                        [nzTwotoneColor]="red" nz-tooltip
+                                        nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.WARNING.ROLE' | translate}}" />
+                                    <nz-icon *ngIf="!nodeData.deleted" nzType="aim" nzTheme="outline" />
+                                    <b style="padding-left: 10px;">
+                                        {{node.name}}
+                                    </b>
+                                </span>
+                            </ng-template>
+
+                            <nz-card *ngIf="nodeData.hasVisited === -1" [nzTitle]="nextTitle" class="next-node">
+                                <a (click)="viewRoleDetails(node.id)" (touchstart)="$event.stopPropagation()"
+                                    (mousedown)="$event.stopPropagation()"
+                                    style="cursor: pointer; position: relative; z-index: 10;">
+                                    {{'PAGE.CAREER_PATHWAY.MY.CLICK'|translate}}
+                                </a>
+                            </nz-card>
+                            <ng-template #nextTitle>
+                                <span>
+                                    <nz-icon *ngIf="nodeData.deleted" nzType="warning" nzTheme="twotone"
+                                        [nzTwotoneColor]="red" nz-tooltip
+                                        nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.WARNING.ROLE' | translate}}" />
+                                    <nz-icon *ngIf="!nodeData.deleted" nzType="flag" nzTheme="outline" />
+                                    <b style="padding-left: 10px;">
+                                        {{node.name}}
+                                    </b>
+                                </span>
+                            </ng-template>
+                        </ng-template>
+                    </ngx-interactive-org-chart>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.OVERVIEW.BUTTON.CANCEL'| translate}}
+            </button>
+        </div>
+    </ng-template>
+</nz-drawer>

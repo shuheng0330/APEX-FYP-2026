@@ -1,0 +1,169 @@
+<app-add-career-pathway (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])">
+</app-add-career-pathway>
+
+<app-edit-career-pathway (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])">
+</app-edit-career-pathway>
+
+<app-view-career-pathway *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])">
+</app-view-career-pathway>
+
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.CAREER_PATHWAY.OVERVIEW.UPLOAD.INSTRUCTION' | translate}}"
+    *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])"
+    uploadHint="{{'PAGE.CAREER_PATHWAY.OVERVIEW.UPLOAD.HINT' | translate}}"
+    templateName="CareerPathwayDefinitionUploadTemplate" (confirm)="importData()">
+</app-file-upload>
+
+<div class="centered-padding-body" *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])">
+    <div class="space-between-button-group">
+        <div class="button-group">
+            <button class="blue-button" (click)="export()">
+                {{ 'PAGE.CAREER_PATHWAY.OVERVIEW.BUTTON.EXPORT' | translate }}
+                <nz-icon nzType="export" class="button-icon" /></button>
+            <button class="blue-button" (click)="openFileSelector()">
+                {{ 'PAGE.CAREER_PATHWAY.OVERVIEW.BUTTON.IMPORT' | translate }}
+                <nz-icon nzType="import" class="button-icon" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.CAREER_PATHWAY.OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteCareerPathway()">{{
+                'PAGE.CAREER_PATHWAY.OVERVIEW.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addCareerPathway()">{{
+                'PAGE.CAREER_PATHWAY.OVERVIEW.BUTTON.ADD' | translate }} <nz-icon nzType="plus"
+                    class="button-icon" /></button>
+        </div>
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected"> Selected {{setOfCheckedId.size}} items</p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" nzBordered #careerPathwayOverviewTable nzTableLayout="fixed" class="career-pathway-overview-table"
+        [nzData]="listOfDisplayData" (nzCurrentPageDataChange)="onCurrentPageDataChange($event)"
+        [nzScroll]="{x: '900px', y:'400px'}">
+        <thead>
+            <tr>
+                <th nzWidth="40px"></th>
+                <th nzAlign="center" nzWidth="40px" [(nzChecked)]="checked" [nzIndeterminate]="indeterminate"
+                    (nzCheckedChange)="onAllChecked($event)">
+                </th>
+                <th nzWidth=" 80px" nzAlign="center">
+                    {{'PAGE.CAREER_PATHWAY.OVERVIEW.TABLE.ACTION' | translate}}
+                </th>
+
+                <th [nzSortFn]="sortByDepartmentName">
+                    {{'PAGE.CAREER_PATHWAY.OVERVIEW.TABLE.DEPARTMENT' | translate}}
+                </th>
+                <th [nzSortFn]="sortByCareerPathwayName">
+                    {{'PAGE.CAREER_PATHWAY.OVERVIEW.TABLE.CAREER_PATHWAY' | translate}}
+                </th>
+                <th>
+                    {{'PAGE.CAREER_PATHWAY.OVERVIEW.TABLE.ROLE' | translate}}
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of careerPathwayOverviewTable.data; track row) {
+            <tr>
+                <td nzAlign="center">
+                    <a (click)="viewCareerPathway(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td nzAlign="center" [nzChecked]="setOfCheckedId.has(row.careerPathwayId)"
+                    (nzCheckedChange)="onItemChecked(row.careerPathwayId, $event)">
+                </td>
+
+                <td nzAlign="center">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editCareerPathway(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" />
+                                            <span> {{'PAGE.CAREER_PATHWAY.OVERVIEW.ACTION.EDIT' | translate}}</span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deleteCareerPathway(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" />
+                                            <span> {{'PAGE.CAREER_PATHWAY.OVERVIEW.ACTION.DELETE' | translate}}</span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td>
+                    <nz-icon *ngIf="row.orgChartDeleted" nzType="warning" nzTheme="twotone" [nzTwotoneColor]="red"
+                        nz-tooltip nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.WARNING.DEPARTMENT' | translate}}" />
+                    {{row.orgChartName}}
+                </td>
+
+                <td>
+                    {{row.careerPathwayName}}
+                    <br />
+                    <nz-tag [nzColor]="'blue'">
+                        <span>
+                            {{careerPathwayRoleMap?.[row.careerPathwayId]?.length || 0 }}
+                            {{'PAGE.CAREER_PATHWAY.OVERVIEW.TABLE.ROLE' | translate}}
+                        </span>
+                    </nz-tag>
+                </td>
+
+                <td>
+                    <nz-tag *ngFor="let role of careerPathwayRoleMap?.[row.careerPathwayId]; let i = index"
+                        [nzColor]="roleColorCodes[i % roleColorCodes.length]">
+                        <nz-icon *ngIf="role.deleted" nzType="warning" nzTheme="twotone" [nzTwotoneColor]="red"
+                            nz-tooltip nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.WARNING.ROLE' | translate}}" />
+                        {{ role.name }}
+                    </nz-tag>
+                </td>
+            </tr>
+
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" nzTheme="outline" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" nzTheme="outline" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

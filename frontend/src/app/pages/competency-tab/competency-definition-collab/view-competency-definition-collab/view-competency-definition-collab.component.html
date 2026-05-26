@@ -1,0 +1,76 @@
+<nz-drawer [nzWidth]="drawerWidth" [nzVisible]="visible$.value" nzPlacement="right" [nzTitle]="title"
+    (nzOnClose)="close()">
+    <ng-container *nzDrawerContent>
+        <div *ngIf="notFound; else dataFound" class="data-not-found">
+            <nz-empty [nzNotFoundContent]="contentTpl" [nzNotFoundFooter]="footerTpl">
+            </nz-empty>
+            <ng-template #contentTpl>
+                <p>
+                    {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.NOT_FOUND.NO_AVAILABLE' |translate}}
+                    <br />
+                    {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.NOT_FOUND.REASON' |translate}}
+                </p>
+            </ng-template>
+            <ng-template #footerTpl>
+                <button nz-button nzType="primary" (click)="notFoundClick()">
+                    {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.NOT_FOUND.BUTTON' |translate}}
+                </button>
+            </ng-template>
+        </div>
+        <ng-template #dataFound>
+            <div class="expanded-panel">
+                <div class="meta-column">
+                    <div class="meta-item">
+                        <span class="label">
+                            {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.PROPOSER' | translate}}
+                        </span>
+                        <div class="value">
+                            <nz-avatar [nzText]="data?.collaboratorName?.charAt(0)" [nzSize]="24"
+                                style="background-color: #87d068; margin-right: 8px;"></nz-avatar>
+                            {{data?.collaboratorName ?? '-'}}
+                            <div class="email">{{data?.collaboratorEmail}}</div>
+                        </div>
+                    </div>
+
+                    <div class="meta-item">
+                        <span class="label">
+                            {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.UPDATE' | translate}}
+                        </span>
+                        <div class="value">
+                            <nz-avatar [nzText]="data?.lastUpdatedBy?.name?.charAt(0) ?? '?'" [nzSize]="24"
+                                style="background-color: #1890ff; margin-right: 8px;"></nz-avatar>
+                            {{data?.lastUpdatedBy?.name ?? '-'}}
+                            <div class="email">{{data?.lastUpdatedBy?.email ?? '-'}}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-column">
+                    <h4 class="detail-title">
+                        <nz-icon nzType="file-text" nzTheme="outline" />
+                        {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.ABOUT' | translate}}
+                    </h4>
+
+                    <div class="info-block">
+                        <p class="main-desc" *ngIf="data?.competencyDescription; else noDesc">
+                            {{data?.competencyDescription}}
+                        </p>
+                        <ng-template #noDesc><span class="text-muted">- No Description -</span></ng-template>
+                    </div>
+                    <div class="tags-container" *ngIf="data?.assignedCompTags?.length">
+                        <h5 class="sub-title">
+                            <nz-icon nzType="tags" nzTheme="outline" />
+                            {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.VIEW.TAG' | translate}}
+                        </h5>
+                        <div class="tag-list">
+                            <nz-tag *ngFor="let compTag of data?.assignedCompTags!; let i = index"
+                                [nzColor]="colorCodes[i % colorCodes.length]">
+                                # {{ compTag.tag }}
+                            </nz-tag>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </ng-template>
+    </ng-container>
+</nz-drawer>

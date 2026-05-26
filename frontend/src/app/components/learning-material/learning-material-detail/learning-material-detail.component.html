@@ -1,0 +1,59 @@
+<div class="material-details">
+  <h3>{{ selectedMaterial.title }}</h3>
+
+  <div class="detail-section">
+    <h4>Description</h4>
+    <p>{{ selectedMaterial.description }}</p>
+  </div>
+
+  <div class="detail-section" *ngIf="selectedMaterial.departments?.length > 0">
+    <h4>Department(s)</h4>
+    <div class="department-tags">
+      <nz-tag class="tag" *ngFor="let dept of selectedMaterial.departments" [nzColor]="'blue'">{{ dept.name }}</nz-tag>
+    </div>
+  </div>
+
+  <div class="detail-section" *ngIf="selectedMaterial.competency?.length > 0">
+    <h4>Competency(s)</h4>
+    <div class="department-tags">
+      <nz-tag class="tag" *ngFor="let comp of selectedMaterial.competency" [nzColor]="'purple'">{{ comp.name }}</nz-tag>
+    </div>
+  </div>
+
+  <div class="detail-section" *ngIf="selectedMaterial.materialType">
+    <h4>Material Type</h4>
+    <p>{{ selectedMaterial.materialType }}</p>
+  </div>
+
+  <div class="detail-section" *ngIf="selectedMaterial.learningOutcomes?.length > 0">
+    <h4>Learning Outcomes</h4>
+    <ul class="outcomes-list">
+      <li *ngFor="let outcome of selectedMaterial.learningOutcomes">{{ outcome }}</li>
+    </ul>
+  </div>
+
+  <div class="detail-section">
+    <h4>Documents</h4>
+    <p *ngIf="!selectedMaterial.learningDocuments?.length">
+      No documents available for this course.
+    </p>
+    <div *ngIf="selectedMaterial.learningDocuments?.length > 0">
+      <div class="document-count">
+        {{ selectedMaterial.learningDocuments.length }} document(s) available
+      </div>
+    </div>
+  </div>
+
+  <div class="action-buttons" *ngIf="actionButton">
+    <button *ngIf="isEnrolled" class="primary-btn" (click)="startCourse(selectedMaterial)">
+      Start Learning
+    </button>
+    <button *ngIf="!isEnrolled" class="primary-btn" (click)="enrollLearningMaterial(selectedMaterial)">
+      Enroll
+    </button>
+    <button *ngIf="isEnrolled" class="secondary-btn mt-10px"  [disabled]="selectedMaterial.isUnenrolling" (click)="unenroll(selectedMaterial)">
+      Unenroll
+    </button>
+  </div>
+</div>
+

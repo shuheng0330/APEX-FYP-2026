@@ -1,0 +1,225 @@
+.evaluation-overview-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+// Top Section - Summary Cards
+.summary-cards-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+
+  .summary-card {
+    text-align: center;
+
+    .card-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+
+      .card-icon {
+        font-size: 32px;
+        color: #1890ff;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+
+    .performer-card {
+      text-align: center;
+
+      .performer-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 12px;
+
+        .performer-label {
+          font-size: 14px;
+          color: #666;
+        }
+      }
+
+      .performer-name {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #000;
+      }
+
+      .performer-score {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1890ff;
+      }
+
+      .no-data {
+        color: #999;
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+// Middle Section - Charts
+.charts-section {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 20px;
+  margin-bottom: 30px;
+
+  .chart-card {
+    .chart-container {
+      height: 300px;
+      position: relative;
+    }
+  }
+
+  .heatmap-card {
+    grid-column: 1 / -1;
+
+    .heatmap-container {
+      padding: 20px;
+
+      .heatmap-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        gap: 16px;
+
+        .heatmap-label {
+          min-width: 150px;
+          font-size: 14px;
+          color: #333;
+        }
+
+        .heatmap-bar {
+          flex: 1;
+          height: 24px;
+          background-color: #f0f0f0;
+          border-radius: 4px;
+          position: relative;
+          display: flex;
+          align-items: center;
+
+          .heatmap-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+          }
+
+          .heatmap-value {
+            position: absolute;
+            right: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            z-index: 1;
+          }
+        }
+      }
+
+      .no-data {
+        text-align: center;
+        color: #999;
+        padding: 40px;
+      }
+    }
+  }
+}
+
+// Bottom Section - Tables
+.tables-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+
+  .table-card {
+    &.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .no-data {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 1200px) {
+  .charts-section {
+    grid-template-columns: 1fr;
+
+    .heatmap-card {
+      grid-column: 1;
+    }
+  }
+
+  .tables-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .summary-cards-section {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .chart-card .chart-container {
+    height: 250px;
+  }
+}
+
+// Card styling
+::ng-deep .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+::ng-deep .ant-statistic-title {
+  font-size: 14px;
+  color: #666;
+}
+
+::ng-deep .ant-statistic-content {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+// Table row hover effect
+::ng-deep .ant-table-tbody>tr:hover>td {
+  background-color: #f5f5f5;
+}
+
+.card-style ::ng-deep .ant-card-body {
+  min-height: 158px;
+  display: flex;
+  /* enable flex */
+  flex-direction: column;
+  /* stack elements vertically if more than 1 */
+  justify-content: center;
+  /* vertical centering */
+  align-items: center;
+  /* horizontal centering */
+  text-align: center;
+  /* centers text */
+}
+
+//
+//.custom-height-card .ant-card-body {
+//  //height: 156px;
+//}
+
+.no-data {
+  color: #999;
+  font-size: 14px;
+}

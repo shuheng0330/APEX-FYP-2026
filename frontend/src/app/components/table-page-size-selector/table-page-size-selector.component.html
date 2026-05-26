@@ -1,0 +1,17 @@
+<div class="page-size-selector">
+    <span class="label">
+        {{ 'COMPONENT.TABLE_PAGE_SIZE.ROWS_PER_PAGE' | translate }}
+    </span>
+    
+    <nz-select 
+        [ngModel]="pageSize" 
+        (ngModelChange)="onSizeChange($event)" 
+        size="small" 
+        class="size-select">
+        
+        <nz-option *ngFor="let size of sizeOptions" 
+                   [nzValue]="size" 
+                   [nzLabel]="size">
+        </nz-option>
+    </nz-select>
+</div>

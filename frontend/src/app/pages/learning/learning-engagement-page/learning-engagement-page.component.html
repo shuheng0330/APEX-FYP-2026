@@ -1,0 +1,140 @@
+<div>
+  <h1 class="text-center">{{ titleKey | translate }}</h1>
+</div>
+
+<nz-tabset nzCentered>
+  <!-- Discover Tab -->
+  <nz-tab nzTitle="Discover">
+    <div class="centered-padding-body">
+      <nz-skeleton *ngIf="isLoading"></nz-skeleton>
+      <div class="engagement-page" *ngIf="!isLoading">
+
+        <section class="section">
+          <div class="section-header">
+            <h3>Explore All Courses</h3>
+            <button class="more-btn" (click)="openCategory('explore')">More
+              <nz-icon nzType="arrow-right" nzTheme="outline" /></button>
+          </div>
+          <div *ngIf="exploreAllMaterial.length === 0" class="empty">
+            <nz-empty [nzNotFoundContent]="contentTpl"></nz-empty>
+          </div>
+          <div class="card-row" *ngIf="exploreAllMaterial.length > 0">
+            <div class="course-card" *ngFor="let item of exploreAllMaterial">
+              <div class="content">
+                <h4 class="title">{{ item.title }}</h4>
+                <p class="desc">{{ item.description }}</p>
+                <div class="actions">
+                  <button *ngIf="!isEnrolled(item.materialId)" class="blue-button"
+                    (click)="enrollLearningMaterial(item)">Enroll</button>
+                  <button *ngIf="isEnrolled(item.materialId)" class="blue-button"
+                    [routerLink]="['/learning-materials', item.materialId, 'preview']">Start</button>
+                  <button class="secondary" (click)="openDetails(item)">More details</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h3>Recommended Courses</h3>
+            <button class="more-btn" (click)="openCategory('recommended')">More
+              <nz-icon nzType="arrow-right" nzTheme="outline" /></button>
+          </div>
+          <div *ngIf="recommended.length === 0" class="empty">
+            <nz-empty [nzNotFoundContent]="contentTpl"></nz-empty>
+          </div>
+          <div class="card-row" *ngIf="recommended.length > 0">
+            <div class="course-card" *ngFor="let item of recommended">
+              <div class="content">
+                <h4 class="title">{{ item.title }}</h4>
+                <p class="desc">{{ item.description }}</p>
+                <div class="actions">
+                  <button *ngIf="!isEnrolled(item.materialId)" class="blue-button"
+                    (click)="enrollLearningMaterial(item)">Enroll</button>
+                  <button *ngIf="isEnrolled(item.materialId)" class="blue-button"
+                    [routerLink]="['/learning-materials', item.materialId, 'preview']">Start</button>
+                  <button class="secondary" (click)="openDetails(item)">More details</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </nz-tab>
+
+  <!-- My Learning Tab -->
+  <nz-tab nzTitle="My Learning">
+    <div class="centered-padding-body">
+      <div class="engagement-page" *ngIf="!isLoading">
+        <section class="section">
+          <div class="section-header">
+            <h3>In Progress</h3>
+          </div>
+          <div *ngIf="inProgressCourseList.length === 0" class="empty">
+            <nz-empty [nzNotFoundContent]="noEnrolledCourses"></nz-empty>
+          </div>
+          <div class="card-row" *ngIf="inProgressCourseList.length > 0">
+            <div class="course-card" *ngFor="let item of inProgressCourseList" (click)="openDetails(item)">
+              <div class="content">
+                <h4 class="title">{{ item.title }}</h4>
+                <p class="desc">{{ item.description }}</p>
+                <nz-progress [nzPercent]="item.progress"> nzSize="small" nzStatus="active"></nz-progress>
+                <div class="actions">
+                  <button class="red-button"
+                    [routerLink]="['/learning-materials', item.materialId, 'preview']">Resume</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h3>Completed</h3>
+          </div>
+          <div class="card-row" *ngIf="completedCourseList.length > 0">
+            <div class="course-card" *ngFor="let item of completedCourseList" (click)="openDetails(item)">
+              <div class="content">
+                <h4 class="title">{{ item.title }}</h4>
+                <p class="desc">{{ item.description }}</p>
+                <nz-progress [nzPercent]="100" nzSize="small"></nz-progress>
+                <div class="actions">
+                  <button class="red-button"
+                    [routerLink]="['/learning-materials', item.materialId, 'preview']">Review</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="completedCourseList.length === 0" class="empty">
+            <nz-empty [nzNotFoundContent]="noCompletedCourses"></nz-empty>
+          </div>
+        </section>
+      </div>
+    </div>
+  </nz-tab>
+</nz-tabset>
+
+<ng-template #materialDetailsTpl >
+  <app-learning-material-detail (navigate)="onCloseCourseDetailDrawer()" [actionButton]="true" [selectedMaterial]="selectedMaterial" [isEnrolled]="isEnrolled(selectedMaterial?.materialId)" [userId]="userId"></app-learning-material-detail>
+</ng-template>
+
+<ng-template #contentTpl>
+  <span class="no-data">
+    No Courses
+  </span>
+</ng-template>
+
+<ng-template #noEnrolledCourses>
+  <span class="no-data">
+    No Enrolled Courses
+  </span>
+</ng-template>
+
+<ng-template #noCompletedCourses>
+  <span class="no-data">
+    No Completed Courses
+  </span>
+</ng-template>

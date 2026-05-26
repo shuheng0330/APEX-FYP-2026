@@ -1,0 +1,180 @@
+<app-view-roles-competencies></app-view-roles-competencies>
+<app-add-role *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" [isAddingRoleCompetencies]="true"
+    (createdRole)="handleCreatedRole($event)">
+</app-add-role>
+<app-edit-competency-assignment *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" (formSubmitted)="addRoleAssignment()"
+    [isAddingRoleCompetencies]="true">
+</app-edit-competency-assignment>
+<app-edit-role-assignment *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" (formSubmitted)="loadList()">
+</app-edit-role-assignment>
+
+<app-edit-role *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" [isAddingRoleCompetencies]="true"
+    (updatedRole)="handleUpdatedRole($event)">
+</app-edit-role>
+
+<h1 class="text-center">{{ 'PAGE.ROLES_COMPETENCIES.TITLE' | translate }}</h1>
+<hr>
+<div class="centered-padding-body">
+    <div class="space-between-button-group">
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.ROLES_COMPETENCIES.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteRolesCompetencies()">
+                {{'PAGE.ROLES_COMPETENCIES.BUTTON.DELETE' | translate }}
+                <nz-icon nzType="delete" class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addRolesCompetencies()">
+                {{'PAGE.ROLES_COMPETENCIES.BUTTON.ADD' | translate }}
+                <nz-icon nzType="plus" class="button-icon" />
+            </button>
+        </div>
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])"> Selected {{setOfCheckedId.size}} items</p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" #rolesCompetenciesOverviewTable nzBordered [nzData]="listOfDisplayData"
+        style="margin-top: 1%;" (nzCurrentPageDataChange)="onCurrentPageDataChange($event)"
+        [nzScroll]="{x: '700px', y:'400px'}">
+        <thead>
+            <tr>
+                <th nzWidth="60px"></th>
+
+                <th *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" nzWidth="50px" [(nzChecked)]="checked"
+                    [nzIndeterminate]="indeterminate" (nzCheckedChange)="onAllChecked($event)"></th>
+                <th *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" nzWidth="80px" nzAlign="center">
+                    {{'PAGE.ROLES_COMPETENCIES.TABLE.ACTION' | translate}}
+                </th>
+
+                <th nzWidth="110px" [nzSortFn]="sortByVisibility"
+                    *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_VIEW_INVISIBLE_ROLE'])">
+                    {{'PAGE.ROLES_COMPETENCIES.TABLE.VISIBILITY' | translate}}
+                </th>
+                <th [nzSortFn]="sortByOrgChartName">{{'PAGE.ROLES_COMPETENCIES.TABLE.DEPARTMENT' | translate}}</th>
+                <th [nzSortFn]="sortByRoleName">{{'PAGE.ROLES_COMPETENCIES.TABLE.ROLE' | translate}}</th>
+                <th>{{'PAGE.ROLES_COMPETENCIES.TABLE.COMPETENCY' | translate}}</th>
+                <th *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF', 'CAN_VIEW_STAFF'])">
+                    {{'PAGE.ROLES_COMPETENCIES.TABLE.STAFF.STAFF' | translate}}
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of rolesCompetenciesOverviewTable.data; track row) {
+            <tr>
+                <td nzAlign="center" nzWidth="60px">
+                    <a (click)="viewRolesCompetencies(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" [nzChecked]="setOfCheckedId.has(row.roleId)"
+                    (nzCheckedChange)="onItemChecked(row.roleId, $event)"></td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" nzAlign="center">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editRolesCompetencies(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" />
+                                            <span> {{'PAGE.ROLES_COMPETENCIES.ACTION.EDIT' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deleteRolesCompetencies(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" />
+                                            <span> {{'PAGE.ROLES_COMPETENCIES.ACTION.DELETE' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td class="blue-red-switch" nzAlign="center"
+                    *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_VIEW_INVISIBLE_ROLE'])">
+                    <nz-switch [ngModel]="row.visible" (click)="toggleVisibility(row)"
+                        [nzCheckedChildren]="checkedTemplate" [nzUnCheckedChildren]="unCheckedTemplate"
+                        [disabled]="!hasAccess(['CAN_MANAGE_ROLE'])"></nz-switch>
+                </td>
+
+                <td>{{row.orgChartName}}</td>
+                <td>
+                    <b>{{row.roleName}}</b>
+                    <br />
+                    <div class="sub-info">
+                        <nz-tag [nzColor]="'blue'">{{row.jobScopes?.length || 0}}
+                            {{'PAGE.ROLES_COMPETENCIES.TABLE.JOB_SCOPE' |
+                            translate}}</nz-tag>
+                        <nz-tag [nzColor]="'blue'">{{row.competencies?.length || 0}}
+                            {{'PAGE.ROLES_COMPETENCIES.TABLE.COMPETENCY' |
+                            translate}}</nz-tag>
+                        <nz-tag [nzColor]="'blue'" *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF'])">
+                            {{row.staffs?.length || 0}}
+                            {{'PAGE.ROLES_COMPETENCIES.TABLE.STAFF.STAFF' | translate}}
+                        </nz-tag>
+                    </div>
+                </td>
+
+                <td>
+                    <div class="sub-info">
+                        <nz-tag *ngFor="let roleComp of row.competencies; let i = index"
+                            [nzColor]="colorCodes[i % colorCodes.length]">
+                            <span>{{ roleComp.competency.name }} - {{roleComp.weightage}} %</span>
+                        </nz-tag>
+                        <span *ngIf="row.competencies?.length === 0">-</span>
+                    </div>
+                </td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF', 'CAN_VIEW_STAFF'])">
+                    <div class="sub-info">
+                        <nz-tag *ngFor="let staff of row.staffs; let i = index"
+                            [nzColor]="colorCodes[i % colorCodes.length]" nz-tooltip nzTooltipTitle="{{ staff.email }}">
+                            <span *ngIf="staff.name">{{ staff.name }}</span>
+                            <span *ngIf="!staff.name">{{ staff.email }}</span>
+                        </nz-tag>
+                        <span *ngIf="row.staffs?.length === 0">-</span>
+                    </div>
+                </td>
+            </tr>
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" nzTheme="outline" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" nzTheme="outline" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

@@ -1,0 +1,11 @@
+<h1 class="text-center">{{ 'PAGE.STAFF.TITLE' | translate }}</h1>
+
+<nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex">
+    <nz-tab nzTitle="{{ 'PAGE.STAFF.STAFF_OVERVIEW.TITLE' | translate }}">
+        <ng-template nz-tab><app-staff-overview /></ng-template>
+    </nz-tab>
+    <nz-tab *ngIf="hasAccess(['CAN_VIEW_ACCESS_CONTROL', 'CAN_MANAGE_ACCESS_CONTROL'])"
+        nzTitle="{{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.TITLE' | translate }}">
+        <ng-template nz-tab><app-access-control-overview /></ng-template>
+    </nz-tab>
+</nz-tabset>

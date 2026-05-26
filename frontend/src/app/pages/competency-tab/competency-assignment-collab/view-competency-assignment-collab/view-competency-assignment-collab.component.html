@@ -1,0 +1,137 @@
+<nz-drawer [nzWidth]="drawerWidth" [nzVisible]="visible$.value" nzPlacement="right" [nzTitle]="title"
+    (nzOnClose)="close()">
+    <ng-container *nzDrawerContent>
+        <div *ngIf="notFound; else dataFound" class="data-not-found">
+            <nz-empty [nzNotFoundContent]="contentTpl" [nzNotFoundFooter]="footerTpl">
+            </nz-empty>
+            <ng-template #contentTpl>
+                <p>
+                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.NOT_FOUND.NO_AVAILABLE' |translate}}
+                    <br />
+                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.NOT_FOUND.REASON' |translate}}
+                </p>
+            </ng-template>
+            <ng-template #footerTpl>
+                <button nz-button nzType="primary" (click)="notFoundClick()" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.NOT_FOUND.BUTTON' |translate}}
+                </button>
+            </ng-template>
+        </div>
+        <ng-template #dataFound>
+            <div class="meta-column">
+                <div class="meta-item">
+                    <span class="label">
+                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.PROPOSER' | translate}}
+                    </span>
+                    <div class="value">
+                        <nz-avatar [nzText]="data?.collaboratorName?.charAt(0)" [nzSize]="24"
+                            style="background-color: #87d068; margin-right: 8px;"></nz-avatar>
+                        {{data?.collaboratorName}}
+                        <div class="email">{{data?.collaboratorEmail}}</div>
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <span class="label">
+                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.UPDATE' | translate}}
+                    </span>
+                    <div class="value">
+                        <nz-avatar [nzText]="data?.lastUpdatedBy?.name?.charAt(0)" [nzSize]="24"
+                            style="background-color: #1890ff; margin-right: 8px;"></nz-avatar>
+                        {{data?.lastUpdatedBy?.name ?? '-'}}
+                        <div class="email">{{data?.lastUpdatedBy?.email }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <h4 class="detail-title">
+                <nz-icon nzType="file-text" nzTheme="outline" />
+                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.ABOUT' | translate}}
+            </h4>
+
+            <div class="info-block">
+                <p class="main-desc" *ngIf="data?.description; else noDesc">
+                    {{data?.description}}
+                </p>
+                <ng-template #noDesc><span class="text-muted">- No Description -</span></ng-template>
+            </div>
+
+            <h4 class="detail-title">
+                <nz-icon nzType="ordered-list" nzTheme="outline" />
+                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.JOB_SCOPE' | translate}}
+            </h4>
+
+            <nz-empty nzNotFoundImage="simple" *ngIf="jobScopesTable.data?.length == 0"></nz-empty>
+
+            <div class="info-block">
+                <nz-table #jobScopesTable nzBordered [nzData]="jobScopes" nzShowPagination="false">
+                    <tbody *ngIf="jobScopesTable.data?.length != 0">
+                        <tr *ngFor="let row of jobScopesTable.data">
+                            <td>
+                                {{row.jobScope}}
+                            </td>
+                        </tr>
+                    </tbody>
+                    <nz-empty nzNotFoundImage="simple" *ngIf="jobScopesTable.data?.length == 0"></nz-empty>
+                </nz-table>
+            </div>
+
+            <h4 class="detail-title">
+                <nz-icon nzType="ordered-list" nzTheme="outline" />
+                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.COMPETENCY' | translate}} ({{data?.totalWeightage ?? '0'}} %)
+            </h4>
+
+            <nz-empty nzNotFoundImage="simple" *ngIf="competencies.length == 0"></nz-empty>
+
+            <div class="info-block">
+                <div *ngFor="let data of competencies" class="competency-card-wrapper">
+                    <nz-card [nzTitle]="competencyNameTemplate" [nzExtra]="weightTemplate" class="competency-card">
+
+                        <ng-template #competencyNameTemplate>
+                            {{data.id.proposal? data.competencyProposal?.name : data.competency?.name}}
+                        </ng-template>
+
+                        <div class="card-desc">
+                            <span class="label">
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.COMPETENCY_TABLE.COMPETENCY' | translate}}:
+                            </span>
+                            <p>{{data.id.proposal? data.competencyProposal?.name : data.competency?.name}}</p>
+                        </div>
+
+                        <div class="card-desc">
+                            <span class="label">
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.COMPETENCY_TABLE.DESC' | translate}}:
+                            </span>
+                            <p>{{ data.id.proposal?
+                                data.competencyProposal?.description :
+                                data.competency?.description!}}</p>
+                        </div>
+
+                        <div class="meta-column" *ngIf="data.id.proposal">
+                            <div class="meta-item">
+                                <span class="label">
+                                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.PROPOSER' | translate}}
+                                </span>
+                                <div class="value">
+                                    <nz-avatar [nzText]="data.competencyProposal?.staff?.email?.charAt(0)" [nzSize]="24"
+                                        style="background-color: #15469C; margin-right: 8px;"></nz-avatar>
+                                    {{data.competencyProposal?.staff?.name ?? '-'}}
+                                    <div class="email">{{data.competencyProposal?.staff?.email}}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </nz-card>
+
+                    <ng-template #weightTemplate>
+                        <span class="weight-badge">{{ data.weightage }}%</span>
+                    </ng-template>
+                </div>
+
+                <div class="mobile-total-card" *ngIf="competencies.length > 0">
+                    <span>{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.VIEW.COMPETENCY_TABLE.TOTAL' | translate}}</span>
+                    <span class="total-value">{{data?.totalWeightage ?? '0'}} %</span>
+                </div>
+            </div>
+        </ng-template>
+    </ng-container>
+</nz-drawer>

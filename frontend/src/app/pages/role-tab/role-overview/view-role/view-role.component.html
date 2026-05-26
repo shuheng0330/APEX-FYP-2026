@@ -1,0 +1,40 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false"
+    [nzWidth]="drawerWidth" [nzVisible]="visible$.value" nzTitle="{{data?.roleName}} ({{data?.orgChartName}})"
+    [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <div *nzDrawerContent>
+        <nz-empty nzNotFoundImage="simple" *ngIf="!data"></nz-empty>
+        <div class="expanded-panel">
+            <h4 class="detail-title" style="padding-top: 5px; padding-bottom: 5px;">
+                <nz-icon nzType="file-text" nzTheme="outline" />
+                {{'PAGE.ROLE.OVERVIEW.TABLE.DESC' | translate}}
+            </h4>
+            <i class="detail-content" *ngIf="data?.description; else noDesc">{{data?.description}}</i>
+            <ng-template #noDesc><nz-empty nzNotFoundImage="simple"></nz-empty></ng-template>
+
+            <div style="border-bottom: 1px solid #f0f0f0; margin-top: 20px; margin-bottom: 10px;"></div>
+            <h4 class="detail-title" style="padding-top: 20px; padding-bottom: 5px;">
+                <nz-icon nzType="ordered-list" nzTheme="outline" />
+                {{'PAGE.ROLE.OVERVIEW.TABLE.JOB_SCOPE' | translate}}
+            </h4>
+
+            <nz-table #jobScopesTable nzBordered [nzData]="data?.assignedJobScopes!" nzShowPagination="false">
+                <tbody *ngIf="jobScopesTable.data?.length != 0">
+                    <tr *ngFor="let row of jobScopesTable.data">
+                        <td>
+                            {{row.jobScope}}
+                        </td>
+                    </tr>
+                </tbody>
+                <nz-empty nzNotFoundImage="simple" *ngIf="jobScopesTable.data?.length == 0"></nz-empty>
+            </nz-table>
+        </div>
+    </div>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.OVERVIEW.BUTTON.CANCEL'| translate}}
+            </button>
+        </div>
+    </ng-template>
+</nz-drawer>

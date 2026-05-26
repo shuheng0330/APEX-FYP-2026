@@ -1,0 +1,37 @@
+# 🌐 Global ignores
+.DS_Store
+Thumbs.db
+
+# 🧠 IntelliJ IDEA
+.idea/
+*.iml
+
+# 🚀 Spring Boot (backend)
+backend/src/main/resources/static
+backend/target/
+backend/source/
+backend/.env
+backend/.env.*
+backend/src/test/resources
+
+*.log
+
+# 🌐 Angular (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/src/environments/
+frontend/.vscode
+frontend/CLAUDE.md
+
+# 🧪 Test/coverage output
+**/coverage/
+**/.nyc_output/
+
+# 🧾 Logs
+*.log
+
+# 💾 OS generated files
+*.swp
+*.swo
+*.tmp

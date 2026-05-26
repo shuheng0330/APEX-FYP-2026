@@ -1,0 +1,10 @@
+.page-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+
+    .size-select {
+        width: 70px;
+    }
+}

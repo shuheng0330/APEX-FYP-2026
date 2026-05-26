@@ -1,0 +1,269 @@
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 16px 0;
+}
+
+.button-icon {
+  margin-left: 8px;
+}
+
+.dynamic-delete-button {
+  margin-left: 8px;
+  color: #ff4d4f;
+  cursor: pointer;
+  font-size: 16px
+}
+
+.add-button {
+  width: 100%;
+}
+
+//.passenger-input {
+//  width: 90%;
+//  margin-right: 8px;
+//}
+
+.inline-field {
+  position: relative;
+}
+
+.inline-field .textarea {
+  width: 100%;
+  padding-right: 25px;
+}
+
+.inline-field .dynamic-delete-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
+}
+
+::ng-deep .my-custom-style .ant-modal-header {
+  border-radius: 16px 16px 0 0;
+  padding: 16px 24px;
+  color: rgba(0, 0, 0, .85);
+  background: #15479b;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+::ng-deep .my-custom-style .ant-modal-title {
+  margin: 0;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  line-height: 22px;
+  word-wrap: break-word;
+}
+
+::ng-deep .my-custom-style .ant-modal-content {
+  position: relative;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, .12), 0 6px 16px 0 rgba(0, 0, 0, .08), 0 9px 28px 8px rgba(0, 0, 0, .05);
+  pointer-events: auto;
+}
+
+
+::ng-deep .custom-drawer .ant-drawer-body {
+  padding: 0 24px 24px 24px;
+}
+
+.completed-text {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.empty-enrolled-staff {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+::ng-deep .enrolled-staff-table {
+  .ant-table-thead>tr>th {
+    background-color: #fafafa;
+    font-weight: 600;
+  }
+
+  .ant-table-tbody>tr:hover>td {
+    background-color: #f5f5f5;
+  }
+}
+
+.filter-container {
+  margin: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-right: 20px;
+  margin-bottom: 20px;
+}
+
+.filter-bar {
+  gap: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.filters-row {
+  margin: auto;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.filter-select {
+  min-width: 120px;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  /* match nz-input-group large height */
+  padding: 0 12px;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.chip-label {
+  color: #888;
+}
+
+.chip-select {
+  min-width: 160px;
+  background: transparent;
+}
+
+/* Make inner ant-select look borderless and match container height */
+.chip-select .ant-select-selector {
+  height: 38px !important;
+  padding: 0 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.chip-select .ant-select-selection-item,
+.chip-select .ant-select-selection-placeholder {
+  line-height: 38px !important;
+}
+
+/* Ensure the search input keeps its height and aligns vertically */
+.filter-bar .ant-input-group.ant-input-group-lg,
+.filter-bar .ant-input-affix-wrapper-lg {
+  height: 40px;
+}
+
+.department-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+
+.tag {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+// Mobile Responsiveness
+@media (max-width: 768px) {
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .filter-bar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    >div {
+      width: 100%;
+    }
+
+    nz-input-group {
+      width: 100%;
+    }
+  }
+
+  .filter-chip {
+    width: 100%;
+    justify-content: space-between;
+
+    .chip-select {
+      flex: 1;
+      text-align: right;
+    }
+  }
+
+  .button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+
+    button {
+      width: 100%;
+      margin-left: 0 !important;
+      /* Override potential margins */
+    }
+
+    /* Reset margin-left for the first button or all if needed */
+    .button-icon {
+      margin-left: 8px;
+    }
+  }
+
+  /* Table Responsive Overrides */
+  ::ng-deep .role-overview-table,
+  ::ng-deep .enrolled-staff-table {
+    .ant-table-wrapper {
+
+      /* Disable sticky columns on mobile */
+      .ant-table-cell-fix-left,
+      .ant-table-cell-fix-right,
+      .ant-table-cell-fix-left-last,
+      .ant-table-cell-fix-right-first {
+        position: static !important;
+        left: auto !important;
+        right: auto !important;
+        box-shadow: none !important;
+        border-right: none !important;
+      }
+
+      .ant-table-content {
+        overflow-x: auto !important;
+      }
+    }
+
+    /* Reduce padding on mobile for table cells */
+    .ant-table-thead>tr>th,
+    .ant-table-tbody>tr>td {
+      padding: 8px 4px !important;
+    }
+  }
+}
+
+// Custom Drawer Close Icon Alignment for Course Details
+::ng-deep .course-detail-drawer .ant-tabs-nav .ant-tabs-extra-content {
+  order: -1;
+  margin-right: auto; // Push tabs to the right if needed, or just let them sit next
+}
+
+// Ensure flex display for the tabs nav to support 'order'
+::ng-deep .course-detail-drawer .ant-tabs-nav {
+  display: flex;
+}

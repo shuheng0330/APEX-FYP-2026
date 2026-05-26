@@ -1,0 +1,132 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY']) || hasAccess(['CAN_PROPOSE_ROLE_COMPETENCIES'])"
+    [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.TITLE'| translate}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired [nzSm]="8" [nzXs]="26" nzLabelAlign="left">
+                        {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.INPUT.COMPETENCY'|translate}}
+                    </nz-form-label>
+                    <nz-form-control
+                        [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.ERR.COMPETENCY' | translate )">
+                        <nz-input-group [nzSuffix]="inputClearTpl">
+                            <input type="text" nz-input formControlName="competency" id="competency" maxlength="255"
+                                placeholder="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.PLACEHOLDER.COMPETENCY' | translate}}" />
+                        </nz-input-group>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="8" [nzXs]="26" nzLabelAlign="left">
+                        {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.INPUT.DESC'|translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-input-group [nzSuffix]="textAreaClearTpl">
+                            <textarea nz-input formControlName="description" id="description" maxlength="1000"
+                                placeholder="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.PLACEHOLDER.DESC' | translate}}">
+                                </textarea>
+                        </nz-input-group>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="8" [nzXs]="26" nzLabelAlign="left">
+                        {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.INPUT.TAG'| translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-select formControlName="compTagList" id="compTagList" nzMode="tags"
+                            [nzTokenSeparators]="[',']"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.PLACEHOLDER.TAG'| translate}}">
+                            @for (tag of listOfExistingTag; track tag) {
+                            <nz-option [nzLabel]="tag.tag" [nzValue]="tag.tag"></nz-option>
+                            }
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzRequired]="!hasAccess(['CAN_MANAGE_COMPETENCY'])" [nzSm]="8" [nzXs]="26"
+                        nzLabelAlign="left">
+                        <span>
+                            {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.INPUT.REVIEWER'| translate}}
+                            <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.TOOLTIP.REVIEWER'| translate}}" />
+                        </span>
+                    </nz-form-label>
+                    <nz-form-control
+                        [nzErrorTip]="( 'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.ERR.REVIEWER' | translate )">
+                        <nz-select nzShowSearch nzAllowClear formControlName="reviewerList" id="reviewerList"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.PLACEHOLDER.REVIEWER'| translate}}"
+                            nzMode="multiple">
+                            <nz-option *ngFor="let reviewer of listOfSelectedReviewer" nzCustomContent
+                                [nzValue]="reviewer.id!" [nzLabel]="reviewer.email">
+                                <p *ngIf="reviewer.email && !reviewer.name">{{reviewer.email}}</p>
+                                <p *ngIf="reviewer.email && reviewer.name">{{reviewer.name}}
+                                    <br /><b>({{reviewer.email}})</b>
+                                </p>
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="8" [nzXs]="26" nzLabelAlign="left">
+                        <span>
+                            {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.INPUT.PROPOSER'| translate}}
+                            <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.TOOLTIP.PROPOSER'| translate}}" />
+                        </span>
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-select nzShowSearch nzAllowClear formControlName="proposerList" id="proposerList"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.PLACEHOLDER.PROPOSER'| translate}}"
+                            nzMode="multiple" class="custom-option">
+                            <nz-option *ngFor="let proposer of listOfSelectedProposer" nzCustomContent
+                                [nzValue]="proposer.id!" [nzLabel]="proposer.email">
+                                <p *ngIf="proposer.email && !proposer.name">{{proposer.email}}</p>
+                                <p *ngIf="proposer.email && proposer.name">{{proposer.name}}
+                                    <br /><b>({{proposer.email}})</b>
+                                </p>
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style=" float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.BUTTON.CANCEL'| translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ADD.BUTTON.SUBMIT'| translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>
+
+<ng-template #inputClearTpl>
+    <nz-icon *ngIf="this.validateForm.get('competency')?.value" class="ant-input-clear-icon" nzTheme="fill"
+        nzType="close-circle" (click)="validateForm.get('competency')?.setValue('')" />
+</ng-template>
+
+<ng-template #textAreaClearTpl>
+    <nz-icon *ngIf="this.validateForm.get('description')?.value" class="ant-input-clear-icon" nzTheme="fill"
+        nzType="close-circle" (click)="validateForm.get('description')?.setValue('')" />
+</ng-template>

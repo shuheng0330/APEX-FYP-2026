@@ -1,0 +1,49 @@
+<nz-input-group
+  nzSearch
+  nzSize="large"
+  [nzAddOnAfter]="suffixSearchButton"
+  [nzAddOnBefore]="suffixSearchSelect"
+  [nzSuffix]="inputClearTpl"
+>
+  <input
+    nz-input
+    [placeholder]="placeholder"
+    [(ngModel)]="searchValue"
+    (input)="onSearchChange()"
+    maxlength="100"
+  />
+</nz-input-group>
+
+<ng-template #suffixSearchButton>
+  <button nz-button nzType="primary" nzSize="large" nzSearch (click)="triggerSearch()">
+    <nz-icon nzType="search" nzTheme="outline"></nz-icon>
+  </button>
+</ng-template>
+
+<ng-template #inputClearTpl>
+  @if (searchValue) {
+    <nz-icon
+      class="ant-input-clear-icon"
+      nzTheme="fill"
+      nzType="close-circle"
+      (click)="clearSearch()"
+    />
+  }
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+  <div *ngIf="showSearchFieldSelector">
+    <nz-select
+      [nzDropdownMatchSelectWidth]="false"
+      [(ngModel)]="selectedField"
+      (ngModelChange)="triggerSearch()"
+    >
+      <nz-option
+        *ngFor="let option of optionList"
+        [nzLabel]="option.name"
+        [nzValue]="option.id"
+      ></nz-option>
+    </nz-select>
+  </div>
+</ng-template>
+

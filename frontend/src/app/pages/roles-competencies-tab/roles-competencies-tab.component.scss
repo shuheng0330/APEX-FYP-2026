@@ -1,0 +1,53 @@
+hr {
+    height: 1px;
+    background-color: rgba(50, 50, 50, 0.1);
+    border: none;
+    margin-bottom: 2%;
+}
+
+.roles-competencies-overview-table {
+    margin-top: 1%;
+}
+
+.nested-details-container {
+    padding: 20px;
+    background-color: #fafafa;
+    display: flex;
+    gap: 40px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-section {
+    flex: 1;
+
+    h4 {
+        color: #1890ff;
+        font-weight: bold;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #e8e8e8;
+        padding-bottom: 5px;
+    }
+
+    ul {
+        padding-left: 20px;
+        margin: 0;
+
+        li {
+            margin-bottom: 5px;
+            color: #555;
+        }
+    }
+}
+
+.text-gray {
+    color: #ccc;
+    font-style: italic;
+}
+
+.sub-info {
+    margin-top: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 5px;
+    column-gap: 1px;
+}

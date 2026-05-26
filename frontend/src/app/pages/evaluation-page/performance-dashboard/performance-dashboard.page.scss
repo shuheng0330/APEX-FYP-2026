@@ -1,0 +1,394 @@
+.performance-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.evaluation-box h3 {
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+.dashboard-container {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+// Profile Section (Left Column)
+.profile-section {
+  background: #f8fafc;
+  padding: 24px;
+  border-radius: 12px;
+  min-height: 400px;
+
+  .section-heading {
+    color: #000000;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0 0 0 0;
+  }
+
+  .profile-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+  }
+
+  .staff-info {
+    width: 100%;
+    color: #000000;
+    text-align: left;
+
+    .staff-name {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: #000000;
+    }
+
+    .staff-email {
+      font-size: 14px;
+      color: #999999;
+      margin-bottom: 16px;
+    }
+
+    .staff-detail-item {
+      margin-bottom: 12px;
+      font-size: 14px;
+
+      .detail-label {
+        color: #000000;
+        margin-right: 8px;
+      }
+
+      .detail-value {
+        color: #999999;
+      }
+    }
+  }
+}
+
+// Performance Section (Right Column)
+.performance-section {
+  background: #f8fafc;
+  padding: 24px;
+  border-radius: 12px;
+  min-height: 400px;
+
+  .section-heading {
+    color: #000000;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0 0 20px 0;
+  }
+
+  .performance-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .performance-chart {
+    background: #e0e6f6;
+    padding: 20px;
+    border-radius: 4px;
+    width: 100%;
+    margin-bottom: 20px;
+
+    canvas {
+      max-height: 300px;
+    }
+  }
+
+  .evaluation-boxes-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .evaluation-box {
+    background: #e0e6f6;
+    padding: 20px;
+    border-radius: 4px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+
+    .evaluation-title {
+      color: #000000;
+      font-size: 16px;
+      font-weight: bold;
+      margin: 0 0 8px 0;
+    }
+
+    .evaluation-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+
+      .evaluation-date {
+        font-size: 12px;
+        color: #999999;
+      }
+
+      .view-all {
+        font-size: 12px;
+        color: #4a9eff;
+        cursor: pointer;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+
+    .evaluation-rating {
+      display: flex;
+      align-items: center;
+      //height: 150px;
+      justify-content: space-between;
+      gap: 40px;
+    }
+
+    .rating-row {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      margin-bottom: 8px;
+      align-items: center;
+      gap: 5px;
+      /* Adjust space between name and rate bar */
+    }
+
+    .evaluation-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+
+      .evaluation-description {
+        color: #000000;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+        margin-top: 16px;
+
+        p {
+          margin: 0;
+        }
+      }
+    }
+
+    .historical-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .historical-item {
+        padding: 12px;
+        background: #2d2d2d;
+        border-radius: 6px;
+        color: #ffffff;
+
+        .historical-date {
+          font-size: 14px;
+          font-weight: bold;
+          margin-bottom: 4px;
+        }
+
+        .historical-score {
+          font-size: 12px;
+          color: #cccccc;
+        }
+      }
+    }
+  }
+}
+
+.circle-image {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 3px solid #4a4a4a;
+}
+
+::ng-deep .ant-rate {
+  box-sizing: border-box;
+  font-variant: tabular-nums;
+  font-feature-settings: "tnum";
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  color: #fadb14;
+  font-size: 12px !important;
+  line-height: unset;
+  list-style: none;
+  outline: 0;
+}
+
+.text-12 {
+  font-size: 12px;
+}
+
+.empty-icon {
+  margin-top: 20px;
+
+  ::ng-deep .ant-empty-description {
+    color: #999999;
+  }
+}
+
+.empty-state-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.comment-box {
+  grid-column: 1 / span 2;
+  width: 100%;
+  margin-top: 4px;
+}
+
+::ng-deep .my-custom-style .ant-modal-header {
+  border-radius: 16px 16px 0 0;
+  padding: 16px 24px;
+  color: rgba(0, 0, 0, .85);
+  border-bottom: 1px solid #f0f0f0;
+}
+
+::ng-deep .my-custom-style .ant-modal-title {
+  margin: 0;
+  font-weight: bold;
+  font-size: 16px;
+  line-height: 22px;
+  word-wrap: break-word;
+}
+
+::ng-deep .my-custom-style .ant-modal-content {
+  position: relative;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, .12), 0 6px 16px 0 rgba(0, 0, 0, .08), 0 9px 28px 8px rgba(0, 0, 0, .05);
+  pointer-events: auto;
+}
+
+.modal-rating-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  gap: 20px;
+  /* Adjust space between name and rate bar */
+  margin-bottom: 20px;
+}
+
+.no-evaluation-records {
+  margin-bottom: 24px;
+  margin-top: 24px;
+}
+
+.comment-container {
+  margin-top: 10px;
+  background: white;
+  padding: 4px 10px;
+  width: 450px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.10);
+  align-items: center;
+}
+
+.feedback {
+  font-size: 12px;
+  margin-right: 5px;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.skill-style {
+  font-size: 25px;
+}
+
+.performance-comment-desc {
+  font-size: 14px;
+}
+
+.score-green .points-number {
+  color: #03A63C;
+  /* Green */
+}
+
+.score-orange .points-number {
+  color: #F29F05;
+  /* Orange */
+}
+
+.score-red .points-number {
+  color: #D7263D;
+  /* Red */
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .performance-container {
+    padding: 10px;
+  }
+
+  .dashboard-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .profile-section,
+  .performance-section {
+    padding: 16px;
+    min-height: auto;
+  }
+
+  .evaluation-boxes-container {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-box {
+    min-height: auto;
+
+    .evaluation-rating {
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+
+      >div:last-child {
+        width: 100%; // Ensure the progress bars container takes full width
+      }
+    }
+
+    .rating-row {
+      grid-template-columns: 1fr; // Stack label and progress bar
+      gap: 2px;
+
+      strong {
+        margin-bottom: 2px;
+      }
+    }
+  }
+
+  .modal-rating-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .comment-container {
+    width: 100%;
+  }
+}

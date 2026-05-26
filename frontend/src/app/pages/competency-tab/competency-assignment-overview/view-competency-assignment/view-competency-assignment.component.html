@@ -1,0 +1,63 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_ROLE'])" [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false"
+    [nzWidth]="drawerWidth" [nzVisible]="visible$.value" nzTitle="{{data?.roleName}} ({{data?.orgChartName}})"
+    [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <div *nzDrawerContent>
+        <nz-empty nzNotFoundImage="simple" *ngIf="!data"></nz-empty>
+        <div class="expanded-panel">
+            <h4 class="detail-title">
+                <nz-icon nzType="ordered-list" nzTheme="outline" />
+                {{'PAGE.COMPETENCY.ASSIGNMENT.TABLE.COMPETENCY' | translate}}
+            </h4>
+
+            <nz-empty nzNotFoundImage="simple" *ngIf="data?.competencyAssignments?.length! === 0"></nz-empty>
+
+            <div *ngFor="let comp of data?.competencyAssignments" class="competency-card-wrapper">
+                <nz-card [nzTitle]="competencyNameTemplate" [nzExtra]="weightTemplate" class="competency-card">
+
+                    <ng-template #competencyNameTemplate>
+                        <nz-icon *ngIf="comp.deleted" nzType="warning" nzTheme="twotone" [nzTwotoneColor]="red"
+                            nz-tooltip
+                            nzTooltipTitle="{{'PAGE.COMPETENCY.ASSIGNMENT.WARNING.COMPETENCY' | translate}}" />
+                        {{ comp.competencyName }}
+                    </ng-template>
+
+                    <div class="card-desc">
+                        <span class="label">{{'PAGE.COMPETENCY.ASSIGNMENT.TABLE.COMPETENCY' |
+                            translate}}:</span>
+                        <p>{{ comp.competencyName }}</p>
+                    </div>
+
+                    <div class="card-desc">
+                        <span class="label">{{'PAGE.COMPETENCY.ASSIGNMENT.TABLE.DESC' | translate}}:</span>
+                        <p>{{ comp.competencyDescription ?? '-' }}</p>
+                    </div>
+
+                    <div class="card-tags" *ngIf="data?.compTags?.[comp.competencyId]">
+                        <nz-tag *ngFor="let compTag of data?.compTags?.[comp.competencyId] || []; let i = index"
+                            [nzColor]="colorCodes[i % colorCodes.length]" style="margin-top: 10px;">
+                            <span># {{ compTag }}</span>
+                        </nz-tag>
+                    </div>
+                </nz-card>
+
+                <ng-template #weightTemplate>
+                    <span class="weight-badge">{{ comp.weightage }}%</span>
+                </ng-template>
+            </div>
+
+            <div class="mobile-total-card" *ngIf="data?.competencyAssignments!.length > 0">
+                <span>{{'PAGE.ROLES_COMPETENCIES.VIEW.COMPETENCY_TABLE.TOTAL' | translate}}</span>
+                <span class="total-value">{{ data?.totalWeightage ? data?.totalWeightage : '0' }} %</span>
+            </div>
+
+        </div>
+    </div>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.COMPETENCY.OVERVIEW.BUTTON.CANCEL'| translate}}
+            </button>
+        </div>
+    </ng-template>
+</nz-drawer>

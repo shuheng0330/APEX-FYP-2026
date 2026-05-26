@@ -1,0 +1,354 @@
+<div>
+  <h1 class="text-center">{{ titleKey | translate }}</h1>
+</div>
+<div class="centered-padding-body">
+  <nz-skeleton *ngIf="isLoading"></nz-skeleton>
+  <div *ngIf="!isLoading">
+
+    <div class="filter-container">
+      <div class="filter-bar">
+        <div>
+          <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+            [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+            <input placeholder="{{'PAGE.ROLE.OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+              [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+          </nz-input-group>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Department:</span>
+          <nz-select class="chip-select" [(ngModel)]="selectedDepartmentIds" nzMode="multiple" [nzMaxTagCount]="1"
+            nzBorderless [nzPlaceHolder]="'All'" (ngModelChange)="search()">
+            <nz-option *ngFor="let dept of departments" [nzLabel]="dept.name" [nzValue]="dept.id"></nz-option>
+          </nz-select>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Competency:</span>
+          <nz-select class="chip-select" [(ngModel)]="selectedCompetenciesIds" nzBorderless nzMode="multiple"
+            [nzMaxTagCount]="1" (ngModelChange)="search()">
+            <nz-option *ngFor="let opt of competencies" [nzLabel]="opt.name" [nzValue]="opt.id"></nz-option>
+          </nz-select>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button class="red-button" (click)="bulkDeleteLearningMaterial()" [disabled]="setOfCheckedId.size === 0">{{
+          'PAGE.ROLE.OVERVIEW.BUTTON.DELETE' | translate }} <nz-icon nzType="delete" class="button-icon" /></button>
+        <button class="blue-button" (click)="onAddLearningMaterialFormPopup()">Add Material
+          <nz-icon nzType="plus" class="button-icon"></nz-icon>
+        </button>
+      </div>
+
+    </div>
+
+    <p class="num-item-selected"> Selected {{ setOfCheckedId.size }} items</p>
+
+    <nz-table #learningMaterialTable nzTableLayout="fixed" class="role-overview-table" [nzData]="listOfDisplayData"
+      (nzCurrentPageDataChange)="onCurrentPageDataChange($event)" [nzScroll]="{ x: '700px' }">
+      <thead>
+        <tr>
+          <th nzAlign="center" nzWidth=" 75px">{{
+            'PAGE.ROLE.OVERVIEW.TABLE.ACTION' |
+            translate
+            }}
+          </th>
+
+          <th nzWidth="50px" [(nzChecked)]="checked" [nzIndeterminate]="indeterminate"
+            (nzCheckedChange)="onAllChecked($event)">
+          </th>
+          <th nzWidth="200px" [nzSortFn]="sortByTitle">
+            {{
+            'PAGE.LEARNING_MANAGEMENT.TABLE.TITLE' |
+            translate
+            }}
+          </th>
+          <th nzWidth="200px">{{ 'PAGE.LEARNING_MANAGEMENT.TABLE.DEPARTMENT' | translate }}</th>
+          <th nzWidth="200px">{{ 'PAGE.LEARNING_MANAGEMENT.TABLE.COMPETENCY' | translate }}</th>
+          <th nzWidth="300px" [nzSortFn]="sortByDesc">{{ 'PAGE.LEARNING_MANAGEMENT.TABLE.DESC' | translate }}</th>
+          <th nzWidth="300px">{{ 'PAGE.LEARNING_MANAGEMENT.TABLE.LEARNING_OUTCOME' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of learningMaterialTable.data">
+          <td nzAlign="center">
+            <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+              <nz-icon nzType="more" nzTheme="outline" />
+              <nz-dropdown-menu #menu="nzDropdownMenu">
+                <ul nz-menu>
+                  <li nz-menu-item> <a (click)="openDetails(row)">
+                      <nz-icon nzType="snippets" nzTheme="outline" />
+                      <span> {{ 'PAGE.LEARNING_MANAGEMENT.ACTION.DETAIL' | translate }}</span>
+                    </a>
+                  </li>
+                  <li nz-menu-item><a (click)="onEditLearningMaterialFormPopup(row)">
+                      <nz-icon nzType="edit" nzTheme="outline" />
+                      <span> {{ 'PAGE.LEARNING_MANAGEMENT.ACTION.EDIT' | translate }}</span>
+                    </a></li>
+                  <li nz-menu-item><a (click)="onDeleteLearningMaterial(row.materialId)">
+                      <nz-icon nzType="delete" nzTheme="outline" />
+                      <span> {{ 'PAGE.LEARNING_MANAGEMENT.ACTION.DELETE' | translate }}</span>
+                    </a></li>
+                  <li nz-menu-item>
+                    <a [routerLink]="['/learning-management', row.materialId, 'preview']">
+                      <nz-icon nzType="eye" nzTheme="outline"></nz-icon>
+                      <span> {{ 'PAGE.LEARNING_MANAGEMENT.ACTION.PREVIEW' | translate }}</span>
+                    </a>
+                  </li>
+                </ul>
+              </nz-dropdown-menu>
+            </a>
+          </td>
+          <td [nzChecked]="setOfCheckedId.has(row.materialId)"
+            (nzCheckedChange)="onItemChecked(row.materialId, $event)">
+          </td>
+          <td>{{ row.title }}</td>
+          <td *ngIf="!row.departments || row.departments!.length == 0"> - </td>
+          <td *ngIf="row.departments!.length > 0">
+            <div class="department-tags">
+              <nz-tag class="tag" *ngFor="let dept of row.departments" [nzColor]="'blue'">{{ dept.name }}</nz-tag>
+            </div>
+          </td>
+          <td *ngIf="!row.competency || row.competency!.length == 0"> - </td>
+          <td *ngIf="row.competency!.length > 0">
+            <div class="department-tags">
+              <nz-tag class="tag" *ngFor="let comp of row.competency" [nzColor]="'purple'">{{ comp.name }}</nz-tag>
+            </div>
+          </td>
+          <td>{{ row.description ? row.description : '-' }}</td>
+          <td *ngIf="!row.learningOutcomes || row.learningOutcomes!.length == 0"> -</td>
+          <td *ngIf="row.learningOutcomes!.length > 0">
+            <ol>
+              <li *ngFor="let learningOutcome of row.learningOutcomes">{{ learningOutcome }}</li>
+            </ol>
+          </td>
+        </tr>
+      </tbody>
+    </nz-table>
+  </div>
+</div>
+<ng-template #checkedTemplate>
+  <nz-icon nzType="check" nzTheme="outline" />
+</ng-template>
+<ng-template #unCheckedTemplate>
+  <nz-icon nzType="close" nzTheme="outline" />
+</ng-template>
+
+<ng-template #suffixSearchButton>
+  <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+    <nz-icon nzType="search" nzTheme="outline" />
+  </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+  <div>
+    <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField">
+      <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+      </nz-option>
+    </nz-select>
+  </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+  @if (searchValue) {
+  <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+  }
+</ng-template>
+
+<ng-template #addLearningMaterialModalTpl>
+  <form nz-form [formGroup]="form">
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="7" nzRequired>Title</nz-form-label>
+      <nz-form-control [nzSpan]="14"  [nzErrorTip]="titleErrorTpl">
+        <input nz-input formControlName="title" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="7" nzRequired>Description</nz-form-label>
+      <nz-form-control [nzSpan]="14" [nzErrorTip]="DescriptionStringErrorTpl">
+        <textarea nz-input rows="4" formControlName="description"></textarea>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="7" nzRequired>Material Type</nz-form-label>
+      <nz-form-control [nzSpan]="14" nzErrorTip="Please select type">
+        <nz-select formControlName="materialType" nzPlaceHolder="Select type" nzMode="multiple">
+          <nz-option *ngFor="let t of materialTypes" [nzLabel]="t" [nzValue]="t"></nz-option>
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="7" nzRequired>Department</nz-form-label>
+      <nz-form-control [nzSpan]="14" nzErrorTip="Please select department(s)">
+        <nz-select formControlName="departmentIds" nzPlaceHolder="Select department(s)" nzMode="multiple">
+          <nz-option *ngFor="let dept of departments" [nzLabel]="dept.name" [nzValue]="dept.id"></nz-option>
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-label [nzSpan]="7" nzRequired>Competency</nz-form-label>
+      <nz-form-control [nzSpan]="14" nzErrorTip="Please select competency">
+        <nz-select formControlName="competencyIds" nzPlaceHolder="Select competency(s)" nzMode="multiple">
+          <nz-option *ngFor="let c of competencies" [nzLabel]="c.name" [nzValue]="c.id"></nz-option>
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+
+    <form [formGroup]="learningOutcomesForm">
+      @for (control of learningOutcomes; track control; let i = $index) {
+      <nz-form-item>
+        @if (i === 0) {
+        <nz-form-label [nzXs]="24" [nzSm]="7" [nzFor]="control.controlInstance" nzRequired>Learning
+          Outcomes</nz-form-label>
+        }
+        <nz-form-control [nzXs]="24" [nzSm]="{span: 14, offset: i === 0 ? 0 : 7}"
+          nzErrorTip="Please input learning outcomes">
+          <div class="inline-field">
+            <textarea class="textarea" nz-input rows="2" placeholder="Learning Outcome" [attr.id]="control.id"
+              [formControlName]="control.controlInstance"></textarea>
+            <nz-icon nzType="minus-circle-o" class="dynamic-delete-button" (click)="removeField(control, $event)" />
+          </div>
+        </nz-form-control>
+      </nz-form-item>
+      }
+
+      <nz-form-item>
+        <nz-col [nzSpan]="7"></nz-col>
+        <nz-form-control [nzSpan]="7">
+          <button nz-button nzType="dashed" class="add-button" (click)="addField($event)">
+            <nz-icon nzType="plus" />
+            Add field
+          </button>
+        </nz-form-control>
+      </nz-form-item>
+    </form>
+    <nz-divider>Documents</nz-divider>
+
+    <!-- Loop over dynamic learningDocuments -->
+    <div formArrayName="learningDocuments">
+      <div *ngFor="let doc of learningDocuments.controls; let i = index" [formGroupName]="i"
+        class="p-3 border rounded mb-3">
+
+        <nz-form-item>
+          <nz-form-label [nzSpan]="7" nzRequired>Document Title</nz-form-label>
+          <nz-form-control [nzSpan]="14" nzErrorTip="Document title is required">
+            <input nz-input formControlName="title" placeholder="e.g. Introduction, Module 1" />
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label [nzSpan]="7">Upload File</nz-form-label>
+          <nz-form-control [nzSpan]="14">
+            <nz-upload [nzBeforeUpload]="beforeUpload(i)" [nzFileList]="doc.get('fileList')?.value" [nzMultiple]="false"
+              [nzShowUploadList]="true" [nzWithCredentials]="true" [nzPreview]="handlePreview"
+              [nzDownload]="handleDownload" nzAccept=".pdf,video/mp4">
+              <button nz-button type="button">
+                <nz-icon nzType="upload"></nz-icon>
+                Click to Upload
+              </button>
+            </nz-upload>
+          </nz-form-control>
+          <button nz-button nzDanger nzType="link" (click)="removeDocument(i)">
+            <i nz-icon nzType="delete"></i> Remove
+          </button>
+        </nz-form-item>
+
+      </div>
+    </div>
+
+    <!-- Add new document button -->
+    <button nz-button nzType="dashed" class="w-full mt-2" (click)="addDocument()">
+      <i nz-icon nzType="plus"></i> Add Document
+    </button>
+
+  </form>
+</ng-template>
+
+<ng-template #materialDetailsTpl>
+  <nz-tabset [nzTabBarExtraContent]="extraTemplate">
+    <nz-tab nzTitle="Course Detail">
+      <app-learning-material-detail [selectedMaterial]="selectedMaterial"></app-learning-material-detail>
+    </nz-tab>
+    <nz-tab nzTitle="Enrolled Staff ({{enrolledStaffList.length}})">
+      <div class="enrolled-staff-container">
+        <nz-skeleton *ngIf="isLoadingEnrolledStaff" [nzActive]="true" [nzParagraph]="{ rows: 5 }"></nz-skeleton>
+
+        <div *ngIf="!isLoadingEnrolledStaff">
+          <div *ngIf="enrolledStaffList.length === 0" class="empty-enrolled-staff">
+            <nz-empty nzNotFoundContent="No enrolled staff"></nz-empty>
+          </div>
+
+          <nz-table *ngIf="enrolledStaffList.length > 0" #enrolledStaffTable [nzData]="filteredEnrolledStaffList"
+            nzTableLayout="fixed" [nzOuterBordered]="true" [nzScroll]="{ x: '700px' }">
+            <thead>
+              <tr>
+                <th nzCustomFilter nzWidth="200px">
+                  Staff
+                  <nz-filter-trigger [(nzVisible)]="visible" [nzActive]="staffSearch.length > 0"
+                    [nzDropdownMenu]="menuInvite">
+                    <nz-icon nzType="search" />
+                  </nz-filter-trigger>
+                </th>
+                @for (column of listOfColumns; track column) {
+                <th [nzSortOrder]="column.sortOrder" [nzSortFn]="column.sortFn"
+                  [nzSortDirections]="column.sortDirections" [nzFilterMultiple]="column.filterMultiple"
+                  [nzFilters]="column.listOfFilter" [nzFilterFn]="column.filterFn" [nzShowFilter]="!!column.filterFn">
+                  {{ column.name }}
+                </th>
+
+                }
+                <nz-dropdown-menu #menuInvite="nzDropdownMenu">
+                  <div class="ant-table-filter-dropdown">
+                    <div class="search-box">
+                      <input type="text" nz-input placeholder="Search name" [(ngModel)]="staffSearch"
+                        (ngModelChange)="filterStaff()" />
+                    </div>
+                  </div>
+                </nz-dropdown-menu>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let enrollment of enrolledStaffTable.data">
+                <td>{{ getStaffName(enrollment) }}</td>
+                <td>{{ getStaffDepartment(enrollment) }}</td>
+                <td>{{ getStaffRole(enrollment) }}</td>
+                <td nzAlign="center">
+                  <span *ngIf="getStaffProgress(enrollment.progress) === 100" class="completed-text">Completed</span>
+                  <span *ngIf="getStaffProgress(enrollment.progress) !== 100">{{ getStaffProgress(enrollment.progress)
+                    }}%</span>
+                </td>
+              </tr>
+            </tbody>
+          </nz-table>
+        </div>
+      </div>
+    </nz-tab>
+  </nz-tabset>
+  <ng-template #extraTemplate>
+    <i nz-icon nzType="close" nzTheme="outline" class="cursor-pointer"
+      style="margin-right: 24px; font-size: 16px; color: rgba(0,0,0,0.45);" (click)="onCloseCourseDetailDrawer()"></i>
+  </ng-template>
+</ng-template>
+
+<ng-template #DescriptionStringErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please input description
+  </ng-container>
+  <ng-container *ngIf="control.hasError('maxlength')">
+    Description cannot be longer than 1000 characters
+  </ng-container>
+</ng-template>
+
+<ng-template #titleErrorTpl let-control>
+  <ng-container *ngIf="control.hasError('required')">
+    Please input title
+  </ng-container>
+  <ng-container *ngIf="control.hasError('maxlength')">
+    Title cannot be longer than 100 characters
+  </ng-container>
+</ng-template>

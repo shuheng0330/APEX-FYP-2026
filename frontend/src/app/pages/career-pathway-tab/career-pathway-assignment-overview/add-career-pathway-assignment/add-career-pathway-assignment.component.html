@@ -1,0 +1,92 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_STAFF', 'CAN_MANAGE_CAREER_PATHWAY'])" [nzBodyStyle]="{ overflow: 'auto' }"
+    [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.TITLE'| translate}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.INPUT.DEPARTMENT'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.ERR.DEPARTMENT' | translate )">
+                        <nz-select nzShowSearch nzAllowClear formControlName="department" id="department"
+                            nzPlaceHolder="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.PLACEHOLDER.DEPARTMENT' | translate}}"
+                            (ngModelChange)="onDepartmentChange($event)">
+                            <nz-option *ngFor="let department of orgChartList" [nzLabel]="department.name"
+                                [nzValue]="department.id!">
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.INPUT.CAREER_PATHWAY'|translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-select nzShowSearch nzAllowClear [nzNotFoundContent]="notFoundContent"
+                            nzPlaceHolder="{{ 'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.PLACEHOLDER.CAREER_PATHWAY' | translate}}"
+                            id="careerPathway" formControlName="careerPathway">
+                            <nz-option *ngFor="let careerPathway of selectedCareerPathwayList"
+                                [nzLabel]="careerPathway.name" [nzValue]="careerPathway.id!">
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.INPUT.STAFF'| translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-select formControlName="staff" id="staff" nzMode="multiple"
+                            [nzNotFoundContent]="notFoundContent"
+                            nzPlaceHolder="{{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.PLACEHOLDER.STAFF'| translate}}"
+                            (nzOnSearch)="staffSearch($event)" nzServerSearch>
+                            @if (selectedStaffList.length > 0){
+                            @for (staff of selectedStaffList; track staff) {
+                            <nz-option nzCustomContent [nzValue]="staff.id!" [nzLabel]="staff.email">
+                                <p *ngIf="staff.email && !staff.name"><b>{{staff.email}}</b>
+                                    <span *ngIf="staff.role"> | {{staff.role.name}}</span>
+                                </p>
+                                <p *ngIf="staff.email && staff.name"><b>{{staff.name}}</b>
+                                    <span *ngIf="staff.role"> | {{staff.role.name}}</span>
+                                    <br /><b>({{staff.email}})</b>
+                                </p>
+                            </nz-option>
+                            }
+                            }
+
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right;">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.BUTTON.CANCEL'| translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.BUTTON.SUBMIT'| translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>
+
+<ng-template #notFoundContent>
+    <span class="text-gray-500" *ngIf="!validateForm.get('department')?.value">
+        {{ 'PAGE.CAREER_PATHWAY.ASSIGNMENT.ADD.ERR.DEPARTMENT_FIRST' | translate }}
+    </span>
+
+    <nz-empty nzNotFoundImage="simple" *ngIf="validateForm.get('department')?.value"></nz-empty>
+</ng-template>

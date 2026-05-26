@@ -1,0 +1,119 @@
+@use '@angular/material' as mat;
+@use '../../../../theme' as app-theme;
+
+::ng-deep .ant-drawer-body {
+    padding-bottom: 10%;
+}
+
+.data-not-found {
+    padding-top: 20%;
+}
+
+.detail-title {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+.meta-column {
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+    height: fit-content;
+}
+
+.meta-item {
+    margin-bottom: 16px;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+
+    .label {
+        display: block;
+        font-size: 11px;
+        font-weight: bold;
+        color: #8c8c8c;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+    }
+
+    .value {
+        font-size: 14px;
+        color: #262626;
+        font-weight: 500;
+
+        .email {
+            font-size: 12px;
+            color: #8c8c8c;
+            font-weight: normal;
+            margin-left: 35px;
+            margin-top: -2px;
+        }
+    }
+}
+
+.competency-card-wrapper {
+    margin-bottom: 16px;
+}
+
+.competency-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+
+    .weight-badge {
+        font-weight: bold;
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+        font-size: 1.1em;
+        background: #e6f7ff;
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    .card-desc {
+        margin-bottom: 12px;
+
+        .label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
+            color: #555;
+        }
+
+        p {
+            color: #666;
+            margin: 0;
+            font-style: italic;
+        }
+    }
+
+    .card-tags {
+        margin-top: 10px;
+        border-top: 1px dashed #f0f0f0;
+        padding-top: 10px;
+    }
+}
+
+.mobile-total-card {
+    background-color: #fafafa;
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 1.1em;
+
+    .total-value {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+        font-size: 1.2em;
+    }
+}

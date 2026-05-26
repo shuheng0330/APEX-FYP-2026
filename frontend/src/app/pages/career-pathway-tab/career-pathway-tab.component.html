@@ -1,0 +1,21 @@
+<h1 class="text-center">{{ 'PAGE.CAREER_PATHWAY.TITLE' | translate }}</h1>
+
+<nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex">
+    <nz-tab nzTitle="{{ 'PAGE.CAREER_PATHWAY.MY.TITLE' | translate}}">
+        <ng-template nz-tab>
+            <app-my-career-pathway></app-my-career-pathway>
+        </ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.CAREER_PATHWAY.OVERVIEW.TITLE' | translate}}"
+        *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])">
+        <ng-template nz-tab>
+            <app-career-pathway-overview></app-career-pathway-overview>
+        </ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.CAREER_PATHWAY.ASSIGNMENT.TITLE' | translate}}"
+        *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY', 'CAN_MANAGE_STAFF'])">
+        <ng-template nz-tab>
+            <app-career-pathway-assignment-overview></app-career-pathway-assignment-overview>
+        </ng-template>
+    </nz-tab>
+</nz-tabset>

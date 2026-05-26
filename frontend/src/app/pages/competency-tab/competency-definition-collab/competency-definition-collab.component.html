@@ -1,0 +1,200 @@
+<app-add-competency-definition-collab (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY']) || hasAccess(['CAN_PROPOSE_ROLE_COMPETENCIES'])">
+</app-add-competency-definition-collab>
+
+<app-edit-competency-definition-collab (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY']) || hasAccess(['CAN_PROPOSE_ROLE_COMPETENCIES'])">
+</app-edit-competency-definition-collab>
+
+<app-view-competency-definition-collab
+    *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY']) || hasAccess(['CAN_PROPOSE_ROLE_COMPETENCIES'])">
+</app-view-competency-definition-collab>
+
+<div class="centered-padding-body" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY', 'CAN_PROPOSE_ROLE_COMPETENCIES'])">
+    <div class="space-between-button-group">
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0 || hasNoAccessToReview()"
+                (click)="bulkRejectCollabCompetency()">
+                {{ 'PAGE.COMPETENCY.COLLAB.COMPETENCY.BUTTON.REJECT' | translate }}
+                <nz-icon nzType="close" nzTheme="outline" />
+            </button>
+            <button class="blue-button" [disabled]="setOfCheckedId.size === 0 || hasNoAccessToReview()"
+                (click)="bulkApproveCollabCompetency()">
+                {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.BUTTON.APPROVE' | translate }}
+                <nz-icon nzType="check" nzTheme="outline" />
+            </button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group">
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addCollabCompetency()">
+                {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.BUTTON.ADD' | translate }}
+                <nz-icon nzType="plus" class="button-icon" />
+            </button>
+        </div>
+    </div>
+
+    <nz-tabset [nzType]="'card'" style="margin-bottom: 80px;" [nzSelectedIndex]="selectedTabIndex"
+        (nzSelectedIndexChange)="onTabChange($event)">
+
+        <nz-tab [nzTitle]="inboxTitleTpl" *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY'])">
+            <ng-template #inboxTitleTpl>
+                <span class="tab-label">
+                    <nz-icon nzType="pushpin" nzTheme="outline" />
+                    {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.TAB.REVIEW' | translate }}
+                    <nz-badge [nzCount]="reviewList.length" [nzStyle]="{ backgroundColor: '#E6173F' }"></nz-badge>
+                </span>
+            </ng-template>
+            <ng-container
+                *ngTemplateOutlet="cardGridTemplate; context: { $implicit: reviewList, isReviewTab: true }"></ng-container>
+        </nz-tab>
+
+        <nz-tab [nzTitle]="sentTitleTpl">
+            <ng-template #sentTitleTpl>
+                <span class="tab-label"><nz-icon nzType="folder-open" nzTheme="outline" />
+                    {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.TAB.MY' | translate }}
+                    <nz-badge [nzCount]="proposalList.length" [nzStyle]="{ backgroundColor: '#15469c' }"></nz-badge>
+                </span>
+            </ng-template>
+            <ng-container
+                *ngTemplateOutlet="cardGridTemplate; context: { $implicit: proposalList, isReviewTab: false }"></ng-container>
+        </nz-tab>
+    </nz-tabset>
+
+    <ng-template #cardGridTemplate let-data let-isReviewTab="isReviewTab">
+
+        <div class="table-operations-bar"
+            *ngIf="isReviewTab && hasAccess(['CAN_MANAGE_COMPETENCY']) && $any(data).length > 0"
+            style="margin-bottom: 10px;">
+            <label nz-checkbox [(ngModel)]="checked" [nzIndeterminate]="indeterminate"
+                (ngModelChange)="onAllChecked($event)">
+                Selected {{setOfCheckedId.size}} items
+            </label>
+        </div>
+
+        <nz-empty *ngIf="$any(data).length === 0"></nz-empty>
+
+        <div nz-row [nzGutter]="[24, 24]">
+            <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="8" [nzXl]="6" *ngFor="let item of $any(data)">
+
+                <nz-card class="proposal-card" [class.selected-card]="setOfCheckedId.has(item.proposalParticipantId)">
+
+                    <div class="card-header-row">
+                        <div class="checkbox-wrapper" *ngIf="isReviewTab && hasAccess(['CAN_MANAGE_COMPETENCY'])">
+                            <label class="proposal-id" nz-checkbox
+                                [nzChecked]="setOfCheckedId.has(item.proposalParticipantId)"
+                                (nzCheckedChange)="onItemChecked(item.proposalParticipantId, $event)">
+                                {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.TABLE.ID' | translate }}: #{{
+                                item.proposalParticipantId.proposalId }}
+                            </label>
+                        </div>
+
+                        <a nz-dropdown [nzDropdownMenu]="menu" nzTrigger="click" class="more-menu-btn">
+                            <nz-icon nzType="more" nzTheme="outline" />
+                        </a>
+
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+
+                                <li nz-menu-item
+                                    (click)="viewProposalDetails(item.proposalParticipantId.proposalId.toString(), item.proposalParticipantId.staffId)">
+                                    <a>
+                                        <nz-icon nzType="eye" />
+                                        {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ACTION.VIEW' | translate }}
+                                    </a>
+                                </li>
+
+
+                                <li nz-menu-item (click)="editCollabCompetency(item)">
+                                    <a><nz-icon nzType="edit" />
+                                        {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ACTION.EDIT' | translate }}
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </nz-dropdown-menu>
+                    </div>
+
+                    <div class="card-content"
+                        (click)="viewProposalDetails(item.proposalParticipantId.proposalId.toString(), item.proposalParticipantId.staffId)">
+
+                        <h4 class="competency-title" nz-tooltip [nzTooltipTitle]="item.competencyName">
+                            {{ item.competencyName }}
+                        </h4>
+
+                        <p class="description">
+                            {{ (item.competencyDescription | slice:0:70) || 'No description provided.' }}
+                            {{ item.competencyDescription?.length > 70 ? '...' : '' }}
+                        </p>
+
+                        <div class="tags-row">
+                            <nz-tag *ngFor="let compTag of item.assignedCompTags | slice:0:3; let i = index"
+                                [nzColor]="colorCodes[i % colorCodes.length]">
+                                #{{ $any(compTag).tag }}
+                            </nz-tag>
+                            <span *ngIf="item.assignedCompTags.length > 3" class="more-tags">
+                                +{{item.assignedCompTags.length - 3}}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <div class="user-info">
+                            <nz-avatar [nzText]="item.collaboratorName?.charAt(0)" [nzSize]="28"
+                                [style.background-color]="item.proposalParticipantId.staffId != currentUserId ? '#1890ff' : '#87d068'">
+                            </nz-avatar>
+                            <div class="text-info">
+                                <span class="label">
+                                    {{'PAGE.COMPETENCY.COLLAB.COMPETENCY.TABLE.COLLABORATOR.COLLABORATOR' | translate
+                                    }}:
+                                </span>
+                                <span class="name" nz-tooltip [nzTooltipTitle]="item.collaboratorEmail">
+                                    {{ (item.collaboratorName ?? item.colaboratorEmail | slice:0:15) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons" *ngIf="isReviewTab">
+                            <button class="icon-btn reject" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ACTION.REJECT' | translate }}"
+                                (click)="rejectCollabCompetency(item)">
+                                <nz-icon nzType="close" />
+                            </button>
+                            <button class="icon-btn approve" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.COMPETENCY.ACTION.APPROVE' | translate }}"
+                                (click)="approveCollabCompetency(item)">
+                                <nz-icon nzType="check" />
+                            </button>
+                        </div>
+                    </div>
+
+                </nz-card>
+            </div>
+        </div>
+    </ng-template>
+</div>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+        <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+        </nz-option>
+    </nz-select>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    <nz-icon *ngIf="searchValue" class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle"
+        (click)="resetSearch()" />
+</ng-template>

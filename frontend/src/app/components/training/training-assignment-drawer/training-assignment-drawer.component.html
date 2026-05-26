@@ -1,0 +1,43 @@
+<nz-table [nzData]="invitations" [nzBordered]="true" [nzSize]="'middle'" [nzScroll]="{ x: '750px' }">
+  <thead>
+    <tr>
+      <th nzWidth="250px">Training</th>
+      <th nzWidth="130px">Status</th>
+      <th nzWidth="180px">Action</th>
+      <th nzWidth="150px">Assigned By</th>
+      <th nzWidth="130px">Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let invite of invitations">
+      <td>{{ invite.trainingProgram.title }}</td>
+      <td>
+        <span class="status-badge" [ngClass]="{
+              'pending': invite.status === 'PENDING',
+              'accepted': invite.status === 'ACCEPTED',
+              'rejected': invite.status === 'REJECTED',
+              'no-response': invite.status === 'NO_RESPONSE'
+            }">
+          {{ invite.status === 'NO_RESPONSE' ? 'NO RESPONSE' : invite.status }}
+        </span>
+      </td>
+      <td>
+        <div class="button-container">
+          <button class="green-button" nz-button nzSize="small" [disabled]="invite.status !== 'PENDING'"
+            (click)="accept(invite)">
+            Accept
+          </button>
+          <button class="red-button-drawer" nz-button nzSize="small" [disabled]="invite.status !== 'PENDING'"
+            (click)="reject(invite)">
+            Reject
+          </button>
+        </div>
+      </td>
+      <td>{{ invite.invitedBy?.name}}</td>
+      <td>{{ invite.invitedAt | date: 'medium' }}</td>
+    </tr>
+  </tbody>
+</nz-table>
+<ng-template #rejectModal let-modal>
+  <textarea [(ngModel)]="rejectReason" style="width:100%; min-height:100px;" placeholder="Enter reason"></textarea>
+</ng-template>

@@ -1,0 +1,247 @@
+<div>
+  <h1 class="text-center">{{ titleKey | translate }}</h1>
+</div>
+<nz-tabset nzCentered>
+  <nz-tab nzTitle="Available">
+    <div class="centered-padding-body">
+      <nz-skeleton *ngIf="loading"></nz-skeleton>
+      <div *ngIf="!loading">
+        <div class="filter-container">
+          <div class="filter-bar">
+            <app-search-bar [placeholder]="'PAGE.TRAINING_MANAGEMENT.SEARCH.PLACEHOLDER' | translate"
+              [optionList]="optionList" (searchChange)="onSearchChange($event)"
+              (cleared)="onSearchCleared()"></app-search-bar>
+
+            <div class="filter-chip">
+              <span class="chip-label">Department:</span>
+              <nz-select class="chip-select" [(ngModel)]="selectedDepartmentIds" nzMode="multiple" [nzMaxTagCount]="1"
+                nzBorderless [nzPlaceHolder]="'All'" (ngModelChange)="onSearchChange()">
+                <nz-option *ngFor="let dept of departments" [nzLabel]="dept.name" [nzValue]="dept.id"></nz-option>
+              </nz-select>
+            </div>
+          </div>
+
+          <button class="blue-button" (click)="openAssignmentDrawer()">Assignment</button>
+        </div>
+
+        <ng-container *ngIf="publicTrainingList.length === 0; else publicTrainingHasData">
+          <ng-template [ngTemplateOutlet]="noTraining"></ng-template>
+        </ng-container>
+
+        <ng-template #publicTrainingHasData>
+          <div class="card-grid" *ngIf="listOfDisplayTraining.length > 0; else noResult">
+            <training-card *ngFor="let training of listOfDisplayTraining" [title]="training.title"
+              [venue]="training.venue" [startDate]="training.startDate" [endDate]="training.endDate"
+              [startTime]="training.startTime" [endTime]="training.endTime" [capacity]="training.capacity"
+              [isPublic]="training.isPublic" (click)="onOpenTrainingDetails(training.trainingId)"></training-card>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+  </nz-tab>
+
+  <nz-tab nzTitle="Upcoming">
+    <div class="centered-padding-body">
+      <nz-skeleton *ngIf="loading"></nz-skeleton>
+      <div *ngIf="!loading" class="upcoming-grid">
+        <div class="left-panel">
+
+          <!-- Today Section -->
+          <div *ngIf="listOfDisplayTodayTraining.length > 0" class="training-section">
+            <div class="section-title">Today</div>
+            <div class="event-list">
+              <div class="event-card" *ngFor="let t of listOfDisplayTodayTraining">
+                <div class="event-dot today-dot"></div>
+                <div class="event-content" (click)="onOpenTrainingDetails(t.trainingId)">
+                  <div class="event-title">{{ t.title }}</div>
+                  <div class="event-sub">{{ t.startDate | date:'dd/MM/yyyy' }} - {{ t.endDate || t.startDate |
+                    date:'dd/MM/yyyy' }}</div>
+                  <div class="event-sub">{{ formatTimeToAMPM(t.startTime) }} - {{ formatTimeToAMPM(t.endTime) }}</div>
+                  <div class="event-sub">{{ t.venue }}</div>
+                </div>
+                <div class="event-actions">
+                  <span nz-tooltip
+                    [nzTooltipTitle]="!isWithinCheckInWindow(t) ? 'Only can check-in during the time' : null">
+                    <button class="attendance-button" [class.checked-in]="checkedInTrainingIds.includes(t.trainingId)"
+                      [class.loading]="checkingInTrainingIds.includes(t.trainingId)"
+                      [disabled]="checkedInTrainingIds.includes(t.trainingId) || checkingInTrainingIds.includes(t.trainingId) || !isWithinCheckInWindow(t)"
+                      (click)="onCheckIn(t.trainingId, $event)">
+                      <span *ngIf="checkingInTrainingIds.includes(t.trainingId)" class="loading-spinner"></span>
+                      {{ checkedInTrainingIds.includes(t.trainingId) ? 'Present' :
+                      checkingInTrainingIds.includes(t.trainingId) ? 'Marking...' : 'Mark Attendance' }}
+                    </button>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tomorrow Section -->
+          <div *ngIf="listOfDisplayTomorrowTraining.length > 0" class="training-section">
+            <div class="section-title">Tomorrow</div>
+            <div class="event-list">
+              <div class="event-card" *ngFor="let t of listOfDisplayTomorrowTraining"
+                (click)="onOpenTrainingDetails(t.trainingId)">
+                <div class="event-dot tomorrow-dot"></div>
+                <div class="event-content">
+                  <div class="event-title">{{ t.title }}</div>
+                  <div class="event-sub">{{ t.startDate | date:'dd/MM/yyyy' }} - {{ t.endDate || t.startDate |
+                    date:'dd/MM/yyyy' }}</div>
+                  <div class="event-sub">{{ formatTimeToAMPM(t.startTime) }} - {{ formatTimeToAMPM(t.endTime) }}</div>
+                  <div class="event-sub">{{ t.venue }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming Section -->
+          <div *ngIf="listOfDisplayUpcomingTraining.length > 0" class="training-section">
+            <div class="section-title">Upcoming</div>
+            <div class="event-list">
+              <div class="event-card" *ngFor="let t of listOfDisplayUpcomingTraining"
+                (click)="onOpenTrainingDetails(t.trainingId)">
+                <div class="event-dot upcoming-dot"></div>
+                <div class="event-content">
+                  <div class="event-title">{{ t.title }}</div>
+                  <div class="event-sub">{{ t.startDate | date:'dd/MM/yyyy' }} - {{ t.endDate || t.startDate |
+                    date:'dd/MM/yyyy' }}</div>
+                  <div class="event-sub">{{ formatTimeToAMPM(t.startTime) }} - {{ formatTimeToAMPM(t.endTime) }}</div>
+                  <div class="event-sub">{{ t.venue }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state when no trainings -->
+          <div
+            *ngIf="listOfDisplayTodayTraining.length === 0 && listOfDisplayTomorrowTraining.length === 0 && listOfDisplayUpcomingTraining.length === 0"
+            class="empty-container">
+            <ng-template [ngTemplateOutlet]="noUpcomingTraining"></ng-template>
+          </div>
+        </div>
+
+        <div class="right-panel">
+          <nz-calendar (nzSelectChange)="onCalendarSelect($event)" [nzDateCell]="dateCell">
+            <ng-template #dateCell let-current>
+              <ul class="events">
+                <li *ngFor="let ev of dateCellEvents(current) | slice:0:2">
+                  <nz-badge [nzStatus]="'success'" [nzText]="ev.title"></nz-badge>
+                </li>
+                <li class="more" *ngIf="dateCellEvents(current).length > 2">+{{ dateCellEvents(current).length - 2 }}
+                  more</li>
+              </ul>
+            </ng-template>
+          </nz-calendar>
+        </div>
+      </div>
+    </div>
+  </nz-tab>
+
+  <nz-tab nzTitle="Past">
+    <div class="centered-padding-body">
+      <nz-skeleton *ngIf="loading"></nz-skeleton>
+      <div *ngIf="!loading">
+        <div class="filter-container-complete">
+          <div class="filter-bar">
+            <app-search-bar [placeholder]="'PAGE.TRAINING_MANAGEMENT.SEARCH.PLACEHOLDER' | translate"
+              [optionList]="optionList" (searchChange)="onSearchChangeCompleted($event)"
+              (cleared)="onSearchClearedCompleted()"></app-search-bar>
+
+            <div class="filter-chip">
+              <span class="chip-label">Type:</span>
+              <nz-select class="chip-select" [(ngModel)]="visibilityFilter" nzBorderless
+                (ngModelChange)="onSearchChangeCompleted()">
+                <nz-option *ngFor="let opt of visibilityOptions" [nzLabel]="opt.label"
+                  [nzValue]="opt.value"></nz-option>
+              </nz-select>
+            </div>
+          </div>
+
+        </div>
+        <ng-container *ngIf="completedTrainingList.length === 0; else completedHasData">
+          <ng-template [ngTemplateOutlet]="noCompleted"></ng-template>
+        </ng-container>
+
+        <ng-template #completedHasData>
+          <div class="card-grid" *ngIf="listOfDisplayCompletedTraining.length > 0; else noResult">
+            <training-card *ngFor="let training of listOfDisplayCompletedTraining" [title]="training.title"
+              [venue]="training.venue" [startDate]="training.startDate" [endDate]="training.endDate"
+              [startTime]="training.startTime" [endTime]="training.endTime" [capacity]="training.capacity"
+              [isPublic]="training.isPublic"
+              [attendanceStatus]="checkedInTrainingIds.includes(training.trainingId) ? 'present' : 'absent'"
+              (click)="onOpenTrainingDetails(training.trainingId)"></training-card>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+  </nz-tab>
+</nz-tabset>
+
+<ng-template #noCompleted>
+  <div class="empty-container">
+    <nz-empty class="no-data" nzNotFoundContent="No Completed Trainings"></nz-empty>
+  </div>
+</ng-template>
+
+<ng-template #noTraining>
+  <div class="empty-container">
+    <nz-empty class="no-data" nzNotFoundContent="No Trainings"></nz-empty>
+  </div>
+</ng-template>
+
+<ng-template #noUpcomingTraining>
+  <div class="empty-container">
+    <nz-empty class="no-data" nzNotFoundContent="No Upcoming Trainings"></nz-empty>
+  </div>
+</ng-template>
+
+<ng-template #noResult>
+  <div class="empty-container">
+    <nz-empty class="no-data" nzNotFoundContent="No Results Found"></nz-empty>
+  </div>
+</ng-template>
+
+<ng-template #trainingDetailTpl>
+  <div class="training-detail-grid">
+    <div><strong>Title</strong></div>
+    <div>{{ selectedTraining?.title }}</div>
+    <div><strong>Description</strong></div>
+    <div>{{ selectedTraining?.description }}</div>
+    <div><strong>Date</strong></div>
+    <div> <span class="text-14px mt-2">{{ selectedTraining?.startDate | date:'dd/MM/yyyy'}} - {{
+        selectedTraining?.endDate |
+        date: 'dd/MM/yyyy'}}</span></div>
+    <div><strong>Time</strong></div>
+    <div>{{formatTimeToAMPM(selectedTraining?.startTime)}} - {{formatTimeToAMPM(selectedTraining?.endTime)}}</div>
+    <div><strong>Department(s)</strong></div>
+    <div class="department-tags">
+      <nz-tag class="tag" *ngFor="let dept of selectedTraining?.departments" [nzColor]="'blue'">{{ dept.name }}</nz-tag>
+    </div>
+    <div><strong>Competency(s)</strong></div>
+
+    <div class="department-tags">
+      <nz-tag class="tag" *ngFor="let comp of selectedTraining.competencies" [nzColor]="'purple'">{{ comp.name
+        }}</nz-tag>
+    </div>
+    <div><strong>Capacity</strong></div>
+    <div>{{ selectedTraining?.capacity }}</div>
+    <div><strong>Venue</strong></div>
+    <div class="venue-container">{{ selectedTraining?.venue }}<br>
+      <div class="address-class">{{selectedTraining?.locationName}}</div>
+    </div>
+    <div *ngIf="selectedTraining?.importantNotes?.length"><strong>Important Notes</strong></div>
+    <div>
+      <ul>
+        <li *ngFor="let note of selectedTraining?.importantNotes">{{ note }}</li>
+      </ul>
+    </div>
+  </div>
+
+  <div>
+    <button class="blue-button" *ngIf="!registeredTrainingIdList.includes(selectedTraining?.trainingId)"
+      (click)="onClickRegisterTraining(selectedTraining)">Register</button>
+    <button class="blue-button" [disabled]="true"
+      *ngIf="registeredTrainingIdList.includes(selectedTraining?.trainingId)"
+      (click)="onClickRegisterTraining(selectedTraining?.trainingId)">Registered</button>
+  </div>
+</ng-template>

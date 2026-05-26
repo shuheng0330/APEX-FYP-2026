@@ -1,0 +1,23 @@
+<h1 class="text-center">{{ 'PAGE.COMPETENCY.TITLE' | translate }}</h1>
+
+<nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex">
+    <nz-tab nzTitle="{{ 'PAGE.COMPETENCY.OVERVIEW.TITLE' | translate }}"
+        *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_COMPETENCY','CAN_PROPOSE_ROLE_COMPETENCIES'])">
+        <ng-template nz-tab><app-competency-overview /></ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.COMPETENCY.ASSIGNMENT.TITLE' | translate }}" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+        <ng-template nz-tab><app-competency-assignment-overview /></ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.COMPETENCY.COLLAB.COMPETENCY.TITLE' | translate }}"
+        *ngIf="hasAccess(['CAN_MANAGE_COMPETENCY','CAN_PROPOSE_ROLE_COMPETENCIES'])">
+        <ng-template nz-tab>
+            <app-competency-definition-collab />
+        </ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TITLE' | translate }}"
+        *ngIf="hasAccess(['CAN_MANAGE_ROLE','CAN_PROPOSE_ROLE_COMPETENCIES'])">
+        <ng-template nz-tab>
+            <app-competency-assignment-collab />
+        </ng-template>
+    </nz-tab>
+</nz-tabset>

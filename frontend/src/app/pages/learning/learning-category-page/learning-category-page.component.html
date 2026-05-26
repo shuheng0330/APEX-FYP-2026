@@ -1,0 +1,109 @@
+<div class="centered-padding-body">
+  <div *ngIf="isLoading" class="loading-overlay">
+    <nz-spin [nzIndicator]="loadingIndicator"></nz-spin>
+  </div>
+
+  <ng-template #loadingIndicator>
+    <nz-icon nzType="loading" [nzSpin]="true" nzTheme="outline"></nz-icon>
+    <span class="loading-text">Loading<span class="dots"></span></span>
+  </ng-template>
+
+  <div class="category-page" *ngIf="!isLoading">
+    <div class="title-container">
+      <nz-icon class="back-button" (click)="goBack()" nzType="arrow-left" nzTheme="outline" />
+      <h2>{{ title }}</h2>
+    </div>
+
+    <div class="filter-container">
+      <div class="filter-bar">
+        <div>
+          <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+            [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+            <input placeholder="{{'PAGE.ROLE.OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+              [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+          </nz-input-group>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Department:</span>
+          <nz-select class="chip-select" [(ngModel)]="selectedDepartmentIds" nzMode="multiple" [nzMaxTagCount]="1"
+            nzBorderless [nzPlaceHolder]="'All'" (ngModelChange)="search()">
+            <nz-option *ngFor="let dept of departments" [nzLabel]="dept.name" [nzValue]="dept.id"></nz-option>
+          </nz-select>
+        </div>
+
+        <div class="filter-chip">
+          <span class="chip-label">Competency:</span>
+          <nz-select class="chip-select" [(ngModel)]="selectedCompetenciesIds" nzBorderless nzMode="multiple"
+            (ngModelChange)="search()">
+            <nz-option *ngFor="let opt of competencies" [nzLabel]="opt.name" [nzValue]="opt.id"></nz-option>
+          </nz-select>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="page-layout">
+      <div class="course-grid">
+        <div class="card" *ngFor="let item of items" [class.selected]="selectedMaterial?.materialId === item.materialId"
+          (click)="selectMaterial(item)">
+          <!--        <div class="thumb"></div>-->
+          <div class="body">
+            <h4>{{ item.title }}</h4>
+            <p>{{ item.description }}</p>
+            <button *ngIf="!isEnrolled(item.materialId)" class="blue-button"
+              (click)="enrollLearningMaterial(item)">Enroll</button>
+            <button *ngIf="isEnrolled(item.materialId)" class="blue-button"
+              [routerLink]="['/learning-materials', item.materialId, 'preview']">Start</button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isMobile" class="course-details">
+        <div *ngIf="!selectedMaterial" class="no-selection">
+          <div class="placeholder-icon">📚</div>
+          <h3>Select a Course</h3>
+          <p>Choose a course from the left to view its details and learning outcomes.</p>
+        </div>
+
+        <div *ngIf="selectedMaterial">
+          <app-learning-material-detail [actionButton]="true" [selectedMaterial]="selectedMaterial"
+            [isEnrolled]="isEnrolled(selectedMaterial.materialId)" [userId]="userId"></app-learning-material-detail>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nz-drawer [nzVisible]="drawerVisible" [nzTitle]="'Course Detail'" [nzPlacement]="'right'" [nzWidth]="'100%'"
+  (nzOnClose)="closeDrawer()">
+  <ng-container *nzDrawerContent>
+    <div *ngIf="selectedMaterial">
+      <app-learning-material-detail [actionButton]="true" [selectedMaterial]="selectedMaterial"
+        [isEnrolled]="isEnrolled(selectedMaterial.materialId)" [userId]="userId"></app-learning-material-detail>
+    </div>
+  </ng-container>
+</nz-drawer>
+
+
+
+<ng-template #suffixSearchButton>
+  <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+    <nz-icon nzType="search" nzTheme="outline" />
+  </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+  <div>
+    <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField">
+      <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+      </nz-option>
+    </nz-select>
+  </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+  @if (searchValue) {
+  <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+  }
+</ng-template>

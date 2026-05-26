@@ -1,0 +1,218 @@
+<app-add-competency-assignment-collab (formSubmitted)="loadList()" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+</app-add-competency-assignment-collab>
+
+<app-view-competency-assignment-collab *ngIf="hasAccess(['CAN_MANAGE_ROLE','CAN_PROPOSE_ROLE_COMPETENCIES'])">
+</app-view-competency-assignment-collab>
+
+<app-edit-competency-assignment-collab (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_ROLE','CAN_PROPOSE_ROLE_COMPETENCIES'])">
+</app-edit-competency-assignment-collab>
+
+<div class="centered-padding-body" *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_PROPOSE_ROLE_COMPETENCIES'])">
+    <div class="space-between-button-group">
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0 || hasNoAccessToReview()"
+                (click)="bulkRejectCollabCompetencyAssignment()">{{
+                'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.BUTTON.REJECT' | translate }} <nz-icon nzType="close"
+                    nzTheme="outline" /></button>
+            <button class="blue-button" [disabled]="setOfCheckedId.size === 0 || hasNoAccessToReview()"
+                (click)="bulkApproveCollabCompetencyAssignment()">{{
+                'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.BUTTON.APPROVE' | translate }} <nz-icon nzType="check"
+                    nzTheme="outline" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addCollabCompetencyAssignment()">
+                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.BUTTON.ADD' | translate }}
+                <nz-icon nzType="plus" class="button-icon" />
+            </button>
+        </div>
+    </div>
+
+    <nz-tabset [nzType]="'card'" style="margin-bottom: 80px;" [nzSelectedIndex]="selectedTabIndex"
+        (nzSelectedIndexChange)="onTabChange($event)">
+
+        <nz-tab [nzTitle]="inboxTitleTpl" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+            <ng-template #inboxTitleTpl>
+                <span class="tab-label">
+                    <nz-icon nzType="pushpin" nzTheme="outline" />
+                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TAB.REVIEW' | translate }}
+                    <nz-badge [nzCount]="reviewList.length" [nzStyle]="{ backgroundColor: '#E6173F' }"></nz-badge>
+                </span>
+            </ng-template>
+            <ng-container
+                *ngTemplateOutlet="cardGridTemplate; context: { $implicit: reviewList, isReviewTab: true }"></ng-container>
+        </nz-tab>
+
+        <nz-tab [nzTitle]="sentTitleTpl">
+            <ng-template #sentTitleTpl>
+                <span class="tab-label"><nz-icon nzType="folder-open" nzTheme="outline" />
+                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TAB.MY' | translate }}
+                    <nz-badge [nzCount]="proposalList.length" [nzStyle]="{ backgroundColor: '#15469c' }"></nz-badge>
+                </span>
+            </ng-template>
+            <ng-container
+                *ngTemplateOutlet="cardGridTemplate; context: { $implicit: proposalList, isReviewTab: false }"></ng-container>
+        </nz-tab>
+    </nz-tabset>
+
+    <ng-template #cardGridTemplate let-data let-isReviewTab="isReviewTab">
+        <nz-empty *ngIf="$any(data).length === 0"></nz-empty>
+
+        <div class="table-operations-bar" *ngIf="isReviewTab && hasAccess(['CAN_MANAGE_ROLE']) && $any(data).length > 0"
+            style="margin-bottom: 10px;">
+            <label nz-checkbox [(nzChecked)]="checked" [nzIndeterminate]="indeterminate"
+                (nzCheckedChange)="onAllChecked($event)">
+                Selected {{setOfCheckedId.size}} items
+            </label>
+        </div>
+
+        <div nz-row [nzGutter]="[24, 24]">
+            <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="8" [nzXl]="6" *ngFor="let item of $any(data)">
+
+                <nz-card class="proposal-card" [class.selected-card]="setOfCheckedId.has(item.id)">
+
+                    <div class="card-header-row">
+                        <div class="checkbox-wrapper" *ngIf="isReviewTab && hasAccess(['CAN_MANAGE_ROLE'])">
+                            <label class="proposal-id" nz-checkbox [nzChecked]="setOfCheckedId.has(item.id)"
+                                (nzCheckedChange)="onItemChecked(item.id, $event)">
+                                {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TABLE.ID' | translate }}: #{{
+                                item.id.proposalId }}
+                            </label>
+                        </div>
+
+                        <a nz-dropdown [nzDropdownMenu]="menu" nzTrigger="click" class="more-menu-btn">
+                            <nz-icon nzType="more" nzTheme="outline" />
+                        </a>
+
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+
+                                <li nz-menu-item (click)="viewRolesCompetencyAssignment(item)">
+                                    <a>
+                                        <nz-icon nzType="eye" />
+                                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ACTION.VIEW' | translate }}
+                                    </a>
+                                </li>
+
+
+                                <li nz-menu-item (click)="editCollabCompetencyAssignment(item)">
+                                    <a><nz-icon nzType="edit" />
+                                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ACTION.EDIT' | translate }}
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </nz-dropdown-menu>
+                    </div>
+
+                    <div class="card-content" (click)="viewRolesCompetencyAssignment(item)">
+
+                        <h4 class="role-title" nz-tooltip [nzTooltipTitle]="item.roleName">
+                            {{ item.roleName }}
+                        </h4>
+
+                        <span class="org-chart-title" nz-tooltip [nzTooltipTitle]="item.roleName">
+                            {{ item.orgChartName }}
+                        </span>
+
+                        <div class="tags-row">
+                            <ng-container *ngFor="let roleComp of item.assignedCompetencies | slice:0:2; let i = index">
+                                <nz-tag [nzColor]="colorCodes[i % colorCodes.length]">
+                                    {{ ($any(roleComp).competency?.name ?? $any(roleComp).competencyProposal?.name) }}
+                                    : {{ $any(roleComp).weightage }}%
+                                </nz-tag>
+                            </ng-container>
+                            <span *ngIf="item.assignedCompetencies?.length > 2" class="more-tags">
+                                +{{item.assignedCompetencies.length - 2}} more
+                            </span>
+                        </div>
+                        <div class="stats-container">
+                            <div class="stats-row">
+                                <div class="stat-item">
+                                    <span class="stat-val">{{item.assignedCompetencies?.length || 0}}</span>
+                                    <span class="stat-label">
+                                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TABLE.COMPETENCY' | translate }}
+                                    </span>
+                                </div>
+                                <div class="divider"></div>
+                                <div class="stat-item">
+                                    <span class="stat-val">{{item.totalWeightage || 0}}%</span>
+                                    <span class="stat-label">
+                                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TABLE.TOTAL' | translate }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="stats-row">
+                                <div class="stat-item">
+                                    <span class="stat-val">{{item.assignedJobScopes?.length || 0}}</span>
+                                    <span class="stat-label">
+                                        {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TABLE.JOB_SCOPE' | translate }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <div class="user-info">
+                            <nz-avatar [nzText]="item.collaboratorName?.charAt(0)" [nzSize]="28"
+                                [style.background-color]="item.id?.staffId != currentUserId ? '#1890ff' : '#87d068'">
+                            </nz-avatar>
+                            <div class="text-info">
+                                <span class="label">
+                                    {{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.TABLE.COLLABORATOR.COLLABORATOR' | translate
+                                    }}:
+                                </span>
+                                <span class="name" nz-tooltip [nzTooltipTitle]="item.collaboratorEmail">
+                                    {{ (item.collaboratorName ?? item.collaboratorEmail | slice:0:15) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons" *ngIf="isReviewTab">
+                            <button class="icon-btn reject" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ACTION.REJECT' | translate }}"
+                                (click)="rejectCollabCompetencyAssignment(item)">
+                                <nz-icon nzType="close" />
+                            </button>
+                            <button class="icon-btn approve" nz-tooltip
+                                nzTooltipTitle="{{'PAGE.COMPETENCY.COLLAB.ASSIGNMENT.ACTION.APPROVE' | translate }}"
+                                (click)="approveCollabCompetencyAssignment(item)">
+                                <nz-icon nzType="check" />
+                            </button>
+                        </div>
+                    </div>
+
+                </nz-card>
+            </div>
+        </div>
+    </ng-template>
+</div>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+        <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+        </nz-option>
+    </nz-select>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    <nz-icon *ngIf="searchValue" class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle"
+        (click)="resetSearch()" />
+</ng-template>

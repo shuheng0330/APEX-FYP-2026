@@ -1,0 +1,18 @@
+<div class="mobile-header">
+  <div class="left-section">
+    <span nz-icon nzType="menu" nzTheme="outline" class="trigger" (click)="toggleDrawer.emit()"></span>
+    
+  </div>
+
+  <div class="right-section">
+    <a (click)="onProfileClick()">
+      <nz-icon nzType="user" nzTheme="outline" />
+      <span style="margin-right: 20px; margin-left: 10px;"></span>
+    </a>
+
+    <a (click)="onLogout()">
+      <nz-icon nzType="logout" nzTheme="outline" />
+      <span style="margin-right: 10px; margin-left: 10px;"></span>
+    </a>
+  </div>
+</div>

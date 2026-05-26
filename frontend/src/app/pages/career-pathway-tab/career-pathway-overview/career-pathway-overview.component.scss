@@ -1,0 +1,191 @@
+@use '@angular/material' as mat;
+@use '../../../../app/theme' as app-theme;
+
+.career-pathway-overview-table {
+    margin-top: 1%;
+}
+
+
+::ng-deep .ant-tag-has-color {
+    margin-top: 1%;
+}
+
+::ng-deep .ant-table-row-expand-icon {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    border: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+.expanded-panel {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+    padding: 24px;
+    border-top: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+    border-bottom: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+.expanded-layout {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+}
+
+.info-column {
+    flex: 0 0 50%;
+    max-width: 50%;
+
+    .detail-content {
+        color: #595959;
+        line-height: 1.8;
+        margin-bottom: 16px;
+
+        b {
+            color: #1a1a1a;
+        }
+    }
+
+    .tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+.chart-column {
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-column {
+    &:first-child {
+        border-right: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 100);
+    }
+}
+
+.detail-title {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.detail-content {
+    color: #595959;
+    line-height: 1.6;
+}
+
+.text-muted {
+    color: #bfbfbf;
+    font-style: italic;
+}
+
+@media (max-width: 992px) {
+    .expanded-layout {
+        flex-direction: column;
+    }
+
+    .info-column {
+        flex: 0 0 auto;
+        max-width: 100%;
+        width: 100%;
+        border-bottom: 1px solid #e8e8e8;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+    }
+
+    .org-chart-container {
+        height: 400px;
+        width: 100%;
+    }
+}
+
+.org-chart-container {
+    margin-top: 1%;
+    position: relative;
+    width: 100%;
+    height: 500px;
+    border-radius: 8px;
+    padding-bottom: 1%;
+    background: white;
+}
+
+.org-chart {
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+::ng-deep .org-chart-button {
+    font-size: larger;
+}
+
+::ng-deep .collapse-btn {
+    border: red;
+}
+
+::ng-deep .ant-card-bordered {
+    border: 0;
+}
+
+::ng-deep .ant-card-body {
+    text-align: left;
+}
+
+::ng-deep .visited-node {
+
+    .ant-card-head {
+        border-bottom: #F4F4F4 1px solid;
+    }
+
+    .ant-card-head-title {
+        color: #F4F4F4;
+    }
+
+    .ant-card-body {
+        color: #F4F4F4;
+    }
+
+    background-color: #0C2B4E;
+}
+
+::ng-deep .current-node {
+
+    .ant-card-head {
+        border-bottom: #043915 1px solid;
+    }
+
+    .ant-card-head-title {
+        color: #043915;
+    }
+
+    .ant-card-body {
+        color: #043915;
+    }
+
+    background-color: #DDF4E7;
+}
+
+::ng-deep .next-node {
+
+    .ant-card-head {
+        border-bottom: mat.m2-get-color-from-palette(app-theme.$my-primary, 200) 1px solid;
+    }
+
+    .ant-card-head-title {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    }
+
+    .ant-card-body {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    }
+
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}

@@ -1,0 +1,15 @@
+<nz-modal
+  [(nzVisible)]="isVisible"
+  [nzFooter]="footer ? footer : null"
+  [nzTitle]="title || '' "
+  [nzWidth]="width"
+  (nzOnCancel)="close()"
+  (nzOnOk)="ok()"
+  [nzMaskClosable]="maskClosable"
+  [nzWrapClassName]="modalClass"
+>
+  <div *nzModalContent >
+  <ng-container *ngTemplateOutlet="contentTemplate"></ng-container>
+  </div>
+
+</nz-modal>

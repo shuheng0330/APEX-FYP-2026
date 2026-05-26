@@ -1,0 +1,145 @@
+@use '@angular/material' as mat;
+@use '../../../../app/theme' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+h2 {
+    padding: 0;
+}
+
+.org-chart-header {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 16px 24px;
+    flex-wrap: wrap;
+
+    background-color: white;
+}
+
+.title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    h2 {
+        margin: 0;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+.red-button {
+    min-width: 0;
+}
+
+.org-chart-container {
+    margin-top: 1%;
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    border-radius: 8px;
+    padding-bottom: 1%;
+}
+
+.org-chart {
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+::ng-deep .org-chart-button {
+    font-size: larger;
+}
+
+::ng-deep .collapse-btn {
+    border: red;
+}
+
+::ng-deep .ant-card-bordered {
+    border: 0;
+}
+
+::ng-deep .ant-card-body {
+    text-align: left;
+}
+
+::ng-deep .visited-node {
+
+    .ant-card-head {
+        border-bottom: #F4F4F4 1px solid;
+    }
+
+    .ant-card-head-title {
+        color: #F4F4F4;
+    }
+
+    .ant-card-body {
+        color: #F4F4F4;
+    }
+
+    background-color: #0C2B4E;
+}
+
+::ng-deep .current-node {
+
+    .ant-card-head {
+        border-bottom: #043915 1px solid;
+    }
+
+    .ant-card-head-title {
+        color: #043915;
+    }
+
+    .ant-card-body {
+        color: #043915;
+    }
+
+    background-color: #DDF4E7;
+}
+
+::ng-deep .next-node {
+
+    .ant-card-head {
+        border-bottom: mat.m2-get-color-from-palette(app-theme.$my-primary, 200) 1px solid;
+    }
+
+    .ant-card-head-title {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    }
+
+    .ant-card-body {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    }
+
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+.data-not-found {
+    padding: 5%;
+}
+
+@media (max-width: 768px) {
+    .org-chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        top: 60px
+    }
+}

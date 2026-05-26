@@ -1,0 +1,44 @@
+@use '@angular/material' as mat;
+@use '../../theme' as app-theme;
+
+.mobile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+  padding: 0 20px;
+  background: mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 100;
+
+  .left-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    .trigger {
+      color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+      cursor: pointer;
+      font-size: 20px;
+
+      &:hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+      }
+    }
+
+    .mobile-logo {
+      height: 30px;
+    }
+  }
+
+  .right-section a {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+
+    &:hover {
+      color: mat.m2-get-color-from-palette(app-theme.$my-primary, A800);
+    }
+  }
+}

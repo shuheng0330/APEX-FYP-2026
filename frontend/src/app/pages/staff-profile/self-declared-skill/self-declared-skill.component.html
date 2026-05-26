@@ -1,0 +1,124 @@
+<app-add-self-declared-skill (formSubmitted)="loadList()" *ngIf="!isVisiting$.value">
+</app-add-self-declared-skill>
+<app-edit-self-declared-skill (formSubmitted)="loadList()" *ngIf="!isVisiting$.value">
+</app-edit-self-declared-skill>
+<app-view-self-declared-skill> </app-view-self-declared-skill>
+
+<div class="centered-padding-body">
+    <div class="space-between-button-group">
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.PROFILE.SKILL.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" (input)="search()" maxlength="100" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="!isVisiting$.value">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeleteSkill()">{{
+                'PAGE.PROFILE.SKILL.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addSkill()">{{
+                'PAGE.PROFILE.SKILL.BUTTON.ADD' | translate }} <nz-icon nzType="plus" class="button-icon" /></button>
+        </div>
+    </div>
+
+    <p class="num-item-selected" *ngIf="!isVisiting$.value"> Selected {{setOfCheckedId.size}} items</p>
+
+    <nz-table nzBordered #staffSkill nzTableLayout="fixed" class="role-overview-table"
+        [nzScroll]="{x: '900px', y:'400px'}" [nzData]="listOfDisplayData"
+        (nzCurrentPageDataChange)="onCurrentPageDataChange($event)" style="margin-top: 1%;">
+        <thead>
+            <tr>
+                <th nzWidth="40px"></th>
+                <th nzAlign="center" *ngIf="!isVisiting$.value" nzWidth="40px" [(nzChecked)]="checked"
+                    [nzIndeterminate]="indeterminate" (nzCheckedChange)="onAllChecked($event)">
+                </th>
+                <th nzAlign="center" nzWidth="80px" *ngIf="!isVisiting$.value">
+                    {{'PAGE.PROFILE.SKILL.TABLE.ACTION' | translate}}</th>
+
+                <th nzWidth="250px" [nzSortFn]="sortBySkillName">
+                    {{'PAGE.PROFILE.SKILL.TABLE.SKILL' | translate}}
+                </th>
+                <th [nzSortFn]="sortByProficiency">{{'PAGE.PROFILE.SKILL.TABLE.DESC' | translate}}
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of staffSkill.data; track row) {
+            <tr>
+
+                <td nzAlign="center">
+                    <a (click)="viewSkill(row)">
+                        <nz-icon nzType="eye" nzTheme="outline" />
+                    </a>
+                </td>
+
+                <td *ngIf="!isVisiting$.value" [nzChecked]="setOfCheckedId.has(row.id)"
+                    (nzCheckedChange)="onItemChecked(row.id, $event)">
+                </td>
+
+                <td nzAlign="center" *ngIf="!isVisiting$.value">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editSkill(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" /> <span>
+                                                {{'PAGE.PROFILE.SKILL.ACTION.EDIT' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deleteSkill(row)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" /><span>
+                                                {{'PAGE.PROFILE.SKILL.ACTION.DELETE' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td>{{row.skill}}</td>
+
+                <td>{{row.description}}
+                    <br *ngIf="row.description" />
+                    <nz-tag style="margin-top: 10px;" [nzColor]="getProficiencyColor(row.proficiency)">
+                        # {{row.proficiency}}
+                    </nz-tag>
+                </td>
+
+            </tr>
+            }
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #checkedTemplate><nz-icon nzType="check" nzTheme="outline" /></ng-template>
+<ng-template #unCheckedTemplate><nz-icon nzType="close" nzTheme="outline" /></ng-template>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

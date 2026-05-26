@@ -1,0 +1,83 @@
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.ORG_CHART.IMPORT.INSTRUCTION' | translate}}"
+    uploadHint="{{'PAGE.ORG_CHART.IMPORT.HINT' | translate}}" templateName="OrgChartUploadTemplate"
+    (confirm)="importData()">
+</app-file-upload>
+
+<app-view-roles-competencies></app-view-roles-competencies>
+
+<div class="centered-padding-body">
+    <div class="org-chart-header">
+        <h1 style="text-align: center;">{{ 'PAGE.ORG_CHART.TITLE' | translate }}</h1>
+
+        <div class="line-break"></div>
+
+        <div class="button-group space-between-button-group">
+            <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_ORG_CHART'])">
+                <button class="blue-button" (click)="export()">
+                    {{ 'PAGE.ORG_CHART.EXPORT.TITLE' | translate }}
+                    <nz-icon nzType="export" class="button-icon" /></button>
+                <button class="blue-button" (click)="openFileSelector()">
+                    {{ 'PAGE.ORG_CHART.IMPORT.TITLE' | translate }}
+                    <nz-icon nzType="import" class="button-icon" />
+                </button>
+            </div>
+
+            <div class="button-group">
+                <button class="blue-button org-chart-button" (click)="zoomInAll()">
+                    <span><nz-icon nzType="zoom-in" nzTheme="outline" /></span>
+                </button>
+                <button class="blue-button org-chart-button" (click)="zoomOutAll()">
+                    <span><nz-icon nzType="zoom-out" nzTheme="outline" /></span>
+                </button>
+                <button class="blue-button org-chart-button" (click)="resetAll()">
+                    <nz-icon nzType="compress" nzTheme="outline" />
+                </button>
+                <button class="blue-button org-chart-button" (click)="toggleCollapseAll()"
+                    *ngIf="!isAllExpanded$.value">
+                    <nz-icon nzType="arrows-alt" nzTheme="outline" />
+                </button>
+                <button class="red-button org-chart-button" (click)="toggleCollapseAll()" *ngIf="isAllExpanded$.value">
+                    <nz-icon nzType="shrink" nzTheme="outline" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="org-chart-container">
+        <ngx-interactive-org-chart *ngFor="let data of orgChartData; let i = index" [data]="data" #chart
+            [highlightZoomNodeWidthRatio]="0.4" [highlightZoomNodeHeightRatio]="0.5" [highlightZoomMinimum]="1.0">
+            <ng-template #nodeTemplate let-node="node">
+                @let nodeData = node?.data;
+                <nz-card [nzTitle]="personTitle" *ngIf="nodeData.type == 'P'" class="person-node">
+                    <img *ngIf="nodeData.personNode?.profileUrl" nz-image class="profile-image"
+                        [nzSrc]="nodeData.personNode?.profileUrl" alt="Profile image" />
+                    <span *ngIf="nodeData.personNode?.staffName" style="margin-left: 10px;">
+                        {{nodeData.personNode?.staffName}}
+                    </span>
+                </nz-card>
+                <ng-template #personTitle>
+                    <span><nz-icon nzType="user" nzTheme="outline" /><b style="padding-left: 10px;">{{node.name}}
+                        </b></span>
+                </ng-template>
+
+                <nz-card [nzTitle]="departmentTitle" *ngIf="nodeData.type == 'D'" class="department-node">
+                    <span *ngIf="nodeData.departmentNode?.departmentName!">
+                        <p *ngFor="let roleEntry of nodeData.departmentNode?.computedRoles">
+                            <a (click)="viewRoleDetails(roleEntry.roleId)" (touchstart)="$event.stopPropagation()"
+                                (mousedown)="$event.stopPropagation()"
+                                style="cursor: pointer; position: relative; z-index: 10;"
+                                *ngIf="roleEntry.visibility || hasAccess(['CAN_MANAGE_ROLE', 'CAN_VIEW_INVISIBLE_ROLE'])">
+                                {{ roleEntry.roleName }}
+                            </a>
+                        </p>
+                    </span>
+                </nz-card>
+                <ng-template #departmentTitle>
+                    <span><nz-icon nzType="gold" nzTheme="outline" /><b
+                            style="padding-left: 10px;">{{node.name}}</b></span>
+                </ng-template>
+            </ng-template>
+        </ngx-interactive-org-chart>
+    </div>
+</div>

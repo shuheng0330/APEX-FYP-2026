@@ -1,0 +1,103 @@
+.material-details h3 {
+  padding: 10px 0 10px 0;
+  margin: 0;
+  color: #262626;
+  font-size: 20px;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-section h4 {
+  padding: 10px 0 10px 0;
+  color: #262626;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.detail-section p {
+  margin: 0;
+  color: #595959;
+  line-height: 1.5;
+}
+
+.department-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.outcomes-list {
+  margin: 0;
+  padding-left: 16px;
+  color: #595959;
+}
+
+.outcomes-list li {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.document-count {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.action-buttons {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.primary-btn {
+  background: #15479b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease, border 0.3s ease;
+}
+
+.primary-btn:hover {
+  background-color: darken(#15479b, 10%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.secondary-btn {
+  background: #e2183d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease, border 0.3s ease;
+
+}
+
+.secondary-btn:hover {
+  background-color: darken(#e2183d, 10%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.mt-10px{
+  margin-top: 10px;
+}

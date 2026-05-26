@@ -1,0 +1,1889 @@
+{
+    "APP": {
+        "TITLE": "Career Pathway and Learning Management System"
+    },
+    "NOTIFICATION": {
+        "ERR": {
+            "TITLE": "Oops!",
+            "MESSAGE": "Unexpected error occurred, please try again later."
+        },
+        "SUCCESS": {
+            "TITLE": "Success!",
+            "MESSAGE": "Operation completed successfully."
+        }
+    },
+    "AUTH": {
+        "LOGIN": {
+            "TITLE": "Welcome Back!",
+            "INPUT": {
+                "DETAILS": "Please enter your details.",
+                "EMAIL": "Email Address",
+                "PASS": "Password"
+            },
+            "ERR": {
+                "EMAIL": "Please enter a valid email address.",
+                "PASS": "Please enter your password."
+            },
+            "FORGOT": "Forgot Password?",
+            "FIRST": "First Time Login?",
+            "SIGNIN": "Sign In"
+        },
+        "FIRST_TIME_LOGIN": {
+            "TITLE": "First Time Login",
+            "INSTRUCTION": "Please enter your email address below.",
+            "INPUT": {
+                "EMAIL": "Email Address"
+            },
+            "ERR": {
+                "EMAIL": "Please enter a valid email address."
+            },
+            "SEND": "Send OTP",
+            "BACK": "Back To Login"
+        },
+        "FORGOT_PASSWORD": {
+            "TITLE": "Forgot Password?",
+            "INSTRUCTION": "Please enter your email address below.",
+            "INPUT": {
+                "EMAIL": "Email Address"
+            },
+            "ERR": {
+                "EMAIL": "Please enter a valid email address."
+            },
+            "SEND": "Send OTP",
+            "BACK": "Back To Login"
+        },
+        "RESET_PASSWORD": {
+            "TITLE": "Reset Password",
+            "INSTRUCTION1": "Enter the code sent to",
+            "INSTRUCTION2": "to reset your password.",
+            "RESEND": "Didn't get the code? Resend OTP",
+            "RESENT": "OTP sent again. Please check your inbox.",
+            "RESEND_CD1": "You can resend in",
+            "RESEND_CD2": "second(s)",
+            "NEW_PASSWORD": "New Password",
+            "INPUT": {
+                "PASSWORD": "New Password"
+            },
+            "ERR": {
+                "PASSWORD": "Please enter your new password.",
+                "OTP": "Please enter the OTP to proceed.",
+                "INVALID_PASSWORD_TITLE": "Invalid password",
+                "INVALID_PASSWORD_MESSAGE": "Password must be at least 6 characters long and contain at least 1 uppercase letter, 1 lowercase letter, and 1 number."
+            },
+            "VALIDATOR": {
+                "MIN": "Minimum 6 characters",
+                "UPPER_CASE": "At least one uppercase letter",
+                "LOWER_CASE": "At least one lowercase letter",
+                "NUM": "At least one number"
+            },
+            "RESET": "Reset Password",
+            "SUCCESS": "Password reset successfully!"
+        }
+    },
+    "NAV": {
+        "ORG_CHART": "Organizational Chart",
+        "CAREER_PATHWAY": "Career Pathway",
+        "ROLES_COMPETENCIES": "Roles & Competencies",
+        "STAFFS": "Staff Members",
+        "ROLES": "Roles",
+        "COMPETENCIES": "Competencies",
+        "TRAINING": "Training",
+        "TRAINING_MANAGEMENT": "Training Management",
+        "TRAINING_ENGAGEMENT": "Training Engagement",
+        "LEARNING": "Learning",
+        "LEARNING_MANAGEMENT": "Learning Management",
+        "LEARNING_ENGAGEMENT": "Learning Engagement",
+        "EVALUATION": "Evaluation",
+        "EVALUATION_OVERVIEW": "Overview",
+        "MY_EVALUATION": "My Evaluation",
+        "PROFILE": "Profile",
+        "LOGOUT": "Logout",
+        "ACCOUNT": "Account"
+    },
+    "COMPONENT": {
+        "FILE": {
+            "UPLOAD": {
+                "TITLE": "Upload File",
+                "OK": "Confirm",
+                "TEMPLATE": "Click to download template",
+                "UPLOAD": "Click or drag file to this area to upload."
+            },
+            "ERROR": {
+                "INVALID": {
+                    "TITLE": "Unsupported File Type",
+                    "MSG": "The file you selected isn't a supported format. Please upload a different file and try again."
+                },
+                "LARGE": {
+                    "TITLE": "File Too Large",
+                    "MSG": "The file size exceeds the maximum limit. Please upload a smaller file."
+                }
+            }
+        },
+        "TABLE_PAGE_SIZE": {
+            "ROWS_PER_PAGE": "Items Per Page"
+        }
+    },
+    "PAGE": {
+        "ORG_CHART": {
+            "TITLE": "Organizational Chart Overview",
+            "IMPORT": {
+                "TITLE": "Import",
+                "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+            },
+            "EXPORT": {
+                "TITLE": "Export"
+            }
+        },
+        "ROLE": {
+            "TITLE": "Roles",
+            "OVERVIEW": {
+                "TITLE": "Role Overview",
+                "BUTTON": {
+                    "EXPORT": "Export",
+                    "IMPORT": "Import",
+                    "DELETE": "Delete",
+                    "ADD": "New Role"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "DESC": "Description",
+                        "JOB_SCOPE": "Job Scope"
+                    }
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "VISIBILITY": "Visibility",
+                    "DEPARTMENT": "Department",
+                    "ROLE": "Role",
+                    "DESC": "Description",
+                    "JOB_SCOPE": "Job Scope"
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please reassign the role to the appropriate department."
+                },
+                "ACTION": {
+                    "EDIT": "Edit Role",
+                    "DELETE": "Delete Role"
+                },
+                "TOGGLE": {
+                    "CONFIRM": {
+                        "TITLE": "Toggle Visibility",
+                        "CONTENT": "Do you want to toggle the visibility of this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "ADD": {
+                    "TITLE": "Create Role",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role Name",
+                        "VISIBILITY": "Visibility",
+                        "DESC": "Description",
+                        "JOB_SCOPE": "Job Scope"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please enter a role name",
+                        "VISIBILITY": "Please select the visibility",
+                        "DESC": "Please enter a description",
+                        "JOB_SCOPE": "Please enter a job scope"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please enter a role name",
+                        "VISIBILITY": "Please select the visibility",
+                        "JOB_SCOPE": "Please enter a job scope or remove this field"
+                    },
+                    "VISIBILITY": {
+                        "VISIBLE": "Visible",
+                        "INVISIBLE": "Invisible"
+                    },
+                    "JOB_SCOPE": {
+                        "ADD": "Add Job Scope"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Role",
+                        "CONTENT": "Do you want to create this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Role",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role Name",
+                        "VISIBILITY": "Visibility",
+                        "DESC": "Description",
+                        "JOB_SCOPE": "Job Scope"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please enter a role name",
+                        "VISIBILITY": "Please select the visibility",
+                        "DESC": "Please enter a description",
+                        "JOB_SCOPE": "Please enter a job scope"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please enter a role name",
+                        "VISIBILITY": "Please select the visibility",
+                        "JOB_SCOPE": "Please enter a job scope or remove this field"
+                    },
+                    "VISIBILITY": {
+                        "VISIBLE": "Visible",
+                        "INVISIBLE": "Invisible"
+                    },
+                    "JOB_SCOPE": {
+                        "ADD": "Add Job Scope"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Role",
+                        "CONTENT": "Do you want to edit this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Role",
+                        "CONTENT": "Do you want to delete this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Roles",
+                        "CONTENT": "Do you want to delete these roles?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            },
+            "ASSIGNMENT": {
+                "TITLE": "Role Assignment Overview",
+                "BUTTON": {
+                    "IMPORT": "Import",
+                    "EXPORT": "Export",
+                    "DELETE": "Unassign",
+                    "ADD": "New Role Assignment"
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "DEPARTMENT": "Department",
+                    "ROLE": "Role",
+                    "STAFF": {
+                        "STAFF": "Staff",
+                        "VIEW": "View Profile"
+                    }
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please reassign the staff to another appropriate role and remove the role.",
+                    "ROLE": "This role has been removed from the system. Please reassign the staff to the appropriate role."
+                },
+                "ACTION": {
+                    "EDIT": "Edit Role Assignment",
+                    "DELETE": "Unassign Role"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "STAFF": {
+                            "NAME": "Staff Name",
+                            "EMAIL": "Staff Email Address"
+                        }
+                    }
+                },
+                "ADD": {
+                    "TITLE": "Create Role Assignment",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "TOOLTIP": "Adding a new role assignment could replace the current assignment for this role. Consider editing the existing assignment instead.",
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "STAFF": "Staff"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role",
+                        "STAFF": "Please select a staff"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role",
+                        "STAFF": "Please select a staff",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Role Assignment",
+                        "CONTENT": "Do you want to create this role assignment?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Role Assignment",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "STAFF": "Staff"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role",
+                        "STAFF": "Please select a staff"
+                    },
+                    "ERR": {},
+                    "CONFIRM": {
+                        "TITLE": "Update Role Assignment",
+                        "CONTENT": "Do you want to update this role assignment?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Unassign Role",
+                        "CONTENT": "Do you want to unassign this role from the staff members?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Unassign Role",
+                        "CONTENT": "Do you want to unassign these his roles from the staff members?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            }
+        },
+        "COMPETENCY": {
+            "TITLE": "Competencies",
+            "OVERVIEW": {
+                "TITLE": "Competency Overview",
+                "BUTTON": {
+                    "IMPORT": "Import",
+                    "EXPORT": "Export",
+                    "DELETE": "Delete",
+                    "ADD": "New Competency",
+                    "CANCEL": "Cancel"
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "NAME": "Competency Name",
+                    "DESC": "Description",
+                    "TAG": "Tag"
+                },
+                "ACTION": {
+                    "EDIT": "Edit Competency",
+                    "DELETE": "Delete Competency"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "NAME": "Competency Name",
+                        "DESC": "Description",
+                        "TAG": "Tag"
+                    }
+                },
+                "ADD": {
+                    "TITLE": "Create Competency",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "COMPETENCY": "Competency Name",
+                        "DESC": "Description",
+                        "TAG": "Tag"
+                    },
+                    "PLACEHOLDER": {
+                        "COMPETENCY": "Please enter a competency name",
+                        "DESC": "Please enter a description",
+                        "TAG": "Please enter a tag"
+                    },
+                    "ERR": {
+                        "COMPETENCY": "Please enter a competency name"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Competency",
+                        "CONTENT": "Do you want to create this competency?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Competency",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "COMPETENCY": "Competency Name",
+                        "DESC": "Description",
+                        "TAG": "Tag"
+                    },
+                    "PLACEHOLDER": {
+                        "COMPETENCY": "Please enter a competency name",
+                        "DESC": "Please enter a description",
+                        "TAG": "Please enter a tag"
+                    },
+                    "ERR": {
+                        "COMPETENCY": "Please enter a competency name"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Competency",
+                        "CONTENT": "Do you want to edit this competency?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Competency",
+                        "CONTENT": "Do you want to delete this competency?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Competencies",
+                        "CONTENT": "Do you want to delete these competencies?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            },
+            "ASSIGNMENT": {
+                "TITLE": "Competency Assignment Overview",
+                "BUTTON": {
+                    "IMPORT": "Import",
+                    "EXPORT": "Export",
+                    "DELETE": "Unassign",
+                    "ADD": "New Competency Assignment"
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "DEPARTMENT": "Department",
+                    "ROLE": "Role",
+                    "COMPETENCY": "Competency",
+                    "DESC": "Description",
+                    "WEIGHTAGE": "Weightage",
+                    "TOTAL": "Total"
+                },
+                "ACTION": {
+                    "EDIT": "Edit Competency Assignment",
+                    "DELETE": "Unassign Competencies"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "COMPETENCY": "Competency"
+                    }
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please remove the role.",
+                    "COMPETENCY": "This competency has been removed from the system. Please re-assign a new competency."
+                },
+                "ADD": {
+                    "TITLE": "Create Competency Assignment",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role Name",
+                        "COMPETENCY": "Competency"
+                    },
+                    "COMPETENCY": {
+                        "ADD": "Assign Competency"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role name",
+                        "COMPETENCY": "Please select a competency",
+                        "WEIGHTAGE": "weightage"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role name",
+                        "AT_LEAST_ONE_COMPETENCY": "Please select at least one competency",
+                        "COMPETENCY": "Please select a competency and enter the weightage or remove this field",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed"
+                    },
+                    "WARN": {
+                        "WEIGHTAGE": "The weightage value must be a positive integer with a maximum of 100"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Competency Assignment",
+                        "CONTENT": "Do you want to create this competency assignment?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Competency Assignment",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role Name",
+                        "COMPETENCY": "Competency"
+                    },
+                    "COMPETENCY": {
+                        "ADD": "Assign Competency",
+                        "NEW": "Add New Competency"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role name",
+                        "COMPETENCY": "Please select a competency",
+                        "WEIGHTAGE": "weightage"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role name",
+                        "AT_LEAST_ONE_COMPETENCY": "Please select at least one competency",
+                        "COMPETENCY": "Please select a competency and enter the weightage or remove this field",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed"
+                    },
+                    "WARN": {
+                        "WEIGHTAGE": "The weightage value must be a positive integer with a maximum of 100"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Competency Assignment",
+                        "CONTENT": "Do you want to edit this competency assignment?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Unassign Competencies",
+                        "CONTENT": "Do you want to unassign competencies from this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Unassign Competencies",
+                        "CONTENT": "Do you want to unassign competencies from these roles?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            },
+            "COLLAB": {
+                "COMPETENCY": {
+                    "TITLE": "Competency Definition (Collab)",
+                    "BUTTON": {
+                        "APPROVE": "Approve",
+                        "REJECT": "Reject",
+                        "ADD": "New Collaborative Competency"
+                    },
+                    "TAB": {
+                        "REVIEW": "Need Review",
+                        "MY": "My Proposals"
+                    },
+                    "TABLE": {
+                        "ACTION": "Action",
+                        "ID": "Collaboration ID",
+                        "NAME": "Competency Name",
+                        "DESC": "Description",
+                        "TAG": " Tag",
+                        "COLLABORATOR": {
+                            "COLLABORATOR": "Item Owner",
+                            "NAME": "Item Owner Name",
+                            "EMAIL": "Item Owner Email Address"
+                        },
+                        "PROPOSAL": {
+                            "OWNER": "Owner",
+                            "UPDATE": "Last Updated By"
+                        }
+                    },
+                    "ACTION": {
+                        "EDIT": "Edit Proposed Competency",
+                        "VIEW": "View Proposed Competency",
+                        "APPROVE": "Approve Proposed Competency",
+                        "REJECT": "Reject Proposed Competency"
+                    },
+                    "SEARCH": {
+                        "SEARCH": "Search",
+                        "PLACEHOLDER": "Input your search here",
+                        "FIELD": {
+                            "ANY": "Any",
+                            "ID": "ID",
+                            "NAME": "Competency Name",
+                            "DESC": "Description",
+                            "TAG": "Tag",
+                            "COLLABORATOR": {
+                                "NAME": "Item Owner Name",
+                                "EMAIL": "Item Owner Email Address"
+                            }
+                        }
+                    },
+                    "ADD": {
+                        "TITLE": "Create Competency Definition Collaboration",
+                        "BUTTON": {
+                            "SUBMIT": "Submit",
+                            "CANCEL": "Cancel"
+                        },
+                        "INPUT": {
+                            "COMPETENCY": "Competency Name",
+                            "DESC": "Description",
+                            "TAG": "Tag",
+                            "REVIEWER": "Reviewer",
+                            "PROPOSER": "Proposer"
+                        },
+                        "PLACEHOLDER": {
+                            "COMPETENCY": "Please enter a competency name",
+                            "DESC": "Please enter a description",
+                            "TAG": "Please enter a tag",
+                            "REVIEWER": "Please select a reviewer",
+                            "PROPOSER": "Please select a proposer"
+                        },
+                        "ERR": {
+                            "COMPETENCY": "Please enter a competency name",
+                            "REVIEWER": "Please select a reviewer"
+                        },
+                        "TOOLTIP": {
+                            "REVIEWER": "User who can approve, reject or suggest the competency definition",
+                            "PROPOSER": "User who can only suggest the competency definition"
+                        },
+                        "CONFIRM": {
+                            "TITLE": "Create Competency Definition Collaboration",
+                            "CONTENT": "Do you want to initiate this competency definition collaboration?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "VIEW": {
+                        "PROPOSER": "Proposer",
+                        "UPDATE": "Last Updated By",
+                        "ABOUT": "About this Competency",
+                        "TAG": "Tags",
+                        "NOT_FOUND": {
+                            "TITLE": "Record Not Found",
+                            "NO_AVAILABLE": "This competency definition proposal is no longer available",
+                            "REASON": "because it has already been approved or rejected.",
+                            "BUTTON": "Go to Competency Overview tab"
+                        }
+                    },
+                    "EDIT": {
+                        "TITLE": "Edit Competency Definition Proposal",
+                        "BUTTON": {
+                            "SUBMIT": "Submit",
+                            "CANCEL": "Cancel"
+                        },
+                        "INPUT": {
+                            "COMPETENCY": "Competency Name",
+                            "DESC": "Description",
+                            "TAG": "Assigned Tag",
+                            "LAST_UPDATED": "Last Updated By"
+                        },
+                        "PLACEHOLDER": {
+                            "COMPETENCY": "Please enter a competency name",
+                            "DESC": "Please enter a description",
+                            "TAG": "Please enter a tag"
+                        },
+                        "ERR": {
+                            "COMPETENCY": "Please enter a competency name"
+                        },
+                        "CONFIRM": {
+                            "TITLE": "Edit Competency Definition Proposal",
+                            "CONTENT": "Do you want to edit this competency definition proposal?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "REJECT": {
+                        "CONFIRM": {
+                            "TITLE": "Reject Competency Definition Proposal",
+                            "CONTENT": "Do you want to reject this competency defintion proposal?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "BULK_REJECT": {
+                        "CONFIRM": {
+                            "TITLE": "Reject Competency Definition Proposals",
+                            "CONTENT": "Do you want to reject these competency defintion proposals?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "APPROVE": {
+                        "CONFIRM": {
+                            "TITLE": "Approve Competency Definition Proposal",
+                            "CONTENT": "Do you want to approve this competency defintion proposal?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "BULK_APPROVE": {
+                        "CONFIRM": {
+                            "TITLE": "Approve Competency Definition Proposals",
+                            "CONTENT": "Do you want to approve these competency defintion proposals?",
+                            "OK": "Confirm"
+                        }
+                    }
+                },
+                "ASSIGNMENT": {
+                    "TITLE": "Competency Assignment (Collab)",
+                    "BUTTON": {
+                        "APPROVE": "Approve",
+                        "REJECT": "Reject",
+                        "ADD": "New Collaborative Competency Assignment"
+                    },
+                    "TAB": {
+                        "REVIEW": "Need Review",
+                        "MY": "My Proposals"
+                    },
+                    "TABLE": {
+                        "ACTION": "Action",
+                        "ID": "Collaboration ID",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "COMPETENCY": "Competency",
+                        "WEIGHTAGE": "Weightage",
+                        "COLLABORATOR": {
+                            "COLLABORATOR": "Item Owner",
+                            "NAME": "Item Owner Name",
+                            "EMAIL": "Item Owner Email Address"
+                        },
+                        "TOTAL": "Total Weightage",
+                        "JOB_SCOPE": "Job Scope"
+                    },
+                    "ACTION": {
+                        "VIEW": "View Proposed Competency Assignment",
+                        "EDIT": "Edit Proposed Competency Assignment",
+                        "APPROVE": "Approve Proposed Competency Assignment",
+                        "REJECT": "Reject Proposed Competency Assignment"
+                    },
+                    "SEARCH": {
+                        "SEARCH": "Search",
+                        "PLACEHOLDER": "Input your search here",
+                        "FIELD": {
+                            "ANY": "Any",
+                            "ID": "ID",
+                            "DEPARTMENT": "Department",
+                            "ROLE": "Role",
+                            "COMPETENCY": "Competency",
+                            "COLLABORATOR": {
+                                "NAME": "Item Owner Name",
+                                "EMAIL": "Item Owner Email Address"
+                            }
+                        }
+                    },
+                    "VIEW": {
+                        "PROPOSER": "Proposer",
+                        "UPDATE": "Last Updated By",
+                        "ABOUT": "About this Role",
+                        "JOB_SCOPE": "Job Scopes",
+                        "COMPETENCY": "Required Competencies",
+                        "COMPETENCY_TABLE": {
+                            "COMPETENCY": "Competency",
+                            "WEIGHTAGE": "Weightage",
+                            "TOTAL": "Total",
+                            "DESC": "Description"
+                        },
+                        "NOT_FOUND": {
+                            "TITLE": "Record Not Found",
+                            "NO_AVAILABLE": "This competency assignment proposal is no longer available",
+                            "REASON": "because it has already been approved or rejected.",
+                            "BUTTON": "Go to Competency Assignment Overview tab"
+                        }
+                    },
+                    "ADD": {
+                        "TITLE": "Create Competency Assignment Collaboration",
+                        "BUTTON": {
+                            "SUBMIT": "Submit",
+                            "CANCEL": "Cancel"
+                        },
+                        "INPUT": {
+                            "DEPARTMENT": "Department",
+                            "ROLE": "Role",
+                            "DESC": "Role Description",
+                            "JOB_SCOPE": "Job Scope",
+                            "COMPETENCY": "Competency",
+                            "REVIEWER": "Reviewer",
+                            "PROPOSER": "Proposer"
+                        },
+                        "COMPETENCY": {
+                            "ADD": "Add Competency"
+                        },
+                        "PLACEHOLDER": {
+                            "DEPARTMENT": "Please select a department",
+                            "ROLE": "Please select a role",
+                            "DESC": "Please enter a description",
+                            "JOB_SCOPE": "Please enter a job scope",
+                            "COMPETENCY": "Please select a competency",
+                            "WEIGHTAGE": "weightage",
+                            "REVIEWER": "Please select a reviewer",
+                            "PROPOSER": "Please select a proposer"
+                        },
+                        "ERR": {
+                            "DEPARTMENT": "Please select a department",
+                            "ROLE": "Please select a role",
+                            "JOB_SCOPE": "Please enter a job scope or remove this field",
+                            "DEPARTMENT_FIRST": "Please select a department to proceed",
+                            "AT_LEAST_ONE_COMPETENCY": "Please select at least one competency",
+                            "COMPETENCY": "Please select a competency and enter the weightage or remove this field"
+                        },
+                        "JOB_SCOPE": {
+                            "ADD": "Add Job Scope"
+                        },
+                        "TOOLTIP": {
+                            "REVIEWER": "User who can approve, reject or suggest the competency assignment",
+                            "PROPOSER": "User who can only suggest the competency assignment"
+                        },
+                        "WARN": {
+                            "WEIGHTAGE": "The weightage value must be a positive integer with a maximum of 100"
+                        },
+                        "CONFIRM": {
+                            "TITLE": "Create Competency Assignment Collaboration",
+                            "CONTENT": "Do you want to create this competency assignment collaboration?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "EDIT": {
+                        "TITLE": "Edit Competency Assignment Proposal",
+                        "BUTTON": {
+                            "SUBMIT": "Submit",
+                            "CANCEL": "Cancel"
+                        },
+                        "INPUT": {
+                            "DEPARTMENT": "Department",
+                            "ROLE": "Role",
+                            "DESC": "Role Description",
+                            "JOB_SCOPE": "Job Scope",
+                            "COMPETENCY": "Competency",
+                            "REVIEWER": "Reviewer",
+                            "PROPOSER": "Proposer",
+                            "LAST_UPDATED": "Last Updated By"
+                        },
+                        "COMPETENCY": {
+                            "ADD": "Add Competency"
+                        },
+                        "PLACEHOLDER": {
+                            "DEPARTMENT": "Please select a department",
+                            "ROLE": "Please select a role",
+                            "DESC": "Please enter a description",
+                            "JOB_SCOPE": "Please enter a job scope",
+                            "COMPETENCY": "Please select a competency",
+                            "WEIGHTAGE": "weightage",
+                            "REVIEWER": "Please select a reviewer",
+                            "PROPOSER": "Please select a proposer"
+                        },
+                        "ERR": {
+                            "DEPARTMENT": "Please select a department",
+                            "ROLE": "Please select a role",
+                            "JOB_SCOPE": "Please enter a job scope or remove this field",
+                            "DEPARTMENT_FIRST": "Please select a department to proceed",
+                            "AT_LEAST_ONE_COMPETENCY": "Please select at least one competency",
+                            "COMPETENCY": "Please select a competency and enter the weightage or remove this field"
+                        },
+                        "JOB_SCOPE": {
+                            "ADD": "Add Job Scope"
+                        },
+                        "WARN": {
+                            "WEIGHTAGE": "The weightage value must be a positive integer with a maximum of 100"
+                        },
+                        "CONFIRM": {
+                            "TITLE": "Edit Competency Assignment Proposal",
+                            "CONTENT": "Do you want to edit this competency assignment proposal?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "REJECT": {
+                        "CONFIRM": {
+                            "TITLE": "Reject Competency Assignment Proposal",
+                            "CONTENT": "Do you want to reject this competency assignment proposal?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "BULK_REJECT": {
+                        "CONFIRM": {
+                            "TITLE": "Reject Competency Assignment Proposals",
+                            "CONTENT": "Do you want to reject these competency assignment proposals?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "APPROVE": {
+                        "CONFIRM": {
+                            "TITLE": "Approve Competency Assignment Proposal",
+                            "CONTENT": "Do you want to approve this competency assignment proposal?",
+                            "OK": "Confirm"
+                        }
+                    },
+                    "BULK_APPROVE": {
+                        "CONFIRM": {
+                            "TITLE": "Approve Competency Assignment Proposals",
+                            "CONTENT": "Do you want to approve these competency assignment proposals?",
+                            "OK": "Confirm"
+                        }
+                    }
+                }
+            }
+        },
+        "ROLES_COMPETENCIES": {
+            "TITLE": "Roles & Competencies",
+            "BUTTON": {
+                "DELETE": "Delete",
+                "ADD": "New Role & Competency"
+            },
+            "SEARCH": {
+                "SEARCH": "Search",
+                "PLACEHOLDER": "Input your search here",
+                "FIELD": {
+                    "ANY": "Any",
+                    "DEPARTMENT": "Department",
+                    "ROLE": "Role",
+                    "JOB_SCOPE": "Job Scope",
+                    "COMPETENCY": "Competency",
+                    "STAFF": {
+                        "NAME": "Staff Name",
+                        "EMAIL": "Staff Email Address"
+                    }
+                }
+            },
+            "TABLE": {
+                "ACTION": "Action",
+                "VISIBILITY": "Visibility",
+                "DEPARTMENT": "Department",
+                "ROLE": "Role",
+                "JOB_SCOPE": "Job Scope",
+                "COMPETENCY": "Competency",
+                "WEIGHTAGE": "Weightage",
+                "STAFF": {
+                    "STAFF": "Staff",
+                    "NAME": "Name",
+                    "EMAIL": "Email Address"
+                }
+            },
+            "ACTION": {
+                "EDIT": "Edit Role & Competencies",
+                "DELETE": "Delete Role & Competencies"
+            },
+            "TOGGLE": {
+                "CONFIRM": {
+                    "TITLE": "Toggle Visibility",
+                    "CONTENT": "Do you want to toggle the visibility of this role?",
+                    "OK": "Confirm"
+                }
+            },
+            "ADD": {
+                "BUTTON": {
+                    "NEXT": "Next",
+                    "CANCEL": "Cancel",
+                    "SUBMIT": "Submit"
+                }
+            },
+            "VIEW": {
+                "NOT_FOUND": {
+                    "TITLE": "Record Not Found",
+                    "NO_AVAILABLE": "This role is no longer available.",
+                    "REASON": "because it has already been removed."
+                },
+                "ABOUT": "About this Role",
+                "JOB_SCOPE": "Job Scopes",
+                "COMPETENCY": "Required Competencies",
+                "COMPETENCY_TABLE": {
+                    "COMPETENCY": "Competency",
+                    "WEIGHTAGE": "Weightage",
+                    "DESC": "Description",
+                    "TOTAL": "Total"
+                },
+                "STAFF": "Staff",
+                "PEOPLE": "People",
+                "PERSON": "Person",
+                "STAFF_CARD": {
+                    "VIEW": "View Profile"
+                }
+            },
+            "DELETE": {
+                "CONFIRM": {
+                    "TITLE": "Delete Role & Competencies",
+                    "CONTENT": "Do you want to delete this role & competencies?",
+                    "OK": "Confirm"
+                }
+            },
+            "BULK_DELETE": {
+                "CONFIRM": {
+                    "TITLE": "Delete Roles & Competencies",
+                    "CONTENT": "Do you want to delete these roles & competencies?",
+                    "OK": "Confirm"
+                }
+            }
+        },
+        "CAREER_PATHWAY": {
+            "TITLE": "Career Pathway",
+            "OVERVIEW": {
+                "TITLE": "Career Pathway Overview",
+                "BUTTON": {
+                    "EXPORT": "Export",
+                    "IMPORT": "Import",
+                    "DELETE": "Delete",
+                    "ADD": "New Career Pathway"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "DEPARTMENT": "Department",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "ROLE": "Role",
+                        "DESC": "Description",
+                        "TRACK": "Tag"
+                    }
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "DEPARTMENT": "Department",
+                    "CAREER_PATHWAY": "Career Pathway",
+                    "ROLE": "Role",
+                    "DESC": "Description",
+                    "TRACK": "Tag"
+                },
+                "ACTION": {
+                    "EDIT": "Edit Career Pathway",
+                    "DELETE": "Delete Career Pathway"
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please remove the career pathway.",
+                    "ROLE": "This role has been removed from the system. Please re-assign a new role."
+                },
+                "ADD": {
+                    "TITLE": "Create Career Pathway",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "NAME": "Caeer Pathway Name",
+                        "DESC": "Description",
+                        "TRACK": "Tags",
+                        "ROLE": "Roles"
+                    },
+                    "TOOLTIP": {
+                        "ROOT_ROLE": "Select the main or starting role for this career pathway.",
+                        "PARENT": "Choose the role that comes before or is above this one in the hierarchy.",
+                        "CHILD": "Choose the role that comes after or is below this one in the hierarchy."
+                    },
+                    "TRACK": {
+                        "ADD": "Add Tag"
+                    },
+                    "ROLE": {
+                        "ADD": "Add Role"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "NAME": "Please enter the career pathway name",
+                        "DESC": "Please enter a description",
+                        "TRACK": "Please enter the tag",
+                        "ROOT_ROLE": "Please select a root role",
+                        "PARENT_ROLE": "Please select a parent role",
+                        "CHILD_ROLE": "Please select a child role"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "NAME": "Please enter the career pathway name",
+                        "TRACK": "Please enter the tag or remove this field",
+                        "ROOT_ROLE": "Please select the root role",
+                        "PARENT_ROLE": "Please select the parent role or remove this field",
+                        "CHILD_ROLE": "Please select the child role or remove this field",
+                        "ROLE": "Please select the roles or remove this field",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed"
+                    },
+                    "WARN": {
+                        "RECURSIVE": "The parent and child role cannot be the same role"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Career Pathway",
+                        "CONTENT": "Do you want to create this career pathway?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Career Pathway",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "NAME": "Career Pathway Name",
+                        "DESC": "Description",
+                        "TRACK": "Tags",
+                        "ROLE": "Roles"
+                    },
+                    "TOOLTIP": {
+                        "ROOT_ROLE": "Select the main or starting role for this career pathway.",
+                        "PARENT": "Choose the role that comes before or is above this one in the hierarchy.",
+                        "CHILD": "Choose the role that comes after or is below this one in the hierarchy."
+                    },
+                    "TRACK": {
+                        "ADD": "Add Tag"
+                    },
+                    "ROLE": {
+                        "ADD": "Add Role"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "NAME": "Please enter the career pathway name",
+                        "DESC": "Please enter a description",
+                        "TRACK": "Please enter the tag",
+                        "ROOT_ROLE": "Please select a root role",
+                        "PARENT_ROLE": "Please select a parent role",
+                        "CHILD_ROLE": "Please select a child role"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "NAME": "Please enter the career pathway name",
+                        "TRACK": "Please enter the tag or remove this field",
+                        "ROOT_ROLE": "Please select the root role",
+                        "PARENT_ROLE": "Please select the parent role or remove this field",
+                        "CHILD_ROLE": "Please select the child role or remove this field",
+                        "ROLE": "Please select the roles or remove this field",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed"
+                    },
+                    "WARN": {
+                        "RECURSIVE": "The parent and child role cannot be the same role"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Career Pathway",
+                        "CONTENT": "Do you want to create edit career pathway?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Career Pathway",
+                        "CONTENT": "Do you want to delete this career pathway?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Career Pathways",
+                        "CONTENT": "Do you want to delete these career pathways?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            },
+            "ASSIGNMENT": {
+                "TITLE": "Career Pathway Assignment Overview",
+                "BUTTON": {
+                    "IMPORT": "Import",
+                    "EXPORT": "Export",
+                    "DELETE": "Unassign",
+                    "ADD": "New Career Pathway Assignment"
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "DEPARTMENT": "Department",
+                    "CAREER_PATHWAY": "Career Pathway",
+                    "STAFF": {
+                        "STAFF": "Staff",
+                        "NAME": "Name",
+                        "EMAIL": "Email Address"
+                    }
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please remove the career pathway."
+                },
+                "ACTION": {
+                    "EDIT": "Edit Career Pathway Assignment",
+                    "DELETE": "Unassign Career Pathway"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "DEPARTMENT": "Department",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "STAFF": {
+                            "NAME": "Staff Name",
+                            "EMAIL": "Staff Email Address"
+                        }
+                    }
+                },
+                "ADD": {
+                    "TITLE": "Create Career Pathway Assignment",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "TOOLTIP": "Adding a new career pathway assignment could replace the current assignment for this career pathway. Consider editing the existing assignment instead.",
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "STAFF": "Staff"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "CAREER_PATHWAY": "Please select a career pathway",
+                        "STAFF": "Please select a staff"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "CAREER_PATHWAY": "Please select a career pathway",
+                        "STAFF": "Please select a staff",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Career Pathway Assignment",
+                        "CONTENT": "Do you want to create this career pathway assignment?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Career Pathway Assignment",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "STAFF": "Staff"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "CAREER_PATHWAY": "Please select a career pathway",
+                        "STAFF": "Please select a staff"
+                    },
+                    "ERR": {},
+                    "CONFIRM": {
+                        "TITLE": "Update Career Pathway Assignment",
+                        "CONTENT": "Do you want to update this career pathway assignment?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Unassign Career Pathway",
+                        "CONTENT": "Do you want to unassign this career pathway from the staff members?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Unassign Career Pathways",
+                        "CONTENT": "Do you want to unassign these career pathways from the staff members?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            },
+            "MY": {
+                "TITLE": "My Career Pathway",
+                "CLICK": "Click to view more details",
+                "NOT_FOUND": {
+                    "NO_AVAILABLE": "No career pathway has been assigned to this profile.",
+                    "REASON": "Kindly consult with the HR department for clarification."
+                }
+            }
+        },
+        "STAFF": {
+            "TITLE": "Staff Members",
+            "STAFF_OVERVIEW": {
+                "TITLE": "Staff Member Overview",
+                "BUTTON": {
+                    "IMPORT": "Import",
+                    "EXPORT": "Export",
+                    "DELETE": "Delete",
+                    "ADD": "New Staff"
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "ACCOUNT_STATUS": "Account Status",
+                    "STAFF": "Staff",
+                    "EMAIL": "Email",
+                    "NAME": "Name",
+                    "MANAGER": "Direct Manager",
+                    "DEPARTMENT": "Department",
+                    "ROLE": "Role",
+                    "CAREER_PATHWAY": "Career Pathway"
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please reassign the staff to the appropriate role.",
+                    "ROLE": "This role has been removed from the system. Please reassign the staff to the appropriate role.",
+                    "CAREER_PATHWAY": "This career pathway has been removed from the system. Please reassign the staff to the appropriate career pathway.",
+                    "MANAGER": "This manager has been removed from the system. Please reassign the staff to the appropriate manager."
+                },
+                "ACTION": {
+                    "EDIT": "Edit Staff Account",
+                    "DELETE": "Delete Staff Account"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "EMAIL": "Email",
+                        "NAME": "Name",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "MANAGER": "Direct Manager",
+                        "CAREER_PATHWAY": "Career Pathway"
+                    }
+                },
+                "ADD": {
+                    "TITLE": "Add New Staff",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "EMAIL": "Email",
+                        "NAME": "Name",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "MANAGER": "Manager"
+                    },
+                    "PLACEHOLDER": {
+                        "EMAIL": "Please enter the staff email",
+                        "NAME": "Please enter the staff name",
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role",
+                        "CAREER_PATHWAY": "Please select a career pathway",
+                        "MANAGER": "Please select the manager"
+                    },
+                    "ERR": {
+                        "EMAIL": "Please enter the staff email",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed",
+                        "CAREER_PATHWAY": "Please select a career pathway that includes the current role."
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Staff Account",
+                        "CONTENT": "Do you want to create an account for this staff?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Staff Account",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "EMAIL": "Email",
+                        "NAME": "Name",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "MANAGER": "Manager",
+                        "ACCOUNT_STATUS": "Account Status"
+                    },
+                    "ACCOUNT_STATUS": {
+                        "ACTIVE": "Active",
+                        "INACTIVE": "Inactive"
+                    },
+                    "PLACEHOLDER": {
+                        "EMAIL": "Please enter the staff email",
+                        "NAME": "Please enter the staff name",
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role",
+                        "CAREER_PATHWAY": "Please select a career pathway",
+                        "MANAGER": "Please select the manager"
+                    },
+                    "ERR": {
+                        "EMAIL": "Please enter the staff email",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed",
+                        "CAREER_PATHWAY": "Please select a career pathway that includes the current role."
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Staff Account",
+                        "CONTENT": "Do you want to edit this staff account?",
+                        "OK": "Confirm"
+                    }
+                },
+                "TOGGLE": {
+                    "CONFIRM": {
+                        "TITLE": "Toggle Account Status",
+                        "CONTENT": "Do you want to toggle the status of this staff account?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Staff Account",
+                        "CONTENT": "Do you want to delete this staff account?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Staff Accounts",
+                        "CONTENT": "Do you want to delete these staff accounts?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            },
+            "ACCESS_CONTROL_OVERVIEW": {
+                "TITLE": "Access Control Overview",
+                "BUTTON": {
+                    "IMPORT": "Import",
+                    "EXPORT": "Export",
+                    "DELETE": "Delete",
+                    "ADD": "Grant Access"
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "DEPARTMENT": "Department",
+                    "ROLE": "Role",
+                    "YES": "Yes",
+                    "NO": "No"
+                },
+                "WARNING": {
+                    "DEPARTMENT": "This department has been removed from the system. Please remove the role."
+                },
+                "ACTION": {
+                    "EDIT": "Edit Granted Access",
+                    "DELETE": "Delete Granted Access"
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Granted Access",
+                        "CONTENT": "Do you want to delete the granted access of this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Granted Access",
+                        "CONTENT": "Do you want to delete the granted access of these roles?",
+                        "OK": "Confirm"
+                    }
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "ACCESS": "Access"
+                    }
+                },
+                "ADD": {
+                    "TITLE": "Grant Access",
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "ACCESS": "Access"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed",
+                        "ROLE": "Please select a role",
+                        "ACCESS": "Please select at least one access"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Grant Access",
+                        "CONTENT": "Do you want to grant this role with the selected access?",
+                        "OK": "Confirm"
+                    },
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Granted Access",
+                    "INPUT": {
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "ACCESS": "Access"
+                    },
+                    "PLACEHOLDER": {
+                        "DEPARTMENT": "Please select a department",
+                        "ROLE": "Please select a role"
+                    },
+                    "ERR": {
+                        "DEPARTMENT": "Please select a department",
+                        "DEPARTMENT_FIRST": "Please select a department to proceed",
+                        "ROLE": "Please select a role",
+                        "ACCESS": "Please select at least one access"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Granted Access",
+                        "CONTENT": "Do you want to edit the granted access of this role?",
+                        "OK": "Confirm"
+                    }
+                },
+                "UPLOAD": {
+                    "TITLE": "Import",
+                    "INSTRUCTION": "Download the template or export your current data, complete the necessary fields, and upload.",
+                    "HINT": "Support for uploading a <b>completed .xlsx</b> file that matches the required template. File size must be under 5MB."
+                }
+            }
+        },
+        "PROFILE": {
+            "TITLE": "Profile",
+            "GENERAL": {
+                "TITLE": "General Information",
+                "BUTTON": {
+                    "PROFILE": "Change Profile Image",
+                    "RESET": "Reset Password",
+                    "EDIT": "Edit Profile Details",
+                    "SAVE": "Update Profile Details",
+                    "CANCEL": "Cancel"
+                },
+                "UPLOAD": {
+                    "INSTRUCTION": "Select a new profile picture to upload.",
+                    "HINT": "Supported formats: <b>.jpg, .jpeg, .png, .heic, .webp</b>. File size must be under 5MB."
+                },
+                "TABLE": {
+                    "INPUT": {
+                        "EMAIL": "Email Address",
+                        "NAME": "Name",
+                        "CONTACT": "Contact Number",
+                        "DEPARTMENT": "Department",
+                        "ROLE": "Role",
+                        "CAREER_PATHWAY": "Career Pathway",
+                        "MANAGER": "Direct Manager",
+                        "ABOUT": "About"
+                    },
+                    "ERROR": {
+                        "EMAIL": "Please enter a valid email address",
+                        "NAME": "Please enter your name",
+                        "CONTACT": "Please enter your contact number"
+                    },
+                    "PLACEHOLDER": {
+                        "EMAIL": "Enter a valid email address",
+                        "NAME": "Enter your name",
+                        "CONTACT": "Enter your contact number",
+                        "ABOUT": "Write something to introduce yourselft"
+                    }
+                },
+                "CONFIRM": {
+                    "TITLE": "Update Profile",
+                    "CONTENT": "Do you want to update your profile?",
+                    "OK": "Confirm"
+                }
+            },
+            "SKILL": {
+                "TITLE": "Self Declared Skill Overview",
+                "BUTTON": {
+                    "DELETE": "Delete",
+                    "ADD": "New Skill"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "SKILL": "Skill",
+                        "DESC": "Description",
+                        "PROF": "Proficiency"
+                    }
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "SKILL": "Skill",
+                    "DESC": "Description",
+                    "PROF": "Proficiency"
+                },
+                "ACTION": {
+                    "EDIT": "Edit Skill",
+                    "DELETE": "Delete Skill"
+                },
+                "ADD": {
+                    "TITLE": "Create Skill",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "SKILL": "Skill",
+                        "DESC": "Description",
+                        "PROF": "Proficiency"
+                    },
+                    "PLACEHOLDER": {
+                        "SKILL": "Please enter a skill name",
+                        "DESC": "Please enter a description",
+                        "PROF": "Please select a proficiency"
+                    },
+                    "ERR": {
+                        "SKILL": "Please enter a skill name",
+                        "PROF": "Please select a proficiency"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Create Self Declared Skill",
+                        "CONTENT": "Do you want to create this self declared skill?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Skill",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "SKILL": "Skill",
+                        "DESC": "Description",
+                        "PROF": "Proficiency"
+                    },
+                    "PLACEHOLDER": {
+                        "SKILL": "Please enter a skill name",
+                        "DESC": "Please enter a description",
+                        "PROF": "Please select a proficiency"
+                    },
+                    "ERR": {
+                        "SKILL": "Please enter a skill name",
+                        "PROF": "Please select a proficiency"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Self Declared Skill",
+                        "CONTENT": "Do you want to edit this self declared skill?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Skill",
+                        "CONTENT": "Do you want to delete this skill?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Skills",
+                        "CONTENT": "Do you want to delete these skills?",
+                        "OK": "Confirm"
+                    }
+                }
+            },
+            "CERT": {
+                "TITLE": "Cert Gallery",
+                "BUTTON": {
+                    "DELETE": "Delete",
+                    "ADD": "New Certificate"
+                },
+                "SEARCH": {
+                    "SEARCH": "Search",
+                    "PLACEHOLDER": "Input your search here",
+                    "FIELD": {
+                        "ANY": "Any",
+                        "CERT": "Certificate Name",
+                        "DESC": "Description"
+                    }
+                },
+                "TABLE": {
+                    "ACTION": "Action",
+                    "FILE": "Certificate",
+                    "CERT": "Certificate Name",
+                    "DESC": "Description"
+                },
+                "ACTION": {
+                    "EDIT": "Edit Certificate",
+                    "DELETE": "Delete Certificate"
+                },
+                "ADD": {
+                    "TITLE": "Create Certificate",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "FILE": "Certificate",
+                        "CERT": "Certificate Name",
+                        "DESC": "Description"
+                    },
+                    "UPLOAD": {
+                        "TITLE": "Upload",
+                        "INSTRUCTION": "Select a new certificate to upload.",
+                        "HINT": "Supported format: <b>.pdf</b>. File size must be under 5MB."
+                    },
+                    "PLACEHOLDER": {
+                        "FILE": "Please upload a certificate",
+                        "CERT": "Please enter a certificate name",
+                        "DESC": "Please enter a description"
+                    },
+                    "ERR": {
+                        "FILE": "Please upload a certificate",
+                        "CERT": "Please enter a certificate name",
+                        "DESC": "Please enter a description"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Upload Certificate",
+                        "CONTENT": "Do you want to upload this certificate?",
+                        "OK": "Confirm"
+                    }
+                },
+                "EDIT": {
+                    "TITLE": "Edit Certificate",
+                    "BUTTON": {
+                        "SUBMIT": "Submit",
+                        "CANCEL": "Cancel"
+                    },
+                    "INPUT": {
+                        "FILE": "Certificate",
+                        "CERT": "Certificate Name",
+                        "DESC": "Description"
+                    },
+                    "UPLOAD": "Upload",
+                    "PLACEHOLDER": {
+                        "CERT": "Please enter a certificate name",
+                        "DESC": "Please enter a description"
+                    },
+                    "ERR": {
+                        "FILE": "Please upload a certificate",
+                        "CERT": "Please enter a certificate name",
+                        "DESC": "Please enter a description"
+                    },
+                    "CONFIRM": {
+                        "TITLE": "Edit Certificate",
+                        "CONTENT": "Do you want to edit this certificate?",
+                        "OK": "Confirm"
+                    }
+                },
+                "DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Certificate",
+                        "CONTENT": "Do you want to delete this certificate?",
+                        "OK": "Confirm"
+                    }
+                },
+                "BULK_DELETE": {
+                    "CONFIRM": {
+                        "TITLE": "Delete Certificates",
+                        "CONTENT": "Do you want to delete these certificates?",
+                        "OK": "Confirm"
+                    }
+                }
+            },
+            "CAREER_PATHWAY": {
+                "TITLE": "Career Pathway"
+            }
+        },
+        "TRAINING_MANAGEMENT": {
+            "TITLE": "Training Management",
+            "SEARCH": {
+                "SEARCH": "Search",
+                "PLACEHOLDER": "Search by Title, Description, or Venue",
+                "FIELD": {
+                    "ANY": "Any",
+                    "TITLE": "Title",
+                    "DESC": "Description",
+                    "VENUE": "Venue"
+                }
+            },
+            "ACTION": {
+                "EDIT": "Edit Training",
+                "DELETE": "Delete Training",
+                "ASSIGN": "Assign Training"
+            }
+        },
+        "EVALUATION": {
+            "TITLE": "Evaluation"
+        },
+        "EVALUATION_OVERVIEW": {
+            "TITLE": "Evaluation Overview"
+        },
+        "PERFORMANCE": {
+            "TITLE": "Performance"
+        },
+        "TRAINING_ENGAGEMENT": {
+            "TITLE": "Training Engagement"
+        },
+        "LEARNING_MANAGEMENT": {
+            "TITLE": "Learning Management",
+            "TABLE": {
+                "ACTION": "Action",
+                "TITLE": "Title",
+                "DEPARTMENT": "Department",
+                "COMPETENCY": "Competency",
+                "DESC": "Description",
+                "LEARNING_OUTCOME": "Learning Outcome"
+            },
+            "ACTION": {
+                "EDIT": "Edit Material",
+                "DELETE": "Delete Material",
+                "PREVIEW": "View Preview",
+                "DETAIL": "View Detail"
+            },
+            "BULK_DELETE": {
+                "CONFIRM": {
+                    "TITLE": "Delete Learning Material",
+                    "CONTENT": "Do you want to delete these learning material(s)?",
+                    "OK": "Confirm"
+                }
+            },
+            "SEARCH": {
+                "FIELD": {
+                    "TITLE": "Title",
+                    "DEPARTMENT": "Department",
+                    "DESC": "Description",
+                    "OUTCOME": "Learning Outcome"
+                }
+            }
+        },
+        "LEARNING_ENGAGEMENT": {
+            "TITLE": "Learning Engagement"
+        }
+    }
+}

@@ -1,0 +1,17 @@
+@use '@angular/material' as mat;
+@use '../../../../../app/theme' as app-theme;
+
+@include mat.core();
+@include mat.all-component-themes(app-theme.$my-theme);
+
+::ng-deep .ant-input {
+    padding: 0 !important;
+}
+
+.dynamic-delete-button {
+    transition: color 0.3s ease;
+
+    &:not(:disabled):hover {
+        color: mat.m2-get-color-from-palette(app-theme.$my-accent, 500);
+    }
+}

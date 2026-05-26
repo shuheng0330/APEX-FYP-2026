@@ -1,0 +1,11 @@
+<h1 class="text-center">{{ 'PAGE.ROLE.TITLE' | translate }}</h1>
+
+<nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex">
+    <nz-tab nzTitle="{{ 'PAGE.ROLE.OVERVIEW.TITLE' | translate }}" *ngIf="hasAccess(['CAN_MANAGE_ROLE'])">
+        <ng-template nz-tab><app-role-overview /></ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.ROLE.ASSIGNMENT.TITLE' | translate }}"
+        *ngIf="hasAccess(['CAN_MANAGE_ROLE', 'CAN_MANAGE_STAFF'])">
+        <ng-template nz-tab><app-role-assignment-overview /></ng-template>
+    </nz-tab>
+</nz-tabset>

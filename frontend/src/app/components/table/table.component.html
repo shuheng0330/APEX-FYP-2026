@@ -1,0 +1,28 @@
+<nz-table [nzData]="data" [nzBordered]="true" [nzSize]="'middle'">
+  <thead>
+  <tr>
+    <th *ngFor="let col of columns"
+        >{{ col.title }}</th>
+    <th *ngIf="actions.length > 0">Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let item of data">
+    <td *ngFor="let col of columns">
+      {{ item[col.key] }}
+    </td>
+    <td *ngIf="actions.length > 0">
+      <ng-container *ngFor="let action of actions">
+        <button
+          nz-button
+          [nzType]="action.type || 'default'"
+          class="mr-1"
+          (click)="action.onClick(item)"
+        >
+          {{ action.label }}
+        </button>
+      </ng-container>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>

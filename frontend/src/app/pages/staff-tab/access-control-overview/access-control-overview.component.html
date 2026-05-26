@@ -1,0 +1,150 @@
+<app-add-access-control (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])"></app-add-access-control>
+<app-edit-access-control (formSubmitted)="loadList()"
+    *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])"></app-edit-access-control>
+
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.UPLOAD.INSTRUCTION' | translate}}"
+    *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])"
+    uploadHint="{{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.UPLOAD.HINT' | translate}}"
+    templateName="AccessControlUploadTemplate" (confirm)="importData()">
+</app-file-upload>
+
+<div class="centered-padding-body">
+    <div class="space-between-button-group">
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])">
+            <button class="blue-button" (click)="export()">
+                {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.BUTTON.EXPORT' | translate }}
+                <nz-icon nzType="export" class="button-icon" /></button>
+            <button class="blue-button" (click)="openFileSelector()">
+                {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.BUTTON.IMPORT' | translate }}
+                <nz-icon nzType="import" class="button-icon" /></button>
+        </div>
+
+        <div>
+            <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixSearchButton"
+                [nzAddOnBefore]="suffixSearchSelect" [nzSuffix]="inputClearTpl">
+                <input placeholder="{{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.SEARCH.PLACEHOLDER' | translate}}" nz-input
+                    [(ngModel)]="searchValue" maxlength="100" (input)="search()" />
+            </nz-input-group>
+        </div>
+
+        <div class="button-group" *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])">
+            <button class="red-button" [disabled]="setOfCheckedId.size === 0" (click)="bulkDeletePermission()">{{
+                'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.BUTTON.DELETE' | translate }} <nz-icon nzType="delete"
+                    class="button-icon" /></button>
+            <button class="blue-button" [disabled]="!isLoaded" (click)="addPermission()">{{
+                'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.BUTTON.ADD' | translate }} <nz-icon nzType="plus"
+                    class="button-icon" /></button>
+        </div>
+
+    </div>
+
+    <div class="table-operations-bar">
+        <p class="num-item-selected" *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])">
+            Selected {{setOfCheckedId.size}} items
+        </p>
+
+        <app-table-page-size-selector [(pageSize)]="pageSize"></app-table-page-size-selector>
+    </div>
+
+    <nz-table [nzPageSize]="pageSize" nzBordered #accessControlPanel [nzData]="listOfDisplayData" [nzScroll]="{x: '900px', y:'400px'}"
+        class="access-control-table" (nzCurrentPageDataChange)="onCurrentPageDataChange($event)">
+        <thead>
+            <tr>
+                <th nzAlign="center" nzWidth="40px" *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])"
+                    [(nzChecked)]="checked" [nzIndeterminate]="indeterminate" nzLabel="Select all"
+                    (nzCheckedChange)="onAllChecked($event)">
+                </th>
+
+                <th nzAlign="center" nzWidth="80px" *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])" nzAlign="center">
+                    {{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.TABLE.ACTION' | translate}}</th>
+
+                <th nzWidth="250px" [nzSortFn]="sortByOrgChartName" class="darker-column-header">
+                    {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.TABLE.DEPARTMENT' | translate}}</th>
+
+                <th [nzSortFn]="sortByRoleName" class="darker-column-header">
+                    {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.TABLE.ROLE' | translate}}</th>
+
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let row of accessControlPanel.data;">
+                <td nzAlign="center" *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])"
+                    [nzChecked]="setOfCheckedId.has(row.roleId)" (nzCheckedChange)="onItemChecked(row.roleId, $event)">
+                </td>
+
+                <td *ngIf="hasAccess(['CAN_MANAGE_ACCESS_CONTROL'])" nzAlign="center">
+                    <a nz-dropdown [nzDropdownMenu]="menu" nzPlacement="bottomLeft" nzTrigger="click">
+                        <nz-icon nzType="more" nzTheme="outline" />
+                        <nz-dropdown-menu #menu="nzDropdownMenu">
+                            <ul nz-menu>
+                                <a (click)="editPermission(row.roleId)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="edit" nzTheme="outline" /> <span>
+                                                {{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ACTION.EDIT' | translate}} </span>
+                                        </a>
+                                    </li>
+                                </a>
+                                <a (click)="deletePermission(row.roleId)">
+                                    <li nz-menu-item>
+                                        <a>
+                                            <nz-icon nzType="delete" nzTheme="outline" /><span>
+                                                {{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ACTION.DELETE' | translate}}
+                                            </span>
+                                        </a>
+                                    </li>
+                                </a>
+                            </ul>
+                        </nz-dropdown-menu>
+                    </a>
+                </td>
+
+                <td>
+                    <nz-icon *ngIf="row.orgChartDeleted" nzType="warning" nzTheme="twotone" [nzTwotoneColor]="red"
+                        nz-tooltip
+                        nzTooltipTitle="{{'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.WARNING.DEPARTMENT' | translate}}" />
+                    {{row.orgChartName}}
+                </td>
+                <td>
+                    <span><b>{{row.roleName}}</b></span>
+                    <div class="sub-info">
+                        @for (translatedAuthority of translatedAuthorityList; track translatedAuthority; let i = $index)
+                        {
+                        <nz-tag nz-tooltip [nzColor]="colorCodes[i % colorCodes.length]"
+                            *ngIf="row.authorityMap[translatedAuthority.id!]"
+                            [nzTooltipTitle]="translatedAuthority.description" nzTooltipPlacement="top">
+                            <nz-icon nzType="check-circle"/>
+                            <span>{{translatedAuthority.label}}</span>
+                        </nz-tag>
+                        }
+                    </div>
+
+                </td>
+
+            </tr>
+        </tbody>
+    </nz-table>
+</div>
+
+<ng-template #suffixSearchButton>
+    <button nz-button nzType="primary" nzSize="large" nzSearch (click)="search()">
+        <nz-icon nzType="search" nzTheme="outline" />
+    </button>
+</ng-template>
+
+<ng-template #suffixSearchSelect>
+    <div>
+        <nz-select [nzDropdownMatchSelectWidth]="false" [(ngModel)]="searchField" (ngModelChange)="search()">
+            <nz-option *ngFor="let option of optionList" [nzLabel]="option.name" [nzValue]="option.id">
+            </nz-option>
+        </nz-select>
+    </div>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    @if (searchValue) {
+    <nz-icon class="ant-input-clear-icon" nzTheme="fill" nzType="close-circle" (click)="resetSearch()" />
+    }
+</ng-template>

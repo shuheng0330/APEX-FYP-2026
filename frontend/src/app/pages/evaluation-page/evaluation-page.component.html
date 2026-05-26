@@ -1,0 +1,59 @@
+<div class="centered-padding-body">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h1 style="margin: 0; flex: 1; text-align: center;">{{ titleKey | translate }}</h1>
+  </div>
+  <nz-skeleton *ngIf="loading"></nz-skeleton>
+  <div>
+    <nz-table *ngIf="!loading" class="custom-table" #filterTable [nzData]="listOfDownLineStaff" nzTableLayout="fixed"
+      [nzOuterBordered]="true" [nzScroll]="{ x: '700px' }">
+      <thead>
+        <tr>
+          @for (column of listOfColumns; track column) {
+          <th [nzSortOrder]="column.sortOrder" [nzSortFn]="column.sortFn" [nzSortDirections]="column.sortDirections"
+            [nzFilterMultiple]="column.filterMultiple" [nzFilters]="column.listOfFilter" [nzFilterFn]="column.filterFn"
+            [nzShowFilter]="!!column.filterFn">
+            {{ column.name }}
+          </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (data of filterTable.data; track data) {
+        <tr (click)="goToStaffDashboard(data.id)" style="cursor: pointer;">
+          <td>{{ data.name }}</td>
+          <td>{{ data.role.orgChart.name }}</td>
+          <td>{{ data.role.name }}</td>
+          <td nzAlign="center">{{data.performanceOverallScore >= 0 ? data.performanceOverallScore : '-' }}</td>
+          <td nzAlign="center">
+            <button *ngIf="!evaluatedStaffIds.includes(data.id)"
+              (click)="onEvaluateStaff(data.id); $event.stopPropagation()" class="evaluate-button">EVALUATE</button>
+            <button *ngIf="evaluatedStaffIds.includes(data.id)" class="evaluate-done"
+              (click)="$event.stopPropagation()">COMPLETED</button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </nz-table>
+  </div>
+
+  <ng-template #ratingFormTpl>
+    <nz-empty *ngIf="roleCompetenciesList.length === 0" nzNotFoundContent="Role competency not configured yet">
+    </nz-empty>
+
+    <div *ngIf="roleCompetenciesList.length > 0">
+      <div *ngFor="let comp of roleCompetenciesList; let i = index" class="rating-row">
+        <strong>{{comp.competency.name}}</strong>
+        <nz-rate [(ngModel)]="comp.rating" [nzCount]="10" [nzCharacter]="characterNumber" [nzTooltips]="tooltips"
+          [name]=" 'rating_' + i"></nz-rate>
+      </div>
+      <textarea nz-input placeholder="Optional comment" class="comment-box" rows="4" [(ngModel)]="comment"></textarea>
+      @if (value) {
+      <span class="ant-rate-text">{{ value ? tooltips[value - 1] : '' }}</span>
+      }
+    </div>
+  </ng-template>
+
+  <ng-template #characterNumber let-index>
+    {{ index + 1 }}
+  </ng-template>
+</div>

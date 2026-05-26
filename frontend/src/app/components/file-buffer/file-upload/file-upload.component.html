@@ -1,0 +1,39 @@
+<nz-modal [(nzVisible)]="visible$.value" nzTitle="{{'COMPONENT.FILE.UPLOAD.TITLE' | translate}}" (nzOnCancel)="close()">
+    <ng-container *nzModalContent>
+        <div [innerHTML]="uploadInstruction"></div>
+        <br />
+        <p *ngIf="errorMessage">
+            <nz-alert nzType="error" [nzMessage]="errorTitle!" [nzDescription]="errorMessage!">
+            </nz-alert>
+        </p>
+
+        <nz-upload nzType="drag" [nzMultiple]="isMultiple" [nzAccept]="accept" [nzBeforeUpload]="beforeUpload">
+            <p class="ant-upload-drag-icon">
+                <nz-icon nzType="inbox" />
+            </p>
+            <p class="ant-upload-text">{{'COMPONENT.FILE.UPLOAD.UPLOAD' | translate}}</p>
+            <p class="ant-upload-hint" [innerHTML]="uploadHint"></p>
+        </nz-upload>
+        <div *ngIf="selectedFiles.length > 0">
+            <div *ngFor="let file of selectedFiles; let i = index" (click)="removeFile(i)"
+                class="button-group space-between-button-group file-selected">
+                <span>{{ file.name }}</span>
+                <nz-icon nzType="delete" nzTheme="outline" />
+            </div>
+        </div>
+
+    </ng-container>
+    <div *nzModalFooter>
+        <div class="button-group space-between-button-group">
+            <a *ngIf="templateName" (click)="downloadTemplate()">
+                {{'COMPONENT.FILE.UPLOAD.TEMPLATE' | translate}}
+                <span> <nz-icon nzType="cloud-download" nzTheme="outline" /></span>
+            </a>
+            <button nz-button nzType="primary" (click)="handleOk()" class="confirm-button"
+                [disabled]="selectedFiles.length===0 || isUploading">
+                <nz-icon nzType="loading" style="margin-right: 10px;" *ngIf="isUploading" />
+                {{'COMPONENT.FILE.UPLOAD.OK' | translate}}
+            </button>
+        </div>
+    </div>
+</nz-modal>

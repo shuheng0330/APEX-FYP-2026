@@ -1,0 +1,18 @@
+<h1 class="text-center">{{ 'PAGE.PROFILE.TITLE' | translate }}</h1>
+
+<nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex">
+    <nz-tab nzTitle="{{ 'PAGE.PROFILE.GENERAL.TITLE' | translate }}">
+        <ng-template nz-tab><app-general-information></app-general-information></ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.PROFILE.CAREER_PATHWAY.TITLE' | translate }}">
+        <ng-template nz-tab>
+            <app-my-career-pathway></app-my-career-pathway>
+        </ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.PROFILE.SKILL.TITLE' | translate }}">
+        <ng-template nz-tab><app-self-declared-skill></app-self-declared-skill></ng-template>
+    </nz-tab>
+    <nz-tab nzTitle="{{ 'PAGE.PROFILE.CERT.TITLE' | translate }}">
+        <ng-template nz-tab><app-cert-gallery></app-cert-gallery></ng-template>
+    </nz-tab>
+</nz-tabset>

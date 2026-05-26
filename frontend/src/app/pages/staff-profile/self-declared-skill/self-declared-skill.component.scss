@@ -1,0 +1,53 @@
+@use '@angular/material' as mat;
+@use '../../../../app/theme' as app-theme;
+
+::ng-deep .ant-table-row-expand-icon {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    border: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+.expanded-panel {
+    background-color: mat.m2-get-color-from-palette(app-theme.$my-primary, 10);
+    padding: 24px;
+    border-top: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+    border-bottom: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 50);
+}
+
+.detail-column {
+    &:first-child {
+        border-right: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 100);
+    }
+}
+
+.detail-title {
+    color: mat.m2-get-color-from-palette(app-theme.$my-primary, 500);
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.detail-content {
+    color: #595959;
+    line-height: 1.6;
+}
+
+.text-muted {
+    color: #bfbfbf;
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .detail-column {
+        &:first-child {
+            border-right: none;
+            border-bottom: 1px solid mat.m2-get-color-from-palette(app-theme.$my-primary, 100);
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+        }
+    }
+}

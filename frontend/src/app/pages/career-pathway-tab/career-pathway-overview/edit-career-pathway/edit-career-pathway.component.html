@@ -1,0 +1,224 @@
+<nz-drawer *ngIf="hasAccess(['CAN_MANAGE_CAREER_PATHWAY'])" [nzBodyStyle]="{ overflow: 'auto' }"
+    [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.TITLE'| translate}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="20">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.INPUT.DEPARTMENT'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ERR.DEPARTMENT' | translate )">
+                        <nz-select nzShowSearch nzAllowClear formControlName="department" id="department"
+                            nzPlaceHolder="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.PLACEHOLDER.DEPARTMENT' | translate}}"
+                            (ngModelChange)="onDepartmentChange($event)">
+                            <nz-option *ngFor="let department of orgChartList" [nzLabel]="department.name"
+                                [nzValue]="department.id!">
+                            </nz-option>
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="20">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.INPUT.NAME'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ERR.NAME' | translate )">
+                        <nz-input-group [nzSuffix]="inputClearTpl">
+                            <input type="text" nz-input formControlName="name" id="name" maxlength="255"
+                                placeholder="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.PLACEHOLDER.NAME' | translate}}" />
+                        </nz-input-group>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="20">
+                <nz-form-item>
+                    <nz-form-label nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.INPUT.DESC'|translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-input-group [nzSuffix]="textAreaClearTpl">
+                            <textarea nz-input formControlName="description" id="description" maxlength="1000"
+                                placeholder="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.PLACEHOLDER.DESC' | translate}}">
+                                </textarea>
+                        </nz-input-group>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="20">
+                <nz-form-item>
+                    <nz-form-label [nzSm]="8" [nzXs]="26" nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.INPUT.TRACK'| translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-select formControlName="trackList" id="trackList" nzMode="tags" [nzTokenSeparators]="[',']"
+                            nzPlaceHolder="{{'PAGE.COMPETENCY.OVERVIEW.EDIT.PLACEHOLDER.TAG'| translate}}">
+                            @for (tag of trackList; track tag) {
+                            <nz-option [nzLabel]="tag" [nzValue]="tag"></nz-option>
+                            }
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="20" class="root-input">
+                <nz-form-item class="root-select">
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.INPUT.ROLE'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ERR.ROOT_ROLE' | translate )">
+                        <nz-input-group [nzPrefix]="rootPrefixIcon">
+                            <nz-select nzShowSearch nzAllowClear nz-input
+                                nzPlaceHolder="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.PLACEHOLDER.ROOT_ROLE' | translate}}"
+                                formControlName="rootRole" id="rootRole" [nzNotFoundContent]="notFoundContent">
+                                <nz-option *ngFor="let role of selectedRoleList" [nzLabel]="role.name"
+                                    [nzValue]="+role.id!">
+                                </nz-option>
+                            </nz-select>
+                        </nz-input-group>
+
+                        <ng-template #rootPrefixIcon>
+                            <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip class="tool-tip"
+                                nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.TOOLTIP.ROOT_ROLE'| translate}}" />
+                        </ng-template>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="20">
+                <ng-container formArrayName="roleList" nz-form nzLayout="inline">
+                    <nz-form-item *ngIf="listOfRoleControl.controls.length == 0">
+                        <nz-form-control>
+                            <button nz-button nzType="dashed" (click)="addRoleField()">
+                                <span nz-icon nzType="plus"></span>
+                                {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ROLE.ADD' | translate}}
+                            </button>
+                        </nz-form-control>
+                    </nz-form-item>
+
+                    @for (control of listOfRoleControl.controls; track control; let i = $index) {
+                    <div [formGroupName]="i">
+                        <nz-form-item *ngIf="listOfRoleControl.controls.length > 0">
+                            <nz-form-control [nzValidateStatus]="(listOfRoleControl.at(i).get('parentId')?.invalid 
+                            && listOfRoleControl.at(i).get('parentId')?.dirty) ||
+                            ( listOfRoleControl.at(i).get('childId')?.invalid
+                            && listOfRoleControl.at(i).get('childId')?.dirty)
+                            ? 'error':
+                            (listOfRoleControl.at(i).get('parentId')?.valid 
+                            && listOfRoleControl.at(i).get('childId')?.valid 
+                            && listOfRoleControl.at(i).get('parentId')?.value === listOfRoleControl.at(i).get('childId')?.value)?
+                            'warning' : 'success'"
+                                [nzErrorTip]="( 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ERR.ROLE' | translate )"
+                                [nzWarningTip]="( 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.WARN.RECURSIVE' | translate )">
+                                <div class="role-input">
+                                    <nz-form-item class="parent-select">
+                                        <nz-form-control [nzValidateStatus]="(listOfRoleControl.at(i).get('parentId')?.invalid 
+                                    && listOfRoleControl.at(i).get('parentId')?.dirty)? 'error': 
+                                    (listOfRoleControl.at(i).get('parentId')?.valid 
+                                    && listOfRoleControl.at(i).get('childId')?.valid
+                                    && listOfRoleControl.at(i).get('parentId')?.value === listOfRoleControl.at(i).get('childId')?.value)?
+                                    'warning':'success'">
+                                            <nz-input-group [nzPrefix]="parentPrefixIcon">
+                                                <nz-select nzShowSearch nzAllowClear nz-input
+                                                    nzPlaceHolder="{{ 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.PLACEHOLDER.PARENT_ROLE' | translate}}"
+                                                    id="parentId" formControlName="parentId"
+                                                    [nzNotFoundContent]="notFoundContent">
+                                                    <nz-option *ngFor="let role of selectedRoleList"
+                                                        [nzLabel]="role.name" [nzValue]="+role.id!">
+                                                    </nz-option>
+                                                </nz-select>
+                                            </nz-input-group>
+
+                                            <ng-template #parentPrefixIcon>
+                                                <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip
+                                                    class="tool-tip"
+                                                    nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.TOOLTIP.PARENT'| translate}}" />
+                                            </ng-template>
+                                        </nz-form-control>
+                                    </nz-form-item>
+                                    <nz-form-item class="child-select">
+                                        <nz-form-control [nzValidateStatus]="(listOfRoleControl.at(i).get('childId')?.invalid 
+                                    && listOfRoleControl.at(i).get('childId')?.dirty)? 'error':
+                                    (listOfRoleControl.at(i).get('parentId')?.valid 
+                                    && listOfRoleControl.at(i).get('childId')?.valid 
+                                    && listOfRoleControl.at(i).get('parentId')?.value === listOfRoleControl.at(i).get('childId')?.value)?
+                                    'warning':'success'">
+                                            <nz-input-group [nzPrefix]="childPrefixIcon">
+                                                <nz-select nzShowSearch nzAllowClear nz-input
+                                                    [nzNotFoundContent]="notFoundContent"
+                                                    nzPlaceHolder="{{ 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.PLACEHOLDER.CHILD_ROLE' | translate}}"
+                                                    id="childId" formControlName="childId">
+                                                    <nz-option *ngFor="let role of selectedRoleList"
+                                                        [nzLabel]="role.name" [nzValue]="+role.id!">
+                                                    </nz-option>
+                                                </nz-select>
+                                            </nz-input-group>
+
+                                            <ng-template #childPrefixIcon>
+                                                <nz-icon nzType="info-circle" nzTheme="outline" nz-tooltip
+                                                    class="tool-tip"
+                                                    nzTooltipTitle="{{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.TOOLTIP.CHILD'| translate}}" />
+                                            </ng-template>
+                                        </nz-form-control>
+                                    </nz-form-item>
+                                    <nz-form-item class="dynamic-delete-button">
+                                        <nz-icon nzType="minus-circle" nzTheme="outline"
+                                            (click)="removeRoleField(i, $event)" />
+                                    </nz-form-item>
+                                </div>
+                            </nz-form-control>
+                        </nz-form-item>
+                    </div>
+                    }
+                    <nz-form-item>
+                        <nz-form-control *ngIf="listOfRoleControl.controls.length > 0">
+                            <button nz-button nzType="dashed" (click)="addRoleField()">
+                                <span nz-icon nzType="plus"></span>
+                                {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ROLE.ADD' | translate}}
+                            </button>
+                        </nz-form-control>
+                    </nz-form-item>
+                </ng-container>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.BUTTON.CANCEL'| translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.BUTTON.SUBMIT'| translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>
+
+<ng-template #notFoundContent>
+    <span class="text-gray-500" *ngIf="!validateForm.get('department')?.value">
+        {{ 'PAGE.CAREER_PATHWAY.OVERVIEW.EDIT.ERR.DEPARTMENT_FIRST' | translate }}
+    </span>
+
+    <nz-empty nzNotFoundImage="simple" *ngIf="validateForm.get('department')?.value"></nz-empty>
+</ng-template>
+
+<ng-template #inputClearTpl>
+    <nz-icon *ngIf="this.validateForm.get('name')?.value" class="ant-input-clear-icon" nzTheme="fill"
+        nzType="close-circle" (click)="validateForm.get('name')?.setValue('')" />
+</ng-template>
+
+<ng-template #textAreaClearTpl>
+    <nz-icon *ngIf="this.validateForm.get('description')?.value" class="ant-input-clear-icon" nzTheme="fill"
+        nzType="close-circle" (click)="validateForm.get('description')?.setValue('')" />
+</ng-template>

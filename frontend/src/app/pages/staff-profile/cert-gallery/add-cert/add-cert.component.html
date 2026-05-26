@@ -1,0 +1,86 @@
+<app-file-upload [isMultiple]="false" [accept]="acceptedFileType" [maxSizeMB]="maxFileSizeMB"
+    uploadInstruction="{{'PAGE.PROFILE.CERT.ADD.UPLOAD.INSTRUCTION' | translate}}"
+    uploadHint="{{'PAGE.PROFILE.CERT.ADD.UPLOAD.HINT' | translate}}" (confirm)="uploadProfilePicture()">
+</app-file-upload>
+
+
+<nz-drawer [nzBodyStyle]="{ overflow: 'auto' }" [nzMaskClosable]="false" [nzWidth]="drawerWidth" [nzVisible]="visible$.value"
+    nzTitle="{{'PAGE.PROFILE.CERT.ADD.TITLE'| translate}}" [nzFooter]="footerTpl" (nzOnClose)="close()">
+    <form nz-form *nzDrawerContent [formGroup]="validateForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.PROFILE.CERT.ADD.INPUT.FILE'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.PROFILE.CERT.ADD.ERR.FILE' | translate )">
+                        <button nz-button (click)="openFileSelector()" [nzDanger]="!validateForm.get('file')?.valid">
+                            <nz-icon nzType="cloud-upload" nzTheme="outline" style="margin-right: 5px;" />
+                            {{'PAGE.PROFILE.CERT.ADD.UPLOAD.TITLE'|translate}}
+                        </button>
+                        <div *ngIf="this.validateForm.get('file')?.value"
+                            (click)="this.validateForm.get('file')?.reset()"
+                            class="button-group space-between-button-group file-selected">
+                            <span>{{ this.validateForm.get('file')?.value!.name }}</span>
+                            <nz-icon nzType="delete" nzTheme="outline" />
+                        </div>
+                        <p *ngIf="!this.validateForm.get('file')?.valid" style="color: #ff4d4f;">{{
+                            'PAGE.PROFILE.CERT.ADD.ERR.FILE' | translate }}</p>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.PROFILE.CERT.ADD.INPUT.CERT'|translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="( 'PAGE.PROFILE.CERT.ADD.ERR.CERT' | translate )">
+                        <nz-input-group [nzSuffix]="certInputClearTlp">
+                            <input type="text" nz-input formControlName="cert" id="cert" maxlength="255"
+                                placeholder="{{'PAGE.PROFILE.CERT.ADD.PLACEHOLDER.CERT' | translate}}" />
+                        </nz-input-group>
+                        <ng-template #certInputClearTlp>
+                            <nz-icon *ngIf="this.validateForm.get('cert')?.value" class="ant-input-clear-icon"
+                                nzTheme="fill" nzType="close-circle" (click)="validateForm.get('cert')?.setValue('')" />
+                        </ng-template>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
+                    <nz-form-label nzLabelAlign="left">
+                        {{'PAGE.PROFILE.CERT.ADD.INPUT.DESC'|translate}}
+                    </nz-form-label>
+                    <nz-form-control>
+                        <nz-input-group [nzSuffix]="textAreaClearTpl">
+                            <textarea nz-input formControlName="description" id="description" maxlength="1000"
+                                placeholder="{{'PAGE.PROFILE.CERT.ADD.PLACEHOLDER.DESC' | translate}}">
+                                </textarea>
+                        </nz-input-group>
+                        <ng-template #textAreaClearTpl>
+                            <nz-icon *ngIf="this.validateForm.get('description')?.value" class="ant-input-clear-icon"
+                                nzTheme="fill" nzType="close-circle"
+                                (click)="validateForm.get('description')?.setValue('')" />
+                        </ng-template>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+    </form>
+
+    <ng-template #footerTpl>
+        <div style="float: right">
+            <button nz-button style="margin-right: 8px;" (click)="close()">
+                {{'PAGE.PROFILE.CERT.ADD.BUTTON.CANCEL'| translate}}
+            </button>
+            <button nz-button nzType="primary" (click)="showConfirm()">
+                {{'PAGE.PROFILE.CERT.ADD.BUTTON.SUBMIT'| translate}}
+            </button>
+        </div>
+    </ng-template>
+
+</nz-drawer>

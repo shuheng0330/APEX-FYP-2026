@@ -1,0 +1,130 @@
+<div *ngIf="!isLoading && material" class="learning-material-container">
+
+  <div class="left-sidebar">
+    <div class="sidebar-header">
+      <h3>Course</h3>
+      <div class="progress-section">
+        <label class="progress-label">Progress: {{ overallProgress }}%</label>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="overallProgress"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="document-list">
+      <div *ngFor="let document of material.learningDocuments; let i = index" class="document-item"
+        [class.active]="selectedDocumentIndex === i" [class.completed]="isDocumentCompleted(i)"
+        (click)="selectDocument(i)">
+        <div class="document-icon">
+          <i *ngIf="isDocumentCompleted(i)" class="check-icon">✓</i>
+        </div>
+        <span class="document-title">{{ document.title }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Content Area - Document Preview -->
+  <div class="right-content">
+    <div class="content-header">
+      <h3>{{material.title}}</h3>
+      <div class="document-description">
+        <p>{{ material.description || 'Document description goes here.' }}</p>
+        <!--        <div class="progress-info">Progress: {{ overallProgress }}%</div>-->
+      </div>
+      <span>Department(s)</span><br>
+      <div class="tag-container" style="margin-top: 5px; margin-bottom: 14px;">
+        <nz-tag *ngFor="let dept of material.departments" [nzColor]="'blue'">{{ dept.name }}</nz-tag>
+<!--        <nz-tag *ngFor="let comp of material.competency" [nzColor]="'purple'">{{ comp.name }}</nz-tag>-->
+      </div>
+
+      <span>Competency(s)</span><br>
+      <div class="tag-container" style="margin-top: 5px;">
+       <nz-tag *ngFor="let comp of material.competency" [nzColor]="'purple'">{{ comp.name }}</nz-tag>
+      </div>
+    </div>
+
+    <!-- Learning Material Details -->
+    <div class="material-details" *ngIf="material">
+      <div class="detail-section">
+        <span>Learning Outcomes</span>
+        <ul *ngIf="material.learningOutcomes && material.learningOutcomes.length > 0">
+          <li *ngFor="let outcome of material.learningOutcomes">{{ outcome }}</li>
+        </ul>
+        <p *ngIf="!material.learningOutcomes || material.learningOutcomes.length === 0">No learning outcomes specified.
+        </p>
+      </div>
+    </div>
+
+    <!-- Document Preview Area -->
+    <div class="document-preview">
+      <div class="preview-container">
+        <div class="pdf-container" [class.fullscreen]="isFullscreen">
+          <div class="control-bar" *ngIf="totalPages >0 && selectedDocument && isPdfDocument(selectedDocument)">
+            <button (click)="goToPrevPage()" [disabled]="currentPage === 1">
+              < </button>
+                <span>{{ currentPage }} / {{ totalPages }}</span>
+                <button (click)="goToNextPage()" [disabled]="currentPage === totalPages">
+                  >
+                </button>
+          </div>
+          <pdf-viewer
+            *ngIf="!isLoading && selectedDocument && selectedDocument.signedUrl && isPdfDocument(selectedDocument)"
+            [src]="fileBlobUrl" [page]="currentPage" [render-text]="true" [show-all]="false" style="display: block;"
+            [original-size]="!isMobile" [autoresize]="true" [fit-to-page]="isMobile"
+            (after-load-complete)="onPdfLoadComplete($event)"></pdf-viewer>
+
+          <button class="fullscreen-btn" (click)="toggleFullscreen()"
+            *ngIf="selectedDocument && isPdfDocument(selectedDocument)">
+            <ng-container *ngIf="isFullscreen; else expandIcon">
+              <i nz-icon nzType="fullscreen-exit" nzTheme="outline"></i>
+            </ng-container>
+            <ng-template #expandIcon>
+              <i nz-icon nzType="fullscreen" nzTheme="outline"></i>
+            </ng-template>
+          </button>
+
+          <!-- Video Preview -->
+          <video *ngIf="selectedDocument && isVideoDocument(selectedDocument)" [src]="fileBlobUrl" controls
+            preload="metadata" class="document-video" (timeupdate)="onVideoTimeUpdate($event)" (pause)="saveProgress()"
+            (loadedmetadata)="onVideoLoaded($event)" (ended)="onVideoEnded()">>
+            Your browser does not support the video tag.
+          </video>
+          <!--          <video-->
+          <!--            #videoPlayer-->
+          <!--            *ngIf="selectedDocument && isVideoDocument(selectedDocument)"-->
+          <!--            [src]="fileBlobUrl"-->
+          <!--            controls-->
+          <!--            class="document-video"-->
+          <!--            (pause)="saveProgress()"-->
+          <!--            (loadedmetadata)="onVideoLoaded($event)"-->
+          <!--            (ended)="onVideoEnded()">-->
+          <!--            Your browser does not support the video tag.-->
+          <!--          </video>-->
+        </div>
+
+
+        <!-- Placeholder for other document types -->
+        <div *ngIf="!selectedDocument || !selectedDocument.signedUrl" class="document-placeholder">
+          <div class="placeholder-content">
+            <span class="document-type">PDF</span>
+            <div class="placeholder-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width.%]="overallProgress"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Progress Bar -->
+    <div class="bottom-progress">
+      <span class="progress-text">Progress: {{ overallProgress }}%</span>
+      <!--      <div class="progress-actions">-->
+      <!--        <button class="action-btn" title="Search/Zoom">-->
+      <!--          <i class="search-icon">🔍</i>-->
+      <!--        </button>-->
+      <!--      </div>-->
+    </div>
+  </div>
+</div>

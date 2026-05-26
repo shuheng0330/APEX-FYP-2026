@@ -1,0 +1,43 @@
+<div class="app-layout">
+  <div class="desktop-sidebar-wrapper">
+    <app-side-menu *ngIf="isLoggedIn$ | async" [(isCollapsed)]="isCollapsed" [isMobile]="false"
+      (openEvaluation)="onOpenEvaluation()"> </app-side-menu>
+  </div>
+
+  <div class="mobile-header-wrapper" *ngIf="isLoggedIn$ | async">
+    <app-mobile-header (toggleDrawer)="openDrawer()"></app-mobile-header>
+  </div>
+
+  <nz-drawer [nzVisible]="isDrawerVisible && !isCollapsed" nzPlacement="left" [nzClosable]="false"
+    (nzOnClose)="closeDrawer()" [nzBodyStyle]="{ padding: 0 }">
+    <ng-container *nzDrawerContent>
+      <app-side-menu *ngIf="isDrawerVisible && !isCollapsed" [(isCollapsed)]="isCollapsed" [isMobile]="true"
+        class="is-mobile" (openEvaluation)="onOpenEvaluation()">
+      </app-side-menu>
+    </ng-container>
+  </nz-drawer>
+
+  <app-evaluation-cycle-drawer [(visible)]="isEvaluationDrawerVisible"></app-evaluation-cycle-drawer>
+
+  <div class="main-content">
+    <div *ngIf="isLoading$ | async" class="loading-overlay">
+      <nz-spin [nzIndicator]="loadingIndicator"></nz-spin>
+    </div>
+
+    <router-outlet></router-outlet>
+
+    <a href="https://forms.gle/GPvUf4oYy5MZ9J569" target="_blank">
+      <nz-float-button class="red-float-button" [nzIcon]="reportFloatButton">
+      </nz-float-button>
+    </a>
+  </div>
+</div>
+
+<ng-template #loadingIndicator>
+  <nz-icon nzType="loading" [nzSpin]="true" nzTheme="outline"></nz-icon>
+  <span class="loading-text">Loading<span class="dots"></span></span>
+</ng-template>
+
+<ng-template #reportFloatButton>
+  <nz-icon class="report-float-button" nzType="comment" nzTheme="outline" />
+</ng-template>
