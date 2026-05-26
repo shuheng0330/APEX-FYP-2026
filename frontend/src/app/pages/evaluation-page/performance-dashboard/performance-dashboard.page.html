@@ -37,6 +37,16 @@
         <div class="performance-content">
           <!-- Performance Trend Line Chart - Full Width at Top -->
           <div class="performance-chart" *ngIf="staffEvaluations.length > 0">
+            <div class="trend-range-toggle" aria-label="Performance trend range">
+              <button
+                *ngFor="let years of trendRangeOptions"
+                nz-button
+                nzSize="small"
+                [nzType]="selectedTrendRangeYears === years ? 'primary' : 'default'"
+                (click)="setTrendRange(years)">
+                {{ years }}Y
+              </button>
+            </div>
             <canvas baseChart [data]="lineChartData" [options]="lineChartOptions" [type]="'line'">
             </canvas>
           </div>
@@ -91,6 +101,9 @@
                     <div class="historical-date">{{eval.createdAt | date: 'yyyy-MM-dd' }}</div>
                     <div class="historical-score">Score: {{eval.overallScore}}%</div>
                   </div>
+                </div>
+                <div class="expectation-summary">
+                  {{ consecutiveExpectationCycles }} consecutive cycles meeting expectation (&ge;70%)
                 </div>
               </div>
               <ng-template #noHistoricalEvaluation>

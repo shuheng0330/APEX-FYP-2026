@@ -24,8 +24,11 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { StaffProfileService } from '../../../services/staff-profile.service';
 import { StaffProfile } from '../../../models/staff.model';
 import { NzImageModule } from 'ng-zorro-antd/image';
+import { NzButtonModule } from 'ng-zorro-antd/button';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
-import { ChartConfiguration, ChartType } from 'chart.js';
+import { ChartConfiguration } from 'chart.js';
+
+type TrendRangeYears = 1 | 3 | 5;
 
 @Component({
   selector: 'evaluation-page',
@@ -33,7 +36,7 @@ import { ChartConfiguration, ChartType } from 'chart.js';
   templateUrl: './performance-dashboard.page.html',
   styleUrls: ['./performance-dashboard.page.scss'],
   imports: [CommonModule, TranslatePipe, NzTableModule, NzModalModule, NzRateModule, FormsModule, NzSkeletonComponent, NzIconModule, NzProgressModule,
-    NzEmptyModule, NzInputDirective, NzAlertModule, NzImageModule, BaseChartDirective],
+    NzEmptyModule, NzInputDirective, NzAlertModule, NzImageModule, NzButtonModule, BaseChartDirective],
   providers: [provideCharts(withDefaultRegisterables())]
 })
 
@@ -55,6 +58,11 @@ export class PerformanceDashboardPage implements OnInit {
   value: number = 0;
   staff: StaffTemp | undefined;
   userId: string | null = null;
+  trendRangeOptions: TrendRangeYears[] = [1, 3, 5];
+  selectedTrendRangeYears: TrendRangeYears = 5;
+  consecutiveExpectationCycles: number = 0;
+  private sortedEvaluations: EvaluationDTO[] = [];
+  private staffTrendPointChanges: (number | null)[] = [];
 
   // Chart config
   public lineChartData: ChartConfiguration<'line'>['data'] = {
@@ -79,7 +87,17 @@ export class PerformanceDashboardPage implements OnInit {
         position: 'top'
       },
       tooltip: {
-        enabled: true
+        enabled: true,
+        callbacks: {
+          label: (context) => {
+            const score = Number(context.parsed.y ?? 0);
+            const change = this.staffTrendPointChanges[context.dataIndex];
+            const changeText = change === null || change === undefined
+              ? 'No previous cycle'
+              : `${change >= 0 ? '+' : ''}${change.toFixed(1)}% vs previous cycle`;
+            return `Overall Score: ${score.toFixed(2)}% (${changeText})`;
+          }
+        }
       },
       title: {
         display: true,
@@ -145,26 +163,12 @@ export class PerformanceDashboardPage implements OnInit {
 
 
       // Sort by date ascending
-      const sortedEvals = this.staffEvaluations.sort(
+      this.sortedEvaluations = [...this.staffEvaluations].sort(
         (a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
       );
 
-      // Populate chart labels and data
-      this.lineChartData.labels = sortedEvals.map(e => {
-        if (e.evaluationCycleEndDate) {
-          return new Date(e.evaluationCycleEndDate).toLocaleDateString();
-        }
-        return new Date(e.createdAt!).toLocaleDateString();
-      });
-      this.lineChartData.datasets[0].data = sortedEvals.map(e => e.overallScore ?? 0);
-
-      console.log('Chart labels:', this.lineChartData.labels);
-      console.log('Chart data:', this.lineChartData.datasets[0].data);
-
-      // Force chart update
-      setTimeout(() => {
-        this.chart?.update();
-      }, 0);
+      this.rebuildTrendChart();
+      this.consecutiveExpectationCycles = this.calculateConsecutiveExpectationCycles();
 
 
       const latestEval = evaluations.reduce((latest, current) => {
@@ -179,6 +183,59 @@ export class PerformanceDashboardPage implements OnInit {
       this.latestCompetenciesRatings = evaluations.flatMap(e => e.ratings);
       this.loadUserProfile(this.staffId);//TODO: this api is used to get staff details, maybe can add into evaluationDTO
     })
+  }
+
+  setTrendRange(years: TrendRangeYears): void {
+    this.selectedTrendRangeYears = years;
+    this.rebuildTrendChart();
+  }
+
+  private rebuildTrendChart(): void {
+    const filteredEvals = this.getFilteredTrendEvaluations();
+
+    this.lineChartData.labels = filteredEvals.map(e => {
+      if (e.evaluationCycleEndDate) {
+        return new Date(e.evaluationCycleEndDate).toLocaleDateString();
+      }
+      return new Date(e.createdAt!).toLocaleDateString();
+    });
+    this.lineChartData.datasets[0].data = filteredEvals.map(e => e.overallScore ?? 0);
+    this.staffTrendPointChanges = filteredEvals.map((evaluation, index) => {
+      if (index === 0) return null;
+      return (evaluation.overallScore ?? 0) - (filteredEvals[index - 1].overallScore ?? 0);
+    });
+
+    setTimeout(() => {
+      this.chart?.update();
+    }, 0);
+  }
+
+  private getFilteredTrendEvaluations(): EvaluationDTO[] {
+    if (this.sortedEvaluations.length === 0) {
+      return [];
+    }
+
+    const latestEvaluation = this.sortedEvaluations[this.sortedEvaluations.length - 1];
+    const latestDate = this.getEvaluationTrendDate(latestEvaluation);
+    const startDate = new Date(latestDate);
+    startDate.setFullYear(startDate.getFullYear() - this.selectedTrendRangeYears);
+
+    return this.sortedEvaluations.filter(evaluation => this.getEvaluationTrendDate(evaluation) >= startDate);
+  }
+
+  private getEvaluationTrendDate(evaluation: EvaluationDTO): Date {
+    return new Date(evaluation.evaluationCycleEndDate || evaluation.createdAt!);
+  }
+
+  private calculateConsecutiveExpectationCycles(): number {
+    let count = 0;
+    for (const evaluation of [...this.sortedEvaluations].reverse()) {
+      if ((evaluation.overallScore ?? 0) < 70) {
+        break;
+      }
+      count++;
+    }
+    return count;
   }
 
   onClickViewAll() {

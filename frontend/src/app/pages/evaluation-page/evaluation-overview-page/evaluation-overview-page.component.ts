@@ -59,6 +59,8 @@ interface ColumnItem {
   sortDirections: NzTableSortOrder[];
 }
 
+type TrendRangeYears = 1 | 3 | 5;
+
 
 @Component({
   selector: 'evaluation-overview-page',
@@ -122,6 +124,9 @@ export class EvaluationOverviewPageComponent implements OnInit {
 
   filteredAtRiskStaffList: StaffPerformance[] = [];
   filteredRankingStaffList: StaffPerformance[] = [];
+  trendRangeOptions: TrendRangeYears[] = [1, 3, 5];
+  selectedTrendRangeYears: TrendRangeYears = 5;
+  private teamTrendPointChanges: (number | null)[] = [];
   // Line Chart - Performance Trend
   public lineChartData: ChartConfiguration<'line'>['data'] = {
     labels: [],
@@ -144,7 +149,17 @@ export class EvaluationOverviewPageComponent implements OnInit {
         position: 'top'
       },
       tooltip: {
-        enabled: true
+        enabled: true,
+        callbacks: {
+          label: (context) => {
+            const score = Number(context.parsed.y ?? 0);
+            const change = this.teamTrendPointChanges[context.dataIndex];
+            const changeText = change === null || change === undefined
+              ? 'No previous cycle'
+              : `${change >= 0 ? '+' : ''}${change.toFixed(1)}% vs previous cycle`;
+            return `Team Average Score: ${score.toFixed(2)}% (${changeText})`;
+          }
+        }
       }
     },
     scales: {
@@ -439,9 +454,13 @@ export class EvaluationOverviewPageComponent implements OnInit {
 
   buildChartsData(): void {
     // Line Chart - Monthly average scores
-    const monthlyAverages = this.calculateMonthlyAverages();
+    const monthlyAverages = this.calculateMonthlyAverages(this.selectedTrendRangeYears);
     this.lineChartData.labels = monthlyAverages.map(m => m.month);
     this.lineChartData.datasets[0].data = monthlyAverages.map(m => m.average);
+    this.teamTrendPointChanges = monthlyAverages.map((point, index) => {
+      if (index === 0) return null;
+      return point.average - monthlyAverages[index - 1].average;
+    });
 
     // Donut Chart - Performance distribution
     const needsImprovement = Array.from(this.staffPerformanceMap.values())
@@ -452,9 +471,10 @@ export class EvaluationOverviewPageComponent implements OnInit {
       .filter(p => p.averageScore !== undefined && p.averageScore >= 80).length;
 
     this.donutChartData.datasets[0].data = [needsImprovement, satisfactory, excellent];
+    setTimeout(() => this.lineChart?.update(), 0);
   }
 
-  calculateMonthlyAverages(): { month: string; average: number }[] {
+  calculateMonthlyAverages(rangeYears: TrendRangeYears): { month: string; average: number }[] {
     const monthlyData: Map<string, number[]> = new Map();
 
     this.allEvaluations.forEach(evals => {
@@ -469,13 +489,28 @@ export class EvaluationOverviewPageComponent implements OnInit {
       }
     });
 
-    return Array.from(monthlyData.entries())
+    const allMonthlyAverages = Array.from(monthlyData.entries())
       .map(([month, scores]) => ({
         month,
         average: scores.reduce((a, b) => a + b, 0) / scores.length
       }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-6); // Last 6 months
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    if (allMonthlyAverages.length === 0) {
+      return [];
+    }
+
+    const latestMonth = allMonthlyAverages[allMonthlyAverages.length - 1].month;
+    const latestDate = new Date(`${latestMonth}-01T00:00:00`);
+    const startDate = new Date(latestDate);
+    startDate.setFullYear(startDate.getFullYear() - rangeYears);
+
+    return allMonthlyAverages.filter(item => new Date(`${item.month}-01T00:00:00`) >= startDate);
+  }
+
+  setTrendRange(years: TrendRangeYears): void {
+    this.selectedTrendRangeYears = years;
+    this.buildChartsData();
   }
 
   buildTablesData(): void {

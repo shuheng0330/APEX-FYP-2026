@@ -97,6 +97,14 @@
     border-radius: 4px;
     width: 100%;
     margin-bottom: 20px;
+    position: relative;
+
+    .trend-range-toggle {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
 
     canvas {
       max-height: 300px;
@@ -204,6 +212,16 @@
           color: #cccccc;
         }
       }
+    }
+
+    .expectation-summary {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #1f1f1f;
+      font-size: 13px;
+      font-weight: 600;
     }
   }
 }

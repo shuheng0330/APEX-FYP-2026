@@ -91,7 +91,20 @@
     <div class="charts-section">
       <!-- Performance Trend Line Chart -->
       <div class="chart-card">
-        <nz-card [nzTitle]="'Performance Trend'">
+        <nz-card>
+          <div class="chart-card-header">
+            <div class="chart-card-title">Performance Trend</div>
+            <div class="trend-range-toggle" aria-label="Performance trend range">
+              <button
+                *ngFor="let years of trendRangeOptions"
+                nz-button
+                nzSize="small"
+                [nzType]="selectedTrendRangeYears === years ? 'primary' : 'default'"
+                (click)="setTrendRange(years)">
+                {{ years }}Y
+              </button>
+            </div>
+          </div>
           <div class="chart-container">
             <canvas baseChart [data]="lineChartData" [options]="lineChartOptions" [type]="'line'">
             </canvas>

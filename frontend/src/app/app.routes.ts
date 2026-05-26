@@ -39,7 +39,7 @@ export const routes: Routes = [
       {
         path: 'org-chart', component: OrgchartPage,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },  //ROLE_USER
+        data: { requiredRoles: ['ROLE_USER'] },
       },
       {
         path: 'career-pathway', component: CareerPathwayTabComponent,

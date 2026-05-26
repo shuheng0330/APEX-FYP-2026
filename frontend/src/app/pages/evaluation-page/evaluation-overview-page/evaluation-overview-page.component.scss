@@ -75,6 +75,27 @@
   margin-bottom: 30px;
 
   .chart-card {
+    .chart-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 12px;
+    }
+
+    .chart-card-title {
+      font-size: 16px;
+      color: #1f1f1f;
+    }
+
+    .trend-range-toggle {
+      display: inline-flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
     .chart-container {
       height: 300px;
       position: relative;
