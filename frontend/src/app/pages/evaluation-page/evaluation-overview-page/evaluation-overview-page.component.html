@@ -1,6 +1,9 @@
 <div class="centered-padding-body">
   <div>
     <h1 class="text-center">{{ titleKey | translate }}</h1>
+    <p *ngIf="selectedDepartmentName" class="department-filter-context">
+      Filtered by {{ selectedDepartmentName }}
+    </p>
   </div>
 
   <nz-skeleton *ngIf="loading"></nz-skeleton>

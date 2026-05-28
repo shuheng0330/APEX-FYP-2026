@@ -1,6 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { forkJoin } from 'rxjs';
@@ -95,6 +95,7 @@ export class EvaluationOverviewPageComponent implements OnInit {
   titleKey = 'PAGE.EVALUATION_OVERVIEW.TITLE';
   loading = true;
   userId: string | null = null;
+  selectedDepartmentName: string | null = null;
 
   // Summary Cards Data
   teamAverage: number = 0;
@@ -215,6 +216,7 @@ export class EvaluationOverviewPageComponent implements OnInit {
     private translate: TranslateService,
     private titleService: Title,
     private router: Router,
+    private route: ActivatedRoute,
     private evaluationService: EvaluationService,
     private evaluationCycleService: EvaluationCycleService,
     private staffService: StaffService,
@@ -223,22 +225,31 @@ export class EvaluationOverviewPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.userId = this.auth.userId;
+    this.selectedDepartmentName = this.route.snapshot.queryParamMap.get('departmentName');
     this.translate.get(this.titleKey).subscribe(t => this.titleService.setTitle(t));
     this.loadData();
   }
 
   loadData(): void {
     this.loading = true;
+    const shouldLoadDepartmentView = !!this.selectedDepartmentName?.trim();
+    const staffRequest = shouldLoadDepartmentView
+      ? this.staffService.getAllStaffTempToBeReplaced()
+      : this.staffService.getDirectDownLineByManagerId(this.userId!);
+    const evaluationRequest = shouldLoadDepartmentView
+      ? this.evaluationService.getAllEvaluations()
+      : this.evaluationService.getEvaluationsByDirectDownLineId(this.userId!);
 
-    // Load staff list and evaluations in parallel
+    // Load direct downline for manager view, or all staff first for HR department drill-down.
     forkJoin({
-      staff: this.staffService.getDirectDownLineByManagerId(this.userId!),
-      evaluations: this.evaluationService.getEvaluationsByDirectDownLineId(this.userId!),
+      staff: staffRequest,
+      evaluations: evaluationRequest,
       currentCycle: this.evaluationCycleService.getCurrentCycle()
     }).subscribe({
       next: ({ staff, evaluations, currentCycle }) => {
-        this.staffList = staff;
-        this.allEvaluations = evaluations;
+        const filteredData = this.applyDepartmentRouteFilter(staff, evaluations);
+        this.staffList = filteredData.staff;
+        this.allEvaluations = filteredData.evaluations;
         this.currentCycle = currentCycle;
         this.processData();
         this.loading = false;
@@ -390,7 +401,9 @@ export class EvaluationOverviewPageComponent implements OnInit {
     this.staffPerformanceMap.clear();
 
     this.staffList.forEach(staff => {
-      const staffEvals = this.allEvaluations.filter(e => e.staffId === staff.id);
+      const staffEvals = this.allEvaluations
+        .filter(e => e.staffId === staff.id)
+        .sort((a, b) => this.getEvaluationDate(a).getTime() - this.getEvaluationDate(b).getTime());
       const scores = staffEvals.map(e => e.overallScore || 0).filter(s => s > 0);
       const performance: StaffPerformance = {
         staff,
@@ -425,6 +438,10 @@ export class EvaluationOverviewPageComponent implements OnInit {
   calculateSummaryMetrics(): void {
     const performances = Array.from(this.staffPerformanceMap.values());
     const validPerformances = performances.filter(p => p.averageScore !== undefined);
+
+    this.teamAverage = 0;
+    this.bestPerformer = undefined;
+    this.worstPerformer = undefined;
 
     // Team average
     if (validPerformances.length > 0) {
@@ -478,8 +495,8 @@ export class EvaluationOverviewPageComponent implements OnInit {
     const monthlyData: Map<string, number[]> = new Map();
 
     this.allEvaluations.forEach(evals => {
-      if (evals.createdAt && evals.overallScore) {
-        const date = new Date(evals.createdAt);
+      if ((evals.evaluationCycleEndDate || evals.createdAt) && evals.overallScore) {
+        const date = this.getEvaluationDate(evals);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
         if (!monthlyData.has(monthKey)) {
@@ -602,6 +619,32 @@ export class EvaluationOverviewPageComponent implements OnInit {
 
   private buildFilterList(values: string[]): NzTableFilterList {
     return Array.from(new Set(values)).map(value => ({ text: value, value }));
+  }
+
+  private getEvaluationDate(evaluation: EvaluationDTO): Date {
+    return new Date(evaluation.evaluationCycleEndDate || evaluation.createdAt!);
+  }
+
+  private applyDepartmentRouteFilter(
+    staff: StaffTemp[],
+    evaluations: EvaluationDTO[]
+  ): { staff: StaffTemp[]; evaluations: EvaluationDTO[] } {
+    const departmentName = this.selectedDepartmentName?.trim().toLowerCase();
+
+    if (!departmentName) {
+      return { staff, evaluations };
+    }
+
+    // TODO: Move this department filtering to a backend API for large datasets.
+    const filteredStaff = staff.filter(item =>
+      item.role?.orgChart?.name?.trim().toLowerCase() === departmentName
+    );
+    const filteredStaffIds = new Set(filteredStaff.map(item => item.id));
+
+    return {
+      staff: filteredStaff,
+      evaluations: evaluations.filter(item => filteredStaffIds.has(item.staffId))
+    };
   }
 
   get isEvaluationOpen(): boolean {

@@ -164,16 +164,14 @@ export class PerformanceDashboardPage implements OnInit {
 
       // Sort by date ascending
       this.sortedEvaluations = [...this.staffEvaluations].sort(
-        (a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
+        (a, b) => this.getEvaluationTrendDate(a).getTime() - this.getEvaluationTrendDate(b).getTime()
       );
 
       this.rebuildTrendChart();
       this.consecutiveExpectationCycles = this.calculateConsecutiveExpectationCycles();
 
 
-      const latestEval = evaluations.reduce((latest, current) => {
-        return !latest || new Date(current.createdAt!) > new Date(latest.createdAt!) ? current : latest;
-      }, null as EvaluationDTO | null);
+      const latestEval = this.sortedEvaluations[this.sortedEvaluations.length - 1] ?? null;
 
       if (latestEval) {
         this.latestEvaluation = latestEval;
@@ -225,6 +223,10 @@ export class PerformanceDashboardPage implements OnInit {
 
   private getEvaluationTrendDate(evaluation: EvaluationDTO): Date {
     return new Date(evaluation.evaluationCycleEndDate || evaluation.createdAt!);
+  }
+
+  getEvaluationDisplayDate(evaluation?: EvaluationDTO): string | undefined {
+    return evaluation?.evaluationCycleEndDate || evaluation?.createdAt;
   }
 
   private calculateConsecutiveExpectationCycles(): number {
@@ -302,7 +304,7 @@ export class PerformanceDashboardPage implements OnInit {
     // Return all evaluations except the latest one, sorted by date descending
     return this.staffEvaluations
       .filter(e => e.evaluationId !== this.latestEvaluation?.evaluationId)
-      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+      .sort((a, b) => this.getEvaluationTrendDate(b).getTime() - this.getEvaluationTrendDate(a).getTime());
   }
 
   formatScore(rating: number): string {

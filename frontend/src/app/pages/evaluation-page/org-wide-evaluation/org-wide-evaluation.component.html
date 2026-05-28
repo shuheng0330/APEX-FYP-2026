@@ -1,0 +1,284 @@
+<div class="org-wide-page">
+  <div class="page-header">
+    <div>
+      <h1>Org-Wide Evaluation</h1>
+      <p>All departments - HR Admin view</p>
+    </div>
+  </div>
+
+  <nz-skeleton *ngIf="loading" [nzActive]="true"></nz-skeleton>
+
+  <div *ngIf="!loading" class="dashboard-content">
+    <section class="summary-grid">
+      <nz-card class="summary-card">
+        <div class="summary-card-content">
+          <div>
+            <span class="summary-label">Total Staff Evaluated</span>
+            <div class="summary-value">
+              {{ summary.totalStaffEvaluated }}<span>/{{ summary.totalStaff }}</span>
+            </div>
+          </div>
+          <div class="summary-icon teal">
+            <nz-icon nzType="team" nzTheme="outline"></nz-icon>
+          </div>
+        </div>
+      </nz-card>
+
+      <nz-card class="summary-card">
+        <div class="summary-card-content">
+          <div>
+            <span class="summary-label">Org Average Score</span>
+            <div class="summary-value">{{ summary.orgAverageScore | number: '1.2-2' }}%</div>
+          </div>
+          <div class="summary-icon blue">
+            <nz-icon nzType="bar-chart" nzTheme="outline"></nz-icon>
+          </div>
+        </div>
+        <div class="score-track">
+          <div class="score-fill" [style.width.%]="summary.orgAverageScore"></div>
+        </div>
+      </nz-card>
+
+      <nz-card class="summary-card">
+        <div class="summary-card-content">
+          <div>
+            <span class="summary-label">Top Performing Department</span>
+            <div class="summary-value department-name">{{ getTopDepartmentLabel() }}</div>
+            <div class="summary-subtext" *ngIf="summary.topDepartment">
+              Avg score: {{ summary.topDepartmentScore | number: '1.2-2' }}%
+            </div>
+          </div>
+          <div class="summary-icon green">
+            <nz-icon nzType="trophy" nzTheme="outline"></nz-icon>
+          </div>
+        </div>
+      </nz-card>
+
+      <nz-card class="summary-card clickable" (click)="scrollToAppraisalCandidates()">
+        <div class="summary-card-content">
+          <div>
+            <span class="summary-label">Pending HR Review</span>
+            <div class="summary-value">{{ summary.pendingAppraisals }}</div>
+            <div class="summary-link">View candidates</div>
+          </div>
+          <div class="summary-icon amber">
+            <nz-icon nzType="clock-circle" nzTheme="outline"></nz-icon>
+          </div>
+        </div>
+      </nz-card>
+    </section>
+
+    <section #appraisalCandidatesSection class="dashboard-section">
+      <nz-card>
+        <div class="section-header">
+          <div>
+            <h2>Appraisal Candidates</h2>
+          </div>
+        </div>
+        <nz-table
+          #candidateTable
+          [nzData]="appraisalCandidates"
+          [nzShowPagination]="false"
+          [nzNoResult]="candidateEmptyTpl">
+          <thead>
+            <tr>
+              <th>Staff Name</th>
+              <th>Department</th>
+              <th>Role</th>
+              <th>Decision Type</th>
+              <th>Readiness Score</th>
+              <th>Appraisal Category</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let candidate of candidateTable.data">
+              <td>{{ candidate.staffName }}</td>
+              <td>{{ candidate.department }}</td>
+              <td>{{ candidate.role }}</td>
+              <td>{{ candidate.decisionType }}</td>
+              <td>{{ candidate.readinessScore }}</td>
+              <td>{{ candidate.appraisalCategory }}</td>
+              <td>{{ candidate.status }}</td>
+              <td>{{ candidate.action }}</td>
+            </tr>
+          </tbody>
+        </nz-table>
+        <ng-template #candidateEmptyTpl>
+          <nz-empty nzNotFoundContent="Appraisal records will appear here once managers begin submitting appraisals"></nz-empty>
+        </ng-template>
+      </nz-card>
+    </section>
+
+    <section class="dashboard-section">
+      <nz-card>
+        <div class="section-header">
+          <div>
+            <h2>Score Distribution</h2>
+            <p>Staff count by latest evaluation score range</p>
+          </div>
+          <div class="legend">
+            <span><i class="red"></i>0-49</span>
+            <span><i class="amber"></i>50-69</span>
+            <span><i class="green"></i>70-100</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas baseChart [data]="scoreDistributionChartData" [options]="scoreDistributionChartOptions" [type]="'bar'"></canvas>
+        </div>
+      </nz-card>
+    </section>
+
+    <section class="dashboard-section">
+      <nz-card>
+        <div class="section-header">
+          <div>
+            <h2>Department Ranking</h2>
+          </div>
+        </div>
+        <nz-table #rankingTable [nzData]="departmentRanking" [nzPageSize]="10" [nzShowPagination]="departmentRanking.length > 10">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Department</th>
+              <th>Avg Score</th>
+              <th>Score Change</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let department of rankingTable.data; let i = index">
+              <td>
+                <span class="rank-pill">{{ i + 1 }}</span>
+              </td>
+              <td>
+                <strong>{{ department.departmentName }}</strong>
+                <div class="table-subtext">{{ department.staffCount }} staff</div>
+              </td>
+              <td><strong>{{ department.averageScore | number: '1.2-2' }}%</strong></td>
+              <td>
+                <span class="score-change" [ngClass]="getScoreChangeClass(department.scoreChange)">
+                  <nz-icon [nzType]="getScoreChangeIcon(department.scoreChange)" nzTheme="outline"></nz-icon>
+                  {{ department.scoreChange > 0 ? '+' : '' }}{{ department.scoreChange | number: '1.2-2' }}
+                </span>
+              </td>
+              <td>
+                <nz-tag [nzColor]="getStatusColor(department.status)">{{ department.status }}</nz-tag>
+              </td>
+              <td>
+                <button nz-button nzType="link" nzSize="small" (click)="navigateToTeamOverview(department.departmentName)">
+                  <nz-icon nzType="team" nzTheme="outline"></nz-icon>
+                  View Team
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </nz-table>
+      </nz-card>
+    </section>
+
+    <section class="dashboard-section">
+      <nz-card>
+        <div class="section-header">
+          <div>
+            <h2>Competency Breakdown</h2>
+            <p>Average rating by competency</p>
+          </div>
+          <nz-select
+            class="department-select"
+            [(ngModel)]="selectedDepartment"
+            (ngModelChange)="onDepartmentChange($event)"
+            nzPlaceHolder="Department"
+            [nzLoading]="competencyLoading">
+            <nz-option [nzValue]="null" nzLabel="All Departments"></nz-option>
+            <nz-option *ngFor="let department of departmentOptions" [nzValue]="department" [nzLabel]="department"></nz-option>
+          </nz-select>
+        </div>
+        <div class="chart-container horizontal-chart">
+          <canvas
+            *ngIf="competencyChartData.labels?.length; else competencyEmptyTpl"
+            baseChart
+            [data]="competencyChartData"
+            [options]="competencyChartOptions"
+            [type]="'bar'">
+          </canvas>
+          <ng-template #competencyEmptyTpl>
+            <nz-empty nzNotFoundContent="No competency data available"></nz-empty>
+          </ng-template>
+        </div>
+      </nz-card>
+    </section>
+
+    <section class="dashboard-section">
+      <nz-card>
+        <div class="section-header">
+          <div>
+            <h2>Weakest Competencies by Department</h2>
+            <p>Identify areas needing targeted improvement per department</p>
+          </div>
+        </div>
+
+        <div class="weakest-grid" *ngIf="weakestCompetencies.length; else weakestEmptyTpl">
+          <div class="weakest-card" *ngFor="let item of weakestCompetencies; let i = index">
+            <div class="weakest-department">
+              <span class="department-dot" [style.background-color]="getDepartmentColor(i)"></span>
+              <strong>{{ item.departmentName }}</strong>
+            </div>
+            <div class="weakest-label">Weakest Competency</div>
+            <div class="weakest-name">{{ item.competencyName }}</div>
+            <div class="weakest-score">
+              {{ item.averageRating | number: '1.1-1' }}<span>/10</span>
+            </div>
+            <div class="weakest-meta">Benchmark: <strong>{{ item.benchmark | number: '1.1-1' }}</strong></div>
+            <div class="weakest-meta">
+              Gap:
+              <strong [ngClass]="getGapClass(item.gap)">
+                {{ item.gap >= 0 ? '+' : '' }}{{ item.gap | number: '1.1-1' }}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #weakestEmptyTpl>
+          <nz-empty nzNotFoundContent="No competency data available"></nz-empty>
+        </ng-template>
+      </nz-card>
+    </section>
+
+    <section class="dashboard-section">
+      <nz-card>
+        <div class="section-header">
+          <div>
+            <h2>Department Growth Trend</h2>
+            <p>Average score over time by department</p>
+          </div>
+          <div class="trend-toggle" aria-label="Department growth trend range">
+            <button
+              *ngFor="let years of trendOptions"
+              nz-button
+              nzSize="small"
+              [nzType]="selectedTrendYears === years ? 'primary' : 'default'"
+              [disabled]="trendLoading"
+              (click)="setTrendYears(years)">
+              {{ years }}Y
+            </button>
+          </div>
+        </div>
+        <div class="chart-container trend-chart">
+          <canvas
+            *ngIf="departmentTrendChartData.datasets.length; else trendEmptyTpl"
+            baseChart
+            [data]="departmentTrendChartData"
+            [options]="departmentTrendChartOptions"
+            [type]="'line'">
+          </canvas>
+          <ng-template #trendEmptyTpl>
+            <nz-empty nzNotFoundContent="No department trend data available"></nz-empty>
+          </ng-template>
+        </div>
+      </nz-card>
+    </section>
+  </div>
+</div>

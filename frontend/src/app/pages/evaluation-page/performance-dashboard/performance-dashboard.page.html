@@ -57,7 +57,7 @@
               <h3 class="evaluation-title">Latest Evaluation</h3>
               <div *ngIf="latestEvaluation; else noLatestEvaluation">
                 <div class="evaluation-header">
-                  <span class="evaluation-date">{{latestEvaluation?.createdAt | date: 'yyyy-MM-dd' }}</span>
+                  <span class="evaluation-date">{{ getEvaluationDisplayDate(latestEvaluation) | date: 'yyyy-MM-dd' }}</span>
                   <span class="view-all" *ngIf="latestEvaluation.ratings.length > 5" (click)="onClickViewAll()">View
                     All</span>
                 </div>
@@ -98,7 +98,7 @@
               <div *ngIf="getHistoricalEvaluations().length > 0; else noHistoricalEvaluation">
                 <div class="historical-list">
                   <div *ngFor="let eval of getHistoricalEvaluations()" class="historical-item">
-                    <div class="historical-date">{{eval.createdAt | date: 'yyyy-MM-dd' }}</div>
+                    <div class="historical-date">{{ getEvaluationDisplayDate(eval) | date: 'yyyy-MM-dd' }}</div>
                     <div class="historical-score">Score: {{eval.overallScore}}%</div>
                   </div>
                 </div>

@@ -71,6 +71,7 @@ export class SideMenuComponent {
       key: 'NAV.EVALUATION', icon: 'fund-projection-screen',
       children: [
         { key: 'NAV.EVALUATION_OVERVIEW', route: '/evaluation/overview', requiredRoles: ['CAN_MANAGE_EVALUATION'] },
+        { key: 'NAV.ORG_WIDE_EVALUATION', route: '/evaluation/org-overview', requiredRoles: ['CAN_MANAGE_EVALUATION_CYCLE'] },
         { key: 'NAV.MY_EVALUATION', route: '/evaluation/my-evaluation', requiredRoles: ['ROLE_USER'] }
       ],
       requiredRoles: ['ROLE_USER']

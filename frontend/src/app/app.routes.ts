@@ -10,6 +10,7 @@ import { CareerPathwayTabComponent } from './pages/career-pathway-tab/career-pat
 import { TrainingEngagementPageComponent } from './pages/training/training-engagement/training-engagement-page.component';
 import { PerformanceDashboardPage } from './pages/evaluation-page/performance-dashboard/performance-dashboard.page';
 import { EvaluationOverviewPageComponent } from './pages/evaluation-page/evaluation-overview-page/evaluation-overview-page.component';
+import { OrgWideEvaluationComponent } from './pages/evaluation-page/org-wide-evaluation/org-wide-evaluation.component';
 import { LoginComponent } from './pages/login-page/login/login.component';
 import { FirstTimeLoginComponent } from './pages/login-page/first-time-login/first-time-login.component';
 import { ForgotPasswordComponent } from './pages/login-page/forgot-password/forgot-password.component';
@@ -93,6 +94,11 @@ export const routes: Routes = [
         path: 'evaluation/overview', component: EvaluationOverviewPageComponent,
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_MANAGE_EVALUATION'] },
+      },
+      {
+        path: 'evaluation/org-overview', component: OrgWideEvaluationComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_EVALUATION_CYCLE'] },
       },
       {
         path: 'evaluation/my-evaluation', component: PerformanceDashboardPage,
