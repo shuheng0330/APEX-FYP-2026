@@ -93,6 +93,27 @@ public class AppraisalRecordController {
                 T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_EVALUATION_CYCLE.getAuthorityName()
             )
             """)
+    @GetMapping("/review-records")
+    public ResponseEntity<List<AppraisalRecordDto>> getReviewRecords() {
+        return ResponseEntity.ok(appraisalRecordService.getReviewRecords());
+    }
+
+    @PreAuthorize("""
+            hasAnyAuthority(
+                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_EVALUATION.getAuthorityName()
+            )
+            """)
+    @GetMapping("/team/latest")
+    public ResponseEntity<List<AppraisalRecordDto>> getLatestTeamRecords(Authentication authentication) {
+        UUID managerId = UUID.fromString(authentication.getPrincipal().toString());
+        return ResponseEntity.ok(appraisalRecordService.getLatestTeamRecords(managerId));
+    }
+
+    @PreAuthorize("""
+            hasAnyAuthority(
+                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_EVALUATION_CYCLE.getAuthorityName()
+            )
+            """)
     @PutMapping("/{id}/approve")
     public ResponseEntity<AppraisalRecordDto> approve(@PathVariable UUID id, Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getPrincipal().toString());

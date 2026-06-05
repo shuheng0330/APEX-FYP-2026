@@ -19,6 +19,13 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 
 import { EvaluationService } from '../../../services/evaluation.service';
+import { AppraisalRecordService } from '../../../services/appraisal-record.service';
+import {
+  AppraisalCategory,
+  AppraisalDecisionType,
+  AppraisalRecordDto,
+  AppraisalStatus
+} from '../../../models/appraisal-record.model';
 import {
   OrgWideCompetencyAverageDto,
   OrgWideCompetencyBreakdownDto,
@@ -29,17 +36,6 @@ import {
 } from '../../../models/org-wide-evaluation.model';
 
 type TrendYears = 3 | 5;
-
-interface AppraisalCandidatePlaceholder {
-  staffName: string;
-  department: string;
-  role: string;
-  decisionType: string;
-  readinessScore: string;
-  appraisalCategory: string;
-  status: string;
-  action: string;
-}
 
 interface WeakestCompetencyInsight {
   departmentName: string;
@@ -81,6 +77,10 @@ export class OrgWideEvaluationComponent implements OnInit {
   selectedDepartment: string | null = null;
   selectedTrendYears: TrendYears = 5;
   trendOptions: TrendYears[] = [3, 5];
+  selectedCandidateDepartment: string | null = null;
+  selectedCandidateDecisionType: AppraisalDecisionType | null = null;
+  selectedCandidateStatus: AppraisalStatus | null = null;
+  selectedCandidateCategory: AppraisalCategory | null = null;
 
   summary: OrgWideSummaryDto = {
     totalStaffEvaluated: 0,
@@ -91,7 +91,11 @@ export class OrgWideEvaluationComponent implements OnInit {
     pendingAppraisals: 0
   };
 
-  appraisalCandidates: AppraisalCandidatePlaceholder[] = [];
+  appraisalCandidates: AppraisalRecordDto[] = [];
+  candidateDepartmentOptions: string[] = [];
+  candidateDecisionTypeOptions: AppraisalDecisionType[] = ['PROMOTION', 'SALARY_INCREMENT', 'BOTH'];
+  candidateStatusOptions: AppraisalStatus[] = ['PENDING_REVIEW', 'APPROVED', 'RETURNED'];
+  candidateCategoryOptions: AppraisalCategory[] = ['READY', 'BORDERLINE', 'NEEDS_IMPROVEMENT'];
   scoreDistribution: OrgWideScoreDistributionDto[] = [];
   departmentRanking: OrgWideDepartmentRankingDto[] = [];
   competencyBreakdown: OrgWideCompetencyBreakdownDto[] = [];
@@ -219,6 +223,7 @@ export class OrgWideEvaluationComponent implements OnInit {
 
   constructor(
     private evaluationService: EvaluationService,
+    private appraisalRecordService: AppraisalRecordService,
     private router: Router,
     private titleService: Title
   ) {}
@@ -236,10 +241,16 @@ export class OrgWideEvaluationComponent implements OnInit {
       distribution: this.evaluationService.getOrgScoreDistribution(),
       ranking: this.evaluationService.getOrgDepartmentRanking(),
       competencies: this.evaluationService.getOrgCompetencyBreakdown(),
-      trend: this.evaluationService.getOrgDepartmentTrend(this.selectedTrendYears)
+      trend: this.evaluationService.getOrgDepartmentTrend(this.selectedTrendYears),
+      appraisalCandidates: this.appraisalRecordService.getReviewRecords()
     }).subscribe({
-      next: ({ summary, distribution, ranking, competencies, trend }) => {
+      next: ({ summary, distribution, ranking, competencies, trend, appraisalCandidates }) => {
         this.summary = summary;
+        this.appraisalCandidates = appraisalCandidates;
+        this.summary.pendingAppraisals = appraisalCandidates.filter(record => record.status === 'PENDING_REVIEW').length;
+        this.candidateDepartmentOptions = Array.from(new Set(
+          appraisalCandidates.map(record => record.departmentName).filter((name): name is string => !!name)
+        )).sort((a, b) => a.localeCompare(b));
         this.scoreDistribution = distribution;
         this.departmentRanking = ranking;
         this.competencyBreakdown = competencies;
@@ -308,6 +319,50 @@ export class OrgWideEvaluationComponent implements OnInit {
     this.router.navigate(['/evaluation/overview'], {
       queryParams: { departmentName }
     });
+  }
+
+  navigateToAppraisalReview(staffId: string): void {
+    this.router.navigate(['/performance', staffId]);
+  }
+
+  get filteredAppraisalCandidates(): AppraisalRecordDto[] {
+    return this.appraisalCandidates.filter(record => {
+      const matchesDepartment = !this.selectedCandidateDepartment
+        || record.departmentName === this.selectedCandidateDepartment;
+      const matchesDecisionType = !this.selectedCandidateDecisionType
+        || record.decisionType === this.selectedCandidateDecisionType;
+      const matchesStatus = !this.selectedCandidateStatus
+        || record.status === this.selectedCandidateStatus;
+      const matchesCategory = !this.selectedCandidateCategory
+        || record.promotionFinalCategory === this.selectedCandidateCategory
+        || record.salaryFinalCategory === this.selectedCandidateCategory;
+
+      return matchesDepartment && matchesDecisionType && matchesStatus && matchesCategory;
+    });
+  }
+
+  formatAppraisalValue(value?: string | null): string {
+    return value ? value.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase()) : '—';
+  }
+
+  getDecisionTypeColor(decisionType: AppraisalDecisionType): string {
+    if (decisionType === 'PROMOTION') return 'purple';
+    if (decisionType === 'SALARY_INCREMENT') return 'blue';
+    return 'cyan';
+  }
+
+  getAppraisalStatusColor(status?: AppraisalStatus): string {
+    if (status === 'APPROVED') return 'green';
+    if (status === 'RETURNED') return 'red';
+    if (status === 'PENDING_REVIEW') return 'orange';
+    return 'default';
+  }
+
+  getAppraisalCategoryColor(category?: AppraisalCategory | null): string {
+    if (category === 'READY') return 'green';
+    if (category === 'BORDERLINE') return 'orange';
+    if (category === 'NEEDS_IMPROVEMENT') return 'red';
+    return 'default';
   }
 
   getDistributionColor(range: string): string {

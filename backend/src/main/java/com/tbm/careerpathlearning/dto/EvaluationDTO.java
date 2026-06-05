@@ -13,6 +13,7 @@ public class EvaluationDTO {
     private String comment;
     private String staffName;
     private String evaluationCycleEndDate;
+    private String evaluationCycleStatus;
     private Double overallScore;
     private LocalDateTime createdAt;
     private UUID createdBy;

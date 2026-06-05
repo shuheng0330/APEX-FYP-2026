@@ -116,6 +116,11 @@
         </div>
       </div>
     </div>
+
+    <app-manager-appraisal-panel
+      *ngIf="canManageEvaluation"
+      [staffId]="staffId">
+    </app-manager-appraisal-panel>
   </div>
 </div>
 

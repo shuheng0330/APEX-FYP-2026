@@ -1,0 +1,171 @@
+<nz-card class="appraisal-panel">
+  <nz-spin [nzSpinning]="loading">
+    <div class="panel-header">
+      <div>
+        <h2>Appraisal Panel — Manager Only</h2>
+        <p>Submit appraisal for HR review</p>
+      </div>
+      <div *ngIf="status" class="status-pill" [attr.data-status]="status">
+        <nz-icon [nzType]="statusIcon" nzTheme="outline"></nz-icon>
+        <span>{{ statusLabel }}</span>
+      </div>
+    </div>
+
+    <nz-alert
+      *ngIf="noClosedCycle"
+      nzType="info"
+      nzMessage="No closed evaluation cycle found. Appraisal submissions are only available after an evaluation cycle has been completed."
+      nzShowIcon>
+    </nz-alert>
+
+    <nz-alert
+      *ngIf="pendingBannerVisible"
+      class="status-alert"
+      nzType="warning"
+      nzMessage="Submitted — awaiting HR review"
+      nzShowIcon>
+    </nz-alert>
+
+    <nz-alert
+      *ngIf="approvedBannerVisible"
+      class="status-alert"
+      nzType="success"
+      [nzMessage]="'Appraisal approved by HR on ' + (approvedDate | date: 'yyyy-MM-dd')"
+      nzShowIcon>
+    </nz-alert>
+
+    <nz-alert
+      *ngIf="isReturned"
+      class="status-alert"
+      nzType="error"
+      [nzMessage]="'Returned for revision: ' + returnReason"
+      nzShowIcon>
+    </nz-alert>
+
+    <div class="appraisal-form" [class.disabled-panel]="noClosedCycle">
+      <label class="field-label">Review Period</label>
+      <nz-select
+        class="full-width"
+        [(ngModel)]="reviewPeriodYears"
+        [nzDisabled]="noClosedCycle || isReadOnly"
+        (ngModelChange)="onReviewPeriodChange()">
+        <nz-option *ngFor="let option of reviewPeriodOptions" [nzValue]="option.value" [nzLabel]="option.label"></nz-option>
+      </nz-select>
+
+      <label class="field-label decision-label">Decision Type</label>
+      <nz-radio-group
+        [(ngModel)]="decisionType"
+        [nzDisabled]="noClosedCycle || isReadOnly"
+        (ngModelChange)="onDecisionTypeChange()">
+        <label nz-radio nzValue="PROMOTION">Promotion</label>
+        <label nz-radio nzValue="SALARY_INCREMENT">Salary Increment</label>
+        <label nz-radio nzValue="BOTH">Both</label>
+        <label nz-radio nzValue="NONE">None</label>
+      </nz-radio-group>
+
+      <div class="score-card-grid" *ngIf="visibleCards.length > 0">
+        <div class="decision-card" *ngFor="let card of visibleCards">
+          <nz-spin [nzSpinning]="scoreLoading">
+            <h3>{{ card.title }}</h3>
+            <div class="score-label">Readiness Score</div>
+            <div class="score-value">{{ card.readinessScore ?? '-' }}</div>
+
+            <div class="score-label category-label">System Category</div>
+            <nz-tag *ngIf="card.systemCategory" [nzColor]="getCategoryColor(card.systemCategory)">
+              {{ formatCategory(card.systemCategory) }}
+            </nz-tag>
+            <span *ngIf="!card.systemCategory">-</span>
+
+            <label class="override-checkbox" nz-checkbox [(ngModel)]="card.overrideEnabled" [nzDisabled]="noClosedCycle || isReadOnly">
+              Override category
+            </label>
+
+            <div *ngIf="card.overrideEnabled" class="override-fields">
+              <label class="field-label">Final Category</label>
+              <nz-select class="full-width" [(ngModel)]="card.finalCategory" [nzDisabled]="noClosedCycle || isReadOnly">
+                <nz-option *ngFor="let category of categoryOptions" [nzValue]="category" [nzLabel]="formatCategory(category)"></nz-option>
+              </nz-select>
+
+              <label class="field-label">Override Reason <span class="required">*</span></label>
+              <textarea
+                nz-input
+                rows="3"
+                [(ngModel)]="card.overrideReason"
+                [disabled]="noClosedCycle || isReadOnly"
+                placeholder="Explain why the system category is being overridden...">
+              </textarea>
+            </div>
+          </nz-spin>
+        </div>
+      </div>
+
+      <div class="insight-section" *ngIf="decisionType !== 'NONE'">
+        <button nz-button nzType="primary" type="button" [disabled]="noClosedCycle || isReadOnly" (click)="generateInsight()">
+          Generate Insight
+        </button>
+        <textarea
+          *ngIf="generatedInsightVisible"
+          nz-input
+          class="insight-box"
+          rows="3"
+          readonly
+          [(ngModel)]="aiInsight">
+        </textarea>
+      </div>
+
+      <label class="field-label comment-label">Manager Comment <span class="required">*</span></label>
+      <textarea
+        nz-input
+        rows="5"
+        [(ngModel)]="managerComment"
+        [disabled]="noClosedCycle || isReadOnly"
+        placeholder="Provide your assessment and recommendations...">
+      </textarea>
+
+      <div class="action-row">
+        <button
+          nz-button
+          nzBlock
+          type="button"
+          [disabled]="!canPersist"
+          [nzLoading]="saving"
+          (click)="saveDraft()">
+          Save Draft
+        </button>
+        <button
+          nz-button
+          nzBlock
+          nzType="primary"
+          class="submit-button"
+          type="button"
+          [disabled]="!canPersist"
+          [nzLoading]="submitting"
+          (click)="submitToHr()">
+          Submit to HR
+        </button>
+      </div>
+    </div>
+
+    <nz-collapse class="previous-appraisals">
+      <nz-collapse-panel nzHeader="Previous Appraisals" [nzActive]="false">
+        <div *ngIf="previousApprovedRecords.length > 0; else noPreviousAppraisals" class="previous-list">
+          <div class="previous-item" *ngFor="let record of previousApprovedRecords">
+            <div>
+              <div class="previous-title">{{ record.evaluationCycleEndDate | date: 'yyyy-MM-dd' }}</div>
+              <div class="previous-subtitle">{{ formatDecisionType(record.decisionType) }}</div>
+            </div>
+            <nz-tag
+              *ngIf="getRecordFinalCategory(record)"
+              [nzColor]="getCategoryColor(getRecordFinalCategory(record))">
+              {{ formatCategory(getRecordFinalCategory(record)) }}
+            </nz-tag>
+            <div class="previous-date">Approved: {{ record.approvedAt | date: 'yyyy-MM-dd' }}</div>
+          </div>
+        </div>
+        <ng-template #noPreviousAppraisals>
+          <div class="empty-history">No previous appraisal records.</div>
+        </ng-template>
+      </nz-collapse-panel>
+    </nz-collapse>
+  </nz-spin>
+</nz-card>

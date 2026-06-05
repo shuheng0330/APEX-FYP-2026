@@ -17,6 +17,10 @@ public interface AppraisalRecordService {
 
     List<AppraisalRecordDto> getPendingRecords();
 
+    List<AppraisalRecordDto> getReviewRecords();
+
+    List<AppraisalRecordDto> getLatestTeamRecords(UUID managerId);
+
     AppraisalRecordDto approve(UUID id, UUID userId);
 
     AppraisalRecordDto overrideAndApprove(UUID id, HrAppraisalActionDto dto, UUID userId);

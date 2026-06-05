@@ -41,3 +41,8 @@ export interface OrgWideDepartmentTrendDto {
   year: number;
   departments: OrgWideDepartmentTrendDepartmentDto[];
 }
+
+export interface OrgWideAverageTrendDto {
+  year: number;
+  averageScore: number;
+}

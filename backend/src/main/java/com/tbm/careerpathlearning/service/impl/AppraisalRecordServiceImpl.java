@@ -3,9 +3,11 @@ package com.tbm.careerpathlearning.service.impl;
 import com.tbm.careerpathlearning.dto.AppraisalReadinessDto;
 import com.tbm.careerpathlearning.dto.AppraisalRecordDto;
 import com.tbm.careerpathlearning.dto.HrAppraisalActionDto;
+import com.tbm.careerpathlearning.dto.StaffDto;
 import com.tbm.careerpathlearning.enums.AppraisalCategory;
 import com.tbm.careerpathlearning.enums.AppraisalDecisionType;
 import com.tbm.careerpathlearning.enums.AppraisalStatus;
+import com.tbm.careerpathlearning.enums.CycleStatus;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.exception.DataAccessException;
 import com.tbm.careerpathlearning.model.AppraisalRecord;
@@ -14,8 +16,10 @@ import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.repository.AppraisalEvaluationRepository;
 import com.tbm.careerpathlearning.repository.AppraisalRecordRepository;
 import com.tbm.careerpathlearning.repository.EvaluationCycleRepository;
+import com.tbm.careerpathlearning.repository.OrgWideEvaluationCycleRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.service.AppraisalRecordService;
+import com.tbm.careerpathlearning.service.StaffService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,7 +29,9 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AppraisalRecordServiceImpl implements AppraisalRecordService {
@@ -41,6 +47,12 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
 
     @Autowired
     private StaffRepository staffRepository;
+
+    @Autowired
+    private StaffService staffService;
+
+    @Autowired
+    private OrgWideEvaluationCycleRepository orgWideEvaluationCycleRepository;
 
     @Override
     @Transactional
@@ -118,6 +130,35 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
                 .stream()
                 .map(this::mapToDto)
                 .toList();
+    }
+
+    @Override
+    public List<AppraisalRecordDto> getReviewRecords() {
+        return orgWideEvaluationCycleRepository.findFirstByStatusOrderByEndDateDesc(CycleStatus.CLOSED)
+                .map(cycle -> appraisalRecordRepository.findAllByCycleIdAndStatusesWithDetails(
+                        cycle.getId(),
+                        Set.of(AppraisalStatus.PENDING_REVIEW, AppraisalStatus.APPROVED, AppraisalStatus.RETURNED)
+                ).stream().map(this::mapToDto).toList())
+                .orElseGet(List::of);
+    }
+
+    @Override
+    public List<AppraisalRecordDto> getLatestTeamRecords(UUID managerId) {
+        Set<UUID> downlineStaffIds = staffService.findAllByIsDeletedIsFalseAndManagerId(managerId)
+                .stream()
+                .map(StaffDto::getId)
+                .collect(Collectors.toSet());
+
+        if (downlineStaffIds.isEmpty()) {
+            return List.of();
+        }
+
+        return orgWideEvaluationCycleRepository.findFirstByStatusOrderByEndDateDesc(CycleStatus.CLOSED)
+                .map(cycle -> appraisalRecordRepository.findAllByCycleIdAndStaffIdsWithDetails(
+                        cycle.getId(),
+                        downlineStaffIds
+                ).stream().map(this::mapToDto).toList())
+                .orElseGet(List::of);
     }
 
     @Override
@@ -303,6 +344,12 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         dto.setId(record.getId());
         dto.setStaffId(record.getStaff().getId());
         dto.setStaffName(record.getStaff().getName());
+        if (record.getStaff().getRole() != null) {
+            dto.setRoleName(record.getStaff().getRole().getName());
+            if (record.getStaff().getRole().getOrgChart() != null) {
+                dto.setDepartmentName(record.getStaff().getRole().getOrgChart().getName());
+            }
+        }
         dto.setManagerId(record.getManager().getId());
         dto.setManagerName(record.getManager().getName());
         dto.setEvaluationCycleId(record.getEvaluationCycle().getId());

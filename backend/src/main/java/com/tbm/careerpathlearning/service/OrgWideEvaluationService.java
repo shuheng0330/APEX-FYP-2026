@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.service;
 
 import com.tbm.careerpathlearning.dto.OrgWideCompetencyBreakdownDto;
+import com.tbm.careerpathlearning.dto.OrgWideAverageTrendDto;
 import com.tbm.careerpathlearning.dto.OrgWideDepartmentRankingDto;
 import com.tbm.careerpathlearning.dto.OrgWideDepartmentTrendDto;
 import com.tbm.careerpathlearning.dto.OrgWideScoreDistributionDto;
@@ -19,4 +20,6 @@ public interface OrgWideEvaluationService {
     List<OrgWideCompetencyBreakdownDto> getCompetencyBreakdown(String departmentName);
 
     List<OrgWideDepartmentTrendDto> getDepartmentTrend(Integer years);
+
+    List<OrgWideAverageTrendDto> getAverageTrend(Integer years);
 }

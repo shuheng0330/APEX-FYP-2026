@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.controller;
 
 import com.tbm.careerpathlearning.dto.OrgWideCompetencyBreakdownDto;
+import com.tbm.careerpathlearning.dto.OrgWideAverageTrendDto;
 import com.tbm.careerpathlearning.dto.OrgWideDepartmentRankingDto;
 import com.tbm.careerpathlearning.dto.OrgWideDepartmentTrendDto;
 import com.tbm.careerpathlearning.dto.OrgWideScoreDistributionDto;
@@ -85,5 +86,17 @@ public class OrgWideEvaluationController {
     public ResponseEntity<List<OrgWideDepartmentTrendDto>> getDepartmentTrend(
             @RequestParam(defaultValue = "5") Integer years) {
         return ResponseEntity.ok(orgWideEvaluationService.getDepartmentTrend(years));
+    }
+
+    @PreAuthorize("""
+            hasAnyAuthority(
+                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_EVALUATION.getAuthorityName(),
+                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_EVALUATION_CYCLE.getAuthorityName()
+            )
+            """)
+    @GetMapping("/average-trend")
+    public ResponseEntity<List<OrgWideAverageTrendDto>> getAverageTrend(
+            @RequestParam(defaultValue = "5") Integer years) {
+        return ResponseEntity.ok(orgWideEvaluationService.getAverageTrend(years));
     }
 }

@@ -93,7 +93,7 @@ export const routes: Routes = [
       {
         path: 'evaluation/overview', component: EvaluationOverviewPageComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_EVALUATION'] },
+        data: { requiredRoles: ['CAN_MANAGE_EVALUATION', 'CAN_MANAGE_EVALUATION_CYCLE'] },
       },
       {
         path: 'evaluation/org-overview', component: OrgWideEvaluationComponent,

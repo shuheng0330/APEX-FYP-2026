@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.service.impl;
 
 import com.tbm.careerpathlearning.dto.OrgWideCompetencyAverageDto;
+import com.tbm.careerpathlearning.dto.OrgWideAverageTrendDto;
 import com.tbm.careerpathlearning.dto.OrgWideCompetencyBreakdownDto;
 import com.tbm.careerpathlearning.dto.OrgWideDepartmentRankingDto;
 import com.tbm.careerpathlearning.dto.OrgWideDepartmentTrendDepartmentDto;
@@ -187,6 +188,24 @@ public class OrgWideEvaluationServiceImpl implements OrgWideEvaluationService {
                     OrgWideDepartmentTrendDto dto = new OrgWideDepartmentTrendDto();
                     dto.setYear(entry.getKey());
                     dto.setDepartments(entry.getValue());
+                    return dto;
+                })
+                .toList();
+    }
+
+    @Override
+    public List<OrgWideAverageTrendDto> getAverageTrend(Integer years) {
+        return getDepartmentTrend(years)
+                .stream()
+                .map(yearTrend -> {
+                    OrgWideAverageTrendDto dto = new OrgWideAverageTrendDto();
+                    dto.setYear(yearTrend.getYear());
+                    double average = yearTrend.getDepartments()
+                            .stream()
+                            .mapToDouble(department -> nullToZero(department.getAverageScore()))
+                            .average()
+                            .orElse(0.0);
+                    dto.setAverageScore(round(average));
                     return dto;
                 })
                 .toList();

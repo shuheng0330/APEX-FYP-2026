@@ -75,9 +75,35 @@
             <h2>Appraisal Candidates</h2>
           </div>
         </div>
+        <div class="candidate-filters">
+          <nz-select [(ngModel)]="selectedCandidateDepartment" nzPlaceHolder="Department" nzAllowClear>
+            <nz-option *ngFor="let department of candidateDepartmentOptions" [nzValue]="department" [nzLabel]="department"></nz-option>
+          </nz-select>
+          <nz-select [(ngModel)]="selectedCandidateDecisionType" nzPlaceHolder="Decision Type" nzAllowClear>
+            <nz-option
+              *ngFor="let decisionType of candidateDecisionTypeOptions"
+              [nzValue]="decisionType"
+              [nzLabel]="formatAppraisalValue(decisionType)">
+            </nz-option>
+          </nz-select>
+          <nz-select [(ngModel)]="selectedCandidateStatus" nzPlaceHolder="Status" nzAllowClear>
+            <nz-option
+              *ngFor="let status of candidateStatusOptions"
+              [nzValue]="status"
+              [nzLabel]="formatAppraisalValue(status)">
+            </nz-option>
+          </nz-select>
+          <nz-select [(ngModel)]="selectedCandidateCategory" nzPlaceHolder="Category" nzAllowClear>
+            <nz-option
+              *ngFor="let category of candidateCategoryOptions"
+              [nzValue]="category"
+              [nzLabel]="formatAppraisalValue(category)">
+            </nz-option>
+          </nz-select>
+        </div>
         <nz-table
           #candidateTable
-          [nzData]="appraisalCandidates"
+          [nzData]="filteredAppraisalCandidates"
           [nzShowPagination]="false"
           [nzNoResult]="candidateEmptyTpl">
           <thead>
@@ -95,18 +121,56 @@
           <tbody>
             <tr *ngFor="let candidate of candidateTable.data">
               <td>{{ candidate.staffName }}</td>
-              <td>{{ candidate.department }}</td>
-              <td>{{ candidate.role }}</td>
-              <td>{{ candidate.decisionType }}</td>
-              <td>{{ candidate.readinessScore }}</td>
-              <td>{{ candidate.appraisalCategory }}</td>
-              <td>{{ candidate.status }}</td>
-              <td>{{ candidate.action }}</td>
+              <td>{{ candidate.departmentName || '—' }}</td>
+              <td>{{ candidate.roleName || '—' }}</td>
+              <td>
+                <nz-tag [nzColor]="getDecisionTypeColor(candidate.decisionType)">
+                  {{ formatAppraisalValue(candidate.decisionType) }}
+                </nz-tag>
+              </td>
+              <td>
+                <div *ngIf="candidate.decisionType !== 'SALARY_INCREMENT'">
+                  <span *ngIf="candidate.decisionType === 'BOTH'" class="value-prefix">P:</span>
+                  {{ candidate.promotionReadinessScore | number: '1.2-2' }}
+                </div>
+                <div *ngIf="candidate.decisionType !== 'PROMOTION'">
+                  <span *ngIf="candidate.decisionType === 'BOTH'" class="value-prefix">S:</span>
+                  {{ candidate.salaryReadinessScore | number: '1.2-2' }}
+                </div>
+              </td>
+              <td>
+                <div *ngIf="candidate.decisionType !== 'SALARY_INCREMENT'" class="candidate-category">
+                  <span *ngIf="candidate.decisionType === 'BOTH'" class="value-prefix">P:</span>
+                  <nz-tag [nzColor]="getAppraisalCategoryColor(candidate.promotionFinalCategory)">
+                    {{ formatAppraisalValue(candidate.promotionFinalCategory) }}
+                  </nz-tag>
+                </div>
+                <div *ngIf="candidate.decisionType !== 'PROMOTION'" class="candidate-category">
+                  <span *ngIf="candidate.decisionType === 'BOTH'" class="value-prefix">S:</span>
+                  <nz-tag [nzColor]="getAppraisalCategoryColor(candidate.salaryFinalCategory)">
+                    {{ formatAppraisalValue(candidate.salaryFinalCategory) }}
+                  </nz-tag>
+                </div>
+              </td>
+              <td>
+                <nz-tag [nzColor]="getAppraisalStatusColor(candidate.status)">
+                  {{ formatAppraisalValue(candidate.status) }}
+                </nz-tag>
+              </td>
+              <td>
+                <button nz-button nzType="link" nzSize="small" (click)="navigateToAppraisalReview(candidate.staffId)">
+                  Review
+                </button>
+              </td>
             </tr>
           </tbody>
         </nz-table>
         <ng-template #candidateEmptyTpl>
-          <nz-empty nzNotFoundContent="Appraisal records will appear here once managers begin submitting appraisals"></nz-empty>
+          <nz-empty
+            [nzNotFoundContent]="appraisalCandidates.length === 0
+              ? 'Appraisal records will appear here once managers begin submitting appraisals'
+              : 'No appraisal records match the selected filters'">
+          </nz-empty>
         </ng-template>
       </nz-card>
     </section>

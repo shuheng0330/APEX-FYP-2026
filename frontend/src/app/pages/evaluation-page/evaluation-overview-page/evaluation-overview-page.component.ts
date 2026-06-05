@@ -20,6 +20,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { EvaluationCycleDto, EvaluationCycleService } from '../../../services/evaluation-cycle.service';
 import { EvaluationService } from '../../../services/evaluation.service';
+import { AppraisalRecordService } from '../../../services/appraisal-record.service';
 import { StaffService } from '../../../services/staff.service';
 import { AuthService } from '../../../services/auth.service';
 import { StaffTemp } from '../../../models/staff-temp.model';
@@ -27,6 +28,8 @@ import { EvaluationDTO } from '../../../models/evaluation.model';
 import { Role } from '../../../models/role.model';
 import { NzDropdownMenuComponent } from 'ng-zorro-antd/dropdown';
 import { NzInputDirective } from 'ng-zorro-antd/input';
+import { AppraisalCategory, AppraisalRecordDto, AppraisalStatus } from '../../../models/appraisal-record.model';
+import { OrgWideAverageTrendDto } from '../../../models/org-wide-evaluation.model';
 
 interface StaffPerformance {
   staff: StaffTemp;
@@ -108,6 +111,7 @@ export class EvaluationOverviewPageComponent implements OnInit {
   // Staff and Evaluation Data
   staffList: StaffTemp[] = [];
   allEvaluations: EvaluationDTO[] = [];
+  private summaryEvals: EvaluationDTO[] = [];
   staffPerformanceMap: Map<string, StaffPerformance> = new Map();
   currentCycle: EvaluationCycleDto | null = null;
 
@@ -128,6 +132,8 @@ export class EvaluationOverviewPageComponent implements OnInit {
   trendRangeOptions: TrendRangeYears[] = [1, 3, 5];
   selectedTrendRangeYears: TrendRangeYears = 5;
   private teamTrendPointChanges: (number | null)[] = [];
+  private orgAverageTrend: OrgWideAverageTrendDto[] = [];
+  appraisalByStaffId: Map<string, AppraisalRecordDto> = new Map();
   // Line Chart - Performance Trend
   public lineChartData: ChartConfiguration<'line'>['data'] = {
     labels: [],
@@ -154,6 +160,9 @@ export class EvaluationOverviewPageComponent implements OnInit {
         callbacks: {
           label: (context) => {
             const score = Number(context.parsed.y ?? 0);
+            if (context.dataset.label === 'Org Average') {
+              return `Org Average: ${score.toFixed(2)}%`;
+            }
             const change = this.teamTrendPointChanges[context.dataIndex];
             const changeText = change === null || change === undefined
               ? 'No previous cycle'
@@ -220,6 +229,7 @@ export class EvaluationOverviewPageComponent implements OnInit {
     private evaluationService: EvaluationService,
     private evaluationCycleService: EvaluationCycleService,
     private staffService: StaffService,
+    private appraisalRecordService: AppraisalRecordService,
     private auth: AuthService
   ) { }
 
@@ -239,18 +249,30 @@ export class EvaluationOverviewPageComponent implements OnInit {
     const evaluationRequest = shouldLoadDepartmentView
       ? this.evaluationService.getAllEvaluations()
       : this.evaluationService.getEvaluationsByDirectDownLineId(this.userId!);
+    const appraisalRequest = shouldLoadDepartmentView
+      ? this.appraisalRecordService.getReviewRecords()
+      : this.appraisalRecordService.getLatestTeamAppraisals();
 
     // Load direct downline for manager view, or all staff first for HR department drill-down.
     forkJoin({
       staff: staffRequest,
       evaluations: evaluationRequest,
-      currentCycle: this.evaluationCycleService.getCurrentCycle()
+      currentCycle: this.evaluationCycleService.getCurrentCycle(),
+      appraisals: appraisalRequest,
+      orgAverageTrend: this.evaluationService.getOrgAverageTrend(this.selectedTrendRangeYears)
     }).subscribe({
-      next: ({ staff, evaluations, currentCycle }) => {
+      next: ({ staff, evaluations, currentCycle, appraisals, orgAverageTrend }) => {
         const filteredData = this.applyDepartmentRouteFilter(staff, evaluations);
         this.staffList = filteredData.staff;
         this.allEvaluations = filteredData.evaluations;
         this.currentCycle = currentCycle;
+        const visibleStaffIds = new Set(this.staffList.map(item => item.id));
+        this.appraisalByStaffId = new Map(
+          appraisals
+            .filter(record => visibleStaffIds.has(record.staffId))
+            .map(record => [record.staffId, record])
+        );
+        this.orgAverageTrend = orgAverageTrend;
         this.processData();
         this.loading = false;
       },
@@ -397,9 +419,10 @@ export class EvaluationOverviewPageComponent implements OnInit {
   }
 
   processData(): void {
-    // Build staff performance map
     this.staffPerformanceMap.clear();
 
+    // Full Team Ranking uses ALL historical evaluations so that Average Score
+    // reflects the all-time mean and Trend compares the last two cycles.
     this.staffList.forEach(staff => {
       const staffEvals = this.allEvaluations
         .filter(e => e.staffId === staff.id)
@@ -410,82 +433,98 @@ export class EvaluationOverviewPageComponent implements OnInit {
         latestScore: scores.length > 0 ? scores[scores.length - 1] : undefined,
         averageScore: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : undefined
       };
-
-      // Determine trend (simplified - compare last 2 scores)
       if (scores.length >= 2) {
         const recent = scores.slice(-2);
         if (recent[1] > recent[0]) performance.trend = 'up';
         else if (recent[1] < recent[0]) performance.trend = 'down';
         else performance.trend = 'stable';
       }
-
       this.staffPerformanceMap.set(staff.id, performance);
     });
 
-    // Calculate summary metrics
+    // Summary cards and donut use cycle-specific evaluations:
+    //   - Open cycle exists → show open cycle data (empty if no evals yet — correct for new cycle)
+    //   - No open cycle    → fall back to last closed cycle so the page stays informative
+    this.summaryEvals = this.currentCycle?.status === 'OPEN'
+      ? this.allEvaluations.filter(e => e.evaluationCycleStatus === 'OPEN')
+      : this.resolveLatestClosedCycleEvals();
+
     this.calculateSummaryMetrics();
-
-    // Build charts data
     this.buildChartsData();
-
-    // Build tables data
     this.buildTablesData();
-
-    // Build heatmap data
     this.buildHeatmapData();
   }
 
   calculateSummaryMetrics(): void {
-    const performances = Array.from(this.staffPerformanceMap.values());
-    const validPerformances = performances.filter(p => p.averageScore !== undefined);
+    const validEvals = this.summaryEvals.filter(e => (e.overallScore ?? 0) > 0);
 
     this.teamAverage = 0;
     this.bestPerformer = undefined;
     this.worstPerformer = undefined;
-
-    // Team average
-    if (validPerformances.length > 0) {
-      this.teamAverage = validPerformances.reduce((sum, p) => sum + (p.averageScore || 0), 0) / validPerformances.length;
-    }
-
-    // Best and worst performers
-    if (validPerformances.length > 0) {
-      this.bestPerformer = validPerformances.reduce((best, current) =>
-        (current.averageScore || 0) > (best.averageScore || 0) ? current : best
-      );
-      this.worstPerformer = validPerformances.reduce((worst, current) =>
-        (current.averageScore || 0) < (worst.averageScore || 0) ? current : worst
-      );
-    }
-
-    // Staff evaluated count
-    this.staffEvaluatedCount = validPerformances.length;
+    this.staffEvaluatedCount = 0;
     this.totalStaffCount = this.staffList.length;
+    this.meetingExpectationsPercent = 0;
 
-    // Meeting expectations (score >= 60)
-    const meetingExpectations = validPerformances.filter(p => (p.averageScore || 0) >= 60).length;
-    this.meetingExpectationsPercent = this.staffEvaluatedCount > 0
-      ? (meetingExpectations / this.staffEvaluatedCount) * 100
-      : 0;
+    if (validEvals.length === 0) return;
+
+    const evaluatedIds = new Set(validEvals.map(e => e.staffId));
+    this.staffEvaluatedCount = [...evaluatedIds].filter(id =>
+      this.staffList.some(s => s.id === id)).length;
+
+    this.teamAverage = validEvals.reduce((sum, e) => sum + (e.overallScore ?? 0), 0) / validEvals.length;
+
+    const bestEval = validEvals.reduce((best, e) =>
+      (e.overallScore ?? 0) > (best.overallScore ?? 0) ? e : best);
+    this.bestPerformer = this.staffPerformanceMap.get(bestEval.staffId);
+
+    const worstEval = validEvals.reduce((worst, e) =>
+      (e.overallScore ?? 0) < (worst.overallScore ?? 0) ? e : worst);
+    this.worstPerformer = this.staffPerformanceMap.get(worstEval.staffId);
+
+    const meetingCount = validEvals.filter(e => (e.overallScore ?? 0) >= 60).length;
+    this.meetingExpectationsPercent = (meetingCount / validEvals.length) * 100;
   }
 
   buildChartsData(): void {
     // Line Chart - Monthly average scores
     const monthlyAverages = this.calculateMonthlyAverages(this.selectedTrendRangeYears);
-    this.lineChartData.labels = monthlyAverages.map(m => m.month);
-    this.lineChartData.datasets[0].data = monthlyAverages.map(m => m.average);
+    const labels = monthlyAverages.map(m => m.month);
+    const orgAverageByYear = new Map(this.orgAverageTrend.map(point => [point.year, point.averageScore]));
+    this.lineChartData = {
+      labels,
+      datasets: [
+        {
+          data: monthlyAverages.map(m => m.average),
+          label: 'Team Average Score',
+          fill: false,
+          borderColor: '#1890ff',
+          backgroundColor: '#1890ff',
+          tension: 0.4
+        },
+        {
+          data: labels.map(label => orgAverageByYear.get(Number(label.slice(0, 4))) ?? null),
+          label: 'Org Average',
+          fill: false,
+          borderColor: '#8c8c8c',
+          backgroundColor: '#8c8c8c',
+          borderDash: [6, 5],
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          tension: 0.25,
+          spanGaps: true
+        }
+      ]
+    };
     this.teamTrendPointChanges = monthlyAverages.map((point, index) => {
       if (index === 0) return null;
       return point.average - monthlyAverages[index - 1].average;
     });
 
-    // Donut Chart - Performance distribution
-    const needsImprovement = Array.from(this.staffPerformanceMap.values())
-      .filter(p => p.averageScore !== undefined && p.averageScore < 60).length;
-    const satisfactory = Array.from(this.staffPerformanceMap.values())
-      .filter(p => p.averageScore !== undefined && p.averageScore >= 60 && p.averageScore < 80).length;
-    const excellent = Array.from(this.staffPerformanceMap.values())
-      .filter(p => p.averageScore !== undefined && p.averageScore >= 80).length;
+    // Donut Chart - Performance distribution from the same cycle used by summary cards
+    const validSummaryEvals = this.summaryEvals.filter(e => (e.overallScore ?? 0) > 0);
+    const needsImprovement = validSummaryEvals.filter(e => (e.overallScore ?? 0) < 60).length;
+    const satisfactory = validSummaryEvals.filter(e => (e.overallScore ?? 0) >= 60 && (e.overallScore ?? 0) < 80).length;
+    const excellent = validSummaryEvals.filter(e => (e.overallScore ?? 0) >= 80).length;
 
     this.donutChartData.datasets[0].data = [needsImprovement, satisfactory, excellent];
     setTimeout(() => this.lineChart?.update(), 0);
@@ -527,7 +566,13 @@ export class EvaluationOverviewPageComponent implements OnInit {
 
   setTrendRange(years: TrendRangeYears): void {
     this.selectedTrendRangeYears = years;
-    this.buildChartsData();
+    this.evaluationService.getOrgAverageTrend(years).subscribe({
+      next: trend => {
+        this.orgAverageTrend = trend;
+        this.buildChartsData();
+      },
+      error: error => console.error('Error loading organisation average trend:', error)
+    });
   }
 
   buildTablesData(): void {
@@ -617,6 +662,44 @@ export class EvaluationOverviewPageComponent implements OnInit {
     return '#ff4d4f'; // Red for low scores
   }
 
+  getAppraisalStatus(staffId: string): AppraisalStatus | undefined {
+    return this.appraisalByStaffId.get(staffId)?.status;
+  }
+
+  getAppraisalCategory(staffId: string): AppraisalCategory | undefined {
+    const record = this.appraisalByStaffId.get(staffId);
+    if (!record) return undefined;
+    return record.decisionType === 'SALARY_INCREMENT'
+      ? record.salaryFinalCategory ?? undefined
+      : record.promotionFinalCategory ?? undefined;
+  }
+
+  getAppraisalStatusColor(status?: AppraisalStatus): string {
+    if (status === 'APPROVED') return 'green';
+    if (status === 'PENDING_REVIEW') return 'orange';
+    if (status === 'RETURNED') return 'red';
+    return 'default';
+  }
+
+  getAppraisalCategoryColor(category?: AppraisalCategory): string {
+    if (category === 'READY') return 'green';
+    if (category === 'BORDERLINE') return 'orange';
+    if (category === 'NEEDS_IMPROVEMENT') return 'red';
+    return 'default';
+  }
+
+  formatAppraisalValue(value?: string): string {
+    return value ? value.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase()) : '—';
+  }
+
+  private resolveLatestClosedCycleEvals(): EvaluationDTO[] {
+    const closed = this.allEvaluations.filter(e => e.evaluationCycleStatus === 'CLOSED');
+    if (closed.length === 0) return [];
+    const latestEndDate = closed.reduce((max, e) =>
+      (e.evaluationCycleEndDate ?? '') > max ? (e.evaluationCycleEndDate ?? '') : max, '');
+    return closed.filter(e => e.evaluationCycleEndDate === latestEndDate);
+  }
+
   private buildFilterList(values: string[]): NzTableFilterList {
     return Array.from(new Set(values)).map(value => ({ text: value, value }));
   }
@@ -649,6 +732,10 @@ export class EvaluationOverviewPageComponent implements OnInit {
 
   get isEvaluationOpen(): boolean {
     return this.currentCycle?.status === 'OPEN';
+  }
+
+  get canManageEvaluation(): boolean {
+    return this.auth.hasRole('CAN_MANAGE_EVALUATION');
   }
 }
 

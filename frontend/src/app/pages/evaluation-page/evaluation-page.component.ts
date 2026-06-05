@@ -220,7 +220,9 @@ export class EvaluationPageComponent implements OnInit {
     }).subscribe({
       next: ({ evaluations, roleCompetencies }) => {
         this.evaluations = evaluations;
-        this.evaluatedStaffIds = evaluations.map(e => e.staffId);
+        this.evaluatedStaffIds = evaluations
+          .filter(e => e.evaluationCycleStatus === 'OPEN')
+          .map(e => e.staffId);
         this.allRoleCompetenciesList = roleCompetencies;
 
         this.listOfDownLineStaff = staffs.map(staff => {

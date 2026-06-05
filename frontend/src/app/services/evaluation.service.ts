@@ -4,6 +4,7 @@ import {environment} from '../../environments/environment';
 import {Observable} from 'rxjs';
 import {EvaluationDTO} from '../models/evaluation.model';
 import {
+  OrgWideAverageTrendDto,
   OrgWideCompetencyBreakdownDto,
   OrgWideDepartmentRankingDto,
   OrgWideDepartmentTrendDto,
@@ -88,6 +89,14 @@ export class EvaluationService {
 
   getOrgDepartmentTrend(years: number = 5): Observable<OrgWideDepartmentTrendDto[]> {
     return this.http.get<OrgWideDepartmentTrendDto[]>(`${this.baseUrl}/org/department-trend`, {
+      withCredentials: true,
+      headers: new HttpHeaders({ 'X-Skip-Error-Handler': 'true' }),
+      params: new HttpParams().set('years', years)
+    });
+  }
+
+  getOrgAverageTrend(years: number = 5): Observable<OrgWideAverageTrendDto[]> {
+    return this.http.get<OrgWideAverageTrendDto[]>(`${this.baseUrl}/org/average-trend`, {
       withCredentials: true,
       headers: new HttpHeaders({ 'X-Skip-Error-Handler': 'true' }),
       params: new HttpParams().set('years', years)

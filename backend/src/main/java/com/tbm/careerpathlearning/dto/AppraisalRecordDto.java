@@ -14,6 +14,8 @@ public class AppraisalRecordDto {
     private UUID id;
     private UUID staffId;
     private String staffName;
+    private String departmentName;
+    private String roleName;
     private UUID managerId;
     private String managerName;
     private Long evaluationCycleId;

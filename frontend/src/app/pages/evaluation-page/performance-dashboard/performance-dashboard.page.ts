@@ -27,6 +27,7 @@ import { NzImageModule } from 'ng-zorro-antd/image';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
+import { ManagerAppraisalPanelComponent } from './manager-appraisal-panel/manager-appraisal-panel.component';
 
 type TrendRangeYears = 1 | 3 | 5;
 
@@ -36,7 +37,7 @@ type TrendRangeYears = 1 | 3 | 5;
   templateUrl: './performance-dashboard.page.html',
   styleUrls: ['./performance-dashboard.page.scss'],
   imports: [CommonModule, TranslatePipe, NzTableModule, NzModalModule, NzRateModule, FormsModule, NzSkeletonComponent, NzIconModule, NzProgressModule,
-    NzEmptyModule, NzInputDirective, NzAlertModule, NzImageModule, NzButtonModule, BaseChartDirective],
+    NzEmptyModule, NzInputDirective, NzAlertModule, NzImageModule, NzButtonModule, BaseChartDirective, ManagerAppraisalPanelComponent],
   providers: [provideCharts(withDefaultRegisterables())]
 })
 
@@ -309,6 +310,10 @@ export class PerformanceDashboardPage implements OnInit {
 
   formatScore(rating: number): string {
     return rating + '/10';
+  }
+
+  get canManageEvaluation(): boolean {
+    return this.auth.hasRole('CAN_MANAGE_EVALUATION');
   }
 
 }

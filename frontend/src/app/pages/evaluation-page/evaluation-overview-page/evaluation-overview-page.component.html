@@ -27,7 +27,7 @@
             <nz-statistic [nzValue]="staffEvaluatedCount" [nzSuffix]="'/' + totalStaffCount"
               [nzTitle]="'Staff Evaluated'" [nzValueStyle]="{ color: '#52c41a' }">
             </nz-statistic>
-            <button nz-button nzType="primary" (click)="navigateToEvaluation()" [disabled]="!isEvaluationOpen">
+            <button *ngIf="canManageEvaluation" nz-button nzType="primary" (click)="navigateToEvaluation()" [disabled]="!isEvaluationOpen">
               Evaluate
             </button>
           </div>
@@ -281,6 +281,8 @@
                   </div>
                 </nz-dropdown-menu>
                 <th>Status</th>
+                <th>Appraisal Status</th>
+                <th>Appraisal Category</th>
                 <th>Trend</th>
                 <th>Action</th>
               </tr>
@@ -298,6 +300,20 @@
                   <nz-tag [nzColor]="getPerformanceCategory(performer.averageScore || 0).color">
                     {{ getPerformanceCategory(performer.averageScore || 0).label }}
                   </nz-tag>
+                </td>
+                <td>
+                  <nz-tag *ngIf="getAppraisalStatus(performer.staff.id) as appraisalStatus; else noAppraisalStatus"
+                    [nzColor]="getAppraisalStatusColor(appraisalStatus)">
+                    {{ formatAppraisalValue(appraisalStatus) }}
+                  </nz-tag>
+                  <ng-template #noAppraisalStatus>—</ng-template>
+                </td>
+                <td>
+                  <nz-tag *ngIf="getAppraisalCategory(performer.staff.id) as appraisalCategory; else noAppraisalCategory"
+                    [nzColor]="getAppraisalCategoryColor(appraisalCategory)">
+                    {{ formatAppraisalValue(appraisalCategory) }}
+                  </nz-tag>
+                  <ng-template #noAppraisalCategory>—</ng-template>
                 </td>
                 <td>
                   <nz-icon [nzType]="getTrendIcon(performer.trend)"

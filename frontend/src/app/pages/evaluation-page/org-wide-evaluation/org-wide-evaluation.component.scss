@@ -138,6 +138,30 @@
   scroll-margin-top: 24px;
 }
 
+.candidate-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+
+  nz-select {
+    width: 180px;
+  }
+}
+
+.candidate-category {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.value-prefix {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -354,6 +378,10 @@
   }
 
   .department-select {
+    width: 100%;
+  }
+
+  .candidate-filters nz-select {
     width: 100%;
   }
 
