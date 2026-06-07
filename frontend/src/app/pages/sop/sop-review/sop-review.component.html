@@ -2,8 +2,8 @@
   <div class="page-heading">
     <div>
       <span class="section-kicker">Manual review gate</span>
-      <h1>Generated Training Review</h1>
-      <p>Review and approve AI-generated material and quizzes before they become training content.</p>
+      <h1>Generated Material Review</h1>
+      <p>Review and approve AI-generated training material before it becomes a course.</p>
     </div>
     <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)" nzPlaceHolder="Select a completed SOP">
       @for (s of completedSops; track s.id) {
@@ -14,11 +14,13 @@
 
   <nz-spin [nzSpinning]="loading">
     @if (!loading && !document) {
-      <div class="empty-workbench surface-panel"><nz-empty nzNotFoundContent="Select an SOP to begin reviewing"></nz-empty></div>
+      <div class="empty-workbench surface-panel"><nz-empty nzNotFoundContent="Select a completed SOP to begin reviewing"></nz-empty></div>
     }
 
     @if (document) {
       <div class="workbench">
+
+        <!-- Left sidebar: SOP info + module list -->
         <aside class="navigator surface-panel">
           <div class="document-summary">
             <span class="section-kicker">Selected SOP</span>
@@ -28,7 +30,7 @@
               <div><dt>Version</dt><dd>{{ document.version || '-' }}</dd></div>
             </dl>
             <div class="review-progress">
-              <div><span>Overall review</span><strong>{{ overallProgress }}%</strong></div>
+              <div><span>Material approved</span><strong>{{ approvedMaterialCount }}/{{ modules.length }}</strong></div>
               <nz-progress [nzPercent]="overallProgress" [nzShowInfo]="false"></nz-progress>
             </div>
           </div>
@@ -38,83 +40,184 @@
             @for (module of modules; track module.id) {
               <button type="button" class="module-item" [class.active]="module.id === selectedModuleId" (click)="selectModule(module)">
                 <span class="module-order">{{ module.moduleOrder }}</span>
-                <span class="module-copy"><strong>{{ module.title }}</strong><small>{{ module.quiz.length }} quiz questions</small></span>
-                <span class="status-pair">
-                  <i [class.approved]="module.reviewStatus === 'APPROVED'" title="Material status"></i>
-                  <i [class.approved]="module.quiz.length > 0 && module.quiz[0].reviewStatus === 'APPROVED'" title="Quiz status"></i>
+                <span class="module-copy">
+                  <strong>{{ module.title }}</strong>
+                  <small>{{ module.reviewStatus }}</small>
                 </span>
+                <span class="status-dot" [class.approved]="module.reviewStatus === 'APPROVED'"></span>
               </button>
             }
           </div>
         </aside>
 
+        <!-- Main: rich material view -->
         @if (selectedModule; as module) {
-          <main class="material-editor surface-panel">
+          <main class="material-panel surface-panel">
+
+            <!-- Panel heading -->
             <div class="panel-heading">
-              <div><span class="section-kicker">Training material</span><h2>Module {{ module.moduleOrder }}</h2></div>
-              <nz-tag [nzColor]="statusColor(module.reviewStatus)">{{ module.reviewStatus }}</nz-tag>
+              <div>
+                <span class="section-kicker">Module {{ module.moduleOrder }} of {{ modules.length }}</span>
+                <h2>{{ module.title }}</h2>
+              </div>
+              <div class="heading-actions">
+                <nz-tag [nzColor]="statusColor(module.reviewStatus)">{{ module.reviewStatus }}</nz-tag>
+                <button nz-button nzSize="small" (click)="toggleEdit(module)">
+                  <nz-icon [nzType]="editMode[module.id] ? 'eye' : 'edit'"></nz-icon>
+                  {{ editMode[module.id] ? 'Preview' : 'Edit' }}
+                </button>
+              </div>
             </div>
 
-            <label>Module title<input nz-input [(ngModel)]="module.title" /></label>
-            <label>Content<textarea nz-input [(ngModel)]="module.content" [nzAutosize]="{ minRows: 18, maxRows: 30 }"></textarea></label>
-
-            @if (module.rejectionReason) {
-              <div class="previous-reason"><nz-icon nzType="history"></nz-icon><span><strong>Previous rejection reason</strong>{{ module.rejectionReason }}</span></div>
+            <!-- Edit mode: plain textarea -->
+            @if (editMode[module.id]) {
+              <div class="edit-area">
+                <label>Module title<input nz-input [(ngModel)]="module.title" /></label>
+                <label>Content<textarea nz-input [(ngModel)]="editText[module.id]" [nzAutosize]="{ minRows: 20, maxRows: 35 }"></textarea></label>
+              </div>
             }
 
+            <!-- Preview mode: rich rendered content -->
+            @if (!editMode[module.id]) {
+              @let rich = parseContent(module);
+              <div class="content-scroll">
+
+                @if (rich) {
+                  <!-- AI Summary -->
+                  @if (rich.summary) {
+                    <div class="ai-summary-box">
+                      <div class="ai-label"><nz-icon nzType="robot"></nz-icon> AI SUMMARY</div>
+                      <p>{{ rich.summary }}</p>
+                    </div>
+                  }
+
+                  <!-- Learning Objectives -->
+                  @if (rich.learningObjectives?.length) {
+                    <h3 class="section-title">What You Will Learn</h3>
+                    <div class="objectives-grid">
+                      @for (obj of rich.learningObjectives; track $index) {
+                        <div class="objective-card">
+                          <nz-icon nzType="check-circle" nzTheme="twotone" [nzTwotoneColor]="'#13c2a8'"></nz-icon>
+                          <span>{{ obj }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  <!-- Tools -->
+                  @if (rich.tools?.length) {
+                    <h3 class="section-title">Tools & Materials Required</h3>
+                    <div class="tools-row">
+                      @for (tool of rich.tools; track $index) {
+                        <nz-tag nzColor="default">{{ tool }}</nz-tag>
+                      }
+                    </div>
+                  }
+
+                  <!-- Content Sections -->
+                  @for (section of rich.sections; track $index) {
+                    @if (section.heading) {
+                      <h3 class="section-title">{{ section.heading }}</h3>
+                    }
+                    @switch (section.type) {
+                      @case ('paragraph') {
+                        <p class="section-body">{{ section.body }}</p>
+                      }
+                      @case ('steps') {
+                        <ol class="steps-list">
+                          @for (item of section.items; track $index; let i = $index) {
+                            <li>
+                              <span class="step-number">{{ i + 1 }}</span>
+                              <span>{{ item }}</span>
+                            </li>
+                          }
+                        </ol>
+                      }
+                      @case ('table') {
+                        <div class="table-wrapper">
+                          <table class="content-table">
+                            @if (section.headers?.length) {
+                              <thead>
+                                <tr>@for (h of section.headers; track $index) { <th>{{ h }}</th> }</tr>
+                              </thead>
+                            }
+                            <tbody>
+                              @for (row of section.rows; track $index; let ri = $index) {
+                                <tr [class.first-row]="ri === 0">
+                                  @for (cell of row; track $index) { <td>{{ cell }}</td> }
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                      @case ('warnings') {
+                        <div class="warnings-list">
+                          @for (item of section.items; track $index) {
+                            <div class="warning-card">
+                              <nz-icon nzType="stop" nzTheme="outline"></nz-icon>
+                              <span>{{ item }}</span>
+                            </div>
+                          }
+                        </div>
+                      }
+                    }
+                  }
+
+                  <!-- Key Terms -->
+                  @if (rich.keyTerms?.length) {
+                    <h3 class="section-title">Key Terms to Know</h3>
+                    <div class="terms-grid">
+                      @for (kt of rich.keyTerms; track $index) {
+                        <div class="term-card">
+                          <strong>{{ kt.term }}</strong>
+                          <p>{{ kt.definition }}</p>
+                        </div>
+                      }
+                    </div>
+                  }
+
+                } @else {
+                  <!-- Fallback for plain text -->
+                  <pre class="plain-content">{{ module.content }}</pre>
+                }
+              </div>
+            }
+
+            <!-- Previous rejection reason -->
+            @if (module.rejectionReason) {
+              <div class="previous-reason">
+                <nz-icon nzType="history"></nz-icon>
+                <span><strong>Previous rejection reason</strong>{{ module.rejectionReason }}</span>
+              </div>
+            }
+
+            <!-- Reject reason input -->
             @if (showModuleReject[module.id]) {
               <div class="reject-box">
-                <label>Reason for regeneration<textarea nz-input placeholder="Explain what the generated material needs to improve" [(ngModel)]="moduleRejectReason[module.id]" [nzAutosize]="{ minRows: 3, maxRows: 5 }"></textarea></label>
+                <label>Reason for regeneration
+                  <textarea nz-input placeholder="Explain what the generated material needs to improve" [(ngModel)]="moduleRejectReason[module.id]" [nzAutosize]="{ minRows: 3, maxRows: 5 }"></textarea>
+                </label>
                 <button nz-button nzType="primary" nzDanger (click)="confirmRejectModule(module)" [nzLoading]="busy[module.id]">Confirm reject and regenerate</button>
               </div>
             }
 
+            <!-- Action bar -->
             <div class="panel-actions">
-              <button nz-button (click)="saveModule(module)" [nzLoading]="busy[module.id]"><nz-icon nzType="save"></nz-icon> Save Edits</button>
-              <button nz-button nzType="primary" (click)="approveModule(module)" [nzLoading]="busy[module.id]"><nz-icon nzType="check"></nz-icon> Approve Material</button>
-              <button nz-button nzDanger (click)="showModuleReject[module.id] = !showModuleReject[module.id]"><nz-icon nzType="reload"></nz-icon> Reject and Regenerate</button>
-            </div>
-          </main>
-
-          <section class="quiz-review surface-panel">
-            <div class="panel-heading">
-              <div><span class="section-kicker">Quiz review</span><h2>{{ module.quiz.length }} Questions</h2></div>
-              <nz-tag [nzColor]="statusColor(module.quiz[0]?.reviewStatus || 'PENDING')">{{ module.quiz[0]?.reviewStatus || 'PENDING' }}</nz-tag>
-            </div>
-
-            <div class="question-list">
-              @for (question of module.quiz; track question.id; let questionIndex = $index) {
-                <article class="question">
-                  <div class="question-heading"><strong>Question {{ questionIndex + 1 }}</strong><nz-tag>{{ question.questionType }}</nz-tag></div>
-                  <label>Question text<textarea nz-input [(ngModel)]="question.questionText" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea></label>
-                  @if (question.options?.length) {
-                    <label>Options</label>
-                    <div class="option-list">
-                      @for (option of question.options; track $index; let optionIndex = $index) {
-                        <input nz-input [(ngModel)]="question.options[optionIndex]" [class.correct]="option === question.correctAnswer" />
-                      }
-                    </div>
-                  }
-                  <label>Correct answer<input nz-input [(ngModel)]="question.correctAnswer" /></label>
-                  <label>Explanation<textarea nz-input [(ngModel)]="question.explanation" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea></label>
-                  <button nz-button nzSize="small" (click)="saveQuestion(question)"><nz-icon nzType="save"></nz-icon> Save Question</button>
-                </article>
+              @if (editMode[module.id]) {
+                <button nz-button (click)="saveModule(module)" [nzLoading]="busy[module.id]"><nz-icon nzType="save"></nz-icon> Save Edits</button>
               }
+              <button nz-button nzType="primary" (click)="approveModule(module)" [nzLoading]="busy[module.id]" [disabled]="module.reviewStatus === 'APPROVED'">
+                <nz-icon nzType="check"></nz-icon> Approve Material
+              </button>
+              <button nz-button nzDanger (click)="showModuleReject[module.id] = !showModuleReject[module.id]">
+                <nz-icon nzType="reload"></nz-icon> Reject & Regenerate
+              </button>
             </div>
 
-            @if (showQuizReject[module.id]) {
-              <div class="reject-box">
-                <label>Reason for regeneration<textarea nz-input placeholder="Explain what the quiz needs to improve" [(ngModel)]="quizRejectReason[module.id]" [nzAutosize]="{ minRows: 3, maxRows: 5 }"></textarea></label>
-                <button nz-button nzType="primary" nzDanger (click)="confirmRejectQuiz(module)" [nzLoading]="busy[module.id]">Confirm reject and regenerate</button>
-              </div>
-            }
-
-            <div class="panel-actions">
-              <button nz-button nzType="primary" (click)="approveQuiz(module)" [nzLoading]="busy[module.id]"><nz-icon nzType="check"></nz-icon> Approve Quiz</button>
-              <button nz-button nzDanger (click)="showQuizReject[module.id] = !showQuizReject[module.id]"><nz-icon nzType="reload"></nz-icon> Reject and Regenerate Quiz</button>
-            </div>
-          </section>
+          </main>
         }
+
       </div>
     }
   </nz-spin>

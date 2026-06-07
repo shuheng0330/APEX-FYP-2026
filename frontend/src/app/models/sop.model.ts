@@ -2,6 +2,28 @@ export type SopGenerationStatus = 'PENDING' | 'PARSING' | 'GENERATING' | 'COMPLE
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REGENERATED';
 export type QuizQuestionType = 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'FILL_IN_THE_BLANK';
 
+export interface ContentSection {
+  type: 'paragraph' | 'steps' | 'table' | 'warnings';
+  heading: string;
+  body?: string;
+  items?: string[];
+  headers?: string[];
+  rows?: string[][];
+}
+
+export interface KeyTerm {
+  term: string;
+  definition: string;
+}
+
+export interface RichContent {
+  summary: string;
+  learningObjectives: string[];
+  tools: string[];
+  sections: ContentSection[];
+  keyTerms: KeyTerm[];
+}
+
 export interface SopDocument {
   id: number;
   title: string;
