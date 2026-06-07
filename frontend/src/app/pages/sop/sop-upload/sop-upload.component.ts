@@ -46,12 +46,22 @@ export class SopUploadComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Refresh the list every 5s so generation progress updates live (FR-08-05).
+    this.startPolling();
+  }
+
+  private startPolling(): void {
+    this.pollSub?.unsubscribe();
     this.pollSub = interval(5000).pipe(
       startWith(0),
       switchMap(() => this.sopService.list())
     ).subscribe({
-      next: docs => this.documents = docs,
+      next: docs => {
+        this.documents = docs;
+        // Stop polling once nothing is in progress — restarts on next upload.
+        if (!docs.some(d => this.isInProgress(d.generationStatus))) {
+          this.pollSub?.unsubscribe();
+        }
+      },
       error: () => {}
     });
   }
@@ -84,6 +94,7 @@ export class SopUploadComponent implements OnInit, OnDestroy {
         this.title = ''; this.version = ''; this.departmentTag = '';
         this.selectedFile = null;
         this.documents = [doc, ...this.documents.filter(d => d.id !== doc.id)];
+        this.startPolling(); // resume live updates for the new document
       },
       error: err => {
         this.uploading = false;

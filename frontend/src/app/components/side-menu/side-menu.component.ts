@@ -64,7 +64,7 @@ export class SideMenuComponent {
       requiredRoles: ['ROLE_USER']
     },
     {
-      key: 'NAV.TRAINING_AUTOMATION', icon: 'robot',
+      key: 'NAV.TRAINING_AUTOMATION', icon: 'solution',
       children: [
         { key: 'NAV.SOP_UPLOAD', route: '/sop/upload', requiredRoles: ['CAN_MANAGE_TRAINING'] },
         { key: 'NAV.SOP_REVIEW', route: '/sop/review', requiredRoles: ['CAN_MANAGE_TRAINING'] }
