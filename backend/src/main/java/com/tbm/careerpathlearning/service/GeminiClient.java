@@ -32,7 +32,7 @@ public class GeminiClient {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
 
-    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_ATTEMPTS = 4;
 
     private final WebClient webClient = WebClient.builder()
             .codecs(c -> c.defaultCodecs().maxInMemorySize(8 * 1024 * 1024))
@@ -54,7 +54,7 @@ public class GeminiClient {
                 last = e;
                 if (retryable && attempt < MAX_ATTEMPTS) {
                     // Free-tier limit is per-minute, so wait long enough to clear the window.
-                    long waitSeconds = 20L * attempt;
+                    long waitSeconds = 30L * attempt;
                     log.warn("Gemini {} (attempt {}/{}), retrying in {}s", code, attempt, MAX_ATTEMPTS, waitSeconds);
                     try {
                         Thread.sleep(waitSeconds * 1000);
