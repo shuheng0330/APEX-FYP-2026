@@ -151,6 +151,12 @@
             <version>5.2.5</version>
         </dependency>
         <dependency>
+            <!-- Legacy binary .doc (HWPF) support for SOP upload (FR-08-01) -->
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-scratchpad</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>2.0.30</version>

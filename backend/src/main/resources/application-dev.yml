@@ -1,5 +1,9 @@
 cookies:
   secure: false
 
+# Flyway stays disabled (base config): the migrations are an incremental history that
+# assumes a pre-existing base schema. Hibernate ddl-auto:update builds the full schema
+# from entities instead. Seed data is loaded separately (teammate DB dump or manual seed).
+
 
 

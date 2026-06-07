@@ -1,0 +1,99 @@
+<div class="sop-review">
+  <h2>Review Generated Training</h2>
+  <p class="subtitle">Review, edit, approve or reject AI-generated modules and quizzes. Nothing is published until
+    you confirm it (manual review gate).</p>
+
+  <div class="picker">
+    <label>SOP:</label>
+    <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
+               nzPlaceHolder="Select a completed SOP" style="min-width: 320px;">
+      <nz-option *ngFor="let s of completedSops" [nzValue]="s.id"
+                 [nzLabel]="s.title + '  (' + s.moduleCount + ' modules)'"></nz-option>
+    </nz-select>
+  </div>
+
+  <nz-spin [nzSpinning]="loading">
+    <nz-empty *ngIf="!loading && !document" nzNotFoundContent="Select an SOP to begin reviewing"></nz-empty>
+
+    <nz-collapse *ngIf="document">
+      <nz-collapse-panel *ngFor="let m of modules"
+                         [nzHeader]="'Module ' + m.moduleOrder + ': ' + m.title"
+                         [nzExtra]="statusTpl" [nzActive]="m.moduleOrder === 1">
+        <ng-template #statusTpl>
+          <nz-tag [nzColor]="statusColor(m.reviewStatus)">{{ m.reviewStatus }}</nz-tag>
+        </ng-template>
+
+        <!-- Material (FR-09) -->
+        <div class="block">
+          <label>Module title</label>
+          <input nz-input [(ngModel)]="m.title" />
+          <label>Content</label>
+          <textarea nz-input [(ngModel)]="m.content" [nzAutosize]="{ minRows: 5, maxRows: 16 }"></textarea>
+
+          <div class="actions">
+            <button nz-button (click)="saveModule(m)" [nzLoading]="busy[m.id]">
+              <span nz-icon nzType="save"></span> Save edits
+            </button>
+            <button nz-button nzType="primary" (click)="approveModule(m)" [nzLoading]="busy[m.id]">
+              <span nz-icon nzType="check"></span> Approve material
+            </button>
+            <button nz-button nzDanger (click)="showModuleReject[m.id] = !showModuleReject[m.id]">
+              <span nz-icon nzType="close"></span> Reject &amp; regenerate
+            </button>
+          </div>
+
+          <div class="reject-box" *ngIf="showModuleReject[m.id]">
+            <textarea nz-input placeholder="Reason to guide AI regeneration (required)"
+                      [(ngModel)]="moduleRejectReason[m.id]" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+            <button nz-button nzType="primary" nzDanger (click)="confirmRejectModule(m)" [nzLoading]="busy[m.id]">
+              Confirm reject
+            </button>
+          </div>
+          <div class="prev-reason" *ngIf="m.rejectionReason">
+            <span nz-icon nzType="history"></span> Last rejection reason: {{ m.rejectionReason }}
+          </div>
+        </div>
+
+        <nz-divider nzText="Quiz" nzOrientation="left"></nz-divider>
+
+        <!-- Quiz (FR-10): separate review gate -->
+        <div class="block">
+          <div class="question" *ngFor="let q of m.quiz; let i = index">
+            <div class="q-head">
+              <strong>Q{{ i + 1 }}</strong>
+              <nz-tag>{{ q.questionType }}</nz-tag>
+              <nz-tag [nzColor]="statusColor(q.reviewStatus)">{{ q.reviewStatus }}</nz-tag>
+            </div>
+            <input nz-input [(ngModel)]="q.questionText" />
+            <ul class="options" *ngIf="q.options?.length">
+              <li *ngFor="let opt of q.options"
+                  [class.correct]="opt === q.correctAnswer">{{ opt }}</li>
+            </ul>
+            <div class="answer">
+              <label>Answer</label>
+              <input nz-input [(ngModel)]="q.correctAnswer" />
+            </div>
+            <div class="explanation" *ngIf="q.explanation">💡 {{ q.explanation }}</div>
+            <button nz-button nzSize="small" (click)="saveQuestion(q)">Save question</button>
+          </div>
+
+          <div class="actions">
+            <button nz-button nzType="primary" (click)="approveQuiz(m)" [nzLoading]="busy[m.id]">
+              <span nz-icon nzType="check"></span> Approve quiz
+            </button>
+            <button nz-button nzDanger (click)="showQuizReject[m.id] = !showQuizReject[m.id]">
+              <span nz-icon nzType="reload"></span> Reject &amp; regenerate quiz
+            </button>
+          </div>
+          <div class="reject-box" *ngIf="showQuizReject[m.id]">
+            <textarea nz-input placeholder="Reason to guide quiz regeneration (required)"
+                      [(ngModel)]="quizRejectReason[m.id]" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+            <button nz-button nzType="primary" nzDanger (click)="confirmRejectQuiz(m)" [nzLoading]="busy[m.id]">
+              Confirm reject
+            </button>
+          </div>
+        </div>
+      </nz-collapse-panel>
+    </nz-collapse>
+  </nz-spin>
+</div>
