@@ -31,8 +31,13 @@ dt { color: var(--tbm-muted); font-size: 11px; } dd { margin: 0; font-size: 11px
 .heading-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 /* Edit mode */
-.edit-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-.edit-area label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--tbm-text); }
+.edit-area { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.edit-field-label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--tbm-text); }
+.edit-group { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--tbm-surface-subtle); border-radius: 7px; border: 1px solid var(--tbm-border); }
+.edit-group-label { font-size: 10px; font-weight: 700; color: var(--tbm-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+.edit-list-item { width: 100%; }
+.edit-term-pair { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.edit-table-note { margin: 0; font-size: 11px; color: var(--tbm-muted); font-style: italic; }
 
 /* Content scroll area */
 .content-scroll { max-height: calc(100dvh - 310px); overflow-y: auto; padding-right: 6px; margin-bottom: 16px; }
