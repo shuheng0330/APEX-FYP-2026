@@ -40,7 +40,7 @@ export class SopReviewComponent implements OnInit {
   showModuleReject: Record<number, boolean> = {};
   moduleRejectReason: Record<number, string> = {};
   editMode: Record<number, boolean> = {};
-  editText: Record<number, string> = {};
+  editRich: Record<number, RichContent> = {};
   busy: Record<number, boolean> = {};
 
   constructor(
@@ -86,7 +86,11 @@ export class SopReviewComponent implements OnInit {
 
   toggleEdit(m: SopModule): void {
     if (!this.editMode[m.id]) {
-      this.editText[m.id] = this.extractPlainText(m);
+      // Deep-copy the parsed rich content so edits don't mutate the view model directly.
+      const rich = this.parseContent(m);
+      this.editRich[m.id] = rich
+        ? JSON.parse(JSON.stringify(rich))
+        : { summary: m.content, learningObjectives: [], tools: [], sections: [{ type: 'paragraph', heading: 'Content', body: m.content }], keyTerms: [] };
       this.editMode[m.id] = true;
     } else {
       this.editMode[m.id] = false;
@@ -94,16 +98,9 @@ export class SopReviewComponent implements OnInit {
   }
 
   saveModule(m: SopModule): void {
-    if (this.editMode[m.id]) {
-      // Wrap edited plain text back into the minimal rich structure.
-      const rich: RichContent = {
-        summary: '',
-        learningObjectives: [],
-        tools: [],
-        sections: [{ type: 'paragraph', heading: 'Content', body: this.editText[m.id] || '' }],
-        keyTerms: []
-      };
-      m.content = JSON.stringify(rich);
+    if (this.editMode[m.id] && this.editRich[m.id]) {
+      // Serialize the edited rich object back to JSON — structure is preserved.
+      m.content = JSON.stringify(this.editRich[m.id]);
     }
     this.busy[m.id] = true;
     this.sopService.updateModule(m.id, m.title, m.content).subscribe({
@@ -157,20 +154,6 @@ export class SopReviewComponent implements OnInit {
       }
     } catch { /* fall through */ }
     return null;
-  }
-
-  private extractPlainText(m: SopModule): string {
-    const rich = this.parseContent(m);
-    if (!rich) return m.content;
-    const parts: string[] = [];
-    if (rich.summary) parts.push(rich.summary);
-    for (const s of rich.sections ?? []) {
-      if (s.heading) parts.push('\n' + s.heading);
-      if (s.body) parts.push(s.body);
-      if (s.items?.length) parts.push(s.items.map((item, i) => `${i + 1}. ${item}`).join('\n'));
-      if (s.rows?.length) parts.push(s.rows.map(r => r.join(' | ')).join('\n'));
-    }
-    return parts.join('\n\n').trim();
   }
 
   statusColor(status: ReviewStatus): string {

@@ -5,9 +5,6 @@
       <h1>SOP Upload and Generation</h1>
       <p>Turn approved operating procedures into structured training material and quizzes.</p>
     </div>
-    <button nz-button nzType="primary" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()">
-      <nz-icon nzType="cloud-upload"></nz-icon> Upload SOP
-    </button>
   </div>
 
   <div class="metric-grid generation-stats">
@@ -41,6 +38,9 @@
         <label><span>SOP title</span><input nz-input placeholder="Use file name when blank" [(ngModel)]="title" /></label>
         <label><span>Version</span><input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" /></label>
         <label><span>Department</span><input nz-input placeholder="e.g. Operations" [(ngModel)]="departmentTag" /></label>
+        <button nz-button nzType="primary" nzSize="large" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()" class="upload-btn">
+          <nz-icon nzType="cloud-upload"></nz-icon> Upload & Generate
+        </button>
       </div>
     </div>
   </section>

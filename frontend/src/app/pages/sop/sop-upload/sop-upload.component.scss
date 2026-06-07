@@ -18,6 +18,7 @@
 .metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
 .metadata-grid label { display: flex; flex-direction: column; gap: 6px; color: var(--tbm-text); font-size: 12px; font-weight: 600; }
 .metadata-grid label:first-child { grid-column: 1 / -1; }
+.upload-btn { grid-column: 1 / -1; width: 100%; margin-top: 4px; }
 .document-heading { margin-bottom: 14px; }
 .document-heading h2 { margin-top: 4px; font-size: 18px; }
 .polling-note { display: inline-flex; align-items: center; gap: 6px; color: var(--tbm-muted); font-size: 12px; }
