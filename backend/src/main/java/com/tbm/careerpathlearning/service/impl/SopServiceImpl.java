@@ -193,6 +193,15 @@ public class SopServiceImpl implements SopService {
         return toModuleDto(getModuleOrThrow(moduleId));
     }
 
+    @Override
+    @Transactional
+    public void deleteDocument(Long sopDocumentId) {
+        SopDocument doc = getDocOrThrow(sopDocumentId);
+        doc.setDeleted(true);
+        doc.setUpdatedAt(OffsetDateTime.now());
+        sopDocumentRepository.save(doc);
+    }
+
     // === helpers ============================================================
 
     private SopDocument getDocOrThrow(Long id) {

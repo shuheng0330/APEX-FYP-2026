@@ -12,6 +12,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
+import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
@@ -22,7 +23,7 @@ import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzFormModule, NzTableModule,
-    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule
+    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule
   ],
   templateUrl: './sop-upload.component.html',
   styleUrls: ['./sop-upload.component.scss']
@@ -95,6 +96,16 @@ export class SopUploadComponent implements OnInit, OnDestroy {
     this.sopService.regenerate(doc.id).subscribe({
       next: () => this.message.info('Regenerating…'),
       error: err => this.message.error(err?.error?.message || 'Could not restart generation.')
+    });
+  }
+
+  delete(doc: SopDocument): void {
+    this.sopService.delete(doc.id).subscribe({
+      next: () => {
+        this.documents = this.documents.filter(d => d.id !== doc.id);
+        this.message.success('SOP deleted.');
+      },
+      error: err => this.message.error(err?.error?.message || 'Delete failed.')
     });
   }
 

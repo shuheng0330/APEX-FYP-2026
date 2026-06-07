@@ -83,6 +83,12 @@
                 @if (doc.generationStatus === 'FAILED') {
                   <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
                 }
+                <button nz-button nzDanger
+                  nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content?"
+                  nzOkText="Delete" nzOkType="primary" nzOkDanger
+                  (nzOnConfirm)="delete(doc)">
+                  <nz-icon nzType="delete"></nz-icon>
+                </button>
               </td>
             </tr>
           }
