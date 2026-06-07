@@ -99,6 +99,7 @@ export class EvaluationOverviewPageComponent implements OnInit {
   loading = true;
   userId: string | null = null;
   selectedDepartmentName: string | null = null;
+  navigationContext: 'manager' | 'hr' = 'manager';
 
   // Summary Cards Data
   teamAverage: number = 0;
@@ -236,6 +237,7 @@ export class EvaluationOverviewPageComponent implements OnInit {
   ngOnInit(): void {
     this.userId = this.auth.userId;
     this.selectedDepartmentName = this.route.snapshot.queryParamMap.get('departmentName');
+    this.navigationContext = this.route.snapshot.queryParamMap.get('context') === 'hr' ? 'hr' : 'manager';
     this.translate.get(this.titleKey).subscribe(t => this.titleService.setTitle(t));
     this.loadData();
   }
@@ -631,7 +633,15 @@ export class EvaluationOverviewPageComponent implements OnInit {
   }
 
   navigateToStaffPerformance(staffId: string): void {
-    this.router.navigate(['/performance', staffId]);
+    const appraisalId = this.navigationContext === 'hr'
+      ? this.appraisalByStaffId.get(staffId)?.id
+      : undefined;
+    this.router.navigate(['/performance', staffId], {
+      queryParams: {
+        context: this.navigationContext,
+        ...(appraisalId ? { appraisalId } : {})
+      }
+    });
   }
 
   getPerformanceCategory(score: number): { label: string; color: string } {

@@ -1,0 +1,46 @@
+<div class="auth-shell">
+  <aside class="brand-panel">
+    <div class="brand-content">
+      <div class="brand-lockup">
+        <img src="assets/TBM_logo.webp" alt="TBM logo" />
+        <div>
+          <span>TBM</span>
+          <strong>{{ 'AUTH.SHELL.PLATFORM_NAME' | translate }}</strong>
+        </div>
+      </div>
+
+      <div class="brand-message">
+        <span class="eyebrow">{{ 'AUTH.SHELL.EYEBROW' | translate }}</span>
+        <h1>{{ 'AUTH.SHELL.HEADLINE' | translate }}</h1>
+        <p>{{ 'AUTH.SHELL.MESSAGE' | translate }}</p>
+      </div>
+
+      <div class="capabilities">
+        <div>
+          <span class="capability-icon"><nz-icon nzType="line-chart"></nz-icon></span>
+          <span><strong>{{ 'AUTH.SHELL.PERFORMANCE_TITLE' | translate }}</strong><small>{{ 'AUTH.SHELL.PERFORMANCE_DETAIL' | translate }}</small></span>
+        </div>
+        <div>
+          <span class="capability-icon"><nz-icon nzType="audit"></nz-icon></span>
+          <span><strong>{{ 'AUTH.SHELL.APPRAISAL_TITLE' | translate }}</strong><small>{{ 'AUTH.SHELL.APPRAISAL_DETAIL' | translate }}</small></span>
+        </div>
+        <div>
+          <span class="capability-icon"><nz-icon nzType="robot"></nz-icon></span>
+          <span><strong>{{ 'AUTH.SHELL.SOP_TITLE' | translate }}</strong><small>{{ 'AUTH.SHELL.SOP_DETAIL' | translate }}</small></span>
+        </div>
+      </div>
+
+      <small class="brand-footer">{{ 'AUTH.SHELL.FOOTER' | translate }}</small>
+    </div>
+  </aside>
+
+  <main class="form-region">
+    <div class="mobile-brand">
+      <img src="assets/TBM_logo.webp" alt="TBM logo" />
+      <strong>{{ 'AUTH.SHELL.MOBILE_NAME' | translate }}</strong>
+    </div>
+    <section class="auth-panel" [class.wide]="wide">
+      <ng-content></ng-content>
+    </section>
+  </main>
+</div>

@@ -23,6 +23,7 @@ frontend/.angular/
 frontend/src/environments/
 frontend/.vscode
 frontend/CLAUDE.md
+frontend/docs/
 
 # 🧪 Test/coverage output
 **/coverage/

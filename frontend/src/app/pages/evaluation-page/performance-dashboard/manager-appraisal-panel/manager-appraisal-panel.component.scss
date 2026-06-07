@@ -1,7 +1,8 @@
 .appraisal-panel {
   margin-top: 24px;
   border: 1px solid #f0a23b;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: var(--tbm-shadow);
 
   ::ng-deep .ant-card-body {
     padding: 24px;
@@ -111,7 +112,8 @@
   min-height: 240px;
   padding: 20px;
   border-radius: 8px;
-  background: #f2f0ff;
+  border: 1px solid #dedff4;
+  background: #f7f7fd;
 
   h3 {
     margin: 0 0 18px;

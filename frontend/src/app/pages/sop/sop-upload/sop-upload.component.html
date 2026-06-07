@@ -1,68 +1,94 @@
-<div class="sop-upload">
-  <h2>Upload SOP &amp; Generate Training</h2>
-  <p class="subtitle">Upload a Standard Operating Procedure (.doc / .docx). The system parses it and uses AI to
-    generate training modules and quizzes for your review.</p>
-
-  <div class="upload-card">
-    <div class="form-row">
-      <label>SOP Title</label>
-      <input nz-input placeholder="Leave blank to use the file name" [(ngModel)]="title" />
+<div class="sop-upload page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training Automation</span>
+      <h1>SOP Upload and Generation</h1>
+      <p>Turn approved operating procedures into structured training material and quizzes.</p>
     </div>
-    <div class="form-row two-col">
-      <div>
-        <label>Version</label>
-        <input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" />
-      </div>
-      <div>
-        <label>Department</label>
-        <input nz-input placeholder="e.g. Warehouse" [(ngModel)]="departmentTag" />
-      </div>
-    </div>
-    <div class="form-row">
-      <label>Document</label>
-      <input type="file" accept=".doc,.docx" (change)="onFileSelected($event)" />
-      <span class="file-name" *ngIf="selectedFile">{{ selectedFile.name }}</span>
-    </div>
-    <button nz-button nzType="primary" [nzLoading]="uploading" (click)="upload()">
-      <span nz-icon nzType="cloud-upload"></span> Upload &amp; Generate
+    <button nz-button nzType="primary" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()">
+      <nz-icon nzType="cloud-upload"></nz-icon> Upload SOP
     </button>
   </div>
 
-  <h3>My SOP Documents</h3>
-  <nz-table #table [nzData]="documents" [nzShowPagination]="false" nzSize="middle">
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Version</th>
-        <th>Department</th>
-        <th>Generation</th>
-        <th>Modules</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let doc of table.data">
-        <td>{{ doc.title }}</td>
-        <td>{{ doc.version || '—' }}</td>
-        <td>{{ doc.departmentTag || '—' }}</td>
-        <td>
-          <nz-tag [nzColor]="statusColor(doc.generationStatus)">
-            <span *ngIf="isInProgress(doc.generationStatus)" nz-icon nzType="loading"></span>
-            {{ doc.generationStatus }}
-          </nz-tag>
-          <div class="err" *ngIf="doc.generationStatus === 'FAILED' && doc.statusMessage" [title]="doc.statusMessage">
-            {{ doc.statusMessage }}
-          </div>
-        </td>
-        <td>{{ doc.moduleCount }}</td>
-        <td>
-          <button nz-button nzType="link" [disabled]="doc.generationStatus !== 'COMPLETED'"
-                  (click)="openReview(doc)">Review</button>
-          <button nz-button nzType="link" *ngIf="doc.generationStatus === 'FAILED'"
-                  (click)="retry(doc)">Retry</button>
-        </td>
-      </tr>
-    </tbody>
-  </nz-table>
-  <nz-empty *ngIf="documents.length === 0" nzNotFoundContent="No SOPs uploaded yet"></nz-empty>
+  <div class="metric-grid generation-stats">
+    <div class="metric-tile"><span>Total documents</span><strong>{{ totalDocuments }}</strong></div>
+    <div class="metric-tile processing"><span>Processing</span><strong>{{ processingDocuments }}</strong></div>
+    <div class="metric-tile completed"><span>Ready for review</span><strong>{{ completedDocuments }}</strong></div>
+    <div class="metric-tile failed"><span>Failed</span><strong>{{ failedDocuments }}</strong></div>
+  </div>
+
+  <section class="automation-workspace surface-panel">
+    <div class="workspace-intro">
+      <div>
+        <span class="section-kicker">New automation job</span>
+        <h2>Upload a source SOP</h2>
+        <p>The document remains under manual review until a trainer approves its generated material and quiz.</p>
+      </div>
+      <div class="stage-strip" aria-label="Generation stages">
+        <span>Uploaded</span><i></i><span>Parsing</span><i></i><span>Generating</span><i></i><span>Ready for Review</span>
+      </div>
+    </div>
+
+    <div class="upload-layout">
+      <label class="drop-zone">
+        <input type="file" accept=".doc,.docx" (change)="onFileSelected($event)" />
+        <nz-icon nzType="inbox" nzTheme="outline"></nz-icon>
+        <strong>{{ selectedFile?.name || 'Choose a .doc or .docx SOP' }}</strong>
+        <span>{{ selectedFile ? 'Document ready to upload' : 'Select a document from your device' }}</span>
+      </label>
+
+      <div class="metadata-grid">
+        <label><span>SOP title</span><input nz-input placeholder="Use file name when blank" [(ngModel)]="title" /></label>
+        <label><span>Version</span><input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" /></label>
+        <label><span>Department</span><input nz-input placeholder="e.g. Operations" [(ngModel)]="departmentTag" /></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="document-section surface-panel">
+    <div class="section-toolbar document-heading">
+      <div><span class="section-kicker">Automation queue</span><h2>SOP Documents</h2></div>
+      <span class="polling-note"><nz-icon nzType="sync" [nzSpin]="processingDocuments > 0"></nz-icon> Live status updates</span>
+    </div>
+    <div class="table-scroll">
+      <nz-table #table [nzData]="documents" [nzShowPagination]="false" nzSize="middle">
+        <thead>
+          <tr><th>Document</th><th>Department</th><th>Version</th><th>Generation progress</th><th>Modules</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          @for (doc of table.data; track doc.id) {
+            <tr>
+              <td><strong>{{ doc.title }}</strong><small>{{ doc.originalFilename || 'SOP document' }}</small></td>
+              <td>{{ doc.departmentTag || '-' }}</td>
+              <td>{{ doc.version || '-' }}</td>
+              <td class="progress-cell">
+                <div class="progress-label">
+                  <nz-tag [nzColor]="statusColor(doc.generationStatus)">
+                    @if (isInProgress(doc.generationStatus)) { <nz-icon nzType="loading"></nz-icon> }
+                    {{ generationLabel(doc.generationStatus) }}
+                  </nz-tag>
+                  <span>{{ generationPercent(doc.generationStatus) }}%</span>
+                </div>
+                <nz-progress [nzPercent]="generationPercent(doc.generationStatus)" [nzShowInfo]="false"
+                  [nzStatus]="doc.generationStatus === 'FAILED' ? 'exception' : 'active'"></nz-progress>
+                @if (doc.generationStatus === 'FAILED' && doc.statusMessage) {
+                  <div class="err" [title]="doc.statusMessage">{{ doc.statusMessage }}</div>
+                }
+              </td>
+              <td><strong>{{ doc.moduleCount }}</strong></td>
+              <td class="actions">
+                <button nz-button nzType="primary" [disabled]="doc.generationStatus !== 'COMPLETED'" (click)="openReview(doc)">
+                  <nz-icon nzType="audit"></nz-icon> Review
+                </button>
+                @if (doc.generationStatus === 'FAILED') {
+                  <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </div>
+    @if (documents.length === 0) { <nz-empty nzNotFoundContent="No SOPs uploaded yet"></nz-empty> }
+  </section>
 </div>

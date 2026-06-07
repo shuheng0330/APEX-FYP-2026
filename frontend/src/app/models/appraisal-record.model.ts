@@ -8,6 +8,12 @@ export interface AppraisalReadinessDto {
   systemCategory: AppraisalCategory;
 }
 
+export interface HrAppraisalActionDto {
+  hrOverrideCategory?: AppraisalCategory | null;
+  hrOverrideReason?: string | null;
+  hrReturnReason?: string | null;
+}
+
 export interface AppraisalRecordDto {
   id?: string;
   staffId: string;

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AppraisalReadinessDto, AppraisalRecordDto } from '../models/appraisal-record.model';
+import { AppraisalReadinessDto, AppraisalRecordDto, HrAppraisalActionDto } from '../models/appraisal-record.model';
 
 @Injectable({
   providedIn: 'root'
@@ -56,6 +56,27 @@ export class AppraisalRecordService {
 
   submit(id: string): Observable<AppraisalRecordDto> {
     return this.http.put<AppraisalRecordDto>(`${this.baseUrl}/${id}/submit`, {}, {
+      withCredentials: true,
+      headers: this.headers
+    });
+  }
+
+  approve(id: string): Observable<AppraisalRecordDto> {
+    return this.http.put<AppraisalRecordDto>(`${this.baseUrl}/${id}/approve`, {}, {
+      withCredentials: true,
+      headers: this.headers
+    });
+  }
+
+  overrideAndApprove(id: string, action: HrAppraisalActionDto): Observable<AppraisalRecordDto> {
+    return this.http.put<AppraisalRecordDto>(`${this.baseUrl}/${id}/override-approve`, action, {
+      withCredentials: true,
+      headers: this.headers
+    });
+  }
+
+  returnForRevision(id: string, action: HrAppraisalActionDto): Observable<AppraisalRecordDto> {
+    return this.http.put<AppraisalRecordDto>(`${this.baseUrl}/${id}/return`, action, {
       withCredentials: true,
       headers: this.headers
     });

@@ -1,6 +1,6 @@
 {
     "APP": {
-        "TITLE": "Career Pathway and Learning Management System"
+        "TITLE": "TBM Staff Appraisal and Training Automation Platform"
     },
     "NOTIFICATION": {
         "ERR": {
@@ -12,8 +12,23 @@
             "MESSAGE": "Operation completed successfully."
         }
     },
-    "AUTH": {
-        "LOGIN": {
+  "AUTH": {
+    "SHELL": {
+      "PLATFORM_NAME": "Staff Appraisal and Training Automation Platform",
+      "EYEBROW": "One secure workspace",
+      "HEADLINE": "Better performance decisions. Faster training readiness.",
+      "MESSAGE": "Connect appraisal insights, evaluation workflows, and SOP-driven training automation across the organisation.",
+      "PERFORMANCE_TITLE": "Performance Analytics",
+      "PERFORMANCE_DETAIL": "Track trends and team outcomes",
+      "APPRAISAL_TITLE": "Appraisal Workflow",
+      "APPRAISAL_DETAIL": "Support fair, structured decisions",
+      "SOP_TITLE": "SOP Training Automation",
+      "SOP_DETAIL": "Generate and review training content",
+      "FOOTER": "TBM internal platform",
+      "MOBILE_NAME": "TBM Staff Platform"
+    },
+    "LOGIN": {
+      "EYEBROW": "Secure staff access",
             "TITLE": "Welcome Back!",
             "INPUT": {
                 "DETAILS": "Please enter your details.",
@@ -28,7 +43,8 @@
             "FIRST": "First Time Login?",
             "SIGNIN": "Sign In"
         },
-        "FIRST_TIME_LOGIN": {
+    "FIRST_TIME_LOGIN": {
+      "EYEBROW": "Account activation",
             "TITLE": "First Time Login",
             "INSTRUCTION": "Please enter your email address below.",
             "INPUT": {
@@ -40,7 +56,8 @@
             "SEND": "Send OTP",
             "BACK": "Back To Login"
         },
-        "FORGOT_PASSWORD": {
+    "FORGOT_PASSWORD": {
+      "EYEBROW": "Account recovery",
             "TITLE": "Forgot Password?",
             "INSTRUCTION": "Please enter your email address below.",
             "INPUT": {
@@ -52,7 +69,9 @@
             "SEND": "Send OTP",
             "BACK": "Back To Login"
         },
-        "RESET_PASSWORD": {
+    "RESET_PASSWORD": {
+      "EYEBROW": "Secure account recovery",
+      "OTP_LABEL": "Verification code",
             "TITLE": "Reset Password",
             "INSTRUCTION1": "Enter the code sent to",
             "INSTRUCTION2": "to reset your password.",
@@ -81,6 +100,15 @@
         }
     },
     "NAV": {
+        "ORGANISATION_MANAGEMENT": "Organisation Management",
+        "PERFORMANCE_APPRAISAL": "Performance & Appraisal",
+        "TRAINING_AUTOMATION": "Training Automation",
+        "PERFORM_EVALUATION": "Perform Evaluation",
+        "TEAM_PERFORMANCE": "Team Performance",
+        "ORG_WIDE_PERFORMANCE": "Organisation-Wide Performance",
+        "MY_PERFORMANCE": "My Performance",
+        "EVALUATION_CYCLES": "Evaluation Cycles",
+        "EVALUATION_PERIOD": "Evaluation Period",
         "ORG_CHART": "Organizational Chart",
         "CAREER_PATHWAY": "Career Pathway",
         "ROLES_COMPETENCIES": "Roles & Competencies",
@@ -91,8 +119,8 @@
         "TRAINING_MANAGEMENT": "Training Management",
         "TRAINING_ENGAGEMENT": "Training Engagement",
         "SOP_TRAINING": "AI SOP Training",
-        "SOP_UPLOAD": "Upload & Generate",
-        "SOP_REVIEW": "Review Material & Quiz",
+        "SOP_UPLOAD": "Upload SOP",
+        "SOP_REVIEW": "Review Generated Training",
         "LEARNING": "Learning",
         "LEARNING_MANAGEMENT": "Learning Management",
         "LEARNING_ENGAGEMENT": "Learning Engagement",

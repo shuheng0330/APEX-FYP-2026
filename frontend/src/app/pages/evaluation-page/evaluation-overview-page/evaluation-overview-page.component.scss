@@ -1,14 +1,27 @@
 .evaluation-overview-container {
-  max-width: 1400px;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
+}
+
+.local-page-heading {
+  margin-bottom: 20px;
+
+  h1 {
+    margin-top: 4px;
+    font-size: 24px;
+  }
+
+  > p {
+    margin: 5px 0 0;
+    color: var(--tbm-muted);
+  }
 }
 
 .department-filter-context {
-  margin: 4px 0 18px;
+  margin: 8px 0 0;
   color: #667085;
   font-size: 14px;
-  text-align: center;
 }
 
 // Top Section - Summary Cards
@@ -209,8 +222,9 @@
 
 // Card styling
 ::ng-deep .ant-card {
+  border-color: var(--tbm-border);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--tbm-shadow);
 }
 
 ::ng-deep .ant-statistic-title {

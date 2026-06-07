@@ -1,5 +1,5 @@
 .org-wide-page {
-  max-width: 1400px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 24px;
   color: #172033;
@@ -13,8 +13,8 @@
   margin-bottom: 24px;
 
   h1 {
-    margin: 0;
-    font-size: 28px;
+    margin: 4px 0 0;
+    font-size: 24px;
     font-weight: 700;
   }
 
@@ -338,8 +338,9 @@
 }
 
 ::ng-deep .org-wide-page .ant-card {
+  border-color: var(--tbm-border);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(23, 32, 51, 0.08);
+  box-shadow: var(--tbm-shadow);
 }
 
 ::ng-deep .org-wide-page .ant-table-thead > tr > th {

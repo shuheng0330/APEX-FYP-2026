@@ -1,0 +1,132 @@
+<nz-card class="hr-review-panel">
+  <nz-spin [nzSpinning]="loading || actionLoading">
+    <div class="panel-header">
+      <div>
+        <h2>Appraisal Review — HR Admin</h2>
+        <p>Read-only manager submission + HR actions</p>
+      </div>
+      <div *ngIf="record?.status" class="status-pill" [attr.data-status]="record?.status">
+        <nz-icon [nzType]="statusIcon" nzTheme="outline"></nz-icon>
+        <span>{{ statusLabel }}</span>
+      </div>
+    </div>
+
+    <nz-alert
+      *ngIf="!loading && !record"
+      nzType="info"
+      nzMessage="No appraisal submitted yet. The manager has not submitted an appraisal for this staff member."
+      nzShowIcon>
+    </nz-alert>
+
+    <div *ngIf="record" class="review-content">
+      <div class="review-metadata">
+        <div><span>Review Period</span><strong>{{ formatReviewPeriod(record.reviewPeriodYears) }}</strong></div>
+        <div><span>Decision Type</span><nz-tag color="cyan">{{ formatValue(record.decisionType) }}</nz-tag></div>
+        <div><span>Evaluation Cycle</span><strong>{{ record.evaluationCycleEndDate | date: 'yyyy-MM-dd' }}</strong></div>
+        <div><span>Submitted By</span><strong>{{ record.managerName || '-' }}</strong></div>
+      </div>
+
+      <div class="decision-grid">
+        <div class="decision-card" *ngFor="let card of decisionCards">
+          <h3>{{ card.title }}</h3>
+          <div class="field-label">Readiness Score</div>
+          <div class="score-value">{{ card.readinessScore ?? '-' }}</div>
+
+          <div class="field-label">System Category</div>
+          <nz-tag [nzColor]="getCategoryColor(card.systemCategory)">
+            {{ formatValue(card.systemCategory) }}
+          </nz-tag>
+
+          <div class="manager-override">
+            <div class="field-label">Manager Override</div>
+            <ng-container *ngIf="hasManagerOverride(card); else noManagerOverride">
+              <div class="category-change">
+                <span>{{ formatValue(card.systemCategory) }}</span>
+                <nz-icon nzType="arrow-right" nzTheme="outline"></nz-icon>
+                <nz-tag [nzColor]="getCategoryColor(card.finalCategory)">
+                  {{ formatValue(card.finalCategory) }}
+                </nz-tag>
+              </div>
+              <p>“{{ card.overrideReason }}”</p>
+            </ng-container>
+            <ng-template #noManagerOverride>
+              <span class="muted">No override</span>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+
+      <div class="read-only-block">
+        <div class="field-label">AI-generated Insight</div>
+        <p>{{ record.aiInsight || 'No AI-generated insight provided.' }}</p>
+      </div>
+
+      <div class="read-only-block manager-comment">
+        <div class="field-label">Manager Comment</div>
+        <p>“{{ record.managerComment || '-' }}”</p>
+      </div>
+
+      <div *ngIf="record.hrOverrideCategory || record.hrReturnReason || record.hrReviewerName" class="hr-outcome">
+        <div *ngIf="record.hrOverrideCategory">
+          <span>HR Final Category</span>
+          <nz-tag [nzColor]="getCategoryColor(record.hrOverrideCategory)">
+            {{ formatValue(record.hrOverrideCategory) }}
+          </nz-tag>
+          <p>{{ record.hrOverrideReason }}</p>
+        </div>
+        <div *ngIf="record.hrReturnReason">
+          <span>Return Reason</span>
+          <p>{{ record.hrReturnReason }}</p>
+        </div>
+        <div *ngIf="record.hrReviewerName">
+          <span>Reviewed By</span>
+          <strong>{{ record.hrReviewerName }}</strong>
+          <small *ngIf="record.approvedAt">Approved {{ record.approvedAt | date: 'yyyy-MM-dd' }}</small>
+        </div>
+      </div>
+
+      <div *ngIf="canReview" class="action-row">
+        <button nz-button nzType="primary" class="approve-button" (click)="approve()">
+          <nz-icon nzType="check-circle" nzTheme="outline"></nz-icon>
+          Approve
+        </button>
+        <button nz-button nzType="primary" class="override-button" (click)="openOverrideModal()">
+          <nz-icon nzType="exclamation-circle" nzTheme="outline"></nz-icon>
+          Override and Approve
+        </button>
+        <button nz-button nzDanger class="return-button" (click)="openReturnModal()">
+          <nz-icon nzType="close-circle" nzTheme="outline"></nz-icon>
+          Return for Revision
+        </button>
+      </div>
+    </div>
+  </nz-spin>
+</nz-card>
+
+<ng-template #overrideModalTemplate>
+  <div class="modal-form">
+    <label>HR Override Category <span class="required">*</span></label>
+    <nz-select class="full-width" [(ngModel)]="overrideCategory" placeholder="Select final category">
+      <nz-option *ngFor="let category of categoryOptions" [nzValue]="category" [nzLabel]="formatValue(category)"></nz-option>
+    </nz-select>
+    <label>Override Reason <span class="required">*</span></label>
+    <textarea nz-input rows="4" [(ngModel)]="overrideReason" placeholder="Explain the HR override decision..."></textarea>
+    <div class="modal-actions">
+      <button nz-button (click)="closeActionModal()">Cancel</button>
+      <button nz-button nzType="primary" class="override-button" [nzLoading]="actionLoading" (click)="submitOverride()">
+        Override and Approve
+      </button>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #returnModalTemplate>
+  <div class="modal-form">
+    <label>Return Reason <span class="required">*</span></label>
+    <textarea nz-input rows="4" [(ngModel)]="returnReason" placeholder="Explain what the manager must revise..."></textarea>
+    <div class="modal-actions">
+      <button nz-button (click)="closeActionModal()">Cancel</button>
+      <button nz-button nzDanger [nzLoading]="actionLoading" (click)="submitReturn()">Return for Revision</button>
+    </div>
+  </div>
+</ng-template>
