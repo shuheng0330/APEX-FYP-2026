@@ -31,9 +31,9 @@
 
     <div class="upload-layout">
       <label class="drop-zone">
-        <input type="file" accept=".doc,.docx" (change)="onFileSelected($event)" />
+        <input type="file" accept=".doc,.docx,.pdf" (change)="onFileSelected($event)" />
         <nz-icon nzType="inbox" nzTheme="outline"></nz-icon>
-        <strong>{{ selectedFile?.name || 'Choose a .doc or .docx SOP' }}</strong>
+        <strong>{{ selectedFile?.name || 'Choose a .doc, .docx, or .pdf SOP' }}</strong>
         <span>{{ selectedFile ? 'Document ready to upload' : 'Select a document from your device' }}</span>
       </label>
 

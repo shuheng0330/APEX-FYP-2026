@@ -48,8 +48,8 @@ public class SopServiceImpl implements SopService {
         }
         String filename = file.getOriginalFilename();
         String lower = filename == null ? "" : filename.toLowerCase();
-        if (!lower.endsWith(".doc") && !lower.endsWith(".docx")) {
-            throw new BadRequestException("Only Microsoft Word documents (.doc, .docx) are supported.");
+        if (!lower.endsWith(".doc") && !lower.endsWith(".docx") && !lower.endsWith(".pdf")) {
+            throw new BadRequestException("Only Word (.doc, .docx) or PDF (.pdf) documents are supported.");
         }
 
         String storedPath = fileService.uploadFile(file, "sop");

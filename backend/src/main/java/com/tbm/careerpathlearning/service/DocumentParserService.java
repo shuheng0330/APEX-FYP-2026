@@ -1,6 +1,8 @@
 package com.tbm.careerpathlearning.service;
 
 import com.tbm.careerpathlearning.exception.BadRequestException;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
@@ -31,8 +33,12 @@ public class DocumentParserService {
                      WordExtractor extractor = new WordExtractor(doc)) {
                     return clean(extractor.getText());
                 }
+            } else if (name.endsWith(".pdf")) {
+                try (PDDocument pdf = PDDocument.load(in)) {
+                    return clean(new PDFTextStripper().getText(pdf));
+                }
             }
-            throw new BadRequestException("Unsupported file type. Please upload a .doc or .docx document.");
+            throw new BadRequestException("Unsupported file type. Please upload a .doc, .docx, or .pdf document.");
         } catch (BadRequestException e) {
             throw e;
         } catch (Exception e) {
