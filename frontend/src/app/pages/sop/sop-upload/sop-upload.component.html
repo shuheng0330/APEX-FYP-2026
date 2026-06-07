@@ -1,0 +1,68 @@
+<div class="sop-upload">
+  <h2>Upload SOP &amp; Generate Training</h2>
+  <p class="subtitle">Upload a Standard Operating Procedure (.doc / .docx). The system parses it and uses AI to
+    generate training modules and quizzes for your review.</p>
+
+  <div class="upload-card">
+    <div class="form-row">
+      <label>SOP Title</label>
+      <input nz-input placeholder="Leave blank to use the file name" [(ngModel)]="title" />
+    </div>
+    <div class="form-row two-col">
+      <div>
+        <label>Version</label>
+        <input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" />
+      </div>
+      <div>
+        <label>Department</label>
+        <input nz-input placeholder="e.g. Warehouse" [(ngModel)]="departmentTag" />
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Document</label>
+      <input type="file" accept=".doc,.docx" (change)="onFileSelected($event)" />
+      <span class="file-name" *ngIf="selectedFile">{{ selectedFile.name }}</span>
+    </div>
+    <button nz-button nzType="primary" [nzLoading]="uploading" (click)="upload()">
+      <span nz-icon nzType="cloud-upload"></span> Upload &amp; Generate
+    </button>
+  </div>
+
+  <h3>My SOP Documents</h3>
+  <nz-table #table [nzData]="documents" [nzShowPagination]="false" nzSize="middle">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Version</th>
+        <th>Department</th>
+        <th>Generation</th>
+        <th>Modules</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let doc of table.data">
+        <td>{{ doc.title }}</td>
+        <td>{{ doc.version || '—' }}</td>
+        <td>{{ doc.departmentTag || '—' }}</td>
+        <td>
+          <nz-tag [nzColor]="statusColor(doc.generationStatus)">
+            <span *ngIf="isInProgress(doc.generationStatus)" nz-icon nzType="loading"></span>
+            {{ doc.generationStatus }}
+          </nz-tag>
+          <div class="err" *ngIf="doc.generationStatus === 'FAILED' && doc.statusMessage" [title]="doc.statusMessage">
+            {{ doc.statusMessage }}
+          </div>
+        </td>
+        <td>{{ doc.moduleCount }}</td>
+        <td>
+          <button nz-button nzType="link" [disabled]="doc.generationStatus !== 'COMPLETED'"
+                  (click)="openReview(doc)">Review</button>
+          <button nz-button nzType="link" *ngIf="doc.generationStatus === 'FAILED'"
+                  (click)="retry(doc)">Retry</button>
+        </td>
+      </tr>
+    </tbody>
+  </nz-table>
+  <nz-empty *ngIf="documents.length === 0" nzNotFoundContent="No SOPs uploaded yet"></nz-empty>
+</div>

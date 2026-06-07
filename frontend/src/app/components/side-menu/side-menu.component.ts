@@ -60,6 +60,14 @@ export class SideMenuComponent {
       requiredRoles: ['ROLE_USER']
     },
     {
+      key: 'NAV.SOP_TRAINING', icon: 'robot',
+      children: [
+        { key: 'NAV.SOP_UPLOAD', route: '/sop/upload', requiredRoles: ['CAN_MANAGE_TRAINING'] },
+        { key: 'NAV.SOP_REVIEW', route: '/sop/review', requiredRoles: ['CAN_MANAGE_TRAINING'] }
+      ],
+      requiredRoles: ['CAN_MANAGE_TRAINING']
+    },
+    {
       key: 'NAV.LEARNING', icon: 'alert',
       children: [
         { key: 'NAV.LEARNING_MANAGEMENT', route: '/learning/management', requiredRoles: ['CAN_MANAGE_LEARNING_MATERIAL'] },

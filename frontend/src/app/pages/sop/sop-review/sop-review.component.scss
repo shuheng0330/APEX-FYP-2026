@@ -1,0 +1,71 @@
+.sop-review {
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+
+  h2 { margin-bottom: 4px; }
+  .subtitle { color: rgba(0, 0, 0, 0.55); margin-bottom: 20px; }
+
+  .picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    label { font-weight: 500; }
+  }
+
+  .block {
+    label { display: block; font-weight: 500; margin: 12px 0 6px; }
+  }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .reject-box {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: #fff7f6;
+    border: 1px solid #ffd6d6;
+    border-radius: 6px;
+    align-items: flex-start;
+    & > textarea { width: 100%; }
+  }
+
+  .prev-reason {
+    margin-top: 10px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .question {
+    padding: 12px 14px;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    margin-bottom: 12px;
+
+    .q-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    input { margin-bottom: 8px; }
+
+    .options {
+      list-style: none;
+      padding-left: 0;
+      margin: 8px 0;
+      li {
+        padding: 4px 10px;
+        border: 1px solid #f0f0f0;
+        border-radius: 4px;
+        margin-bottom: 4px;
+        &.correct { background: #f6ffed; border-color: #b7eb8f; font-weight: 500; }
+      }
+    }
+    .answer label { display: block; font-weight: 500; margin: 6px 0 4px; }
+    .explanation { font-size: 12px; color: rgba(0, 0, 0, 0.55); margin: 8px 0; }
+  }
+}

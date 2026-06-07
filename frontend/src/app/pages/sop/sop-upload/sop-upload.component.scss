@@ -1,0 +1,43 @@
+.sop-upload {
+  padding: 24px;
+  max-width: 980px;
+  margin: 0 auto;
+
+  h2 { margin-bottom: 4px; }
+  .subtitle { color: rgba(0, 0, 0, 0.55); margin-bottom: 20px; }
+
+  .upload-card {
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 28px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+
+    .form-row {
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      label { font-weight: 500; }
+      .file-name { color: rgba(0, 0, 0, 0.65); font-size: 12px; }
+    }
+    .two-col {
+      flex-direction: row;
+      gap: 16px;
+      & > div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    }
+  }
+
+  h3 { margin-bottom: 12px; }
+
+  .err {
+    color: #cf1322;
+    font-size: 12px;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

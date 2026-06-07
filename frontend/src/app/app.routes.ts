@@ -24,6 +24,8 @@ import { LearningEngagementPageComponent } from './pages/learning/learning-engag
 import { LearningCategoryPageComponent } from './pages/learning/learning-category-page/learning-category-page.component';
 import { StaffProfileComponent } from './pages/staff-profile/staff-profile.component';
 import { PermissionGuard } from './guards/permission.guard';
+import { SopUploadComponent } from './pages/sop/sop-upload/sop-upload.component';
+import { SopReviewComponent } from './pages/sop/sop-review/sop-review.component';
 
 export const routes: Routes = [
   // Guest-only routes (login, forgot, reset)
@@ -68,6 +70,21 @@ export const routes: Routes = [
         data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
       },
       { path: 'training/engagement', component: TrainingEngagementPageComponent },
+      {
+        path: 'sop/upload', component: SopUploadComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+      },
+      {
+        path: 'sop/review', component: SopReviewComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+      },
+      {
+        path: 'sop/review/:id', component: SopReviewComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+      },
       {
         path: 'learning/management', component: LearningManagementComponent,
         canActivate: [PermissionGuard],
