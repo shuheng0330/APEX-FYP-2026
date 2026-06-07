@@ -190,7 +190,9 @@ export class EvaluationPageComponent implements OnInit {
   }
 
   goToStaffDashboard(staffId: string): void {
-    this.router.navigate(['/performance', staffId]);
+    this.router.navigate(['/performance', staffId], {
+      queryParams: { context: 'manager' }
+    });
   }
 
   getStaffList(): void {

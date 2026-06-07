@@ -317,12 +317,14 @@ export class OrgWideEvaluationComponent implements OnInit {
 
   navigateToTeamOverview(departmentName: string): void {
     this.router.navigate(['/evaluation/overview'], {
-      queryParams: { departmentName }
+      queryParams: { departmentName, context: 'hr' }
     });
   }
 
-  navigateToAppraisalReview(staffId: string): void {
-    this.router.navigate(['/performance', staffId]);
+  navigateToAppraisalReview(candidate: AppraisalRecordDto): void {
+    this.router.navigate(['/performance', candidate.staffId], {
+      queryParams: { context: 'hr', appraisalId: candidate.id }
+    });
   }
 
   get filteredAppraisalCandidates(): AppraisalRecordDto[] {

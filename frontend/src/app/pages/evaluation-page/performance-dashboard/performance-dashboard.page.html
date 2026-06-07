@@ -118,9 +118,15 @@
     </div>
 
     <app-manager-appraisal-panel
-      *ngIf="canManageEvaluation"
+      *ngIf="showManagerAppraisalPanel"
       [staffId]="staffId">
     </app-manager-appraisal-panel>
+
+    <app-hr-appraisal-review-panel
+      *ngIf="showHrAppraisalPanel"
+      [staffId]="staffId"
+      [appraisalId]="appraisalId">
+    </app-hr-appraisal-review-panel>
   </div>
 </div>
 
