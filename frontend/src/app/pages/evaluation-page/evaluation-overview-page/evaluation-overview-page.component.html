@@ -1,6 +1,8 @@
 <div class="centered-padding-body">
-  <div>
-    <h1 class="text-center">{{ titleKey | translate }}</h1>
+  <div class="local-page-heading">
+    <span class="section-kicker">Performance and Appraisal</span>
+    <h1>{{ titleKey | translate }}</h1>
+    <p>Monitor team outcomes, trends, competency strengths, and appraisal readiness.</p>
     <p *ngIf="selectedDepartmentName" class="department-filter-context">
       Filtered by {{ selectedDepartmentName }}
     </p>

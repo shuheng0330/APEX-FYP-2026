@@ -1,11 +1,7 @@
-<div class="app-layout">
-  <div class="desktop-sidebar-wrapper">
+<div class="app-layout" [class.auth-layout]="isAuthRoute" [class.guest-layout]="!(isLoggedIn$ | async)">
+  <div *ngIf="!isAuthRoute" class="desktop-sidebar-wrapper" [class.collapsed]="isCollapsed">
     <app-side-menu *ngIf="isLoggedIn$ | async" [(isCollapsed)]="isCollapsed" [isMobile]="false"
       (openEvaluation)="onOpenEvaluation()"> </app-side-menu>
-  </div>
-
-  <div class="mobile-header-wrapper" *ngIf="isLoggedIn$ | async">
-    <app-mobile-header (toggleDrawer)="openDrawer()"></app-mobile-header>
   </div>
 
   <nz-drawer [nzVisible]="isDrawerVisible && !isCollapsed" nzPlacement="left" [nzClosable]="false"
@@ -20,13 +16,17 @@
   <app-evaluation-cycle-drawer [(visible)]="isEvaluationDrawerVisible"></app-evaluation-cycle-drawer>
 
   <div class="main-content">
+    <app-top-header *ngIf="(isLoggedIn$ | async) && !isAuthRoute" (toggleDrawer)="openDrawer()"
+      (openEvaluation)="onOpenEvaluation()"></app-top-header>
     <div *ngIf="isLoading$ | async" class="loading-overlay">
       <nz-spin [nzIndicator]="loadingIndicator"></nz-spin>
     </div>
 
-    <router-outlet></router-outlet>
+    <div class="content-viewport">
+      <router-outlet></router-outlet>
+    </div>
 
-    <a href="https://forms.gle/GPvUf4oYy5MZ9J569" target="_blank">
+    <a *ngIf="!isAuthRoute && (isLoggedIn$ | async)" href="https://forms.gle/GPvUf4oYy5MZ9J569" target="_blank">
       <nz-float-button class="red-float-button" [nzIcon]="reportFloatButton">
       </nz-float-button>
     </a>

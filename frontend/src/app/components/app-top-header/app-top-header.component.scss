@@ -1,0 +1,110 @@
+.top-header {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  min-height: 72px;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--tbm-border);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.header-primary,
+.header-actions,
+.breadcrumb,
+.cycle-button,
+.account-button {
+  display: flex;
+  align-items: center;
+}
+
+.header-primary,
+.header-actions {
+  gap: 10px;
+}
+
+.page-context h1 {
+  margin: 2px 0 0;
+  color: var(--tbm-text);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.breadcrumb {
+  gap: 6px;
+  color: var(--tbm-muted);
+  font-size: 11px;
+}
+
+.breadcrumb nz-icon {
+  font-size: 9px;
+}
+
+.cycle-button,
+.account-button {
+  gap: 8px;
+  height: 38px;
+  color: var(--tbm-text);
+  border-color: var(--tbm-border);
+}
+
+.cycle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #98a2b3;
+}
+
+.cycle-dot.open {
+  background: var(--tbm-positive);
+  box-shadow: 0 0 0 3px rgba(15, 159, 143, 0.13);
+}
+
+.icon-button {
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--tbm-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mobile-menu {
+  display: none;
+  font-size: 18px;
+}
+
+@media (max-width: 768px) {
+  .top-header {
+    min-height: 64px;
+    padding: 8px 12px;
+  }
+
+  .mobile-menu {
+    display: inline-flex;
+  }
+
+  .breadcrumb,
+  .cycle-label,
+  .account-label {
+    display: none;
+  }
+
+  .page-context h1 {
+    font-size: 15px;
+  }
+}

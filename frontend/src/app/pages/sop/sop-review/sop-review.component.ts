@@ -11,6 +11,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
+import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SopService } from '../../../services/sop.service';
 import { ReviewStatus, SopDocument, SopModule, SopQuizQuestion } from '../../../models/sop.model';
@@ -21,7 +22,7 @@ import { ReviewStatus, SopDocument, SopModule, SopQuizQuestion } from '../../../
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
-    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule
+    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']
@@ -32,6 +33,7 @@ export class SopReviewComponent implements OnInit {
   selectedSopId: number | null = null;
   document?: SopDocument;
   modules: SopModule[] = [];
+  selectedModuleId: number | null = null;
   loading = false;
 
   // per-module UI state
@@ -71,6 +73,9 @@ export class SopReviewComponent implements OnInit {
       next: detail => {
         this.document = detail.document;
         this.modules = detail.modules;
+        if (!this.selectedModuleId || !this.modules.some(module => module.id === this.selectedModuleId)) {
+          this.selectedModuleId = this.modules[0]?.id ?? null;
+        }
         this.loading = false;
       },
       error: () => { this.loading = false; this.message.error('Could not load SOP detail.'); }
@@ -165,6 +170,27 @@ export class SopReviewComponent implements OnInit {
       case 'REGENERATED': return 'blue';
       default: return 'orange';
     }
+  }
+
+  selectModule(module: SopModule): void {
+    this.selectedModuleId = module.id;
+  }
+
+  get selectedModule(): SopModule | undefined {
+    return this.modules.find(module => module.id === this.selectedModuleId);
+  }
+
+  get approvedMaterialCount(): number {
+    return this.modules.filter(module => module.reviewStatus === 'APPROVED').length;
+  }
+
+  get approvedQuizCount(): number {
+    return this.modules.filter(module => module.quiz.length > 0 && module.quiz.every(question => question.reviewStatus === 'APPROVED')).length;
+  }
+
+  get overallProgress(): number {
+    if (!this.modules.length) return 0;
+    return Math.round(((this.approvedMaterialCount + this.approvedQuizCount) / (this.modules.length * 2)) * 100);
   }
 
   private replaceModule(updated: SopModule): void {

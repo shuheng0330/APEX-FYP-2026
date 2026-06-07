@@ -17,6 +17,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 
 import { AuthService } from '../../../services/auth.service';
 import { LoadingService } from '../../../services/loading.service';
+import { AuthShellComponent } from '../../../components/auth-shell/auth-shell.component';
 
 
 interface PasswordValidator {
@@ -30,7 +31,7 @@ interface PasswordValidator {
   selector: 'app-reset-password',
   imports: [CommonModule, ReactiveFormsModule, NzCardModule, NzFormModule, NzIconModule,
     NzButtonModule, NzCheckboxModule, NzInputModule, NzInputOtpComponent,
-    TranslateModule, NzAlertModule],
+    TranslateModule, NzAlertModule, AuthShellComponent],
   templateUrl: './reset-password.component.html',
   styleUrl: './reset-password.component.scss'
 })

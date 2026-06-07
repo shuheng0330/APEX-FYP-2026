@@ -1,7 +1,21 @@
 .performance-container {
-  max-width: 1200px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 20px;
+}
+
+.local-page-heading {
+  margin-bottom: 20px;
+
+  h1 {
+    margin-top: 4px;
+    font-size: 24px;
+  }
+
+  p {
+    margin: 5px 0 0;
+    color: var(--tbm-muted);
+  }
 }
 
 .evaluation-box h3 {
@@ -11,16 +25,18 @@
 
 .dashboard-container {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 24px;
   margin-top: 24px;
 }
 
 // Profile Section (Left Column)
 .profile-section {
-  background: #f8fafc;
+  border: 1px solid var(--tbm-border);
+  background: var(--tbm-surface);
   padding: 24px;
-  border-radius: 12px;
+  border-radius: 8px;
+  box-shadow: var(--tbm-shadow);
   min-height: 400px;
 
   .section-heading {
@@ -73,9 +89,11 @@
 
 // Performance Section (Right Column)
 .performance-section {
-  background: #f8fafc;
+  border: 1px solid var(--tbm-border);
+  background: var(--tbm-surface);
   padding: 24px;
-  border-radius: 12px;
+  border-radius: 8px;
+  box-shadow: var(--tbm-shadow);
   min-height: 400px;
 
   .section-heading {
@@ -92,7 +110,8 @@
   }
 
   .performance-chart {
-    background: #e0e6f6;
+    border: 1px solid var(--tbm-border);
+    background: var(--tbm-surface-subtle);
     padding: 20px;
     border-radius: 4px;
     width: 100%;
@@ -118,7 +137,8 @@
   }
 
   .evaluation-box {
-    background: #e0e6f6;
+    border: 1px solid var(--tbm-border);
+    background: var(--tbm-surface-subtle);
     padding: 20px;
     border-radius: 4px;
     min-height: 300px;
@@ -197,9 +217,10 @@
 
       .historical-item {
         padding: 12px;
-        background: #2d2d2d;
+        border: 1px solid var(--tbm-border);
+        background: #ffffff;
         border-radius: 6px;
-        color: #ffffff;
+        color: var(--tbm-text);
 
         .historical-date {
           font-size: 14px;
@@ -209,7 +230,7 @@
 
         .historical-score {
           font-size: 12px;
-          color: #cccccc;
+          color: var(--tbm-muted);
         }
       }
     }

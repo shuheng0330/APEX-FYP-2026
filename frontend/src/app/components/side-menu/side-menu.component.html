@@ -1,13 +1,22 @@
-<div class="wrapper" (mouseenter)="onMouseEnter()" (mouseleave)="onMouseLeave()">
+<div class="wrapper">
   <ul nz-menu nzMode="inline" nzTheme="light" [nzInlineCollapsed]="isCollapsed" class="sidebar-menu" #mainMenu>
-    <li (click)="toggleCollapsed()" class="logo-container">
-      <img src="assets/TBM_logo.webp" alt="TBM Logo" class="logo" />
+    <li class="brand-container">
+      <div class="brand-lockup">
+        <img src="assets/TBM_logo.webp" alt="TBM Logo" class="logo" />
+        @if (!isCollapsed) {
+          <span>TBM Staff Appraisal and Training Automation Platform</span>
+        }
+      </div>
+      <button type="button" class="collapse-control" (click)="toggleCollapsed()"
+        [attr.aria-label]="isCollapsed ? 'Expand navigation' : 'Collapse navigation'">
+        <nz-icon [nzType]="isCollapsed ? 'menu-unfold' : 'menu-fold'" nzTheme="outline"></nz-icon>
+      </button>
     </li>
 
     @for (item of navItems; track item) {
     @if (!item.children) {
     <li nz-menu-item [routerLink]="item.route" routerLinkActive="active" *ngIf="hasAccess(item)"
-      (click)="isCollapsed=true; isCollapsedChange.emit(isCollapsed);">
+      (click)="onNavClick(item)">
       <nz-icon [nzType]="item.icon!" nzTheme="outline" style="margin-right: 7px;" />
       {{ isCollapsed ? '' : (item.key | translate) }}
     </li>
@@ -16,8 +25,8 @@
     <li nz-submenu [nzTitle]="item.key | translate" [nzIcon]="item.icon!" nzTriggerSubMenuAction="click">
       <ul>
         @for (child of item.children!; track child) {
-        <li nz-menu-item *ngIf="hasAccess(child)" [routerLink]="child.route" routerLinkActive="active"
-          (click)="isCollapsed=true; isCollapsedChange.emit(isCollapsed);">
+        <li nz-menu-item *ngIf="hasAccess(child)" [routerLink]="child.route || null" routerLinkActive="active"
+          (click)="onNavClick(child)">
           {{ child!.key | translate }}
         </li>
         }
@@ -28,11 +37,12 @@
   </ul>
 
   <ul nz-menu nzMode="inline" nzTheme="light" [nzInlineCollapsed]="isCollapsed" class="bottom-cell" #profileMenu>
-    <li nz-menu-item (click)="openEvaluationDrawer()"
-      *ngIf="hasAccess({key: '', requiredRoles: ['CAN_MANAGE_EVALUATION_CYCLE']})">
-      <nz-icon nzType="setting" nzTheme="outline" style="margin-right: 10px;" />
-      {{ isCollapsed ? '' : 'Evaluation Period' }}
-    </li>
+    @if (authService.hasRole('CAN_MANAGE_EVALUATION_CYCLE')) {
+      <li nz-menu-item (click)="openEvaluationDrawer()">
+        <nz-icon nzType="calendar" nzTheme="outline" style="margin-right: 10px;" />
+        {{ isCollapsed ? '' : ('NAV.EVALUATION_PERIOD' | translate) }}
+      </li>
+    }
     <li nz-menu-item (click)="onProfileClick()"><nz-icon nzType="user" nzTheme="outline" style="margin-right: 10px;" />
       {{ isCollapsed ? '' : ('NAV.PROFILE' |translate) }}</li>
     <li nz-menu-item (click)="onLogout()"><nz-icon nzType="logout" nzTheme="outline" style="margin-right: 10px;" />
