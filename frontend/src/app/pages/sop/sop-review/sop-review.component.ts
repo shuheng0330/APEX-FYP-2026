@@ -14,7 +14,7 @@ import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SopService } from '../../../services/sop.service';
-import { ReviewStatus, SopDocument, SopModule, SopQuizQuestion } from '../../../models/sop.model';
+import { ReviewStatus, RichContent, SopDocument, SopModule } from '../../../models/sop.model';
 
 @Component({
   selector: 'app-sop-review',
@@ -39,8 +39,8 @@ export class SopReviewComponent implements OnInit {
   // per-module UI state
   showModuleReject: Record<number, boolean> = {};
   moduleRejectReason: Record<number, string> = {};
-  showQuizReject: Record<number, boolean> = {};
-  quizRejectReason: Record<number, string> = {};
+  editMode: Record<number, boolean> = {};
+  editText: Record<number, string> = {};
   busy: Record<number, boolean> = {};
 
   constructor(
@@ -73,7 +73,7 @@ export class SopReviewComponent implements OnInit {
       next: detail => {
         this.document = detail.document;
         this.modules = detail.modules;
-        if (!this.selectedModuleId || !this.modules.some(module => module.id === this.selectedModuleId)) {
+        if (!this.selectedModuleId || !this.modules.some(m => m.id === this.selectedModuleId)) {
           this.selectedModuleId = this.modules[0]?.id ?? null;
         }
         this.loading = false;
@@ -83,10 +83,36 @@ export class SopReviewComponent implements OnInit {
   }
 
   // --- material review (FR-09) ---
+
+  toggleEdit(m: SopModule): void {
+    if (!this.editMode[m.id]) {
+      this.editText[m.id] = this.extractPlainText(m);
+      this.editMode[m.id] = true;
+    } else {
+      this.editMode[m.id] = false;
+    }
+  }
+
   saveModule(m: SopModule): void {
+    if (this.editMode[m.id]) {
+      // Wrap edited plain text back into the minimal rich structure.
+      const rich: RichContent = {
+        summary: '',
+        learningObjectives: [],
+        tools: [],
+        sections: [{ type: 'paragraph', heading: 'Content', body: this.editText[m.id] || '' }],
+        keyTerms: []
+      };
+      m.content = JSON.stringify(rich);
+    }
     this.busy[m.id] = true;
     this.sopService.updateModule(m.id, m.title, m.content).subscribe({
-      next: updated => { this.replaceModule(updated); this.busy[m.id] = false; this.message.success('Module saved.'); },
+      next: updated => {
+        this.replaceModule(updated);
+        this.editMode[m.id] = false;
+        this.busy[m.id] = false;
+        this.message.success('Module saved.');
+      },
       error: () => { this.busy[m.id] = false; this.message.error('Save failed.'); }
     });
   }
@@ -121,46 +147,30 @@ export class SopReviewComponent implements OnInit {
     });
   }
 
-  // --- quiz review (FR-10) ---
-  saveQuestion(q: SopQuizQuestion): void {
-    this.sopService.updateQuestion(q.id, q).subscribe({
-      next: () => this.message.success('Question saved.'),
-      error: () => this.message.error('Save failed.')
-    });
-  }
+  // --- content helpers ---
 
-  approveQuiz(m: SopModule): void {
-    this.busy[m.id] = true;
-    this.sopService.approveQuiz(m.id).subscribe({
-      next: () => {
-        m.quiz.forEach(q => q.reviewStatus = 'APPROVED');
-        this.busy[m.id] = false;
-        this.message.success('Quiz approved.');
-      },
-      error: () => { this.busy[m.id] = false; this.message.error('Approve failed.'); }
-    });
-  }
-
-  confirmRejectQuiz(m: SopModule): void {
-    const reason = (this.quizRejectReason[m.id] || '').trim();
-    if (!reason) { this.message.warning('Please enter a reason to guide quiz regeneration.'); return; }
-    this.busy[m.id] = true;
-    this.message.loading('Regenerating quiz with AI…', { nzDuration: 0 });
-    this.sopService.rejectQuiz(m.id, reason).subscribe({
-      next: () => {
-        this.message.remove();
-        this.showQuizReject[m.id] = false;
-        this.quizRejectReason[m.id] = '';
-        this.busy[m.id] = false;
-        this.message.success('Quiz regenerated.');
-        if (this.selectedSopId) this.loadDetail(this.selectedSopId); // refresh new questions
-      },
-      error: err => {
-        this.message.remove();
-        this.busy[m.id] = false;
-        this.message.error(err?.error?.message || 'Quiz regeneration failed.');
+  parseContent(m: SopModule): RichContent | null {
+    try {
+      const parsed = JSON.parse(m.content);
+      if (parsed && typeof parsed === 'object' && 'sections' in parsed) {
+        return parsed as RichContent;
       }
-    });
+    } catch { /* fall through */ }
+    return null;
+  }
+
+  private extractPlainText(m: SopModule): string {
+    const rich = this.parseContent(m);
+    if (!rich) return m.content;
+    const parts: string[] = [];
+    if (rich.summary) parts.push(rich.summary);
+    for (const s of rich.sections ?? []) {
+      if (s.heading) parts.push('\n' + s.heading);
+      if (s.body) parts.push(s.body);
+      if (s.items?.length) parts.push(s.items.map((item, i) => `${i + 1}. ${item}`).join('\n'));
+      if (s.rows?.length) parts.push(s.rows.map(r => r.join(' | ')).join('\n'));
+    }
+    return parts.join('\n\n').trim();
   }
 
   statusColor(status: ReviewStatus): string {
@@ -174,23 +184,21 @@ export class SopReviewComponent implements OnInit {
 
   selectModule(module: SopModule): void {
     this.selectedModuleId = module.id;
+    // Exit edit mode when switching modules
+    this.editMode[module.id] = false;
   }
 
   get selectedModule(): SopModule | undefined {
-    return this.modules.find(module => module.id === this.selectedModuleId);
+    return this.modules.find(m => m.id === this.selectedModuleId);
   }
 
   get approvedMaterialCount(): number {
-    return this.modules.filter(module => module.reviewStatus === 'APPROVED').length;
-  }
-
-  get approvedQuizCount(): number {
-    return this.modules.filter(module => module.quiz.length > 0 && module.quiz.every(question => question.reviewStatus === 'APPROVED')).length;
+    return this.modules.filter(m => m.reviewStatus === 'APPROVED').length;
   }
 
   get overallProgress(): number {
     if (!this.modules.length) return 0;
-    return Math.round(((this.approvedMaterialCount + this.approvedQuizCount) / (this.modules.length * 2)) * 100);
+    return Math.round((this.approvedMaterialCount / this.modules.length) * 100);
   }
 
   private replaceModule(updated: SopModule): void {

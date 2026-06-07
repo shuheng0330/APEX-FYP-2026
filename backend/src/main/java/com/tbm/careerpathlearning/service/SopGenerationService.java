@@ -23,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Orchestrates AI generation for an SOP: parse -> prompt Gemini -> persist
@@ -129,13 +131,28 @@ public class SopGenerationService {
         module.setSopDocumentId(sopDocumentId);
         module.setModuleOrder(order);
         module.setTitle(stripModulePrefix(safe(gm.getTitle(), "Module " + order)));
-        module.setContent(gm.getContent());
+        module.setContent(serializeRichContent(gm));
         module.setReviewStatus(ReviewStatus.PENDING);
         module.setCreatedAt(now);
         module.setUpdatedAt(now);
         SopModule savedModule = sopModuleRepository.save(module);
 
         saveQuestions(savedModule.getId(), gm.getQuiz(), now);
+    }
+
+    /** Serialize the structured content fields to JSON for storage in the content column. */
+    private String serializeRichContent(GeneratedSopContent.GeneratedModule gm) {
+        try {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("summary", gm.getSummary() != null ? gm.getSummary() : "");
+            map.put("learningObjectives", gm.getLearningObjectives() != null ? gm.getLearningObjectives() : List.of());
+            map.put("tools", gm.getTools() != null ? gm.getTools() : List.of());
+            map.put("sections", gm.getSections() != null ? gm.getSections() : List.of());
+            map.put("keyTerms", gm.getKeyTerms() != null ? gm.getKeyTerms() : List.of());
+            return objectMapper.writeValueAsString(map);
+        } catch (Exception e) {
+            return gm.getSummary() != null ? gm.getSummary() : "";
+        }
     }
 
     /** Regenerates a single module's content from a trainer's rejection reason (FR-09-05, UC-18). */
@@ -147,7 +164,7 @@ public class SopGenerationService {
 
         OffsetDateTime now = OffsetDateTime.now();
         module.setTitle(safe(gm.getTitle(), module.getTitle()));
-        module.setContent(gm.getContent());
+        module.setContent(serializeRichContent(gm));
         module.setReviewStatus(ReviewStatus.REGENERATED);
         module.setRejectionReason(reason);
         module.setUpdatedAt(now);
@@ -247,32 +264,47 @@ public class SopGenerationService {
                 """.formatted(safe(title, "Untitled SOP"), truncate(sopText));
     }
 
-    /** Phase B: expand ONE planned module into full-fidelity content + quiz. */
+    /** Phase B: expand ONE planned module into structured rich content + quiz. */
     private String buildModuleExpandPrompt(String sopTitle, String sopText, String moduleTitle,
                                            String covers, int order, int total) {
         return """
                 You are writing ONE training module (module %d of %d) from the SOP below.
-                Produce COMPLETE, detailed plain-text training content that fully preserves EVERY
-                step, rule, figure, threshold and consequence relevant to this module. DO NOT
-                summarize away or omit any specific detail from the sections this module covers.
-                Use short paragraphs and bullet points. Write only about THIS module's scope.
+                Produce COMPLETE, detailed content that fully preserves EVERY step, rule, figure,
+                threshold and consequence in this module's scope. DO NOT summarize or omit anything.
 
-                Then write a short quiz testing this module's key points.
-                Quiz rules:
-                - Mix question types: MULTIPLE_CHOICE, TRUE_FALSE, FILL_IN_THE_BLANK.
-                - MULTIPLE_CHOICE: 4 options and the exact correct option text in "answer".
-                - TRUE_FALSE: options ["True","False"] and "answer" is "True" or "False".
-                - FILL_IN_THE_BLANK: a blank "___" in the question, options empty, "answer" is the missing text.
-                - 2 to 4 questions, each with a one-sentence "explanation".
+                Return ONLY a JSON object with this EXACT shape — no markdown fences, no extra keys:
+                {
+                  "title": "module title",
+                  "summary": "2-3 sentence overview of what this module covers and why it matters",
+                  "learningObjectives": ["After completing this module learners will be able to ..."],
+                  "tools": ["tool or material name"],
+                  "sections": [
+                    {"type":"paragraph","heading":"Section Title","body":"Full text..."},
+                    {"type":"steps","heading":"Procedure Title","items":["Step 1: ...","Step 2: ..."]},
+                    {"type":"table","heading":"Table Title","headers":["Col1","Col2"],"rows":[["v1","v2"]]},
+                    {"type":"warnings","heading":"Critical Safety Rules","items":["Warning text..."]}
+                  ],
+                  "keyTerms": [{"term":"Term","definition":"Definition"}],
+                  "quiz": [
+                    {"type":"MULTIPLE_CHOICE","question":"...","options":["a","b","c","d"],"answer":"exact option text","explanation":"..."},
+                    {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"..."}
+                  ]
+                }
 
-                Respond with ONLY a JSON object of this exact shape:
-                {"title":"string","content":"string","quiz":[{"type":"MULTIPLE_CHOICE","question":"string","options":["a","b","c","d"],"answer":"string","explanation":"string"}]}
+                Section rules:
+                - Use "steps" for numbered procedures, "warnings" for safety/critical rules,
+                  "table" for reference tables, "paragraph" for explanatory text.
+                - Create as many section objects as needed — one per logical block of content.
+                - learningObjectives: 2-4 items each starting with an action verb.
+                - tools: only if there are physical tools or materials; otherwise empty [].
+                - keyTerms: key technical terms with definitions; otherwise [].
+                - quiz: 2-3 questions, types MULTIPLE_CHOICE or TRUE_FALSE only.
 
                 Module title: %s
                 This module must completely cover: %s
 
                 SOP title: %s
-                Full SOP content (reference; include all relevant detail for THIS module only):
+                Full SOP content:
                 %s
                 """.formatted(order, total, safe(moduleTitle, "Module " + order),
                 safe(covers, "the relevant section"), safe(sopTitle, ""), truncate(sopText));
@@ -281,18 +313,29 @@ public class SopGenerationService {
     private String buildModuleRegenerationPrompt(String sopTitle, String sopText, String moduleTitle, String reason) {
         return """
                 Regenerate ONE training module from the SOP below. The trainer rejected the
-                previous version for this reason: "%s". Address that feedback.
+                previous version for this reason: "%s". Address that feedback fully.
 
-                Produce concise plain-text content and a 2-4 question quiz (types:
-                MULTIPLE_CHOICE with 4 options, TRUE_FALSE with ["True","False"], FILL_IN_THE_BLANK
-                using ___). Include the exact correct "answer" and a one-sentence "explanation".
-
-                Respond with ONLY a JSON object of this exact shape:
-                {"title":"string","content":"string","quiz":[{"type":"MULTIPLE_CHOICE","question":"string","options":["a","b","c","d"],"answer":"string","explanation":"string"}]}
+                Return ONLY a JSON object with this EXACT shape — no markdown fences:
+                {
+                  "title": "module title",
+                  "summary": "2-3 sentence overview",
+                  "learningObjectives": ["..."],
+                  "tools": ["..."],
+                  "sections": [
+                    {"type":"paragraph","heading":"string","body":"string"},
+                    {"type":"steps","heading":"string","items":["string"]},
+                    {"type":"table","heading":"string","headers":["string"],"rows":[["string"]]},
+                    {"type":"warnings","heading":"string","items":["string"]}
+                  ],
+                  "keyTerms": [{"term":"string","definition":"string"}],
+                  "quiz": [
+                    {"type":"MULTIPLE_CHOICE","question":"...","options":["a","b","c","d"],"answer":"...","explanation":"..."},
+                    {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"..."}
+                  ]
+                }
 
                 SOP title: %s
                 Module to regenerate: %s
-
                 SOP content:
                 %s
                 """.formatted(safe(reason, "no reason given"), safe(sopTitle, ""), safe(moduleTitle, ""), truncate(sopText));
