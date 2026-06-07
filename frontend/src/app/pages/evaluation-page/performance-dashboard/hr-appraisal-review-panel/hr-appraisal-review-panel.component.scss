@@ -1,7 +1,9 @@
 .hr-review-panel {
   margin-top: 24px;
-  border: 2px solid #ff4d4f;
-  border-radius: 6px;
+  border: 1px solid #e86a6a;
+  border-left: 4px solid var(--tbm-brand);
+  border-radius: 8px;
+  box-shadow: var(--tbm-shadow);
 
   ::ng-deep .ant-card-body {
     padding: 24px;
@@ -90,7 +92,7 @@
   padding: 18px;
   border: 1px solid #f0f0f0;
   border-radius: 6px;
-  background: #fafafa;
+  background: var(--tbm-surface-subtle);
 }
 
 .decision-card {
@@ -181,14 +183,38 @@
   }
 }
 
-.approve-button {
-  background: #0f9f72;
-  border-color: #0f9f72;
+button.approve-button.ant-btn-primary {
+  color: #fff;
+  background: #0f9f72 !important;
+  border-color: #0f9f72 !important;
+
+  &:hover,
+  &:focus {
+    background: #0b8a63 !important;
+    border-color: #0b8a63 !important;
+  }
+
+  &:active {
+    background: #087454 !important;
+    border-color: #087454 !important;
+  }
 }
 
-.override-button {
-  background: #faad14;
-  border-color: #faad14;
+button.override-button.ant-btn-primary {
+  color: #fff;
+  background: #fa9d0b !important;
+  border-color: #fa9d0b !important;
+
+  &:hover,
+  &:focus {
+    background: #e58b00 !important;
+    border-color: #e58b00 !important;
+  }
+
+  &:active {
+    background: #c97800 !important;
+    border-color: #c97800 !important;
+  }
 }
 
 .return-button {

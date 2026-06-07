@@ -11,6 +11,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
+import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
@@ -21,7 +22,7 @@ import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzFormModule, NzTableModule,
-    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule
+    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule
   ],
   templateUrl: './sop-upload.component.html',
   styleUrls: ['./sop-upload.component.scss']
@@ -112,5 +113,41 @@ export class SopUploadComponent implements OnInit, OnDestroy {
 
   isInProgress(status: SopGenerationStatus): boolean {
     return status === 'PENDING' || status === 'PARSING' || status === 'GENERATING';
+  }
+
+  get totalDocuments(): number {
+    return this.documents.length;
+  }
+
+  get processingDocuments(): number {
+    return this.documents.filter(doc => this.isInProgress(doc.generationStatus)).length;
+  }
+
+  get completedDocuments(): number {
+    return this.documents.filter(doc => doc.generationStatus === 'COMPLETED').length;
+  }
+
+  get failedDocuments(): number {
+    return this.documents.filter(doc => doc.generationStatus === 'FAILED').length;
+  }
+
+  generationPercent(status: SopGenerationStatus): number {
+    switch (status) {
+      case 'PENDING': return 15;
+      case 'PARSING': return 40;
+      case 'GENERATING': return 72;
+      case 'COMPLETED': return 100;
+      default: return 100;
+    }
+  }
+
+  generationLabel(status: SopGenerationStatus): string {
+    switch (status) {
+      case 'PENDING': return 'Uploaded';
+      case 'PARSING': return 'Parsing';
+      case 'GENERATING': return 'Generating';
+      case 'COMPLETED': return 'Ready for Review';
+      case 'FAILED': return 'Failed';
+    }
   }
 }
