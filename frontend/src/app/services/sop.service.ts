@@ -35,6 +35,10 @@ export class SopService {
     return this.http.post<SopDocument>(`${this.baseUrl}/${id}/generate`, {}, { withCredentials: true });
   }
 
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`, { withCredentials: true });
+  }
+
   // --- Module 2: material review (FR-09) ---
   updateModule(moduleId: number, title: string, content: string): Observable<SopModule> {
     return this.http.put<SopModule>(`${this.baseUrl}/module/${moduleId}`, { title, content }, { withCredentials: true });

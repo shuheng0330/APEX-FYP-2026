@@ -23,6 +23,8 @@ public interface SopService {
     /** Re-run parse + AI generation for an existing document (e.g. after a transient failure). */
     SopDocumentDto regenerateDocument(Long sopDocumentId);
 
+    void deleteDocument(Long sopDocumentId);
+
     // --- Module 2: trainer review of material (FR-09) ---
     SopModuleDto getModule(Long moduleId);
 

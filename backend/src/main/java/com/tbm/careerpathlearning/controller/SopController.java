@@ -62,6 +62,12 @@ public class SopController {
         return ResponseEntity.ok(sopService.regenerateDocument(id));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        sopService.deleteDocument(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // --- Module 2: material review (FR-09) ----------------------------------
 
     @GetMapping("/module/{moduleId}")
