@@ -53,7 +53,7 @@ public class SopGenerationService {
      * Delay between Gemini calls to respect the free-tier rate limit
      * (gemini-2.5-flash free tier = 5 requests/minute). ~14s keeps us under it.
      */
-    @Value("${gemini.call-delay-ms:15000}")
+    @Value("${gemini.call-delay-ms:20000}")
     private long callDelayMs;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
