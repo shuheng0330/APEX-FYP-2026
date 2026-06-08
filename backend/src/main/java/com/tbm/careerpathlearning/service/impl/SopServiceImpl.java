@@ -197,9 +197,12 @@ public class SopServiceImpl implements SopService {
     @Transactional
     public void deleteDocument(Long sopDocumentId) {
         SopDocument doc = getDocOrThrow(sopDocumentId);
-        doc.setDeleted(true);
-        doc.setUpdatedAt(OffsetDateTime.now());
-        sopDocumentRepository.save(doc);
+        List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
+        if (!modules.isEmpty()) {
+            sopQuizQuestionRepository.deleteAllBySopModuleIdIn(modules.stream().map(SopModule::getId).toList());
+            sopModuleRepository.deleteAllBySopDocumentId(sopDocumentId);
+        }
+        sopDocumentRepository.delete(doc);
     }
 
     // === helpers ============================================================
