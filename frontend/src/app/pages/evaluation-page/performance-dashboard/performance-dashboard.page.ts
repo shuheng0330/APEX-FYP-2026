@@ -53,6 +53,7 @@ export class PerformanceDashboardPage implements OnInit {
   titleKey: string = "PAGE.PERFORMANCE.TITLE";
   staffId!: string;
   staffEvaluations: EvaluationDTO[] = [];
+  historicalEvaluations: EvaluationDTO[] = [];
   latestEvaluation?: EvaluationDTO;
   latestCompetenciesRatings: RatingDTO[] = [];
   overallScore: number = 0;
@@ -180,9 +181,12 @@ export class PerformanceDashboardPage implements OnInit {
 
 
       const latestEval = this.sortedEvaluations[this.sortedEvaluations.length - 1] ?? null;
+      this.latestEvaluation = latestEval ?? undefined;
+      this.historicalEvaluations = latestEval
+        ? [...this.sortedEvaluations].filter(evaluation => evaluation !== latestEval).reverse()
+        : [];
 
       if (latestEval) {
-        this.latestEvaluation = latestEval;
         this.comment = latestEval.comment;
       }
 
@@ -303,16 +307,6 @@ export class PerformanceDashboardPage implements OnInit {
         description: 'Below expected performance. Requires close guidance and development in key competencies.'
       };
     }
-  }
-
-  getHistoricalEvaluations(): EvaluationDTO[] {
-    if (!this.latestEvaluation || !this.staffEvaluations.length) {
-      return [];
-    }
-    // Return all evaluations except the latest one, sorted by date descending
-    return this.staffEvaluations
-      .filter(e => e.evaluationId !== this.latestEvaluation?.evaluationId)
-      .sort((a, b) => this.getEvaluationTrendDate(b).getTime() - this.getEvaluationTrendDate(a).getTime());
   }
 
   formatScore(rating: number): string {

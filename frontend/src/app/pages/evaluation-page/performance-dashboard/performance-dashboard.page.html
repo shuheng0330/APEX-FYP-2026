@@ -97,9 +97,9 @@
             <!-- Historical Evaluation -->
             <div class="evaluation-box">
               <h3 class="evaluation-title">Historical Evaluation</h3>
-              <div *ngIf="getHistoricalEvaluations().length > 0; else noHistoricalEvaluation">
+              <div *ngIf="historicalEvaluations.length > 0; else noHistoricalEvaluation">
                 <div class="historical-list">
-                  <div *ngFor="let eval of getHistoricalEvaluations()" class="historical-item">
+                  <div *ngFor="let eval of historicalEvaluations" class="historical-item">
                     <div class="historical-date">{{ getEvaluationDisplayDate(eval) | date: 'yyyy-MM-dd' }}</div>
                     <div class="historical-score">Score: {{eval.overallScore}}%</div>
                   </div>

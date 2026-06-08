@@ -26,6 +26,7 @@ interface ReviewDecisionCard {
   systemCategory?: AppraisalCategory | null;
   finalCategory?: AppraisalCategory | null;
   overrideReason?: string | null;
+  hasManagerOverride: boolean;
 }
 
 @Component({
@@ -57,6 +58,7 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   loading = true;
   actionLoading = false;
   record?: AppraisalRecordDto;
+  decisionCards: ReviewDecisionCard[] = [];
   overrideCategory?: AppraisalCategory;
   overrideReason = '';
   returnReason = '';
@@ -81,41 +83,16 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
     this.appraisalRecordService.getReviewRecords().subscribe({
       next: (records) => {
         this.record = this.selectRecord(records);
+        this.decisionCards = this.buildDecisionCards(this.record);
         this.loading = false;
       },
       error: () => {
         this.record = undefined;
+        this.decisionCards = [];
         this.loading = false;
         this.message.error('Unable to load the appraisal review record.');
       }
     });
-  }
-
-  get decisionCards(): ReviewDecisionCard[] {
-    if (!this.record) {
-      return [];
-    }
-
-    const cards: ReviewDecisionCard[] = [];
-    if (this.includesPromotion(this.record.decisionType)) {
-      cards.push({
-        title: 'Promotion',
-        readinessScore: this.record.promotionReadinessScore,
-        systemCategory: this.record.promotionSystemCategory,
-        finalCategory: this.record.promotionFinalCategory,
-        overrideReason: this.record.promotionOverrideReason
-      });
-    }
-    if (this.includesSalary(this.record.decisionType)) {
-      cards.push({
-        title: 'Salary Increment',
-        readinessScore: this.record.salaryReadinessScore,
-        systemCategory: this.record.salarySystemCategory,
-        finalCategory: this.record.salaryFinalCategory,
-        overrideReason: this.record.salaryOverrideReason
-      });
-    }
-    return cards;
   }
 
   get canReview(): boolean {
@@ -215,11 +192,6 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
     this.actionModal?.destroy();
   }
 
-  hasManagerOverride(card: ReviewDecisionCard): boolean {
-    return !!card.overrideReason
-      || (!!card.finalCategory && card.finalCategory !== card.systemCategory);
-  }
-
   getCategoryColor(category?: AppraisalCategory | null): string {
     if (category === 'READY') return 'green';
     if (category === 'BORDERLINE') return 'orange';
@@ -253,9 +225,54 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
 
   private finishAction(record: AppraisalRecordDto, successMessage: string): void {
     this.record = record;
+    this.decisionCards = this.buildDecisionCards(record);
     this.actionLoading = false;
     this.actionModal?.destroy();
     this.message.success(successMessage);
+  }
+
+  private buildDecisionCards(record?: AppraisalRecordDto): ReviewDecisionCard[] {
+    if (!record) {
+      return [];
+    }
+
+    const cards: ReviewDecisionCard[] = [];
+    if (this.includesPromotion(record.decisionType)) {
+      cards.push(this.createDecisionCard(
+        'Promotion',
+        record.promotionReadinessScore,
+        record.promotionSystemCategory,
+        record.promotionFinalCategory,
+        record.promotionOverrideReason
+      ));
+    }
+    if (this.includesSalary(record.decisionType)) {
+      cards.push(this.createDecisionCard(
+        'Salary Increment',
+        record.salaryReadinessScore,
+        record.salarySystemCategory,
+        record.salaryFinalCategory,
+        record.salaryOverrideReason
+      ));
+    }
+    return cards;
+  }
+
+  private createDecisionCard(
+    title: string,
+    readinessScore?: number | null,
+    systemCategory?: AppraisalCategory | null,
+    finalCategory?: AppraisalCategory | null,
+    overrideReason?: string | null
+  ): ReviewDecisionCard {
+    return {
+      title,
+      readinessScore,
+      systemCategory,
+      finalCategory,
+      overrideReason,
+      hasManagerOverride: !!overrideReason || (!!finalCategory && finalCategory !== systemCategory)
+    };
   }
 
   private selectRecord(records: AppraisalRecordDto[]): AppraisalRecordDto | undefined {

@@ -27,7 +27,8 @@
       </div>
 
       <div class="decision-grid">
-        <div class="decision-card" *ngFor="let card of decisionCards">
+        @for (card of decisionCards; track card.title) {
+          <div class="decision-card">
           <h3>{{ card.title }}</h3>
           <div class="field-label">Readiness Score</div>
           <div class="score-value">{{ card.readinessScore ?? '-' }}</div>
@@ -39,7 +40,7 @@
 
           <div class="manager-override">
             <div class="field-label">Manager Override</div>
-            <ng-container *ngIf="hasManagerOverride(card); else noManagerOverride">
+            @if (card.hasManagerOverride) {
               <div class="category-change">
                 <span>{{ formatValue(card.systemCategory) }}</span>
                 <nz-icon nzType="arrow-right" nzTheme="outline"></nz-icon>
@@ -48,12 +49,12 @@
                 </nz-tag>
               </div>
               <p>“{{ card.overrideReason }}”</p>
-            </ng-container>
-            <ng-template #noManagerOverride>
+            } @else {
               <span class="muted">No override</span>
-            </ng-template>
+            }
           </div>
-        </div>
+          </div>
+        }
       </div>
 
       <div class="read-only-block">
