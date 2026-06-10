@@ -99,7 +99,7 @@ public class SopGenerationService {
             for (int i = 0; i < total; i++) {
                 pace(); // stay under the free-tier rate limit between calls
                 GeneratedSopPlan.PlannedModule pm = planned.get(i);
-                // Phase B — expand: full-fidelity content + quiz for THIS module only.
+                // Phase B — expand: full-fidelity content for THIS module only.
                 GeneratedSopContent.GeneratedModule gm = callGeminiForModule(
                         buildModuleExpandPrompt(doc.getTitle(), text, pm.getTitle(), pm.getCovers(), i + 1, total));
                 self.saveModuleWithQuiz(doc.getId(), i + 1, gm);
