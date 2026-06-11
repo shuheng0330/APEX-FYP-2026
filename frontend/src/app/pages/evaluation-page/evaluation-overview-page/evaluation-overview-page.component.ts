@@ -458,7 +458,10 @@ export class EvaluationOverviewPageComponent implements OnInit {
   }
 
   calculateSummaryMetrics(): void {
-    const validEvals = this.summaryEvals.filter(e => (e.overallScore ?? 0) > 0);
+    const visibleStaffIds = new Set(this.staffList.map(s => s.id));
+    const validEvals = this.summaryEvals
+      .filter(e => visibleStaffIds.has(e.staffId))
+      .filter(e => (e.overallScore ?? 0) > 0);
 
     this.teamAverage = 0;
     this.bestPerformer = undefined;
