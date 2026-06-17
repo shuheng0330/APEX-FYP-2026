@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
+import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -24,9 +25,13 @@ interface ReviewDecisionCard {
   title: string;
   readinessScore?: number | null;
   systemCategory?: AppraisalCategory | null;
-  finalCategory?: AppraisalCategory | null;
-  overrideReason?: string | null;
+  managerCategory?: AppraisalCategory | null;
+  managerOverrideReason?: string | null;
+  hrOverrideCategory?: AppraisalCategory | null;
+  hrOverrideReason?: string | null;
+  effectiveCategory?: AppraisalCategory | null;
   hasManagerOverride: boolean;
+  hasHrOverride: boolean;
 }
 
 @Component({
@@ -40,6 +45,7 @@ interface ReviewDecisionCard {
     NzAlertModule,
     NzButtonModule,
     NzCardModule,
+    NzCheckboxModule,
     NzIconModule,
     NzInputModule,
     NzModalModule,
@@ -59,8 +65,12 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   actionLoading = false;
   record?: AppraisalRecordDto;
   decisionCards: ReviewDecisionCard[] = [];
-  overrideCategory?: AppraisalCategory;
-  overrideReason = '';
+  promotionOverrideSelected = false;
+  promotionOverrideCategory?: AppraisalCategory;
+  promotionOverrideReason = '';
+  salaryOverrideSelected = false;
+  salaryOverrideCategory?: AppraisalCategory;
+  salaryOverrideReason = '';
   returnReason = '';
   private actionModal?: NzModalRef;
 
@@ -112,6 +122,26 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
     }
   }
 
+  get canOverridePromotion(): boolean {
+    return this.includesPromotion(this.record?.decisionType);
+  }
+
+  get canOverrideSalary(): boolean {
+    return this.includesSalary(this.record?.decisionType);
+  }
+
+  get isBothDecision(): boolean {
+    return this.record?.decisionType === 'BOTH';
+  }
+
+  getPromotionOverrideOptions(): AppraisalCategory[] {
+    return this.getHrOverrideOptions(this.record?.promotionManagerCategory);
+  }
+
+  getSalaryOverrideOptions(): AppraisalCategory[] {
+    return this.getHrOverrideOptions(this.record?.salaryManagerCategory);
+  }
+
   approve(): void {
     if (!this.record?.id || !this.canReview) {
       return;
@@ -127,8 +157,12 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   }
 
   openOverrideModal(): void {
-    this.overrideCategory = undefined;
-    this.overrideReason = '';
+    this.promotionOverrideSelected = this.record?.decisionType === 'PROMOTION';
+    this.promotionOverrideCategory = undefined;
+    this.promotionOverrideReason = '';
+    this.salaryOverrideSelected = this.record?.decisionType === 'SALARY_INCREMENT';
+    this.salaryOverrideCategory = undefined;
+    this.salaryOverrideReason = '';
     this.actionModal = this.modal.create({
       nzTitle: 'Override and Approve',
       nzContent: this.overrideModalTemplate,
@@ -148,15 +182,36 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   }
 
   submitOverride(): void {
-    if (!this.record?.id || !this.overrideCategory || !this.overrideReason.trim()) {
-      this.message.error('HR override category and reason are required.');
+    if (!this.record?.id) {
+      return;
+    }
+    if (!this.promotionOverrideSelected && !this.salaryOverrideSelected) {
+      this.message.error('Select at least one decision to override.');
+      return;
+    }
+    if (this.promotionOverrideSelected && (!this.promotionOverrideCategory || !this.promotionOverrideReason.trim())) {
+      this.message.error('Promotion override category and reason are required.');
+      return;
+    }
+    if (this.promotionOverrideSelected && this.promotionOverrideCategory === this.record.promotionManagerCategory) {
+      this.message.error('Promotion HR override category must be different from the Manager category.');
+      return;
+    }
+    if (this.salaryOverrideSelected && (!this.salaryOverrideCategory || !this.salaryOverrideReason.trim())) {
+      this.message.error('Salary increment override category and reason are required.');
+      return;
+    }
+    if (this.salaryOverrideSelected && this.salaryOverrideCategory === this.record.salaryManagerCategory) {
+      this.message.error('Salary increment HR override category must be different from the Manager category.');
       return;
     }
 
     this.actionLoading = true;
     this.appraisalRecordService.overrideAndApprove(this.record.id, {
-      hrOverrideCategory: this.overrideCategory,
-      hrOverrideReason: this.overrideReason.trim()
+      promotionHrOverrideCategory: this.promotionOverrideSelected ? this.promotionOverrideCategory : null,
+      promotionHrOverrideReason: this.promotionOverrideSelected ? this.promotionOverrideReason.trim() : null,
+      salaryHrOverrideCategory: this.salaryOverrideSelected ? this.salaryOverrideCategory : null,
+      salaryHrOverrideReason: this.salaryOverrideSelected ? this.salaryOverrideReason.trim() : null
     }).subscribe({
       next: (record) => {
         this.finishAction(record, 'Appraisal overridden and approved.');
@@ -242,8 +297,11 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
         'Promotion',
         record.promotionReadinessScore,
         record.promotionSystemCategory,
-        record.promotionFinalCategory,
-        record.promotionOverrideReason
+        record.promotionManagerCategory,
+        record.promotionManagerOverrideReason,
+        record.promotionHrOverrideCategory,
+        record.promotionHrOverrideReason,
+        record.promotionEffectiveCategory
       ));
     }
     if (this.includesSalary(record.decisionType)) {
@@ -251,8 +309,11 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
         'Salary Increment',
         record.salaryReadinessScore,
         record.salarySystemCategory,
-        record.salaryFinalCategory,
-        record.salaryOverrideReason
+        record.salaryManagerCategory,
+        record.salaryManagerOverrideReason,
+        record.salaryHrOverrideCategory,
+        record.salaryHrOverrideReason,
+        record.salaryEffectiveCategory
       ));
     }
     return cards;
@@ -262,17 +323,28 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
     title: string,
     readinessScore?: number | null,
     systemCategory?: AppraisalCategory | null,
-    finalCategory?: AppraisalCategory | null,
-    overrideReason?: string | null
+    managerCategory?: AppraisalCategory | null,
+    managerOverrideReason?: string | null,
+    hrOverrideCategory?: AppraisalCategory | null,
+    hrOverrideReason?: string | null,
+    effectiveCategory?: AppraisalCategory | null
   ): ReviewDecisionCard {
     return {
       title,
       readinessScore,
       systemCategory,
-      finalCategory,
-      overrideReason,
-      hasManagerOverride: !!overrideReason || (!!finalCategory && finalCategory !== systemCategory)
+      managerCategory,
+      managerOverrideReason,
+      hrOverrideCategory,
+      hrOverrideReason,
+      effectiveCategory,
+      hasManagerOverride: !!managerOverrideReason || (!!managerCategory && managerCategory !== systemCategory),
+      hasHrOverride: !!hrOverrideReason || (!!hrOverrideCategory && hrOverrideCategory !== managerCategory)
     };
+  }
+
+  private getHrOverrideOptions(managerCategory?: AppraisalCategory | null): AppraisalCategory[] {
+    return this.categoryOptions.filter(category => category !== managerCategory);
   }
 
   private selectRecord(records: AppraisalRecordDto[]): AppraisalRecordDto | undefined {
@@ -289,11 +361,11 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
     return new Date(record.evaluationCycleEndDate || record.submittedAt || record.createdAt || '').getTime();
   }
 
-  private includesPromotion(decisionType: AppraisalDecisionType): boolean {
+  private includesPromotion(decisionType?: AppraisalDecisionType): boolean {
     return decisionType === 'PROMOTION' || decisionType === 'BOTH';
   }
 
-  private includesSalary(decisionType: AppraisalDecisionType): boolean {
+  private includesSalary(decisionType?: AppraisalDecisionType): boolean {
     return decisionType === 'SALARY_INCREMENT' || decisionType === 'BOTH';
   }
 }

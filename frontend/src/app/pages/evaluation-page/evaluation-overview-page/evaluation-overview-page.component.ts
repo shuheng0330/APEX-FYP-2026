@@ -683,8 +683,8 @@ export class EvaluationOverviewPageComponent implements OnInit {
     const record = this.appraisalByStaffId.get(staffId);
     if (!record) return undefined;
     return record.decisionType === 'SALARY_INCREMENT'
-      ? record.salaryFinalCategory ?? undefined
-      : record.promotionFinalCategory ?? undefined;
+      ? record.salaryEffectiveCategory ?? undefined
+      : record.promotionEffectiveCategory ?? undefined;
   }
 
   getAppraisalStatusColor(status?: AppraisalStatus): string {

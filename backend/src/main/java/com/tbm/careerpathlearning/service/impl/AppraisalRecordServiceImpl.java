@@ -177,16 +177,11 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
     @Override
     @Transactional
     public AppraisalRecordDto overrideAndApprove(UUID id, HrAppraisalActionDto dto, UUID userId) {
-        if (dto == null || dto.getHrOverrideCategory() == null || isBlank(dto.getHrOverrideReason())) {
-            throw new BadRequestException("Invalid Appraisal", "HR override category and reason are required.");
-        }
-
         AppraisalRecord record = getAppraisalRecord(id);
+        validateHrOverrideRequest(record, dto);
         Staff hrReviewer = getStaff(userId, "Invalid HR Reviewer");
 
-        record.setHrOverrideCategory(dto.getHrOverrideCategory());
-        record.setHrOverrideReason(dto.getHrOverrideReason());
-        applyHrOverrideCategory(record, dto.getHrOverrideCategory());
+        applyHrOverrides(record, dto);
         record.setStatus(AppraisalStatus.APPROVED);
         record.setHrReviewer(hrReviewer);
         record.setApprovedAt(LocalDateTime.now());
@@ -274,58 +269,132 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         if (record.getDecisionType() == AppraisalDecisionType.PROMOTION || record.getDecisionType() == AppraisalDecisionType.BOTH) {
             record.setPromotionReadinessScore(readiness.getReadinessScore());
             record.setPromotionSystemCategory(readiness.getSystemCategory());
-            record.setPromotionFinalCategory(resolveFinalCategory(
+            record.setPromotionManagerCategory(resolveManagerCategory(
                     readiness.getSystemCategory(),
-                    dto.getPromotionFinalCategory(),
-                    dto.getPromotionOverrideReason()
+                    dto.getPromotionManagerCategory(),
+                    dto.getPromotionManagerOverrideReason()
             ));
-            record.setPromotionOverrideReason(dto.getPromotionOverrideReason());
+            record.setPromotionManagerOverrideReason(dto.getPromotionManagerOverrideReason());
         }
 
         if (record.getDecisionType() == AppraisalDecisionType.SALARY_INCREMENT || record.getDecisionType() == AppraisalDecisionType.BOTH) {
             record.setSalaryReadinessScore(readiness.getReadinessScore());
             record.setSalarySystemCategory(readiness.getSystemCategory());
-            record.setSalaryFinalCategory(resolveFinalCategory(
+            record.setSalaryManagerCategory(resolveManagerCategory(
                     readiness.getSystemCategory(),
-                    dto.getSalaryFinalCategory(),
-                    dto.getSalaryOverrideReason()
+                    dto.getSalaryManagerCategory(),
+                    dto.getSalaryManagerOverrideReason()
             ));
-            record.setSalaryOverrideReason(dto.getSalaryOverrideReason());
+            record.setSalaryManagerOverrideReason(dto.getSalaryManagerOverrideReason());
         }
     }
 
     private void clearDecisionFields(AppraisalRecord record) {
         record.setPromotionReadinessScore(null);
         record.setPromotionSystemCategory(null);
-        record.setPromotionFinalCategory(null);
-        record.setPromotionOverrideReason(null);
+        record.setPromotionManagerCategory(null);
+        record.setPromotionManagerOverrideReason(null);
         record.setSalaryReadinessScore(null);
         record.setSalarySystemCategory(null);
-        record.setSalaryFinalCategory(null);
-        record.setSalaryOverrideReason(null);
+        record.setSalaryManagerCategory(null);
+        record.setSalaryManagerOverrideReason(null);
     }
 
-    private AppraisalCategory resolveFinalCategory(
+    private AppraisalCategory resolveManagerCategory(
             AppraisalCategory systemCategory,
-            AppraisalCategory requestedFinalCategory,
+            AppraisalCategory requestedManagerCategory,
             String overrideReason
     ) {
-        if (requestedFinalCategory == null || requestedFinalCategory == systemCategory) {
+        if (requestedManagerCategory == null) {
+            if (!isBlank(overrideReason)) {
+                throw new BadRequestException("Invalid Appraisal", "Manager override category is required when an override reason is provided.");
+            }
             return systemCategory;
         }
+
+        if (requestedManagerCategory == systemCategory) {
+            if (!isBlank(overrideReason)) {
+                throw new BadRequestException(
+                        "Invalid Appraisal",
+                        "The Manager override category must be different from the System category."
+                );
+            }
+            return systemCategory;
+        }
+
         if (isBlank(overrideReason)) {
             throw new BadRequestException("Invalid Appraisal", "Override reason is required when changing the system category.");
         }
-        return requestedFinalCategory;
+        return requestedManagerCategory;
     }
 
-    private void applyHrOverrideCategory(AppraisalRecord record, AppraisalCategory overrideCategory) {
-        if (record.getDecisionType() == AppraisalDecisionType.PROMOTION || record.getDecisionType() == AppraisalDecisionType.BOTH) {
-            record.setPromotionFinalCategory(overrideCategory);
+    private void validateHrOverrideRequest(AppraisalRecord record, HrAppraisalActionDto dto) {
+        if (dto == null) {
+            throw new BadRequestException("Invalid Appraisal", "At least one HR override is required.");
         }
 
-        if (record.getDecisionType() == AppraisalDecisionType.SALARY_INCREMENT || record.getDecisionType() == AppraisalDecisionType.BOTH) {
-            record.setSalaryFinalCategory(overrideCategory);
+        boolean promotionSupplied = dto.getPromotionHrOverrideCategory() != null
+                || !isBlank(dto.getPromotionHrOverrideReason());
+        boolean salarySupplied = dto.getSalaryHrOverrideCategory() != null
+                || !isBlank(dto.getSalaryHrOverrideReason());
+
+        if (!promotionSupplied && !salarySupplied) {
+            throw new BadRequestException("Invalid Appraisal", "At least one HR override is required.");
+        }
+
+        if (record.getDecisionType() == AppraisalDecisionType.SALARY_INCREMENT && promotionSupplied) {
+            throw new BadRequestException("Invalid Appraisal", "Promotion override is not applicable to a salary increment appraisal.");
+        }
+        if (record.getDecisionType() == AppraisalDecisionType.PROMOTION && salarySupplied) {
+            throw new BadRequestException("Invalid Appraisal", "Salary increment override is not applicable to a promotion appraisal.");
+        }
+
+        validateHrDecisionOverride(
+                promotionSupplied,
+                dto.getPromotionHrOverrideCategory(),
+                dto.getPromotionHrOverrideReason(),
+                record.getPromotionManagerCategory(),
+                "Promotion"
+        );
+        validateHrDecisionOverride(
+                salarySupplied,
+                dto.getSalaryHrOverrideCategory(),
+                dto.getSalaryHrOverrideReason(),
+                record.getSalaryManagerCategory(),
+                "Salary increment"
+        );
+    }
+
+    private void validateHrDecisionOverride(
+            boolean supplied,
+            AppraisalCategory category,
+            String reason,
+            AppraisalCategory managerCategory,
+            String decisionLabel
+    ) {
+        if (supplied && (category == null || isBlank(reason))) {
+            throw new BadRequestException(
+                    "Invalid Appraisal",
+                    decisionLabel + " HR override category and reason are required."
+            );
+        }
+        if (supplied && category == managerCategory) {
+            throw new BadRequestException(
+                    "Invalid Appraisal",
+                    decisionLabel + " HR override category must be different from the Manager category."
+            );
+        }
+    }
+
+    private void applyHrOverrides(AppraisalRecord record, HrAppraisalActionDto dto) {
+        if (dto.getPromotionHrOverrideCategory() != null) {
+            record.setPromotionHrOverrideCategory(dto.getPromotionHrOverrideCategory());
+            record.setPromotionHrOverrideReason(dto.getPromotionHrOverrideReason().trim());
+        }
+
+        if (dto.getSalaryHrOverrideCategory() != null) {
+            record.setSalaryHrOverrideCategory(dto.getSalaryHrOverrideCategory());
+            record.setSalaryHrOverrideReason(dto.getSalaryHrOverrideReason().trim());
         }
     }
 
@@ -362,10 +431,10 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         dto.setSalaryReadinessScore(record.getSalaryReadinessScore());
         dto.setPromotionSystemCategory(record.getPromotionSystemCategory());
         dto.setSalarySystemCategory(record.getSalarySystemCategory());
-        dto.setPromotionFinalCategory(record.getPromotionFinalCategory());
-        dto.setSalaryFinalCategory(record.getSalaryFinalCategory());
-        dto.setPromotionOverrideReason(record.getPromotionOverrideReason());
-        dto.setSalaryOverrideReason(record.getSalaryOverrideReason());
+        dto.setPromotionManagerCategory(record.getPromotionManagerCategory());
+        dto.setSalaryManagerCategory(record.getSalaryManagerCategory());
+        dto.setPromotionManagerOverrideReason(record.getPromotionManagerOverrideReason());
+        dto.setSalaryManagerOverrideReason(record.getSalaryManagerOverrideReason());
         dto.setManagerComment(record.getManagerComment());
         dto.setAiInsight(record.getAiInsight());
         dto.setStatus(record.getStatus());
@@ -373,8 +442,18 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
             dto.setHrReviewerId(record.getHrReviewer().getId());
             dto.setHrReviewerName(record.getHrReviewer().getName());
         }
-        dto.setHrOverrideCategory(record.getHrOverrideCategory());
-        dto.setHrOverrideReason(record.getHrOverrideReason());
+        dto.setPromotionHrOverrideCategory(record.getPromotionHrOverrideCategory());
+        dto.setPromotionHrOverrideReason(record.getPromotionHrOverrideReason());
+        dto.setSalaryHrOverrideCategory(record.getSalaryHrOverrideCategory());
+        dto.setSalaryHrOverrideReason(record.getSalaryHrOverrideReason());
+        dto.setPromotionEffectiveCategory(resolveEffectiveCategory(
+                record.getPromotionManagerCategory(),
+                record.getPromotionHrOverrideCategory()
+        ));
+        dto.setSalaryEffectiveCategory(resolveEffectiveCategory(
+                record.getSalaryManagerCategory(),
+                record.getSalaryHrOverrideCategory()
+        ));
         dto.setHrReturnReason(record.getHrReturnReason());
         dto.setSubmittedAt(record.getSubmittedAt());
         dto.setApprovedAt(record.getApprovedAt());
@@ -387,5 +466,12 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private AppraisalCategory resolveEffectiveCategory(
+            AppraisalCategory managerCategory,
+            AppraisalCategory hrOverrideCategory
+    ) {
+        return hrOverrideCategory != null ? hrOverrideCategory : managerCategory;
     }
 }

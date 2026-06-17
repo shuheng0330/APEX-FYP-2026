@@ -32,7 +32,7 @@ interface DecisionCardState {
   title: string;
   readinessScore?: number | null;
   systemCategory?: AppraisalCategory | null;
-  finalCategory?: AppraisalCategory | null;
+  managerCategory?: AppraisalCategory | null;
   overrideEnabled: boolean;
   overrideReason: string;
 }
@@ -143,6 +143,16 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
     if (!this.isReadOnly) {
       this.fetchReadinessScore();
     }
+  }
+
+  onManagerOverrideToggle(card: DecisionCardState, enabled: boolean): void {
+    card.overrideEnabled = enabled;
+    card.overrideReason = '';
+    card.managerCategory = enabled ? null : card.systemCategory;
+  }
+
+  getManagerCategoryOptions(card: DecisionCardState): AppraisalCategory[] {
+    return this.categoryOptions.filter(category => category !== card.systemCategory);
   }
 
   generateInsight(): void {
@@ -310,9 +320,9 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
     return this.categoryTagColor[category];
   }
 
-  get finalCategorySummary(): string {
+  get managerCategorySummary(): string {
     const categories = this.visibleCards
-      .map(card => card.finalCategory || card.systemCategory)
+      .map(card => card.managerCategory || card.systemCategory)
       .filter(Boolean);
 
     return categories.map(category => this.formatCategory(category as AppraisalCategory)).join(' / ');
@@ -331,9 +341,9 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
   }
 
   getRecordFinalCategory(record: AppraisalRecordDto): AppraisalCategory | null | undefined {
-    if (record.decisionType === 'PROMOTION') return record.promotionFinalCategory;
-    if (record.decisionType === 'SALARY_INCREMENT') return record.salaryFinalCategory;
-    return record.promotionFinalCategory || record.salaryFinalCategory;
+    if (record.decisionType === 'PROMOTION') return record.promotionEffectiveCategory;
+    if (record.decisionType === 'SALARY_INCREMENT') return record.salaryEffectiveCategory;
+    return record.promotionEffectiveCategory || record.salaryEffectiveCategory;
   }
 
   private prepareRecords(records: AppraisalRecordDto[]): void {
@@ -364,17 +374,17 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
 
     this.promotionCard.readinessScore = record.promotionReadinessScore;
     this.promotionCard.systemCategory = record.promotionSystemCategory;
-    this.promotionCard.finalCategory = record.promotionFinalCategory || record.promotionSystemCategory;
-    this.promotionCard.overrideEnabled = !!record.promotionOverrideReason
-      || (!!record.promotionFinalCategory && record.promotionFinalCategory !== record.promotionSystemCategory);
-    this.promotionCard.overrideReason = record.promotionOverrideReason || '';
+    this.promotionCard.managerCategory = record.promotionManagerCategory || record.promotionSystemCategory;
+    this.promotionCard.overrideEnabled = !!record.promotionManagerOverrideReason
+      || (!!record.promotionManagerCategory && record.promotionManagerCategory !== record.promotionSystemCategory);
+    this.promotionCard.overrideReason = record.promotionManagerOverrideReason || '';
 
     this.salaryCard.readinessScore = record.salaryReadinessScore;
     this.salaryCard.systemCategory = record.salarySystemCategory;
-    this.salaryCard.finalCategory = record.salaryFinalCategory || record.salarySystemCategory;
-    this.salaryCard.overrideEnabled = !!record.salaryOverrideReason
-      || (!!record.salaryFinalCategory && record.salaryFinalCategory !== record.salarySystemCategory);
-    this.salaryCard.overrideReason = record.salaryOverrideReason || '';
+    this.salaryCard.managerCategory = record.salaryManagerCategory || record.salarySystemCategory;
+    this.salaryCard.overrideEnabled = !!record.salaryManagerOverrideReason
+      || (!!record.salaryManagerCategory && record.salaryManagerCategory !== record.salarySystemCategory);
+    this.salaryCard.overrideReason = record.salaryManagerOverrideReason || '';
   }
 
   private fetchReadinessScore(): void {
@@ -402,7 +412,7 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
       card.systemCategory = readiness.systemCategory;
 
       if (!card.overrideEnabled) {
-        card.finalCategory = readiness.systemCategory;
+        card.managerCategory = readiness.systemCategory;
       }
     }
   }
@@ -420,16 +430,16 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
       salaryReadinessScore: this.includesSalary(decisionType) ? this.salaryCard.readinessScore : null,
       promotionSystemCategory: this.includesPromotion(decisionType) ? this.promotionCard.systemCategory : null,
       salarySystemCategory: this.includesSalary(decisionType) ? this.salaryCard.systemCategory : null,
-      promotionFinalCategory: this.includesPromotion(decisionType)
-        ? this.resolveFinalCategory(this.promotionCard)
+      promotionManagerCategory: this.includesPromotion(decisionType)
+        ? this.resolveManagerCategory(this.promotionCard)
         : null,
-      salaryFinalCategory: this.includesSalary(decisionType)
-        ? this.resolveFinalCategory(this.salaryCard)
+      salaryManagerCategory: this.includesSalary(decisionType)
+        ? this.resolveManagerCategory(this.salaryCard)
         : null,
-      promotionOverrideReason: this.includesPromotion(decisionType) && this.promotionCard.overrideEnabled
+      promotionManagerOverrideReason: this.includesPromotion(decisionType) && this.promotionCard.overrideEnabled
         ? this.promotionCard.overrideReason
         : null,
-      salaryOverrideReason: this.includesSalary(decisionType) && this.salaryCard.overrideEnabled
+      salaryManagerOverrideReason: this.includesSalary(decisionType) && this.salaryCard.overrideEnabled
         ? this.salaryCard.overrideReason
         : null,
       managerComment: this.managerComment,
@@ -439,8 +449,13 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
 
   private validateOverrides(): boolean {
     for (const card of this.visibleCards) {
-      if (card.overrideEnabled && !card.finalCategory) {
+      if (card.overrideEnabled && !card.managerCategory) {
         this.message.error(`${card.title} override category is required.`);
+        return false;
+      }
+
+      if (card.overrideEnabled && card.managerCategory === card.systemCategory) {
+        this.message.error('The Manager override category must be different from the System category.');
         return false;
       }
 
@@ -453,9 +468,9 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
     return true;
   }
 
-  private resolveFinalCategory(card: DecisionCardState): AppraisalCategory | null | undefined {
+  private resolveManagerCategory(card: DecisionCardState): AppraisalCategory | null | undefined {
     if (card.overrideEnabled) {
-      return card.finalCategory;
+      return card.managerCategory;
     }
     return card.systemCategory;
   }
@@ -488,7 +503,7 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
       title,
       readinessScore: null,
       systemCategory: null,
-      finalCategory: null,
+      managerCategory: null,
       overrideEnabled: false,
       overrideReason: ''
     };

@@ -336,8 +336,8 @@ export class OrgWideEvaluationComponent implements OnInit {
       const matchesStatus = !this.selectedCandidateStatus
         || record.status === this.selectedCandidateStatus;
       const matchesCategory = !this.selectedCandidateCategory
-        || record.promotionFinalCategory === this.selectedCandidateCategory
-        || record.salaryFinalCategory === this.selectedCandidateCategory;
+        || record.promotionEffectiveCategory === this.selectedCandidateCategory
+        || record.salaryEffectiveCategory === this.selectedCandidateCategory;
 
       return matchesDepartment && matchesDecisionType && matchesStatus && matchesCategory;
     });

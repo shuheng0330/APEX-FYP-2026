@@ -76,14 +76,19 @@
             </nz-tag>
             <span *ngIf="!card.systemCategory">-</span>
 
-            <label class="override-checkbox" nz-checkbox [(ngModel)]="card.overrideEnabled" [nzDisabled]="noClosedCycle || isReadOnly">
+            <label
+              class="override-checkbox"
+              nz-checkbox
+              [ngModel]="card.overrideEnabled"
+              (ngModelChange)="onManagerOverrideToggle(card, $event)"
+              [nzDisabled]="noClosedCycle || isReadOnly">
               Override category
             </label>
 
             <div *ngIf="card.overrideEnabled" class="override-fields">
-              <label class="field-label">Final Category</label>
-              <nz-select class="full-width" [(ngModel)]="card.finalCategory" [nzDisabled]="noClosedCycle || isReadOnly">
-                <nz-option *ngFor="let category of categoryOptions" [nzValue]="category" [nzLabel]="formatCategory(category)"></nz-option>
+              <label class="field-label">Manager Category</label>
+              <nz-select class="full-width" [(ngModel)]="card.managerCategory" [nzDisabled]="noClosedCycle || isReadOnly">
+                <nz-option *ngFor="let category of getManagerCategoryOptions(card)" [nzValue]="category" [nzLabel]="formatCategory(category)"></nz-option>
               </nz-select>
 
               <label class="field-label">Override Reason <span class="required">*</span></label>

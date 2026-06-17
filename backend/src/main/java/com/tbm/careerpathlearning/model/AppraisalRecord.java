@@ -46,14 +46,14 @@ public class AppraisalRecord {
     private AppraisalCategory salarySystemCategory;
 
     @Enumerated(EnumType.STRING)
-    private AppraisalCategory promotionFinalCategory;
+    private AppraisalCategory promotionManagerCategory;
 
     @Enumerated(EnumType.STRING)
-    private AppraisalCategory salaryFinalCategory;
+    private AppraisalCategory salaryManagerCategory;
 
-    private String promotionOverrideReason;
+    private String promotionManagerOverrideReason;
 
-    private String salaryOverrideReason;
+    private String salaryManagerOverrideReason;
 
     private String managerComment;
 
@@ -67,9 +67,14 @@ public class AppraisalRecord {
     private Staff hrReviewer;
 
     @Enumerated(EnumType.STRING)
-    private AppraisalCategory hrOverrideCategory;
+    private AppraisalCategory promotionHrOverrideCategory;
 
-    private String hrOverrideReason;
+    private String promotionHrOverrideReason;
+
+    @Enumerated(EnumType.STRING)
+    private AppraisalCategory salaryHrOverrideCategory;
+
+    private String salaryHrOverrideReason;
 
     private String hrReturnReason;
 

@@ -142,14 +142,14 @@
               <td>
                 <div *ngIf="candidate.decisionType !== 'SALARY_INCREMENT'" class="candidate-category">
                   <span *ngIf="candidate.decisionType === 'BOTH'" class="value-prefix">P:</span>
-                  <nz-tag [nzColor]="getAppraisalCategoryColor(candidate.promotionFinalCategory)">
-                    {{ formatAppraisalValue(candidate.promotionFinalCategory) }}
+                  <nz-tag [nzColor]="getAppraisalCategoryColor(candidate.promotionEffectiveCategory)">
+                    {{ formatAppraisalValue(candidate.promotionEffectiveCategory) }}
                   </nz-tag>
                 </div>
                 <div *ngIf="candidate.decisionType !== 'PROMOTION'" class="candidate-category">
                   <span *ngIf="candidate.decisionType === 'BOTH'" class="value-prefix">S:</span>
-                  <nz-tag [nzColor]="getAppraisalCategoryColor(candidate.salaryFinalCategory)">
-                    {{ formatAppraisalValue(candidate.salaryFinalCategory) }}
+                  <nz-tag [nzColor]="getAppraisalCategoryColor(candidate.salaryEffectiveCategory)">
+                    {{ formatAppraisalValue(candidate.salaryEffectiveCategory) }}
                   </nz-tag>
                 </div>
               </td>

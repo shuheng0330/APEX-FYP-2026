@@ -5,7 +5,9 @@ import lombok.Data;
 
 @Data
 public class HrAppraisalActionDto {
-    private AppraisalCategory hrOverrideCategory;
-    private String hrOverrideReason;
+    private AppraisalCategory promotionHrOverrideCategory;
+    private String promotionHrOverrideReason;
+    private AppraisalCategory salaryHrOverrideCategory;
+    private String salaryHrOverrideReason;
     private String hrReturnReason;
 }

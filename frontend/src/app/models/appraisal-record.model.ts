@@ -9,8 +9,10 @@ export interface AppraisalReadinessDto {
 }
 
 export interface HrAppraisalActionDto {
-  hrOverrideCategory?: AppraisalCategory | null;
-  hrOverrideReason?: string | null;
+  promotionHrOverrideCategory?: AppraisalCategory | null;
+  promotionHrOverrideReason?: string | null;
+  salaryHrOverrideCategory?: AppraisalCategory | null;
+  salaryHrOverrideReason?: string | null;
   hrReturnReason?: string | null;
 }
 
@@ -30,17 +32,21 @@ export interface AppraisalRecordDto {
   salaryReadinessScore?: number | null;
   promotionSystemCategory?: AppraisalCategory | null;
   salarySystemCategory?: AppraisalCategory | null;
-  promotionFinalCategory?: AppraisalCategory | null;
-  salaryFinalCategory?: AppraisalCategory | null;
-  promotionOverrideReason?: string | null;
-  salaryOverrideReason?: string | null;
+  promotionManagerCategory?: AppraisalCategory | null;
+  salaryManagerCategory?: AppraisalCategory | null;
+  promotionManagerOverrideReason?: string | null;
+  salaryManagerOverrideReason?: string | null;
   managerComment?: string | null;
   aiInsight?: string | null;
   status?: AppraisalStatus;
   hrReviewerId?: string | null;
   hrReviewerName?: string | null;
-  hrOverrideCategory?: AppraisalCategory | null;
-  hrOverrideReason?: string | null;
+  promotionHrOverrideCategory?: AppraisalCategory | null;
+  promotionHrOverrideReason?: string | null;
+  salaryHrOverrideCategory?: AppraisalCategory | null;
+  salaryHrOverrideReason?: string | null;
+  promotionEffectiveCategory?: AppraisalCategory | null;
+  salaryEffectiveCategory?: AppraisalCategory | null;
   hrReturnReason?: string | null;
   submittedAt?: string | null;
   approvedAt?: string | null;
