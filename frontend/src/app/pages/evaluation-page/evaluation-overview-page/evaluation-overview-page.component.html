@@ -311,10 +311,16 @@
                   <ng-template #noAppraisalStatus>—</ng-template>
                 </td>
                 <td>
-                  <nz-tag *ngIf="getAppraisalCategory(performer.staff.id) as appraisalCategory; else noAppraisalCategory"
-                    [nzColor]="getAppraisalCategoryColor(appraisalCategory)">
-                    {{ formatAppraisalValue(appraisalCategory) }}
-                  </nz-tag>
+                  <ng-container *ngIf="getAppraisalCategoryItems(performer.staff.id) as appraisalCategories">
+                    <div *ngIf="appraisalCategories.length > 0; else noAppraisalCategory" class="appraisal-category-tags">
+                      <div *ngFor="let item of appraisalCategories" class="appraisal-category-row">
+                        <span class="appraisal-category-label">{{ item.label }}:</span>
+                        <nz-tag [nzColor]="getAppraisalCategoryColor(item.category)">
+                          {{ formatAppraisalValue(item.category) }}
+                        </nz-tag>
+                      </div>
+                    </div>
+                  </ng-container>
                   <ng-template #noAppraisalCategory>—</ng-template>
                 </td>
                 <td>

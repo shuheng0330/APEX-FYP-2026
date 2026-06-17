@@ -44,6 +44,11 @@ interface PerformanceCategory {
   color: string;
 }
 
+interface AppraisalCategoryItem {
+  label: 'P' | 'S';
+  category: AppraisalCategory;
+}
+
 interface ItemData {
   name: string;
   role: Role;
@@ -679,12 +684,30 @@ export class EvaluationOverviewPageComponent implements OnInit {
     return this.appraisalByStaffId.get(staffId)?.status;
   }
 
-  getAppraisalCategory(staffId: string): AppraisalCategory | undefined {
+  getAppraisalCategoryItems(staffId: string): AppraisalCategoryItem[] {
     const record = this.appraisalByStaffId.get(staffId);
-    if (!record) return undefined;
-    return record.decisionType === 'SALARY_INCREMENT'
-      ? record.salaryEffectiveCategory ?? undefined
-      : record.promotionEffectiveCategory ?? undefined;
+    if (!record) return [];
+
+    if (record.decisionType === 'PROMOTION') {
+      return record.promotionEffectiveCategory
+        ? [{ label: 'P', category: record.promotionEffectiveCategory }]
+        : [];
+    }
+
+    if (record.decisionType === 'SALARY_INCREMENT') {
+      return record.salaryEffectiveCategory
+        ? [{ label: 'S', category: record.salaryEffectiveCategory }]
+        : [];
+    }
+
+    const items: AppraisalCategoryItem[] = [];
+    if (record.promotionEffectiveCategory) {
+      items.push({ label: 'P', category: record.promotionEffectiveCategory });
+    }
+    if (record.salaryEffectiveCategory) {
+      items.push({ label: 'S', category: record.salaryEffectiveCategory });
+    }
+    return items;
   }
 
   getAppraisalStatusColor(status?: AppraisalStatus): string {
