@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ReviewPeriodParticipantRepository extends JpaRepository<ReviewPeriodParticipant, Long> {
+    boolean existsByReviewPeriodId(Long reviewPeriodId);
     Optional<ReviewPeriodParticipant> findByReviewPeriodIdAndStaffId(Long reviewPeriodId, UUID staffId);
     List<ReviewPeriodParticipant> findAllByReviewPeriodIdAndSuperiorId(Long reviewPeriodId, UUID superiorId);
     List<ReviewPeriodParticipant> findAllByStaffIdOrderByReviewPeriodStartDateDesc(UUID staffId);

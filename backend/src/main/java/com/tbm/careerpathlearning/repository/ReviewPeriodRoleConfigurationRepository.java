@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ReviewPeriodRoleConfigurationRepository extends JpaRepository<ReviewPeriodRoleConfiguration, Long> {
+    void deleteAllByReviewPeriodId(Long reviewPeriodId);
     List<ReviewPeriodRoleConfiguration> findAllByReviewPeriodIdOrderByIdAsc(Long reviewPeriodId);
     Optional<ReviewPeriodRoleConfiguration> findByReviewPeriodIdAndRoleId(Long reviewPeriodId, Long roleId);
 }

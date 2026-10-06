@@ -3,6 +3,8 @@ package com.tbm.careerpathlearning.service.impl;
 import com.tbm.careerpathlearning.enums.*;
 import com.tbm.careerpathlearning.model.*;
 import com.tbm.careerpathlearning.repository.*;
+import com.tbm.careerpathlearning.mapper.AnnualKpiReviewPeriodMapper;
+import com.tbm.careerpathlearning.service.AnnualReviewPeriodConfigurationValidator;
 import com.tbm.careerpathlearning.service.ReviewCheckpointGenerator;
 import com.tbm.careerpathlearning.service.ReviewPeriodParticipantFactory;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -10,6 +12,7 @@ import jakarta.persistence.Entity;
 import org.hibernate.cfg.Configuration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.mapstruct.factory.Mappers;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
@@ -21,6 +24,9 @@ import java.net.URI;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -117,6 +123,9 @@ class AnnualReviewPeriodPostgresTest {
                     assertThat(periods.existsOverlappingPeriod(period.getStartDate(), period.getEndDate(), period.getId(),
                             List.of(AnnualKpiReviewPeriodStatus.OPEN))).isFalse();
 
+                    verifyApplicationWorkflow(factory, connection, periods, roles, checkpoints, participants,
+                            role, superior, clock(), env);
+
                     reject(connection, "23505", "INSERT INTO review_period_participant(review_period_id,staff_id,review_frequency) "
                             + "SELECT review_period_id,staff_id,review_frequency FROM review_period_participant");
                     reject(connection, "23505", "INSERT INTO review_period_role_configuration(review_period_id,role_id,review_frequency) "
@@ -142,6 +151,75 @@ class AnnualReviewPeriodPostgresTest {
             }
             connection.rollback();
         }
+    }
+
+    private Clock clock() {
+        return Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"));
+    }
+
+    private void verifyApplicationWorkflow(JpaRepositoryFactory factory, Connection connection,
+            AnnualKpiReviewPeriodRepository periods, ReviewPeriodRoleConfigurationRepository configurations,
+            ReviewCheckpointRepository checkpoints, ReviewPeriodParticipantRepository participants,
+            Role role, Staff actor, Clock clock, Dotenv env) throws Exception {
+        var service = new AnnualKpiReviewPeriodServiceImpl(periods, configurations, checkpoints, participants,
+                factory.getRepository(RoleRepository.class), Mappers.getMapper(AnnualKpiReviewPeriodMapper.class),
+                new AnnualReviewPeriodConfigurationValidator(), new ReviewCheckpointGenerator(), clock);
+        var request = AnnualKpiReviewPeriodServiceImplTest.validRequest();
+        request.setName("Application workflow 2028");
+        request.setStartDate(LocalDate.of(2028, 1, 1));
+        request.setEndDate(LocalDate.of(2028, 12, 31));
+        request.setCompanyKpiCreationDeadline(request.getStartDate());
+        request.setDepartmentKpiCreationDeadline(request.getStartDate());
+        request.setIndividualKpiSubmissionDeadline(request.getStartDate());
+        request.setIndividualKpiApprovalDeadline(request.getStartDate());
+        request.setAttitudeSelfAssessmentDeadline(LocalDate.of(2028, 12, 5));
+        request.setSuperiorAttitudeEvaluationDeadline(LocalDate.of(2028, 12, 15));
+        request.setAppraisalRecommendationDeadline(LocalDate.of(2029, 1, 15));
+        request.setHrFinalisationDeadline(LocalDate.of(2029, 1, 25));
+        request.setRoleConfigurations(List.of(AnnualKpiReviewPeriodServiceImplTest.frequency(role.getId(), ReviewFrequency.MONTHLY)));
+
+        long initial = count(connection, "annual_kpi_review_period");
+        assertThat(service.preview(request, null).getCheckpoints()).hasSize(12);
+        assertThat(count(connection, "annual_kpi_review_period")).isEqualTo(initial);
+        var draft = service.create(request, false, actor.getId());
+        assertThat(draft.getCreatedAt()).isNotNull();
+        assertThat(draft.getCreatedBy()).isEqualTo(actor.getId());
+        assertThat(draft.getStatus()).isEqualTo(AnnualKpiReviewPeriodStatus.DRAFT);
+        assertThat(draft.getCheckpoints()).isEmpty();
+        var published = service.publish(draft.getId(), actor.getId());
+        assertThat(published.getStatus()).isEqualTo(AnnualKpiReviewPeriodStatus.UPCOMING);
+        assertThat(published.getCheckpoints()).hasSize(12);
+        assertThat(published.getCheckpoints().get(11).getSuperiorAssessmentDeadline())
+                .isEqualTo(LocalDate.of(2029, 1, 10));
+
+        try (var competing = DriverManager.getConnection(env.get("DB_URL"), env.get("DB_USER"), env.get("DB_PASS"))) {
+            competing.setAutoCommit(false);
+            try (var statement = competing.createStatement();
+                 var result = statement.executeQuery("SELECT pg_try_advisory_xact_lock(20261006, 1)")) {
+                result.next();
+                assertThat(result.getBoolean(1)).as("configuration lock is held until the writer transaction ends").isFalse();
+            } finally {
+                competing.rollback();
+            }
+        }
+        var overlapping = AnnualKpiReviewPeriodServiceImplTest.validRequest();
+        overlapping.setName("Overlapping 2027");
+        overlapping.setRoleConfigurations(request.getRoleConfigurations());
+        assertThatThrownBy(() -> service.create(overlapping, true, actor.getId()))
+                .hasMessageContaining("overlap");
+        assertThat(count(connection, "annual_kpi_review_period")).isEqualTo(initial + 1);
+
+        request.getRoleConfigurations().get(0).setReviewFrequency(ReviewFrequency.QUARTERLY);
+        var updated = service.update(draft.getId(), request, actor.getId());
+        assertThat(updated.getCheckpoints()).hasSize(4);
+        assertThat(service.get(draft.getId()).getRoleConfigurations().get(0).getReviewFrequency())
+                .isEqualTo(ReviewFrequency.QUARTERLY);
+        assertThat(service.list()).hasSize(2);
+        assertThat(service.availableRoles()).isNotEmpty();
+        service.delete(draft.getId());
+        assertThat(count(connection, "annual_kpi_review_period")).isEqualTo(initial);
+        assertThat(configurations.findAllByReviewPeriodIdOrderByIdAsc(draft.getId())).isEmpty();
+        assertThat(checkpoints.findAllByReviewPeriodIdOrderByReviewFrequencyAscSequenceNumberAsc(draft.getId())).isEmpty();
     }
 
     private Staff staff(String name, Role role, OffsetDateTime now) {

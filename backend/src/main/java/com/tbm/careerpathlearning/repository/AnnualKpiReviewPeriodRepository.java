@@ -14,6 +14,13 @@ public interface AnnualKpiReviewPeriodRepository extends JpaRepository<AnnualKpi
     List<AnnualKpiReviewPeriod> findAllByOrderByStartDateDescIdDesc();
     List<AnnualKpiReviewPeriod> findAllByStatus(AnnualKpiReviewPeriodStatus status);
     boolean existsByName(String name);
+    boolean existsByNameAndIdNot(String name, Long id);
+    List<AnnualKpiReviewPeriod> findAllByStatusAndStartDateLessThanEqual(
+            AnnualKpiReviewPeriodStatus status, LocalDate date);
+
+    // A transaction-scoped PostgreSQL lock also protects publication when the table is empty.
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(20261006, 1)", nativeQuery = true)
+    Integer lockConfiguration();
 
     @Query("""
             select count(p) > 0 from AnnualKpiReviewPeriod p

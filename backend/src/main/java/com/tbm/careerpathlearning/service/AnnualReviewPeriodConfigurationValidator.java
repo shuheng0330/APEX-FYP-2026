@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.DateTimeException;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -12,8 +13,8 @@ import java.util.stream.Stream;
 public class AnnualReviewPeriodConfigurationValidator {
     public void validateDraft(AnnualKpiReviewPeriod period) {
         Objects.requireNonNull(period, "Review period is required");
-        if (period.getName() != null && period.getName().isBlank()) {
-            throw new IllegalArgumentException("Review period name cannot be blank");
+        if (period.getName() != null && (period.getName().isBlank() || period.getName().length() > 255)) {
+            throw new IllegalArgumentException("Review period name must contain 1 to 255 characters");
         }
         if (period.getStartDate() != null && period.getEndDate() != null
                 && !period.getStartDate().isBefore(period.getEndDate())) {
@@ -24,6 +25,7 @@ public class AnnualReviewPeriodConfigurationValidator {
                 .filter(Objects::nonNull).forEach(this::validateWeight);
         validateOffset(period.getSelfAssessmentDaysAfterCheckpoint());
         validateOffset(period.getSuperiorAssessmentDaysAfterSelfDeadline());
+        validateDeadlines(period);
     }
 
     public void validateForScheduling(AnnualKpiReviewPeriod period) {
@@ -36,10 +38,38 @@ public class AnnualReviewPeriodConfigurationValidator {
         }
         requireTotal(period.getCompanyKpiWeight(), period.getDepartmentKpiWeight(), period.getIndividualKpiWeight());
         requireTotal(period.getKpiPerformanceWeight(), period.getAttitudeEvaluationWeight());
+    }
+
+    public void validateForPublication(AnnualKpiReviewPeriod period) {
+        validateForScheduling(period);
+        if (Stream.of(period.getCompanyKpiCreationDeadline(), period.getDepartmentKpiCreationDeadline(),
+                        period.getIndividualKpiSubmissionDeadline(), period.getIndividualKpiApprovalDeadline(),
+                        period.getAttitudeSelfAssessmentDeadline(), period.getSuperiorAttitudeEvaluationDeadline(),
+                        period.getAppraisalRecommendationDeadline(), period.getHrFinalisationDeadline())
+                .anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("All KPI setup, attitude and appraisal deadlines are required before publishing");
+        }
+        if (period.getAttitudeSelfAssessmentDeadline().isBefore(period.getStartDate())) {
+            throw new IllegalArgumentException("Attitude self-assessment deadline cannot precede the period start date");
+        }
+        try {
+            LocalDate finalSuperiorDeadline = period.getEndDate()
+                    .plusDays(period.getSelfAssessmentDaysAfterCheckpoint())
+                    .plusDays(period.getSuperiorAssessmentDaysAfterSelfDeadline());
+            if (period.getAppraisalRecommendationDeadline().isBefore(finalSuperiorDeadline)
+                    || period.getAppraisalRecommendationDeadline().isBefore(period.getSuperiorAttitudeEvaluationDeadline())) {
+                throw new IllegalArgumentException("Appraisal recommendation deadline cannot precede final KPI or attitude review deadlines");
+            }
+        } catch (DateTimeException ex) {
+            throw new IllegalArgumentException("Assessment deadline offsets produce an invalid date", ex);
+        }
+    }
+
+    private void validateDeadlines(AnnualKpiReviewPeriod period) {
         Stream.of(period.getCompanyKpiCreationDeadline(), period.getDepartmentKpiCreationDeadline(),
                         period.getIndividualKpiSubmissionDeadline(), period.getIndividualKpiApprovalDeadline())
                 .filter(Objects::nonNull).forEach(deadline -> {
-                    if (deadline.isAfter(period.getStartDate())) {
+                    if (period.getStartDate() != null && deadline.isAfter(period.getStartDate())) {
                         throw new IllegalArgumentException("KPI setup deadlines must not be after the period start date");
                     }
                 });
