@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.model;
 
 import com.tbm.careerpathlearning.dto.OrgChartDto;
+import com.tbm.careerpathlearning.enums.ReviewFrequency;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
@@ -41,6 +42,10 @@ public class Role {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "org_chart_id", referencedColumnName = "id")
     private OrgChart orgChart;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "default_review_frequency", length = 20)
+    private ReviewFrequency defaultReviewFrequency;
 
     public Role() {
     }
@@ -130,5 +135,13 @@ public class Role {
 
     public void setOrgChart(OrgChart orgChart) {
         this.orgChart = orgChart;
+    }
+
+    public ReviewFrequency getDefaultReviewFrequency() {
+        return defaultReviewFrequency;
+    }
+
+    public void setDefaultReviewFrequency(ReviewFrequency defaultReviewFrequency) {
+        this.defaultReviewFrequency = defaultReviewFrequency;
     }
 }
