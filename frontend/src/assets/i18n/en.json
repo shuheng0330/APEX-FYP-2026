@@ -1,4 +1,19 @@
 {
+    "KPI_PLAN": {
+        "COMPANY_TITLE": "Company KPIs",
+        "COMPANY_HELP": "Prepare the Company KPI plan for the selected annual review period. This is a Top Management / MD responsibility.",
+        "PERIOD": "Annual KPI Review Period",
+        "SETUP_DEADLINE": "KPI Setup Deadline",
+        "WEIGHT_HELP": "KPI items within this level must total 100% before submission or publication. The employee's level allocation is applied separately.",
+        "NAME": "KPI Name", "WEIGHT": "Weightage (%)", "TARGET": "Target", "UNIT": "Measurement Unit",
+        "PERSPECTIVE": "Perspective (optional)", "KRA": "KRA (optional, enter manually)", "DESCRIPTION": "Description (optional)",
+        "SCORING": "Scoring Criteria (1-5)", "SCORING_HELP": "Describe the achievement needed for each point. All five criteria are required before submission or publication.",
+        "POINT": "Point", "ITEM": "KPI", "REMOVE": "Remove", "ADD_ITEM": "Add KPI", "TOTAL": "Plan Weightage Total",
+        "SAVE_DRAFT": "Save Draft", "SAVED": "KPI plan saved.", "ERROR": "Unable to complete this action. Please try again.",
+        "LATE_HELP": "KPI setup is overdue. You can still complete the required setup.",
+        "READ_ONLY": "This plan is read-only. Published/approved plans and Closed review periods cannot be changed.",
+        "STATUS": { "DRAFT": "Draft", "PUBLISHED": "Published", "PENDING_APPROVAL": "Pending Approval", "RETURNED": "Returned", "APPROVED": "Approved" }
+    },
     "REVIEW_PERIOD": {
         "TITLE": "Annual KPI Review Periods",
         "CREATE": "Create New Review Period",

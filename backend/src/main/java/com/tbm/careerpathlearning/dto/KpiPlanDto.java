@@ -1,0 +1,27 @@
+package com.tbm.careerpathlearning.dto;
+import com.tbm.careerpathlearning.enums.*;
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+@Data
+public class KpiPlanDto {
+    private Long id;
+    private Long reviewPeriodId;
+    private String reviewPeriodName;
+    private AnnualKpiReviewPeriodStatus reviewPeriodStatus;
+    private LocalDate kpiSetupDeadline;
+    private KpiLevel level;
+    private KpiPlanStatus status;
+    private Long departmentId;
+    private String departmentName;
+    private Long ownerParticipantId;
+    private String employeeName;
+    private List<KpiItemDto> items;
+    private BigDecimal totalWeightage;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private UUID createdBy;
+    private UUID updatedBy;
+    private boolean overdue;
+}

@@ -539,6 +539,10 @@ public class AuthorityController {
 
             Cell cellManageAnnualKpiReviewPeriod = header.createCell(18);
             cellManageAnnualKpiReviewPeriod.setCellValue(MANAGE_ANNUAL_KPI_REVIEW_PERIOD_COLUMN);
+            for (int n=0; n<kpiAuthorities().size(); n++) {
+                Cell cell=header.createCell(19+n);
+                cell.setCellValue(kpiAuthorities().get(n).getAuthorityName());
+            }
             createCellComment(drawing, cellManageAnnualKpiReviewPeriod,
                     messageSource.getMessage(MANAGE_ANNUAL_KPI_REVIEW_PERIOD_NOTES, null, Locale.getDefault()));
 
@@ -573,6 +577,8 @@ public class AuthorityController {
                 row.createCell(16).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_EVALUATION) ? YES : null);
                 row.createCell(17).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_EVALUATION_CYCLE) ? YES : null);
                 row.createCell(18).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD) ? YES : null);
+                for (int n=0; n<kpiAuthorities().size(); n++)
+                    row.createCell(19+n).setCellValue(assignedAuthorities.contains(kpiAuthorities().get(n)) ? YES : null);
 
                 rowIndex++;
             }
@@ -875,6 +881,20 @@ public class AuthorityController {
             }
 
             Set<RoleAuthorityId> toAdd = new HashSet<>(inputtedAuthority);
+            // Missing new columns in older exports must not revoke newer business permissions.
+            for (int n=0; n<kpiAuthorities().size(); n++) {
+                AuthorityName permission=kpiAuthorities().get(n);
+                Long authorityId=allAuthorityNameMap.get(permission);
+                String column=getCellValueAsString(header.getCell(19+n));
+                if (!validationService.isNullOrBlank(column) && !column.equalsIgnoreCase(permission.getAuthorityName()))
+                    throw new BadRequestException("Unrecognised KPI permission column: " + column);
+                if (authorityId==null) continue;
+                RoleAuthorityId assignment=new RoleAuthorityId(roleId,authorityId);
+                if (validationService.isNullOrBlank(column)) {
+                    if (assignedAuthority.contains(assignment)) inputtedAuthority.add(assignment);
+                } else if (YES.equalsIgnoreCase(getCellValueAsString(row.getCell(19+n)))) inputtedAuthority.add(assignment);
+            }
+            toAdd = new HashSet<>(inputtedAuthority);
             toAdd.removeAll(assignedAuthority);
 
             Set<RoleAuthorityId> toRemove = new HashSet<>(assignedAuthority);
@@ -919,5 +939,10 @@ public class AuthorityController {
         } else {
             return cell.getStringCellValue().trim();
         }
+    }
+
+    private List<AuthorityName> kpiAuthorities() {
+        return Arrays.stream(AuthorityName.values()).filter(a -> a.getAuthorityName().endsWith("_KPI")
+                || a.getAuthorityName().endsWith("_KPI_ASSISTANCE")).toList();
     }
 }

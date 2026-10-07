@@ -14,6 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
+    private static final int LATEST_VERSION = 31;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -37,6 +38,7 @@ public class ApplyAnnualReviewPeriodFoundation {
         boolean permissionAlreadyApplied;
         boolean levelsAlreadyApplied;
         boolean refinementAlreadyApplied;
+        long extraApplied;
         long staffCount;
         long roleCount;
         try (var connection = DriverManager.getConnection(url, user, password)) {
@@ -60,12 +62,19 @@ public class ApplyAnnualReviewPeriodFoundation {
                     + "WHERE version='29' AND type='SQL' AND success") == 1;
             refinementAlreadyApplied = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history "
                     + "WHERE version='30' AND type='SQL' AND success") == 1;
+            extraApplied = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history WHERE type='SQL' AND success "
+                    + "AND version::int BETWEEN 31 AND " + LATEST_VERSION);
+            for (int version = 31; version <= LATEST_VERSION; version++) {
+                long applied = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history WHERE type='SQL' AND success AND version='" + version + "'");
+                if (applied != (version < 31 + extraApplied ? 1 : 0) || (applied > 0 && !refinementAlreadyApplied))
+                    throw new IllegalStateException("Non-contiguous Phase 2 migration history");
+            }
             if (historyCount != 0 && (scalar(connection, "SELECT count(*) FROM public.flyway_schema_history "
                     + "WHERE version='26' AND type='BASELINE' AND success") != 1
                     || (permissionAlreadyApplied && !alreadyApplied)
                     || (levelsAlreadyApplied && !permissionAlreadyApplied)
                     || (refinementAlreadyApplied && !levelsAlreadyApplied)
-                    || historyCount != 1 + (alreadyApplied ? 1 : 0) + (permissionAlreadyApplied ? 1 : 0) + (levelsAlreadyApplied ? 1 : 0) + (refinementAlreadyApplied ? 1 : 0))) {
+                    || historyCount != 1 + (alreadyApplied ? 1 : 0) + (permissionAlreadyApplied ? 1 : 0) + (levelsAlreadyApplied ? 1 : 0) + (refinementAlreadyApplied ? 1 : 0) + extraApplied)) {
                 throw new IllegalStateException("Unexpected migration history; no baselining or migration will be attempted");
             }
             long tableCount = scalar(connection, "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
@@ -92,6 +101,10 @@ public class ApplyAnnualReviewPeriodFoundation {
                 throw new IllegalStateException("Partial/untracked V30 schema detected; reconcile it before proceeding");
             staffCount = scalar(connection, "SELECT count(*) FROM public.staff");
             roleCount = scalar(connection, "SELECT count(*) FROM public.role");
+            long kpiTables = scalar(connection, "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                    + "AND table_name IN ('kpi_plan','kpi','kpi_scoring_definition','employee_kpi_assignment')");
+            if (kpiTables != (extraApplied > 0 ? 4 : 0))
+                throw new IllegalStateException("Partial/untracked KPI foundation detected; reconcile before migration");
             connection.rollback();
         }
 
@@ -99,11 +112,11 @@ public class ApplyAnnualReviewPeriodFoundation {
                 .schemas("public").defaultSchema("public")
                 .locations("filesystem:src/main/resources/db/migration/annual-kpi")
                 .baselineVersion("26").baselineDescription("Inherited Hibernate-managed development schema")
-                .baselineOnMigrate(false).outOfOrder(false).cleanDisabled(true).target("30").load();
-        if (!refinementAlreadyApplied) {
+                .baselineOnMigrate(false).outOfOrder(false).cleanDisabled(true).target(Integer.toString(LATEST_VERSION)).load();
+        if (!refinementAlreadyApplied || extraApplied < LATEST_VERSION - 30) {
             var backupDirectory = Path.of(System.getProperty("user.home"), ".apex", "database-backups");
             Files.createDirectories(backupDirectory);
-            var backup = backupDirectory.resolve("before-annual-kpi-V30-"
+            var backup = backupDirectory.resolve("before-annual-kpi-V" + LATEST_VERSION + "-"
                     + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")) + ".dump");
             var dump = new ProcessBuilder(args[1], "--host=" + target.getHost(),
                     "--port=" + (target.getPort() == -1 ? 5432 : target.getPort()), "--username=" + user,

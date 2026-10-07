@@ -41,9 +41,10 @@ export class SideMenuComponent {
     {
       key: 'NAV.KPI_ADMINISTRATION', icon: 'calendar',
       children: [
-        { key: 'NAV.ANNUAL_REVIEW_PERIOD', route: '/kpi-administration/review-periods', requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] }
+        { key: 'NAV.ANNUAL_REVIEW_PERIOD', route: '/kpi-administration/review-periods', requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] },
+        { key: 'KPI_PLAN.COMPANY_TITLE', route: '/kpi-administration/company-kpis', requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] }
       ],
-      requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD']
+      requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD', 'CAN_MANAGE_COMPANY_KPI']
     },
     {
       key: 'NAV.ORGANISATION_MANAGEMENT', icon: 'apartment',
