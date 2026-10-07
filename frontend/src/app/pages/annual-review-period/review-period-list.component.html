@@ -1,0 +1,45 @@
+<main class="review-page">
+  <header class="page-heading">
+    <div><h2>{{ 'REVIEW_PERIOD.TITLE' | translate }}</h2><p class="help">{{ 'REVIEW_PERIOD.LIST_HELP' | translate }}</p></div>
+    <a nz-button nzType="primary" routerLink="/kpi-administration/review-periods/new">{{ 'REVIEW_PERIOD.CREATE' | translate }}</a>
+  </header>
+  @if (error) {
+    <div class="error-box" role="alert">{{ error }} <button nz-button (click)="retry()">{{ 'REVIEW_PERIOD.RETRY' | translate }}</button></div>
+  }
+  <section class="card" [attr.aria-busy]="loading">
+    <div class="filter-bar">
+      <input nz-input [(ngModel)]="query" [placeholder]="'REVIEW_PERIOD.SEARCH' | translate" [attr.aria-label]="'REVIEW_PERIOD.SEARCH' | translate">
+      <nz-select [(ngModel)]="status" nzAllowClear [nzPlaceHolder]="'REVIEW_PERIOD.ALL_STATUSES' | translate">
+        @for (item of statuses; track item) { <nz-option [nzValue]="item" [nzLabel]="('REVIEW_PERIOD.STATUS.' + item) | translate"></nz-option> }
+      </nz-select>
+    </div>
+    @if (loading) { <p class="empty" role="status">{{ 'REVIEW_PERIOD.LOADING' | translate }}</p> }
+    @else if (!error) {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr>
+            <th>{{ 'REVIEW_PERIOD.FIELD.name' | translate }}</th><th>{{ 'REVIEW_PERIOD.FIELD.startDate' | translate }}</th><th>{{ 'REVIEW_PERIOD.FIELD.endDate' | translate }}</th>
+            <th>{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
+          </tr></thead>
+          <tbody>
+            @for (period of filtered; track period.id) {
+              <tr>
+                <td><strong>{{ period.name || ('REVIEW_PERIOD.UNTITLED' | translate) }}</strong></td>
+                <td>{{ period.startDate ? (period.startDate | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</td>
+                <td>{{ period.endDate ? (period.endDate | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</td>
+                <td><span class="status" [attr.data-status]="period.status">{{ ('REVIEW_PERIOD.STATUS.' + period.status) | translate }}</span></td>
+                <td><div class="actions">
+                  <a nz-button nzSize="small" [routerLink]="['/kpi-administration/review-periods', period.id]">{{ 'REVIEW_PERIOD.VIEW' | translate }}</a>
+                  @if (editable(period)) {
+                    <a nz-button nzSize="small" [routerLink]="['/kpi-administration/review-periods', period.id, 'edit']">{{ 'REVIEW_PERIOD.EDIT' | translate }}</a>
+                    <button nz-button nzSize="small" nzDanger [disabled]="deleting !== null" (click)="confirmDelete(period)">{{ 'REVIEW_PERIOD.DELETE' | translate }}</button>
+                  }
+                </div></td>
+              </tr>
+            } @empty { <tr><td colspan="5" class="empty">{{ (periods.length ? 'REVIEW_PERIOD.NO_MATCH' : 'REVIEW_PERIOD.EMPTY') | translate }}</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</main>

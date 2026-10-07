@@ -15,20 +15,24 @@
 
     @for (item of navItems; track item) {
     @if (!item.children) {
-    <li nz-menu-item [routerLink]="item.route" routerLinkActive="active" *ngIf="hasAccess(item)"
+    @if (hasAccess(item)) {
+    <li nz-menu-item [routerLink]="item.route" routerLinkActive="active"
       (click)="onNavClick(item)">
       <nz-icon [nzType]="item.icon!" nzTheme="outline" style="margin-right: 7px;" />
       {{ isCollapsed ? '' : (item.key | translate) }}
     </li>
     }
-    @if (item.children) {
+    }
+    @if (item.children && hasVisibleChildren(item)) {
     <li nz-submenu [nzTitle]="item.key | translate" [nzIcon]="item.icon!" nzTriggerSubMenuAction="click">
       <ul>
         @for (child of item.children!; track child) {
-        <li nz-menu-item *ngIf="hasAccess(child)" [routerLink]="child.route || null" routerLinkActive="active"
+        @if (hasAccess(child)) {
+        <li nz-menu-item [routerLink]="child.route || null" routerLinkActive="active"
           (click)="onNavClick(child)">
           {{ child!.key | translate }}
         </li>
+        }
         }
       </ul>
     </li>

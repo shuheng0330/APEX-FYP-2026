@@ -80,7 +80,7 @@
               "outputHashing": "all",
               "fileReplacements": [
                 {
-                  "replace": "src/environments/environment",
+                  "replace": "src/environments/environment.ts",
                   "with": "src/environments/environment.uat.ts"
                 }
               ]

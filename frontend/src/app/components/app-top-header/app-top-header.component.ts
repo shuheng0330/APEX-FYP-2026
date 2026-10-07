@@ -7,6 +7,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../services/auth.service';
 import { EvaluationCycleDto, EvaluationCycleService } from '../../services/evaluation-cycle.service';
 
@@ -20,7 +21,7 @@ interface PageContext {
   standalone: true,
   imports: [
     CommonModule, NzBadgeModule, NzButtonModule, NzDropDownModule,
-    NzIconModule, NzTagModule
+    NzIconModule, NzTagModule, TranslateModule
   ],
   templateUrl: './app-top-header.component.html',
   styleUrl: './app-top-header.component.scss'
@@ -34,6 +35,7 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
 
   private readonly pageMap: Array<{ prefix: string; page: PageContext }> = [
+    { prefix: '/kpi-administration/review-periods', page: { title: 'REVIEW_PERIOD.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
     { prefix: '/evaluation/org-overview', page: { title: 'Organisation-Wide Performance', group: 'Performance and Appraisal' } },
     { prefix: '/evaluation/overview', page: { title: 'Team Performance', group: 'Performance and Appraisal' } },
     { prefix: '/evaluation/my-evaluation', page: { title: 'My Performance', group: 'Performance and Appraisal' } },

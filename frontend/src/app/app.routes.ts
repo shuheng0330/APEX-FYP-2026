@@ -40,6 +40,17 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'kpi-administration/review-periods',
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] },
+        children: [
+          { path: '', pathMatch: 'full', loadComponent: () => import('./pages/annual-review-period/review-period-list.component').then(m => m.ReviewPeriodListComponent) },
+          { path: 'new', loadComponent: () => import('./pages/annual-review-period/review-period-form.component').then(m => m.ReviewPeriodFormComponent) },
+          { path: ':id/edit', loadComponent: () => import('./pages/annual-review-period/review-period-form.component').then(m => m.ReviewPeriodFormComponent) },
+          { path: ':id', data: { viewOnly: true }, loadComponent: () => import('./pages/annual-review-period/review-period-form.component').then(m => m.ReviewPeriodFormComponent) }
+        ]
+      },
+      {
         path: 'org-chart', component: OrgchartPage,
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'] },

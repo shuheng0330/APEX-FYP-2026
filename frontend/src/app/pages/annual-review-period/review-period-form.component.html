@@ -1,0 +1,188 @@
+<main class="review-page">
+  <a class="back-link" routerLink="/kpi-administration/review-periods">{{ 'REVIEW_PERIOD.BACK' | translate }}</a>
+  @if (loading) { <p class="empty" role="status">{{ 'REVIEW_PERIOD.LOADING' | translate }}</p> }
+  @else {
+    <header class="page-heading">
+      <div>
+        <h2>{{ (viewOnly ? 'REVIEW_PERIOD.VIEW_TITLE' : period ? 'REVIEW_PERIOD.EDIT_TITLE' : 'REVIEW_PERIOD.CREATE') | translate }}</h2>
+        <p class="help">{{ (viewOnly ? 'REVIEW_PERIOD.READ_ONLY_HELP' : 'REVIEW_PERIOD.FORM_HELP') | translate }}</p>
+        @if (period) { <span class="status" [attr.data-status]="period.status">{{ ('REVIEW_PERIOD.STATUS.' + period.status) | translate }}</span> }
+      </div>
+      @if (viewOnly && period && editable(period)) { <a nz-button nzType="primary" [routerLink]="['/kpi-administration/review-periods', period.id, 'edit']">{{ 'REVIEW_PERIOD.EDIT' | translate }}</a> }
+    </header>
+    @if (error) {
+      <div class="error-box" role="alert">{{ error }}<p class="help">{{ 'REVIEW_PERIOD.API_ERROR_HELP' | translate }}</p>
+        @if (errorSection && !viewOnly) { <button nz-button nzType="link" (click)="focusSection(errorSection)">{{ ('REVIEW_PERIOD.SECTION.' + errorSection) | translate }}</button> }
+      </div>
+    }
+    @if (viewOnly && period) { <app-review-period-summary [period]="period"></app-review-period-summary> }
+    @else if (employeeLevels.length) {
+      @if (issues.length) {
+        <div class="error-box" role="alert"><strong>{{ 'REVIEW_PERIOD.FIX_ERRORS' | translate }}</strong>
+          <div class="actions">@for (section of sections; track section) {
+            @if (sectionIssues(section).length) { <button nz-button nzType="link" (click)="focusSection(section)">{{ ('REVIEW_PERIOD.SECTION.' + section) | translate }} ({{ sectionIssues(section).length }})</button> }
+          }</div>
+        </div>
+      }
+      <nav class="section-links" [attr.aria-label]="'REVIEW_PERIOD.SECTIONS' | translate">
+        @for (section of sections; track section) { <button type="button" (click)="focusSection(section)">{{ ('REVIEW_PERIOD.SECTION.' + section) | translate }}</button> }
+      </nav>
+      <form [formGroup]="form" (submit)="$event.preventDefault()">
+        <fieldset [disabled]="busy" style="border: 0; padding: 0; margin: 0; min-width: 0;">
+          <section class="card" id="review-basic" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.basic' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.BASIC_HELP' | translate }}</p></div>
+            <div class="card-body grid">
+              <div class="field" style="grid-column: 1 / -1;">
+                <label for="period-name">{{ 'REVIEW_PERIOD.FIELD.name' | translate }}</label>
+                <input nz-input id="period-name" formControlName="name" maxlength="255" [placeholder]="'REVIEW_PERIOD.NAME_PLACEHOLDER' | translate" [attr.aria-invalid]="!!fieldIssue('name')">
+                @if (fieldIssue('name'); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+              </div>
+              @for (field of ['startDate', 'endDate']; track field) {
+                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
+                  <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" nzFormat="dd MMM yyyy"></nz-date-picker>
+                  @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+                </div>
+              }
+              <p class="help" style="grid-column: 1 / -1;">{{ 'REVIEW_PERIOD.PERIOD_END_HELP' | translate }}</p>
+              @if (!period) {
+                <div class="actions" style="grid-column: 1 / -1;">
+                  <button nz-button type="button" [disabled]="!dates.startDate.value || busy" [nzLoading]="loadingDefaults" (click)="loadDefaults()">{{ 'REVIEW_PERIOD.LOAD_DEFAULTS' | translate }}</button>
+                  <span class="help">{{ defaultsNotice || ('REVIEW_PERIOD.DEFAULTS_HELP' | translate) }}</span>
+                  @if (defaultsNeedRefresh && !loadingDefaults) { <span class="warning">{{ 'REVIEW_PERIOD.DEFAULTS_CHANGED_DATE' | translate }}</span> }
+                </div>
+              }
+            </div>
+          </section>
+          <section class="card" id="review-roles" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.roles' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.ROLES_HELP' | translate }}</p>
+              @if (sectionIssues('roles').length) { <p class="field-error">{{ 'REVIEW_PERIOD.ERROR.ROLES_HELP' | translate }}</p> }
+            </div>
+            <div class="filter-bar">
+              <input nz-input [ngModel]="roleSearch" (ngModelChange)="roleSearch = $event" [ngModelOptions]="{standalone: true}" [placeholder]="'REVIEW_PERIOD.SEARCH_ROLES' | translate" [attr.aria-label]="'REVIEW_PERIOD.SEARCH_ROLES' | translate">
+              <nz-select [ngModel]="departmentFilter" (ngModelChange)="departmentFilter = $event" [ngModelOptions]="{standalone: true}" nzAllowClear [nzPlaceHolder]="'REVIEW_PERIOD.ALL_DEPARTMENTS' | translate">
+                @for (department of departments; track department) { <nz-option [nzValue]="department" [nzLabel]="department"></nz-option> }
+              </nz-select>
+              <button nz-button type="button" (click)="selectAll(true)">{{ 'REVIEW_PERIOD.SELECT_VISIBLE' | translate }}</button>
+              <button nz-button type="button" (click)="selectAll(false)">{{ 'REVIEW_PERIOD.CLEAR_VISIBLE' | translate }}</button>
+              <button nz-button type="button" [disabled]="busy" [nzLoading]="loadingRoles" (click)="refreshRoles()">{{ 'REVIEW_PERIOD.REFRESH_ROLES' | translate }}</button>
+            </div>
+            <div class="table-scroll" formArrayName="roleConfigurations"><table class="data-table">
+              <thead><tr><th>{{ 'REVIEW_PERIOD.INCLUDE' | translate }}</th><th>{{ 'REVIEW_PERIOD.ROLE' | translate }}</th><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.FREQUENCY_LABEL' | translate }}</th></tr></thead>
+              <tbody>@for (row of roleRows.controls; track row.controls.roleId.value; let index = $index) {
+                @if (roleVisible(index)) {
+                  <tr [formGroupName]="index">
+                    <td><label nz-checkbox formControlName="selected" [nzDisabled]="busy" [attr.aria-label]="roleOptions[index].roleName"></label></td>
+                    <td><strong>{{ roleOptions[index].roleName }}</strong><div class="help">{{ roleOptions[index].departmentName }}</div></td>
+                    <td>
+                      {{ roleOptions[index].employeeLevelName || ('REVIEW_PERIOD.UNCLASSIFIED' | translate) }}
+                      @if (!roleOptions[index].employeeLevelId && row.controls.selected.value) {
+                        <small class="field-error">{{ 'REVIEW_PERIOD.CLASSIFY_ROLE' | translate }}</small>
+                        @if (auth.hasRole('CAN_MANAGE_ROLE')) { <a routerLink="/roles" target="_blank" rel="noopener">{{ 'REVIEW_PERIOD.OPEN_ROLES' | translate }}</a> }
+                      }
+                    </td>
+                    <td><nz-select formControlName="reviewFrequency" [nzDisabled]="!row.controls.selected.value || busy || loadingDefaults" style="width: 145px;">
+                      @for (frequency of frequencies; track frequency) { <nz-option [nzValue]="frequency" [nzLabel]="('REVIEW_PERIOD.FREQUENCY.' + frequency) | translate"></nz-option> }
+                    </nz-select></td>
+                  </tr>
+                }
+              } @empty { <tr><td colspan="4">{{ 'REVIEW_PERIOD.NO_ROLES' | translate }}</td></tr> }</tbody>
+            </table></div>
+            <div class="card-body help">{{ 'REVIEW_PERIOD.SELECTED_ROLES' | translate:{count: selectedRoleCount} }}</div>
+          </section>
+          <section class="card" id="review-levels" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.levels' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.LEVELS_HELP' | translate }}</p></div>
+            <div class="table-scroll" formArrayName="employeeLevelConfigurations"><table class="data-table">
+              <thead><tr><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.COMPANY' | translate }} (%)</th><th>{{ 'REVIEW_PERIOD.DEPARTMENT' | translate }} (%)</th><th>{{ 'REVIEW_PERIOD.INDIVIDUAL' | translate }} (%)</th><th>{{ 'REVIEW_PERIOD.TOTAL' | translate }}</th></tr></thead>
+              <tbody>@for (row of levelRows.controls; track row.controls.employeeLevelId.value; let index = $index) {
+                <tr [formGroupName]="index"><td><strong>{{ employeeLevels[index].name }}</strong></td>
+                  @for (field of ['companyKpiWeight', 'departmentKpiWeight', 'individualKpiWeight']; track field) {
+                    <td><nz-input-number [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzStep]="1" [nzDisabled]="busy || loadingDefaults" style="width: 100px;" [attr.aria-label]="employeeLevels[index].name + ' ' + (('REVIEW_PERIOD.FIELD.' + field) | translate)"></nz-input-number></td>
+                  }
+                  <td class="total" [class.valid]="total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) === 100" [class.invalid]="total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) !== 100">
+                    {{ total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) ?? '-' }} / 100%
+                  </td>
+                </tr>
+              }</tbody>
+            </table></div>
+            @if (sectionIssues('levels').length) { <p class="card-body field-error">{{ 'REVIEW_PERIOD.ERROR.LEVELS_HELP' | translate }}</p> }
+          </section>
+          <section class="card" id="review-composition" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.composition' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.COMPOSITION_HELP' | translate }}</p></div>
+            <div class="card-body grid">
+              @for (field of ['kpiPerformanceWeight', 'attitudeEvaluationWeight']; track field) {
+                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} (%)</label>
+                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzDisabled]="busy"></nz-input-number>
+                  @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+                </div>
+              }
+              <div class="total" [class.valid]="total(form.controls.kpiPerformanceWeight.value, form.controls.attitudeEvaluationWeight.value) === 100" [class.invalid]="total(form.controls.kpiPerformanceWeight.value, form.controls.attitudeEvaluationWeight.value) !== 100">
+                {{ 'REVIEW_PERIOD.TOTAL' | translate }}: {{ total(form.controls.kpiPerformanceWeight.value, form.controls.attitudeEvaluationWeight.value) ?? '-' }} / 100%
+                @if (fieldIssue('composition'); as issue) { <small class="field-error">{{ issue.key | translate }}</small> }
+              </div>
+            </div>
+          </section>
+          <section class="card" id="review-consolidation" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.consolidation' | translate }}</h3></div>
+            <div class="card-body"><nz-radio-group formControlName="annualKpiConsolidationMethod" [nzDisabled]="busy">
+              <label nz-radio nzValue="FINAL_CHECKPOINT">{{ 'REVIEW_PERIOD.CONSOLIDATION.FINAL_CHECKPOINT' | translate }}</label>
+              <label nz-radio nzValue="AVERAGE">{{ 'REVIEW_PERIOD.CONSOLIDATION.AVERAGE' | translate }}</label>
+            </nz-radio-group>
+              <p class="help">{{ 'REVIEW_PERIOD.CONSOLIDATION_HELP' | translate }}</p>
+              @if (fieldIssue('annualKpiConsolidationMethod'); as issue) { <small class="field-error">{{ issue.key | translate }}</small> }
+            </div>
+          </section>
+          <section class="card" id="review-setup" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.setup' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.SETUP_HELP' | translate }}</p></div>
+            <div class="card-body grid">@for (field of setupDeadlines; track field) {
+              <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
+                <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" nzFormat="dd MMM yyyy"></nz-date-picker>
+                @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+              </div>
+            }</div>
+          </section>
+          <section class="card" id="review-assessment" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.assessment' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.ASSESSMENT_HELP' | translate }}</p></div>
+            <div class="card-body grid">
+              @for (field of ['selfAssessmentDaysAfterCheckpoint', 'superiorAssessmentDaysAfterSelfDeadline']; track field) {
+                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
+                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="1" [nzStep]="1" [nzDisabled]="busy"></nz-input-number>
+                  <p class="help">{{ (field === 'selfAssessmentDaysAfterCheckpoint' ? 'REVIEW_PERIOD.DAYS_AFTER_CHECKPOINT' : 'REVIEW_PERIOD.DAYS_AFTER_SELF') | translate }}</p>
+                  @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+                </div>
+              }
+            </div>
+          </section>
+          <section class="card" id="review-attitude" tabindex="-1">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.attitude' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_HELP' | translate }}</p></div>
+            <div class="card-body grid">@for (field of finalDeadlines; track field) {
+              <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
+                <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" nzFormat="dd MMM yyyy"></nz-date-picker>
+                @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+              </div>
+            }</div>
+          </section>
+        </fieldset>
+        <div class="footer-actions">
+          <a nz-button routerLink="/kpi-administration/review-periods">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</a>
+          <button nz-button type="button" [disabled]="busy || loadingDefaults || loadingRoles" (click)="save()">{{ (period?.status === 'UPCOMING' ? 'REVIEW_PERIOD.SAVE_CHANGES' : 'REVIEW_PERIOD.SAVE_DRAFT') | translate }}</button>
+          <button nz-button type="button" [disabled]="busy || loadingDefaults || loadingRoles" (click)="preview()">{{ 'REVIEW_PERIOD.PREVIEW' | translate }}</button>
+          @if (!period || period.status === 'DRAFT') { <button nz-button nzType="primary" type="button" [disabled]="busy || loadingDefaults || loadingRoles" (click)="preview()">{{ 'REVIEW_PERIOD.PREVIEW_PUBLISH' | translate }}</button> }
+        </div>
+      </form>
+    }
+  }
+</main>
+<nz-modal [nzVisible]="!!previewPeriod" [nzTitle]="'REVIEW_PERIOD.PREVIEW_TITLE' | translate" [nzWidth]="1100" [nzStyle]="{top: '24px', maxWidth: 'calc(100vw - 32px)'}" [nzBodyStyle]="{maxHeight: '75vh', overflowY: 'auto', background: 'var(--tbm-page)'}" [nzMaskClosable]="false" [nzClosable]="!busy" [nzFooter]="previewFooter" (nzOnCancel)="previewPeriod = null">
+  <ng-container *nzModalContent>
+    @if (previewPeriod) {
+      <p class="notice">{{ 'REVIEW_PERIOD.PREVIEW_HELP' | translate }}</p>
+      <app-review-period-summary [period]="previewPeriod"></app-review-period-summary>
+    }
+  </ng-container>
+</nz-modal>
+<ng-template #previewFooter>
+  <button nz-button [disabled]="busy" (click)="previewPeriod = null">{{ 'REVIEW_PERIOD.BACK_TO_FORM' | translate }}</button>
+  @if (!period || period.status === 'DRAFT') {
+    <button nz-button nzType="primary" [nzLoading]="busy" (click)="publish()">{{ 'REVIEW_PERIOD.PUBLISH' | translate }}</button>
+  }
+</ng-template>

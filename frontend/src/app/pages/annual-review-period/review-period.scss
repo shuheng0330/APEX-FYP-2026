@@ -1,0 +1,45 @@
+:host { display: block; color: var(--tbm-text); }
+.review-page { max-width: 1480px; margin: auto; padding: 24px; }
+.page-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; }
+.page-heading h2 { font-size: 24px; margin-bottom: 6px; }
+.muted, .help { color: var(--tbm-muted); }
+.help { font-size: 13px; line-height: 1.6; margin: 6px 0 0; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.card { background: var(--tbm-surface); border: 1px solid var(--tbm-border); border-radius: 10px; box-shadow: var(--tbm-shadow); margin-bottom: 20px; overflow: hidden; scroll-margin-top: 96px; }
+.card:focus { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
+.card-head { padding: 18px 22px; border-bottom: 1px solid var(--tbm-border); }
+.card-head h3 { font-size: 16px; }
+.card-body { padding: 22px; }
+.filter-bar { display: flex; gap: 12px; flex-wrap: wrap; padding: 18px; }
+.filter-bar input { flex: 1; min-width: 200px; }
+.filter-bar nz-select { min-width: 150px; }
+.table-scroll { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { background: var(--tbm-surface-subtle); color: var(--tbm-muted); text-align: left; font-size: 12px; font-weight: 600; padding: 14px 18px; }
+.data-table td { padding: 14px 18px; border-top: 1px solid var(--tbm-border); vertical-align: middle; }
+.data-table tbody tr:hover { background: var(--tbm-surface-subtle); }
+.status { display: inline-block; padding: 4px 10px; border-radius: 20px; background: #eef1f5; color: var(--tbm-muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.status[data-status='UPCOMING'] { background: #fff5df; color: #916000; }
+.status[data-status='OPEN'] { background: #e6f6f2; color: #087a6e; }
+.status[data-status='DRAFT'] { background: #edf3fc; color: var(--tbm-primary); }
+.empty { padding: 40px 24px; text-align: center; }
+.error-box { background: #fff2f0; border: 1px solid #efb5ad; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
+.notice { background: #edf3fc; border: 1px solid #cddcf1; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; }
+.warning { color: #916000; }
+.invalid { color: var(--tbm-danger); }
+.valid { color: var(--tbm-positive); }
+.total { font-weight: 700; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.field label { font-weight: 600; font-size: 13px; }
+.field nz-date-picker, .field nz-select, .field nz-input-number { width: 100%; }
+.field-error { display: block; font-size: 12px; color: var(--tbm-danger); }
+.section-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+.section-links button { border: 1px solid var(--tbm-border); border-radius: 18px; background: white; color: var(--tbm-primary); padding: 6px 14px; cursor: pointer; }
+.footer-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding: 16px 20px; background: var(--tbm-surface); border: 1px solid var(--tbm-border); border-radius: 10px; position: sticky; bottom: 12px; z-index: 2; box-shadow: var(--tbm-shadow); }
+.back-link { display: inline-block; margin-bottom: 16px; }
+.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 30px; }
+.summary-grid dt { font-size: 12px; color: var(--tbm-muted); margin-bottom: 4px; }
+.summary-grid dd { margin: 0; font-size: 14px; font-weight: 600; }
+@media (max-width: 900px) { .page-heading { flex-direction: column; } .review-page { padding: 16px; } }
+@media (max-width: 600px) { .grid, .summary-grid { grid-template-columns: 1fr; } .card-body { padding: 16px; } .footer-actions { position: static; } }

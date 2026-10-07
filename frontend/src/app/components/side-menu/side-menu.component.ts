@@ -39,6 +39,13 @@ export class SideMenuComponent {
 
   navItems: NavItem[] = [
     {
+      key: 'NAV.KPI_ADMINISTRATION', icon: 'calendar',
+      children: [
+        { key: 'NAV.ANNUAL_REVIEW_PERIOD', route: '/kpi-administration/review-periods', requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] }
+      ],
+      requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD']
+    },
+    {
       key: 'NAV.ORGANISATION_MANAGEMENT', icon: 'apartment',
       children: [
         { key: 'NAV.ORG_CHART', route: '/org-chart', requiredRoles: ['ROLE_USER'] },
@@ -90,6 +97,10 @@ export class SideMenuComponent {
       return true;
     }
     return item.requiredRoles.some(role => this.authService.hasRole(role));
+  }
+
+  hasVisibleChildren(item: NavItem): boolean {
+    return !!item.children?.some(child => this.hasAccess(child));
   }
 
   onProfileClick(): void {

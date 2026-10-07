@@ -1,0 +1,54 @@
+<section class="card">
+  <div class="card-head"><h3>{{ period.name || ('REVIEW_PERIOD.UNTITLED' | translate) }}</h3></div>
+  <div class="card-body">
+    <dl class="summary-grid">
+      <div><dt>{{ 'REVIEW_PERIOD.FIELD.startDate' | translate }}</dt><dd>{{ period.startDate ? (period.startDate | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
+      <div><dt>{{ 'REVIEW_PERIOD.FIELD.endDate' | translate }}</dt><dd>{{ period.endDate ? (period.endDate | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
+      <div><dt>{{ 'REVIEW_PERIOD.SECTION.composition' | translate }}</dt><dd>{{ period.kpiPerformanceWeight ?? '-' }}% {{ 'REVIEW_PERIOD.KPI_PERFORMANCE' | translate }} / {{ period.attitudeEvaluationWeight ?? '-' }}% {{ 'REVIEW_PERIOD.ATTITUDE' | translate }}</dd></div>
+      <div><dt>{{ 'REVIEW_PERIOD.SECTION.consolidation' | translate }}</dt><dd>{{ period.annualKpiConsolidationMethod ? (('REVIEW_PERIOD.CONSOLIDATION.' + period.annualKpiConsolidationMethod) | translate) : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
+    </dl>
+    <p class="help">{{ 'REVIEW_PERIOD.PERIOD_END_HELP' | translate }}</p>
+  </div>
+</section>
+<section class="card">
+  <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.roles' | translate }}</h3></div>
+  <div class="table-scroll"><table class="data-table">
+    <thead><tr><th>{{ 'REVIEW_PERIOD.ROLE' | translate }}</th><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.FREQUENCY_LABEL' | translate }}</th></tr></thead>
+    <tbody>@for (role of period.roleConfigurations; track role.roleId) {
+      <tr><td><strong>{{ role.roleName }}</strong><div class="help">{{ role.departmentName }}</div></td><td>{{ role.employeeLevelName || ('REVIEW_PERIOD.UNCLASSIFIED' | translate) }}</td><td>{{ ('REVIEW_PERIOD.FREQUENCY.' + role.reviewFrequency) | translate }}</td></tr>
+    } @empty { <tr><td colspan="3">{{ 'REVIEW_PERIOD.NO_ROLES' | translate }}</td></tr> }</tbody>
+  </table></div>
+</section>
+<section class="card">
+  <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.levels' | translate }}</h3></div>
+  <div class="table-scroll"><table class="data-table">
+    <thead><tr><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.COMPANY' | translate }}</th><th>{{ 'REVIEW_PERIOD.DEPARTMENT' | translate }}</th><th>{{ 'REVIEW_PERIOD.INDIVIDUAL' | translate }}</th><th>{{ 'REVIEW_PERIOD.TOTAL' | translate }}</th></tr></thead>
+    <tbody>@for (level of period.employeeLevelConfigurations; track level.employeeLevelId) {
+      <tr><td>{{ level.employeeLevelName }}</td><td>{{ level.companyKpiWeight ?? '-' }}%</td><td>{{ level.departmentKpiWeight ?? '-' }}%</td><td>{{ level.individualKpiWeight ?? '-' }}%</td><td>{{ total(level.companyKpiWeight, level.departmentKpiWeight, level.individualKpiWeight) ?? '-' }}%</td></tr>
+    } @empty { <tr><td colspan="5">{{ 'REVIEW_PERIOD.NOT_SET' | translate }}</td></tr> }</tbody>
+  </table></div>
+</section>
+<section class="card">
+  <div class="card-head"><h3>{{ 'REVIEW_PERIOD.DEADLINES' | translate }}</h3></div>
+  <div class="card-body"><dl class="summary-grid">
+    @for (field of setupDeadlines; track field) { <div><dt>{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</dt><dd>{{ period[field] ? (period[field] | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div> }
+    <div><dt>{{ 'REVIEW_PERIOD.FIELD.selfAssessmentDaysAfterCheckpoint' | translate }}</dt><dd>{{ period.selfAssessmentDaysAfterCheckpoint ?? '-' }} {{ 'REVIEW_PERIOD.DAYS_AFTER_CHECKPOINT' | translate }}</dd></div>
+    <div><dt>{{ 'REVIEW_PERIOD.FIELD.superiorAssessmentDaysAfterSelfDeadline' | translate }}</dt><dd>{{ period.superiorAssessmentDaysAfterSelfDeadline ?? '-' }} {{ 'REVIEW_PERIOD.DAYS_AFTER_SELF' | translate }}</dd></div>
+    @for (field of finalDeadlines; track field) { <div><dt>{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</dt><dd>{{ period[field] ? (period[field] | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div> }
+  </dl></div>
+</section>
+<section class="card">
+  <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SCHEDULE' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.SCHEDULE_HELP' | translate }}</p></div>
+  @if (!period.checkpoints.length) { <p class="empty">{{ 'REVIEW_PERIOD.NO_SCHEDULE' | translate }}</p> }
+  @else {
+    <div class="card-body actions">@for (frequency of scheduleFrequencies; track frequency) {
+      <button nz-button [nzType]="schedule[0].reviewFrequency === frequency ? 'primary' : 'default'" (click)="selectedFrequency = frequency">{{ ('REVIEW_PERIOD.FREQUENCY.' + frequency) | translate }}</button>
+    }</div>
+    <p class="card-body help">{{ 'REVIEW_PERIOD.APPLIES_TO' | translate }} {{ rolesFor(schedule[0].reviewFrequency) }}</p>
+    <div class="table-scroll"><table class="data-table"><thead><tr>
+      <th>{{ 'REVIEW_PERIOD.CHECKPOINT' | translate }}</th><th>{{ 'REVIEW_PERIOD.PERFORMANCE_DATES' | translate }}</th><th>{{ 'REVIEW_PERIOD.SELF_DEADLINE' | translate }}</th><th>{{ 'REVIEW_PERIOD.SUPERIOR_DEADLINE' | translate }}</th>
+    </tr></thead><tbody>@for (checkpoint of schedule; track checkpoint.sequenceNumber) {
+      <tr><td>{{ ('REVIEW_PERIOD.FREQUENCY.' + checkpoint.reviewFrequency) | translate }} {{ checkpoint.sequenceNumber }}</td><td>{{ checkpoint.startDate | date:'dd MMM yyyy' }} - {{ checkpoint.endDate | date:'dd MMM yyyy' }}</td><td>{{ checkpoint.selfAssessmentDeadline | date:'dd MMM yyyy' }}</td><td>{{ checkpoint.superiorAssessmentDeadline | date:'dd MMM yyyy' }}</td></tr>
+    }</tbody></table></div>
+  }
+</section>
