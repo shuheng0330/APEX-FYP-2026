@@ -15,6 +15,15 @@ public class KpiPlanValidatorTest {
     @Test void rejectsZeroPoint() {var a=item("A","100");a.getScoringDefinitions().put(0,"Zero");assertThrows(BadRequestException.class,()->validator.validate(List.of(a),false));}
     @Test void rejectsMoreThanTwoDecimals() {assertThrows(BadRequestException.class,()->validator.validate(List.of(item("A","1.001")),false));}
     @Test void requiresAllFiveCriteria() {var a=item("A","100");a.getScoringDefinitions().remove(5);assertThrows(BadRequestException.class,()->validator.validate(List.of(a),true));}
+    @Test void completeUiItemDoesNotRequireHiddenMeasurementUnitOrDescription() {
+        var a=item("A","100");a.setPerspective("Financial");a.setKra("Revenue growth");
+        a.setMeasurementUnit(null);a.setDescription(null);
+        assertEquals(new BigDecimal("100"),validator.validate(List.of(a),true));
+    }
+    @Test void validatesRetainedMeasurementUnitWhenProvided() {
+        var a=item("A","100");a.setMeasurementUnit("x".repeat(101));
+        assertThrows(BadRequestException.class,()->validator.validate(List.of(a),true));
+    }
     public static KpiItemDto item(String name,String weight) {
         var i=new KpiItemDto();i.setName(name);i.setTarget("8% growth");i.setMeasurementUnit("%");i.setWeightage(new BigDecimal(weight));
         for(int p=1;p<=5;p++) i.getScoringDefinitions().put(p,"Criterion "+p);

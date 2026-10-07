@@ -18,7 +18,7 @@ public class KpiPlanValidator {
             text(item.getKra(),255,"KRA",false);
             text(item.getDescription(),10000,"Description",false);
             text(item.getTarget(),10000,"Target",complete);
-            text(item.getMeasurementUnit(),100,"Measurement Unit",complete);
+            text(item.getMeasurementUnit(),100,"Measurement Unit",false);
             if (item.getName()!=null && !item.getName().isBlank() && !names.add(item.getName().strip().toLowerCase(Locale.ROOT)))
                 throw new BadRequestException("KPI names must be unique within the plan");
             var weight=item.getWeightage();

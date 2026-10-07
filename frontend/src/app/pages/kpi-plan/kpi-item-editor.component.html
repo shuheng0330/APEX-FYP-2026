@@ -1,0 +1,78 @@
+@for (item of items; track item; let index = $index) {
+  <section class="kpi-editor">
+    @if (!singleItem) {
+      <div class="actions"><h3>{{ 'KPI_PLAN.ITEM' | translate }} {{ index + 1 }}</h3>
+        @if (!readonly) { <button nz-button nzDanger (click)="items.splice(index, 1)">{{ 'KPI_PLAN.REMOVE' | translate }}</button> }
+      </div>
+    }
+    <section class="editor-section" [attr.aria-labelledby]="'information-heading-' + index">
+      <h3 [id]="'information-heading-' + index" class="editor-section-heading">1 — {{ 'KPI_PLAN.INFORMATION' | translate }}</h3>
+      @if (readonly) {
+        <dl class="kpi-details">
+          @for (field of fields; track field.key) {
+            <div><dt>{{ 'KPI_PLAN.' + field.label | translate }}</dt><dd>{{ item[field.key] || ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
+          }
+          <div><dt>{{ 'KPI_PLAN.WEIGHT' | translate }}</dt><dd>{{ item.weightage === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : item.weightage + '%' }}</dd></div>
+        </dl>
+      } @else {
+        <div class="information-fields">
+          @for (field of fields; track field.key) {
+            <div class="field">
+              <div class="field-label">
+                <label [for]="field.key + '-' + index">{{ 'KPI_PLAN.' + field.label | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+                @if (field.tooltip) {
+                  <span nz-icon nzType="info-circle" nz-tooltip [nzTooltipTitle]="'KPI_PLAN.' + field.tooltip | translate"
+                    tabindex="0" role="img" [attr.aria-label]="'KPI_PLAN.' + field.tooltip | translate"></span>
+                }
+              </div>
+              <input nz-input [id]="field.key + '-' + index" required [maxlength]="field.key === 'target' ? 10000 : 255"
+                [placeholder]="'KPI_PLAN.PLACEHOLDER.' + field.key | translate" [(ngModel)]="item[field.key]" (ngModelChange)="clearError(field.key)"
+                [attr.aria-invalid]="!!errors[field.key]" [attr.aria-describedby]="errors[field.key] ? field.key + '-error-' + index : null">
+              @if (errors[field.key]) { <span class="field-error" [id]="field.key + '-error-' + index">{{ errors[field.key] | translate }}</span> }
+            </div>
+          }
+          <div class="field">
+            <label [for]="'weightage-' + index">{{ 'KPI_PLAN.WEIGHT' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+            <input nz-input type="number" [id]="'weightage-' + index" required min="0" max="100" step="0.01"
+              [placeholder]="'KPI_PLAN.PLACEHOLDER.weightage' | translate" [(ngModel)]="item.weightage"
+              (keydown)="preventNonNumeric($event)" (ngModelChange)="clearError('weightage')"
+              [attr.aria-invalid]="!!errors['weightage']" [attr.aria-describedby]="'weightage-help-' + index">
+            <span class="help" [id]="'weightage-help-' + index">{{ 'KPI_PLAN.WEIGHT_FIELD_HELP' | translate }}</span>
+            @if (errors['weightage']) { <span class="field-error">{{ errors['weightage'] | translate }}</span> }
+          </div>
+        </div>
+      }
+    </section>
+    <section class="editor-section" [attr.aria-labelledby]="'scoring-heading-' + index">
+      <h3 [id]="'scoring-heading-' + index" class="editor-section-heading">2 — {{ 'KPI_PLAN.SCORING' | translate }}</h3>
+      <p class="help">{{ 'KPI_PLAN.SCORING_HELP' | translate }}</p>
+      @if (!readonly) {
+        <aside class="scoring-guide">
+          <strong>{{ 'KPI_PLAN.SCORING_GUIDE' | translate }}</strong>
+          <p class="help">{{ 'KPI_PLAN.SCORING_GUIDE_HELP' | translate }}</p>
+        </aside>
+      }
+      @for (point of points; track point) {
+        <div class="criterion">
+          <label [for]="'point-' + point + '-' + index" class="point-label">{{ 'KPI_PLAN.POINT' | translate }} {{ point }}
+            @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }
+          </label>
+          @if (readonly) {
+            <p class="criterion-value">{{ item.scoringDefinitions[point] || ('REVIEW_PERIOD.NOT_SET' | translate) }}</p>
+          } @else {
+            <div class="field">
+              <textarea nz-input [id]="'point-' + point + '-' + index" required maxlength="10000"
+                [placeholder]="'KPI_PLAN.PLACEHOLDER.point' | translate:{ point: point }"
+                [ngModel]="item.scoringDefinitions[point]" (ngModelChange)="setCriterion(item, point, $event)"
+                [attr.aria-invalid]="!!errors['point' + point]" [attr.aria-describedby]="errors['point' + point] ? 'point-error-' + point + '-' + index : null"></textarea>
+              @if (errors['point' + point]) { <span class="field-error" [id]="'point-error-' + point + '-' + index">{{ errors['point' + point] | translate }}</span> }
+            </div>
+          }
+        </div>
+      }
+    </section>
+  </section>
+}
+@if (!singleItem && !readonly) {
+  <button nz-button (click)="items.push(newItem())">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button>
+}

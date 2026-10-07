@@ -5,8 +5,29 @@ textarea { min-height: 64px; resize: vertical; }
 .plan-picker { min-width: 280px; max-width: 100%; }
 .plan-summary { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
 .weight-total { font-size: 28px; font-weight: 700; margin: 4px 0; }
+.weight-progress { height: 7px; max-width: 520px; background: var(--tbm-surface-subtle); border-radius: 6px; overflow: hidden; margin: 12px 0; }
+.weight-progress span { display: block; height: 100%; background: var(--tbm-positive); }
+.weight-progress .over-limit { background: var(--tbm-danger); }
+.plan-summary > div:first-child { flex: 1; }
+.editor-section + .editor-section { margin-top: 32px; }
+.editor-section-heading { font-size: 13px; font-weight: 700; color: var(--tbm-muted); text-transform: uppercase; border-bottom: 1px solid var(--tbm-border); padding-bottom: 16px; margin-bottom: 22px; }
+.information-fields { display: grid; gap: 22px; }
+.field-label { display: flex; align-items: center; gap: 6px; }
+.field-label [nz-icon] { color: var(--tbm-muted); cursor: help; }
+.required-mark { color: var(--tbm-danger); }
+.kpi-editor input, .kpi-editor textarea { padding: 10px 12px; border-radius: 8px; }
+.kpi-editor [aria-invalid='true'] { border-color: var(--tbm-danger); }
+.scoring-guide { background: var(--tbm-surface-subtle); border: 1px solid var(--tbm-border); border-radius: 8px; padding: 14px 16px; margin: 18px 0; font-size: 13px; }
+.point-label { color: var(--tbm-primary); font-size: 13px; font-weight: 600; padding-top: 10px; }
+.kpi-details { display: grid; gap: 18px; }
+.kpi-details dt { color: var(--tbm-muted); font-size: 13px; margin-bottom: 6px; }
+.kpi-details dd, .criterion-value { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.criterion-value { background: var(--tbm-surface-subtle); border-radius: 8px; padding: 12px; min-width: 0; }
 .target-cell { max-width: 460px; overflow-wrap: anywhere; }
 .drawer-help { margin-bottom: 20px; }
+.drawer-title { display: flex; flex-direction: column; gap: 3px; }
+.drawer-title strong { font-size: 17px; color: var(--tbm-text); }
+.drawer-title span { font-size: 12px; font-weight: 400; color: var(--tbm-muted); }
 .drawer-actions { justify-content: flex-end; }
 .footer-actions { padding-right: 64px; }
 @media (max-width: 700px) { .plan-summary { flex-direction: column; align-items: flex-start; } }
