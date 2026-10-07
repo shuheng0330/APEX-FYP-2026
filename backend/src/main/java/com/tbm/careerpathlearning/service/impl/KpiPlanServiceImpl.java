@@ -89,34 +89,34 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     @Override @Transactional(readOnly=true)
     @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
     public List<KpiPeriodContextDto> departmentPeriods(UUID actor) {
-        requireBusinessStaff(actor);
+        requireDepartmentAccess(actor);
         return periods.findAllByOrderByStartDateDescIdDesc().stream().map(mapper::toContext).toList();
     }
     @Override @Transactional(readOnly=true)
     @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
     public List<KpiDepartmentOptionDto> departmentOptions(UUID actor) {
-        requireBusinessStaff(actor);
+        requireDepartmentAccess(actor);
         var nodes=canReviewDepartments()?departments.findAllByOrgChartTypeD():List.of(hodDepartment(actor));
         return nodes.stream().map(d->new KpiDepartmentOptionDto(d.getId(),d.getName())).toList();
     }
     @Override @Transactional(readOnly=true)
     @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
     public List<KpiPlanDto> departmentPlans(UUID actor) {
-        requireBusinessStaff(actor);
+        requireDepartmentAccess(actor);
         var found=canReviewDepartments()?plans.findAllByLevelOrderByUpdatedAtDesc(KpiLevel.DEPARTMENT)
                 :plans.findAllByLevelAndDepartmentIdOrderByUpdatedAtDesc(KpiLevel.DEPARTMENT,hodDepartment(actor).getId());
         return found.stream().map(this::details).toList();
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
     public List<KpiPlanDto> pendingDepartmentPlans(UUID actor) {
-        requireBusinessStaff(actor);
+        requireActiveStaff(actor);
         return plans.findAllByLevelAndStatusOrderBySubmittedAtAscIdAsc(KpiLevel.DEPARTMENT,KpiPlanStatus.PENDING_APPROVAL)
                 .stream().map(this::details).toList();
     }
     @Override @Transactional(readOnly=true)
     @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
     public KpiPlanDto departmentPlan(Long id,UUID actor) {
-        requireBusinessStaff(actor);
+        requireDepartmentAccess(actor);
         var plan=requirePlan(id,KpiLevel.DEPARTMENT,false);
         if(!canReviewDepartments()) requireHodScope(plan.getDepartment().getId(),actor);
         return details(plan);
@@ -160,7 +160,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     }
     @Override @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
     public KpiPlanDto approveDepartment(Long id,UUID actor) {
-        periods.lockConfiguration();requireBusinessStaff(actor);
+        periods.lockConfiguration();requireActiveStaff(actor);
         var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);requirePendingReview(plan);
         assignments.requirePublishedRoster(plan.getReviewPeriod());
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
@@ -169,7 +169,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     }
     @Override @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
     public KpiPlanDto returnDepartment(Long id,KpiPlanReturnRequest request,UUID actor) {
-        periods.lockConfiguration();requireBusinessStaff(actor);
+        periods.lockConfiguration();requireActiveStaff(actor);
         var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);requirePendingReview(plan);
         if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
             throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the HOD knows what to revise");
@@ -183,11 +183,20 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private void review(KpiPlan plan,UUID actor) {
         plan.setReviewedAt(OffsetDateTime.now(clock));plan.setReviewedBy(actor);plan.setReviewedLate(late(plan));touch(plan,actor);
     }
-    private Staff requireBusinessStaff(UUID actor) {
+    private void requireDepartmentAccess(UUID actor) {
+        if(canReviewDepartments()) requireActiveStaff(actor);
+        else requireBusinessStaff(actor);
+    }
+    private Staff requireActiveStaff(UUID actor) {
         var employee=staff.findById(actor).orElseThrow(()->new AccessDeniedException("Staff account not found"));
+        if(employee.isDeleted() || employee.getAccountStatus()!=StaffAccountStatus.ACTIVE)
+            throw new AccessDeniedException("An active staff account is required for this workflow");
+        return employee;
+    }
+    private Staff requireBusinessStaff(UUID actor) {
+        var employee=requireActiveStaff(actor);
         var role=employee.getRole();
-        if(employee.isDeleted() || employee.getAccountStatus()!=StaffAccountStatus.ACTIVE || role==null
-                || role.isDeleted() || !role.isPerformanceReviewEligible())
+        if(role==null || role.isDeleted() || !role.isPerformanceReviewEligible())
             throw new AccessDeniedException("An active business staff account is required for this workflow");
         return employee;
     }

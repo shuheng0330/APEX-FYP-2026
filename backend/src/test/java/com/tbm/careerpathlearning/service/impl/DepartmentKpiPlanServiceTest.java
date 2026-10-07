@@ -79,6 +79,29 @@ class DepartmentKpiPlanServiceTest {
         assertEquals(1,service.departmentPlans(actor).size());assertEquals(1,service.departmentOptions(actor).size());
         assertTrue(service.pendingDepartmentPlans(actor).isEmpty());verifyNoInteractions(resolver);
     }
+    @Test void administrativeReviewerWithPermissionCanReadAndApproveWithoutReviewParticipation() {
+        pending();clearInvocations(resolver);role.setPerformanceReviewEligible(false);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor,null,
+            List.of(new SimpleGrantedAuthority("CAN_APPROVE_DEPARTMENT_KPI"))));
+        when(plans.findAllByLevelOrderByUpdatedAtDesc(KpiLevel.DEPARTMENT)).thenReturn(List.of(plan));
+        when(departments.findAllByOrgChartTypeD()).thenReturn(List.of(department));
+        when(periods.findAllByOrderByStartDateDescIdDesc()).thenReturn(List.of(period));
+        when(plans.findAllByLevelAndStatusOrderBySubmittedAtAscIdAsc(KpiLevel.DEPARTMENT,KpiPlanStatus.PENDING_APPROVAL))
+            .thenReturn(List.of(plan));
+        assertEquals(1,service.departmentPlans(actor).size());
+        assertEquals(1,service.departmentOptions(actor).size());
+        assertEquals(1,service.pendingDepartmentPlans(actor).size());
+        assertEquals(1,service.departmentPeriods(actor).size());
+        assertEquals(10L,service.departmentPlan(10L,actor).getId());
+        assertEquals(KpiPlanStatus.APPROVED,service.approveDepartment(10L,actor).getStatus());
+        verifyNoInteractions(resolver);
+    }
+    @Test void administrativeReviewerWithPermissionCanReturnWithoutReviewParticipation() {
+        pending();role.setPerformanceReviewEligible(false);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor,null,
+            List.of(new SimpleGrantedAuthority("CAN_APPROVE_DEPARTMENT_KPI"))));
+        assertEquals(KpiPlanStatus.RETURNED,service.returnDepartment(10L,reason("Clarify target"),actor).getStatus());
+    }
     @Test void cannotCreateSecondPlanForSameDepartmentAndPeriod() {
         when(plans.findByReviewPeriodIdAndLevelAndDepartmentId(1L,KpiLevel.DEPARTMENT,2L)).thenReturn(Optional.of(plan));
         assertThrows(BadRequestException.class,()->service.createDepartment(request,actor));

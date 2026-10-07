@@ -75,14 +75,15 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
 - The inherited Job Role organisation node determines an HOD's Department, directly or through its
   nearest unambiguous Department ancestor. `CAN_MANAGE_DEPARTMENT_KPI` must additionally be explicitly
   granted to a verified HOD Role. Neither Employee Level nor a Manager title grants business authority.
-- `CAN_APPROVE_DEPARTMENT_KPI` must be explicitly granted to a verified MD Role. No HR or Super Admin
-  grants are inferred. The existing access-control UI can provision both new permissions.
+- `CAN_APPROVE_DEPARTMENT_KPI` is granted explicitly through the existing access-control UI.
+  Reviewer access follows this permission, not the account's Job Role name or performance-review eligibility.
+  No Role, including Super Admin, receives the permission automatically.
 - All routes are under `/api/department-kpi-plans`:
   `GET /`, `/periods`, `/departments`, `/{id}`; `POST /`; `PUT /{id}`;
-  `POST /{id}/submit`; MD-only `GET /pending`, `POST /{id}/approve`, `POST /{id}/return`.
+  `POST /{id}/submit`; reviewer-only `GET /pending`, `POST /{id}/approve`, `POST /{id}/return`.
   Return accepts `{ "reason": "Clarify the target" }`.
-- HOD reads/edits are restricted to their resolved Department; MD reviewers can read the Department queue.
-  Only active, non-deleted business staff with an eligible, non-deleted Role use this workflow.
+- HOD reads/edits are restricted to their resolved Department and require an eligible business Role.
+  Any active, non-deleted account with the review permission can read and decide Department plans.
 - Draft/Returned plans can be incomplete. Submission requires complete KPI items, five scoring criteria
   per item and an exact 100% within-level total. Pending and Approved contents are immutable.
 - Approval rechecks completeness and requires an Upcoming/Open period with a confirmed participant roster.
