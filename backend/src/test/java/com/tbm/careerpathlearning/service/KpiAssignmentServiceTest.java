@@ -30,4 +30,17 @@ class KpiAssignmentServiceTest {
         assertTrue(capture.getValue().stream().allMatch(i->i.getParticipantId().equals(21L)&&i.getReviewPeriodId().equals(1L)));
         verify(participants,never()).saveAll(any());
     }
+    @Test void departmentCascadeUsesSnapshotNotLiveStaffDepartment() {
+        var period=new AnnualKpiReviewPeriod();period.setId(1L);period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);period.setParticipantsSnapshottedAt(OffsetDateTime.now());
+        var sales=new OrgChart();sales.setId(2L);var hr=new OrgChart();hr.setId(3L);
+        var plan=new KpiPlan();plan.setReviewPeriod(period);plan.setLevel(KpiLevel.DEPARTMENT);plan.setDepartment(sales);
+        var item=new Kpi();item.setId(11L);plan.setItems(List.of(item));
+        var matching=new ReviewPeriodParticipant();matching.setId(21L);matching.setDepartment(sales);
+        var other=new ReviewPeriodParticipant();other.setId(22L);other.setDepartment(hr);
+        var missing=new ReviewPeriodParticipant();missing.setId(23L);
+        when(participants.findAllByReviewPeriodId(1L)).thenReturn(List.of(matching,other,missing));service.cascade(plan);
+        @SuppressWarnings("unchecked") ArgumentCaptor<List<EmployeeKpiAssignment>> capture=ArgumentCaptor.forClass(List.class);
+        verify(assignments).saveAllAndFlush(capture.capture());assertEquals(1,capture.getValue().size());
+        assertEquals(21L,capture.getValue().get(0).getParticipantId());verify(participants,never()).saveAll(any());
+    }
 }

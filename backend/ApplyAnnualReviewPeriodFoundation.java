@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 32;
+    private static final int LATEST_VERSION = 33;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -112,6 +112,17 @@ public class ApplyAnnualReviewPeriodFoundation {
                     + "AND table_name='kpi_plan' AND column_name IN ('published_at','published_by','published_late')");
             if (publicationColumns != (extraApplied >= 2 ? 3 : 0))
                 throw new IllegalStateException("Partial/untracked V32 Company publication schema");
+            long reviewColumns = scalar(connection, "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan' AND column_name IN ('submitted_at','submitted_by','submitted_late',"
+                    + "'reviewed_at','reviewed_by','reviewed_late','return_reason')");
+            long compatibleReviewColumns = scalar(connection, "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan' AND column_name IN ('submitted_at','submitted_by','submitted_late',"
+                    + "'reviewed_at','reviewed_by','reviewed_late','return_reason') AND is_nullable='YES' AND column_default IS NULL "
+                    + "AND udt_name=CASE column_name WHEN 'submitted_at' THEN 'timestamptz' WHEN 'reviewed_at' THEN 'timestamptz' "
+                    + "WHEN 'submitted_by' THEN 'uuid' WHEN 'reviewed_by' THEN 'uuid' WHEN 'return_reason' THEN 'text' ELSE 'bool' END");
+            boolean compatibleHibernateReview = extraApplied == 2 && reviewColumns == 7 && compatibleReviewColumns == 7;
+            if (reviewColumns != (extraApplied >= 3 ? 7 : 0) && !compatibleHibernateReview)
+                throw new IllegalStateException("Partial/untracked V33 Department review schema");
             connection.rollback();
         }
 

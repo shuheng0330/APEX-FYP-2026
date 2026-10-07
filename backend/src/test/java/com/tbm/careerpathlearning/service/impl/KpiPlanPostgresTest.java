@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.model.*;
 import com.tbm.careerpathlearning.mapper.KpiPlanMapper;
 import com.tbm.careerpathlearning.repository.*;
 import com.tbm.careerpathlearning.service.KpiPlanValidator;
+import com.tbm.careerpathlearning.service.KpiPlanValidatorTest;
 import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.persistence.Entity;
 import org.hibernate.cfg.Configuration;
@@ -39,6 +40,7 @@ class KpiPlanPostgresTest {
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V31__kpi_plan_foundation.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS participants_snapshotted_at");
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V32__review_participant_snapshot_and_company_publication.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V33__department_kpi_plan_review.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 // Clone only inherited actors inside the rollback-only test schema; no live Role grants.
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
@@ -58,7 +60,9 @@ class KpiPlanPostgresTest {
                     var period=new AnnualKpiReviewPeriod();period.setName("KPI isolated draft");periods.saveAndFlush(period);
                     UUID actor=session.createQuery("select s.id from Staff s",UUID.class).setMaxResults(1).getSingleResult();
                     var service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),new KpiPlanValidator(),Clock.systemUTC(),
-                        new com.tbm.careerpathlearning.service.KpiAssignmentService(factory.getRepository(ReviewPeriodParticipantRepository.class),factory.getRepository(EmployeeKpiAssignmentRepository.class),Clock.systemUTC()));
+                        new com.tbm.careerpathlearning.service.KpiAssignmentService(factory.getRepository(ReviewPeriodParticipantRepository.class),factory.getRepository(EmployeeKpiAssignmentRepository.class),Clock.systemUTC()),
+                        factory.getRepository(StaffRepository.class),factory.getRepository(OrgChartRepository.class),
+                        new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)));
                     var request=new KpiPlanRequest();request.setReviewPeriodId(period.getId());request.setItems(List.of(com.tbm.careerpathlearning.service.KpiPlanValidatorTest.item("Sales","100")));
                     var result=service.createCompany(request,actor);session.clear();
                     var loaded=service.companyPlan(result.getId());assertEquals(5,loaded.getItems().get(0).getScoringDefinitions().size());
@@ -102,9 +106,57 @@ class KpiPlanPostgresTest {
                     reject(c,"23514","UPDATE kpi_plan SET published_at=NULL WHERE id="+published.getId());
                     assertNotNull(published.getPublishedAt());assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.publishCompany(result.getId(),actor));
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.updateCompany(result.getId(),request,actor));
+                    // Assign an HOD role only in this rollback-only fixture; production grants remain unchanged.
+                    var hod=session.find(Staff.class,actor);hod.setRole(role);hod.setDeleted(false);hod.setAccountStatus(StaffAccountStatus.ACTIVE);
+                    session.flush();
+                    var departmentRequest=new KpiPlanRequest();departmentRequest.setReviewPeriodId(savedPeriod.getId());
+                    departmentRequest.setDepartmentId(department.getId());departmentRequest.setItems(List.of());
+                    var departmentDraft=service.createDepartment(departmentRequest,actor);
+                    assertEquals(KpiPlanStatus.DRAFT,departmentDraft.getStatus());
+                    assertTrue(service.departmentPlans(actor).stream().allMatch(p->p.getDepartmentId().equals(department.getId())));
+                    departmentRequest.setItems(List.of(KpiPlanValidatorTest.item("Department sales","60"),KpiPlanValidatorTest.item("Department service","40")));
+                    var updated=service.updateDepartment(departmentDraft.getId(),departmentRequest,actor);
+                    assertEquals(2,updated.getItems().size());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.createDepartment(departmentRequest,actor));
+                    reject(c,"23514","UPDATE kpi_plan SET status='PENDING_APPROVAL' WHERE id="+departmentDraft.getId());
+                    var pending=service.submitDepartment(departmentDraft.getId(),actor);session.clear();
+                    assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.departmentPlan(pending.getId(),actor).getStatus());
+                    assertNotNull(pending.getSubmittedAt());assertEquals(actor,pending.getSubmittedBy());
+                    reject(c,"23514","UPDATE kpi_plan SET status='RETURNED',reviewed_at=now(),reviewed_by=created_by,reviewed_late=false WHERE id="+pending.getId());
+                    var reason=new KpiPlanReturnRequest();reason.setReason("Clarify department target");
+                    var returned=service.returnDepartment(pending.getId(),reason,actor);session.clear();
+                    assertEquals("Clarify department target",service.departmentPlan(returned.getId(),actor).getReturnReason());
+                    assertEquals(4L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
+                    var resubmitted=service.submitDepartment(returned.getId(),actor);assertNull(resubmitted.getReturnReason());
+                    var approved=service.approveDepartment(returned.getId(),actor);session.clear();
+                    assertEquals(KpiPlanStatus.APPROVED,service.departmentPlan(approved.getId(),actor).getStatus());
+                    assertEquals(8L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
+                    assertEquals(4L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id "
+                        +"JOIN review_period_participant p ON p.id=a.participant_id WHERE k.plan_id="+approved.getId()+" AND p.department_id="+department.getId()));
+                    reject(c,"23514","UPDATE kpi_plan SET reviewed_by=NULL WHERE id="+approved.getId());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.approveDepartment(approved.getId(),actor));
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.updateDepartment(approved.getId(),departmentRequest,actor));
+                    reject(c,"23505","INSERT INTO kpi_plan(review_period_id,level,department_id,status,created_at,updated_at,created_by,updated_by) "
+                        +"SELECT review_period_id,level,department_id,'DRAFT',created_at,updated_at,created_by,updated_by FROM kpi_plan WHERE id="+approved.getId());
                     session.getTransaction().rollback();
                 }
             } finally {c.rollback();}
+        }
+    }
+    @Test void sharedTransactionLockSerializesCompetingReviewActions() throws Exception {
+        var env=Dotenv.configure().directory(".").load();var url=env.get("DB_URL");
+        assertTrue(List.of("localhost","127.0.0.1","::1").contains(URI.create(url.substring(5)).getHost()));
+        try(var first=DriverManager.getConnection(url,env.get("DB_USER"),env.get("DB_PASS"));
+            var second=DriverManager.getConnection(url,env.get("DB_USER"),env.get("DB_PASS"))) {
+            first.setAutoCommit(false);second.setAutoCommit(false);
+            try {
+                sql(first,"SET LOCAL lock_timeout='3s'");
+                sql(first,"SELECT 1 FROM pg_advisory_xact_lock(20261006,1)");
+                sql(second,"SET LOCAL lock_timeout='300ms'");
+                assertEquals("55P03",assertThrows(SQLException.class,()->sql(second,"SELECT 1 FROM pg_advisory_xact_lock(20261006,1)")).getSQLState());
+                second.rollback();first.rollback();
+                assertDoesNotThrow(()->sql(second,"SELECT 1 FROM pg_advisory_xact_lock(20261006,1)"));
+            } finally {first.rollback();second.rollback();}
         }
     }
     private void sql(Connection c,String sql)throws SQLException {try(var s=c.createStatement()){s.execute(sql);}}

@@ -29,4 +29,11 @@ public class KpiPlan {
     @Column(name="published_at") private OffsetDateTime publishedAt;
     @Column(name="published_by") private UUID publishedBy;
     @Column(name="published_late") private Boolean publishedLate;
+    private OffsetDateTime submittedAt;
+    private UUID submittedBy;
+    private Boolean submittedLate;
+    private OffsetDateTime reviewedAt;
+    private UUID reviewedBy;
+    private Boolean reviewedLate;
+    @Column(columnDefinition="text") private String returnReason;
 }

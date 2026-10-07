@@ -9,6 +9,8 @@ import com.tbm.careerpathlearning.repository.*;
 import com.tbm.careerpathlearning.service.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
@@ -22,10 +24,15 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private final KpiPlanValidator validator;
     private final Clock clock;
     private final KpiAssignmentService assignments;
+    private final StaffRepository staff;
+    private final OrgChartRepository departments;
+    private final PerformanceDepartmentResolver departmentResolver;
     public KpiPlanServiceImpl(KpiPlanRepository plans,AnnualKpiReviewPeriodRepository periods,
-            KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock, KpiAssignmentService assignments) {
+            KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock, KpiAssignmentService assignments,
+            StaffRepository staff, OrgChartRepository departments, PerformanceDepartmentResolver departmentResolver) {
         this.plans=plans; this.periods=periods; this.mapper=mapper; this.validator=validator; this.clock=clock;
         this.assignments=assignments;
+        this.staff=staff; this.departments=departments; this.departmentResolver=departmentResolver;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_MANAGE_COMPANY_KPI')")
     public List<KpiPeriodContextDto> companyPeriods() {
@@ -79,6 +86,126 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         assignments.cascade(plan);return details(plan);
     }
     private boolean late(KpiPlan plan) {return plan.getReviewPeriod().getKpiSetupDeadline()!=null && LocalDate.now(clock).isAfter(plan.getReviewPeriod().getKpiSetupDeadline());}
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
+    public List<KpiPeriodContextDto> departmentPeriods(UUID actor) {
+        requireBusinessStaff(actor);
+        return periods.findAllByOrderByStartDateDescIdDesc().stream().map(mapper::toContext).toList();
+    }
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
+    public List<KpiDepartmentOptionDto> departmentOptions(UUID actor) {
+        requireBusinessStaff(actor);
+        var nodes=canReviewDepartments()?departments.findAllByOrgChartTypeD():List.of(hodDepartment(actor));
+        return nodes.stream().map(d->new KpiDepartmentOptionDto(d.getId(),d.getName())).toList();
+    }
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
+    public List<KpiPlanDto> departmentPlans(UUID actor) {
+        requireBusinessStaff(actor);
+        var found=canReviewDepartments()?plans.findAllByLevelOrderByUpdatedAtDesc(KpiLevel.DEPARTMENT)
+                :plans.findAllByLevelAndDepartmentIdOrderByUpdatedAtDesc(KpiLevel.DEPARTMENT,hodDepartment(actor).getId());
+        return found.stream().map(this::details).toList();
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
+    public List<KpiPlanDto> pendingDepartmentPlans(UUID actor) {
+        requireBusinessStaff(actor);
+        return plans.findAllByLevelAndStatusOrderBySubmittedAtAscIdAsc(KpiLevel.DEPARTMENT,KpiPlanStatus.PENDING_APPROVAL)
+                .stream().map(this::details).toList();
+    }
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')")
+    public KpiPlanDto departmentPlan(Long id,UUID actor) {
+        requireBusinessStaff(actor);
+        var plan=requirePlan(id,KpiLevel.DEPARTMENT,false);
+        if(!canReviewDepartments()) requireHodScope(plan.getDepartment().getId(),actor);
+        return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_MANAGE_DEPARTMENT_KPI')")
+    public KpiPlanDto createDepartment(KpiPlanRequest request,UUID actor) {
+        periods.lockConfiguration();
+        if(request==null || request.getReviewPeriodId()==null || request.getDepartmentId()==null)
+            throw new BadRequestException("Select an Annual KPI Review Period and Department");
+        if(request.getOwnerParticipantId()!=null) throw new BadRequestException("Department plans cannot have an Employee owner");
+        var department=requireHodScope(request.getDepartmentId(),actor);
+        var period=periods.findById(request.getReviewPeriodId()).orElseThrow(()->new BadRequestException("Review period not found"));
+        requireWritable(period);
+        if(plans.findByReviewPeriodIdAndLevelAndDepartmentId(period.getId(),KpiLevel.DEPARTMENT,department.getId()).isPresent())
+            throw new BadRequestException("This Department already has a KPI plan for this review period; open the existing plan");
+        validator.validate(request.getItems(),false);
+        var plan=new KpiPlan();plan.setReviewPeriod(period);plan.setLevel(KpiLevel.DEPARTMENT);plan.setDepartment(department);
+        plan.setCreatedAt(OffsetDateTime.now(clock));plan.setCreatedBy(actor);touch(plan,actor);
+        plans.saveAndFlush(plan);replaceItems(plan,request.getItems());plans.saveAndFlush(plan);
+        return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_MANAGE_DEPARTMENT_KPI')")
+    public KpiPlanDto updateDepartment(Long id,KpiPlanRequest request,UUID actor) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);
+        requireHodScope(plan.getDepartment().getId(),actor);requireEditable(plan);
+        if(request==null || !Objects.equals(plan.getReviewPeriod().getId(),request.getReviewPeriodId())
+                || !Objects.equals(plan.getDepartment().getId(),request.getDepartmentId()) || request.getOwnerParticipantId()!=null)
+            throw new BadRequestException("The KPI plan scope cannot be changed");
+        replaceItems(plan,request.getItems());touch(plan,actor);plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_MANAGE_DEPARTMENT_KPI')")
+    public KpiPlanDto submitDepartment(Long id,UUID actor) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);
+        requireHodScope(plan.getDepartment().getId(),actor);requireEditable(plan);
+        validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
+        plan.setStatus(KpiPlanStatus.PENDING_APPROVAL);
+        plan.setSubmittedAt(OffsetDateTime.now(clock));plan.setSubmittedBy(actor);plan.setSubmittedLate(late(plan));
+        // Resubmission starts a new pending decision; retain the return reason while the HOD edits.
+        plan.setReviewedAt(null);plan.setReviewedBy(null);plan.setReviewedLate(null);plan.setReturnReason(null);
+        touch(plan,actor);plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
+    public KpiPlanDto approveDepartment(Long id,UUID actor) {
+        periods.lockConfiguration();requireBusinessStaff(actor);
+        var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);requirePendingReview(plan);
+        assignments.requirePublishedRoster(plan.getReviewPeriod());
+        validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
+        plan.setStatus(KpiPlanStatus.APPROVED);review(plan,actor);plan.setReturnReason(null);
+        plans.saveAndFlush(plan);assignments.cascade(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
+    public KpiPlanDto returnDepartment(Long id,KpiPlanReturnRequest request,UUID actor) {
+        periods.lockConfiguration();requireBusinessStaff(actor);
+        var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);requirePendingReview(plan);
+        if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
+            throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the HOD knows what to revise");
+        plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,actor);
+        plans.saveAndFlush(plan);return details(plan);
+    }
+    private void requirePendingReview(KpiPlan plan) {
+        requireWritable(plan.getReviewPeriod());
+        if(plan.getStatus()!=KpiPlanStatus.PENDING_APPROVAL) throw new BadRequestException("Only Pending Approval plans can be approved or returned");
+    }
+    private void review(KpiPlan plan,UUID actor) {
+        plan.setReviewedAt(OffsetDateTime.now(clock));plan.setReviewedBy(actor);plan.setReviewedLate(late(plan));touch(plan,actor);
+    }
+    private Staff requireBusinessStaff(UUID actor) {
+        var employee=staff.findById(actor).orElseThrow(()->new AccessDeniedException("Staff account not found"));
+        var role=employee.getRole();
+        if(employee.isDeleted() || employee.getAccountStatus()!=StaffAccountStatus.ACTIVE || role==null
+                || role.isDeleted() || !role.isPerformanceReviewEligible())
+            throw new AccessDeniedException("An active business staff account is required for this workflow");
+        return employee;
+    }
+    private OrgChart hodDepartment(UUID actor) {
+        var department=departmentResolver.resolve(requireBusinessStaff(actor).getRole());
+        if(department==null) throw new BadRequestException("Confirm the HOD's Department in the organisation structure");
+        return department;
+    }
+    private OrgChart requireHodScope(Long departmentId,UUID actor) {
+        var department=hodDepartment(actor);
+        if(!Objects.equals(department.getId(),departmentId)) throw new AccessDeniedException("You can manage only your assigned Department's KPI plan");
+        return department;
+    }
+    private boolean canReviewDepartments() {
+        var authentication=SecurityContextHolder.getContext().getAuthentication();
+        return authentication!=null && authentication.getAuthorities().stream()
+                .anyMatch(a->a.getAuthority().equals("CAN_APPROVE_DEPARTMENT_KPI"));
+    }
     private void requireWritable(AnnualKpiReviewPeriod period) {
         if(period.getStatus()==AnnualKpiReviewPeriodStatus.CLOSED) throw new BadRequestException("Closed review periods are read-only");
     }

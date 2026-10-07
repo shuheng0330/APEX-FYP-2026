@@ -1,4 +1,4 @@
-# Annual KPI Foundation And Company Plans
+# Annual KPI Foundation And KPI Plans
 
 V27 adds only the four annual-review foundation tables and nullable role review-frequency default.
 V28 adds the dedicated annual KPI review period authority and grants it to the active `superadmin` role.
@@ -9,9 +9,10 @@ V30 marks Super Admin as ineligible for performance reviews and replaces four ac
 The old deadline columns remain as history; the single deadline is backfilled from their latest date.
 V31 introduces whole KPI plans, their items, 1-5 scoring definitions and materialised assignments.
 V32 adds the annual publication-time participant snapshot marker and Company plan publication metadata.
+V33 adds Department plan submission/review metadata, return reasons, validation constraints and two business authorities.
 The application's existing `ddl-auto: update` and `flyway.enabled: false` remain unchanged.
 
-Do not start the application with the new entities before applying V27-V32: Hibernate may otherwise
+Do not start the application with the new entities before applying V27-V33: Hibernate may otherwise
 create untracked tables without the migration's constraints. Do not enable the legacy Flyway location.
 
 ## Local migration
@@ -26,7 +27,7 @@ java --class-path $classpath ApplyAnnualReviewPeriodFoundation.java --apply 'C:\
 
 The runner checks the inherited IDs, migration history and absence of partial Phase 1 structures,
 backs up the local database under the user's `.apex/database-backups` directory, explicitly records the inherited schema as baseline 26
-when history is empty, and discovers **only** this directory's V27-V32. Baseline 26 does not claim that
+when history is empty, and discovers **only** this directory's V27-V33. Baseline 26 does not claim that
 V2-V26 were executed. Preserve applied migration files and the generated backup.
 Already-applied migrations are validated, not replayed. A backup is required before any pending migration.
 V30 refuses existing Super Admin participants or missing/invalid published setup deadline backfills rather than altering historical data.
@@ -67,7 +68,34 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
   A passed setup deadline is not a hard lock. Action-time publication lateness is preserved separately.
 - `CAN_MANAGE_COMPANY_KPI` must be granted through existing RBAC to a verified MD/Top Management Role.
   The migration does not guess recipients or grant it to Super Admin.
-- Apply no V33 or later migrations in this slice. Department/Individual approval and assistance are not exposed yet.
+- Slice 2 stops at V32. Slice 3 adds Department workflow APIs only; Individual approval and assistance are not exposed yet.
+
+## Slice 3 Backend
+
+- The inherited Job Role organisation node determines an HOD's Department, directly or through its
+  nearest unambiguous Department ancestor. `CAN_MANAGE_DEPARTMENT_KPI` must additionally be explicitly
+  granted to a verified HOD Role. Neither Employee Level nor a Manager title grants business authority.
+- `CAN_APPROVE_DEPARTMENT_KPI` must be explicitly granted to a verified MD Role. No HR or Super Admin
+  grants are inferred. The existing access-control UI can provision both new permissions.
+- All routes are under `/api/department-kpi-plans`:
+  `GET /`, `/periods`, `/departments`, `/{id}`; `POST /`; `PUT /{id}`;
+  `POST /{id}/submit`; MD-only `GET /pending`, `POST /{id}/approve`, `POST /{id}/return`.
+  Return accepts `{ "reason": "Clarify the target" }`.
+- HOD reads/edits are restricted to their resolved Department; MD reviewers can read the Department queue.
+  Only active, non-deleted business staff with an eligible, non-deleted Role use this workflow.
+- Draft/Returned plans can be incomplete. Submission requires complete KPI items, five scoring criteria
+  per item and an exact 100% within-level total. Pending and Approved contents are immutable.
+- Approval rechecks completeness and requires an Upcoming/Open period with a confirmed participant roster.
+  It atomically assigns every item only to matching snapshotted Department participants; no enrolment occurs.
+- Return requires a nonblank reason, retained during revision. Resubmission clears the previous decision
+  and records the latest submission. No separate decision-history or workflow-engine table is introduced.
+- Late setup, submission and review are allowed while the period is not Closed. Submission/review lateness
+  is saved at action time, independent of current overdue indicators and later deadline changes.
+- Shared transaction and plan locks serialize competing writes and prevent duplicate approval/cascade.
+  V33 is forward-only, preserves existing Company plans and grants, and does not change Hibernate/Flyway settings.
+  It can reconcile all seven verified nullable review columns created by development Hibernate; partial
+  or incompatible columns are refused. The migration adds the required foreign keys and checks after backup.
+- Department frontend and Slice 4 remain deliberately unimplemented pending UI review.
 
 ## Deliberate boundaries
 
