@@ -34,6 +34,8 @@ public class ApplyAnnualReviewPeriodFoundation {
             throw new IllegalStateException("Run from the backend directory; the Phase 1 migration file is missing");
         }
         boolean alreadyApplied;
+        boolean permissionAlreadyApplied;
+        boolean levelsAlreadyApplied;
         long staffCount;
         long roleCount;
         try (var connection = DriverManager.getConnection(url, user, password)) {
@@ -51,9 +53,15 @@ public class ApplyAnnualReviewPeriodFoundation {
             long historyCount = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history");
             alreadyApplied = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history "
                     + "WHERE version='27' AND type='SQL' AND success") == 1;
+            permissionAlreadyApplied = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history "
+                    + "WHERE version='28' AND type='SQL' AND success") == 1;
+            levelsAlreadyApplied = scalar(connection, "SELECT count(*) FROM public.flyway_schema_history "
+                    + "WHERE version='29' AND type='SQL' AND success") == 1;
             if (historyCount != 0 && (scalar(connection, "SELECT count(*) FROM public.flyway_schema_history "
                     + "WHERE version='26' AND type='BASELINE' AND success") != 1
-                    || historyCount != (alreadyApplied ? 2 : 1))) {
+                    || (permissionAlreadyApplied && !alreadyApplied)
+                    || (levelsAlreadyApplied && !permissionAlreadyApplied)
+                    || historyCount != 1 + (alreadyApplied ? 1 : 0) + (permissionAlreadyApplied ? 1 : 0) + (levelsAlreadyApplied ? 1 : 0))) {
                 throw new IllegalStateException("Unexpected migration history; no baselining or migration will be attempted");
             }
             long tableCount = scalar(connection, "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
@@ -63,6 +71,12 @@ public class ApplyAnnualReviewPeriodFoundation {
             if (tableCount != (alreadyApplied ? 4 : 0) || frequencyColumnCount != (alreadyApplied ? 1 : 0)) {
                 throw new IllegalStateException("Partial/untracked Phase 1 schema detected; reconcile it before proceeding");
             }
+            long levelTables = scalar(connection, "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                    + "AND table_name IN ('employee_level','review_period_employee_level_configuration')");
+            long levelColumn = scalar(connection, "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='role' AND column_name='employee_level_id'");
+            if (levelTables != (levelsAlreadyApplied ? 2 : 0) || levelColumn != (levelsAlreadyApplied ? 1 : 0))
+                throw new IllegalStateException("Partial/untracked Employee Level schema detected; reconcile it before proceeding");
             staffCount = scalar(connection, "SELECT count(*) FROM public.staff");
             roleCount = scalar(connection, "SELECT count(*) FROM public.role");
             connection.rollback();
@@ -72,11 +86,11 @@ public class ApplyAnnualReviewPeriodFoundation {
                 .schemas("public").defaultSchema("public")
                 .locations("filesystem:src/main/resources/db/migration/annual-kpi")
                 .baselineVersion("26").baselineDescription("Inherited Hibernate-managed development schema")
-                .baselineOnMigrate(false).outOfOrder(false).cleanDisabled(true).target("27").load();
-        if (!alreadyApplied) {
+                .baselineOnMigrate(false).outOfOrder(false).cleanDisabled(true).target("29").load();
+        if (!levelsAlreadyApplied) {
             var backupDirectory = Path.of(System.getProperty("user.home"), ".apex", "database-backups");
             Files.createDirectories(backupDirectory);
-            var backup = backupDirectory.resolve("before-annual-kpi-V27-"
+            var backup = backupDirectory.resolve("before-annual-kpi-V29-"
                     + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")) + ".dump");
             var dump = new ProcessBuilder(args[1], "--host=" + target.getHost(),
                     "--port=" + (target.getPort() == -1 ? 5432 : target.getPort()), "--username=" + user,
@@ -115,6 +129,8 @@ public class ApplyAnnualReviewPeriodFoundation {
                     || scalar(connection, "SELECT count(*) FROM public.role") != roleCount) {
                 throw new IllegalStateException("Unexpected inherited row-count change; investigate using the backup");
             }
+            if (scalar(connection, "SELECT count(*) FROM public.employee_level") != 6)
+                throw new IllegalStateException("Expected six Employee Levels after V29");
         }
         System.out.println("Phase 1 migrations executed: " + result.migrationsExecuted);
         System.out.println("Inherited staff/role counts preserved; global Spring/Flyway/Hibernate settings unchanged.");

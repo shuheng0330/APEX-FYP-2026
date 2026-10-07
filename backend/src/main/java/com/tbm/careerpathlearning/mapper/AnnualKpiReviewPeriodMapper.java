@@ -5,6 +5,10 @@ import com.tbm.careerpathlearning.dto.AnnualKpiReviewPeriodRequest;
 import com.tbm.careerpathlearning.model.AnnualKpiReviewPeriod;
 import com.tbm.careerpathlearning.model.ReviewCheckpoint;
 import com.tbm.careerpathlearning.model.ReviewPeriodRoleConfiguration;
+import com.tbm.careerpathlearning.model.EmployeeLevel;
+import com.tbm.careerpathlearning.model.ReviewPeriodEmployeeLevelConfiguration;
+import com.tbm.careerpathlearning.dto.EmployeeLevelDto;
+import com.tbm.careerpathlearning.dto.ReviewPeriodEmployeeLevelConfigurationDto;
 import org.mapstruct.*;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
@@ -13,9 +17,6 @@ public interface AnnualKpiReviewPeriodMapper {
     @Mapping(target = "name", source = "name")
     @Mapping(target = "startDate", source = "startDate")
     @Mapping(target = "endDate", source = "endDate")
-    @Mapping(target = "companyKpiWeight", source = "companyKpiWeight")
-    @Mapping(target = "departmentKpiWeight", source = "departmentKpiWeight")
-    @Mapping(target = "individualKpiWeight", source = "individualKpiWeight")
     @Mapping(target = "kpiPerformanceWeight", source = "kpiPerformanceWeight")
     @Mapping(target = "attitudeEvaluationWeight", source = "attitudeEvaluationWeight")
     @Mapping(target = "annualKpiConsolidationMethod", source = "annualKpiConsolidationMethod")
@@ -33,12 +34,22 @@ public interface AnnualKpiReviewPeriodMapper {
 
     @Mapping(target = "roleConfigurations", ignore = true)
     @Mapping(target = "checkpoints", ignore = true)
+    @Mapping(target = "employeeLevelConfigurations", ignore = true)
     AnnualKpiReviewPeriodDto toDto(AnnualKpiReviewPeriod period);
 
     @Mapping(target = "roleId", source = "role.id")
     @Mapping(target = "roleName", source = "role.name")
     @Mapping(target = "departmentName", source = "role.orgChart.name")
+    @Mapping(target = "employeeLevelId", source = "employeeLevelConfiguration.employeeLevel.id")
+    @Mapping(target = "employeeLevelName", source = "employeeLevelConfiguration.employeeLevel.name")
     AnnualKpiReviewPeriodDto.RoleConfiguration toDto(ReviewPeriodRoleConfiguration configuration);
 
     AnnualKpiReviewPeriodDto.Checkpoint toDto(ReviewCheckpoint checkpoint);
+
+    EmployeeLevelDto toDto(EmployeeLevel level);
+
+    @Mapping(target = "employeeLevelId", source = "employeeLevel.id")
+    @Mapping(target = "employeeLevelName", source = "employeeLevel.name")
+    @Mapping(target = "employeeLevelCode", source = "employeeLevel.code")
+    ReviewPeriodEmployeeLevelConfigurationDto toDto(ReviewPeriodEmployeeLevelConfiguration configuration);
 }

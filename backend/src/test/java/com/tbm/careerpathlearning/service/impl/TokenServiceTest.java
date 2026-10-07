@@ -71,6 +71,16 @@ class TokenServiceTest {
     }
 
     @Test
+    void annualAndLegacyAuthoritiesRemainIndependentJwtClaims() {
+        String annual = "CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD";
+        String legacy = "CAN_MANAGE_EVALUATION_CYCLE";
+        Claims annualOnly = tokenService.extractClaims(tokenService.generateAccessToken(userId, List.of(annual)));
+        assertThat(annualOnly.get("roles", List.class)).containsExactly(annual).doesNotContain(legacy);
+        Claims both = tokenService.extractClaims(tokenService.generateAccessToken(userId, List.of(legacy, annual)));
+        assertThat(both.get("roles", List.class)).containsExactly(legacy, annual);
+    }
+
+    @Test
     void extractClaims_ShouldThrowExceptionOnInvalidSignature() {
         // Arrange
         String validToken = tokenService.generateAccessToken(userId, roles);

@@ -29,6 +29,9 @@ class AnnualKpiReviewPeriodServiceImplTest {
     private final ReviewCheckpointRepository checkpoints = mock(ReviewCheckpointRepository.class);
     private final ReviewPeriodParticipantRepository participants = mock(ReviewPeriodParticipantRepository.class);
     private final RoleRepository roles = mock(RoleRepository.class);
+    private final EmployeeLevelRepository levels = mock(EmployeeLevelRepository.class);
+    private final ReviewPeriodEmployeeLevelConfigurationRepository weights = mock(ReviewPeriodEmployeeLevelConfigurationRepository.class);
+    private final Map<Long, List<ReviewPeriodEmployeeLevelConfiguration>> storedWeights = new HashMap<>();
     private final Map<Long, AnnualKpiReviewPeriod> stored = new HashMap<>();
     private final Map<Long, List<ReviewPeriodRoleConfiguration>> storedRoles = new HashMap<>();
     private final Map<Long, List<ReviewCheckpoint>> storedCheckpoints = new HashMap<>();
@@ -42,9 +45,21 @@ class AnnualKpiReviewPeriodServiceImplTest {
     void setup() {
         service = new AnnualKpiReviewPeriodServiceImpl(periods, configurations, checkpoints, participants, roles,
                 Mappers.getMapper(AnnualKpiReviewPeriodMapper.class), new AnnualReviewPeriodConfigurationValidator(),
-                new ReviewCheckpointGenerator(), clock);
+                new ReviewCheckpointGenerator(), clock, levels, weights);
+        when(levels.findAllByOrderByDisplayOrderAsc()).thenReturn(EmployeeLevelFixtures.levels());
+        when(weights.saveAllAndFlush(any())).thenAnswer(i -> {
+            List<ReviewPeriodEmployeeLevelConfiguration> items = i.getArgument(0);
+            for (int n = 0; n < items.size(); n++) items.get(n).setId(items.get(n).getReviewPeriod().getId() * 10 + n);
+            if (!items.isEmpty()) storedWeights.put(items.get(0).getReviewPeriod().getId(), items);
+            return items;
+        });
+        when(weights.findAllByReviewPeriodIdOrderByEmployeeLevelDisplayOrderAsc(anyLong()))
+                .thenAnswer(i -> storedWeights.getOrDefault(i.getArgument(0), List.of()));
+        doAnswer(i -> { storedWeights.remove(i.getArgument(0)); return null; }).when(weights).deleteAllByReviewPeriodId(anyLong());
         sales = role(1L, "Retail Sales", null);
         manager = role(2L, "Manager", ReviewFrequency.QUARTERLY);
+        sales.setEmployeeLevel(EmployeeLevelFixtures.levels().get(3));
+        manager.setEmployeeLevel(EmployeeLevelFixtures.levels().get(1));
         when(roles.findAllByIdInAndIsDeletedIsFalse(anySet())).thenAnswer(invocation -> {
             Set<Long> ids = invocation.getArgument(0);
             return Stream.of(sales, manager).filter(r -> ids.contains(r.getId()) && !r.isDeleted()).toList();
@@ -82,7 +97,106 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThat(dto.getKpiPerformanceWeight()).isEqualByComparingTo("50");
         assertThat(dto.getCreatedBy()).isEqualTo(actor);
         assertThat(dto.getCheckpoints()).isEmpty();
+        assertThat(dto.getEmployeeLevelConfigurations()).isEmpty();
         verify(periods, never()).existsOverlappingPeriod(any(), any(), any(), any());
+    }
+
+    @Test
+    void datedCreationLoadsEditableLookupDefaultsAndFrozenRoleLevel() {
+        var request = validRequest(); request.setEmployeeLevelConfigurations(null);
+        var dto = service.create(request, true, actor);
+        assertThat(dto.getEmployeeLevelConfigurations()).hasSize(6);
+        assertThat(dto.getEmployeeLevelConfigurations().get(3).getIndividualKpiWeight()).isEqualByComparingTo("60");
+        assertThat(dto.getRoleConfigurations().get(0).getEmployeeLevelId()).isEqualTo(4L);
+        sales.setEmployeeLevel(EmployeeLevelFixtures.levels().get(5));
+        assertThat(service.get(dto.getId()).getRoleConfigurations().get(0).getEmployeeLevelId()).isEqualTo(4L);
+        request.setName("Updated name");
+        assertThat(service.update(dto.getId(), request, actor).getRoleConfigurations().get(0).getEmployeeLevelId()).isEqualTo(4L);
+    }
+
+    @Test
+    void draftPublicationResolvesCurrentRoleClassification() {
+        var draft = service.create(validRequest(), false, actor);
+        sales.setEmployeeLevel(EmployeeLevelFixtures.levels().get(5));
+        assertThat(service.publish(draft.getId(), actor).getRoleConfigurations().get(0).getEmployeeLevelId()).isEqualTo(6L);
+    }
+
+    @Test
+    void unmappedRoleAllowedInDraftButNotPublication() {
+        sales.setEmployeeLevel(null);
+        var draft = service.create(validRequest(), false, actor);
+        assertThatThrownBy(() -> service.publish(draft.getId(), actor)).hasMessageContaining("Employee Level");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-0.01", "100.01", "15.001"})
+    void invalidLevelWeightsFailEvenForDrafts(String value) {
+        var request = validRequest();
+        request.getEmployeeLevelConfigurations().get(0).setCompanyKpiWeight(new BigDecimal(value));
+        assertThatThrownBy(() -> service.create(request, false, actor)).isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void duplicateUnknownAndMissingLevelsCannotPublish() {
+        var duplicate = validRequest();
+        duplicate.getEmployeeLevelConfigurations().get(1).setEmployeeLevelId(1L);
+        assertThatThrownBy(() -> service.create(duplicate, true, actor)).hasMessageContaining("unique");
+        var unknown = validRequest(); unknown.getEmployeeLevelConfigurations().get(0).setEmployeeLevelId(999L);
+        assertThatThrownBy(() -> service.create(unknown, false, actor)).hasMessageContaining("valid");
+        var missing = validRequest(); missing.getEmployeeLevelConfigurations().remove(0);
+        var draft = service.create(missing, false, actor);
+        assertThatThrownBy(() -> service.publish(draft.getId(), actor)).hasMessageContaining("Every Employee Level");
+    }
+
+    @Test
+    void incompleteDraftLevelWeightsMayBeSavedButMustBeCompletedForPublication() {
+        var request = validRequest(); request.getEmployeeLevelConfigurations().get(0).setCompanyKpiWeight(null);
+        var draft = service.create(request, false, actor);
+        assertThat(draft.getEmployeeLevelConfigurations().get(0).getCompanyKpiWeight()).isNull();
+        assertThatThrownBy(() -> service.publish(draft.getId(), actor)).isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void previousPublishedValuesAndFrequenciesAreCopiedIndependently() {
+        var source = service.create(validRequest(), true, actor);
+        storedWeights.get(source.getId()).get(3).setCompanyKpiWeight(new BigDecimal("20"));
+        storedWeights.get(source.getId()).get(3).setIndividualKpiWeight(new BigDecimal("55"));
+        when(periods.findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(any(), eq(LocalDate.of(2028, 1, 1))))
+                .thenReturn(Optional.of(stored.get(source.getId())));
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(sales, manager));
+        sales.setEmployeeLevel(EmployeeLevelFixtures.levels().get(5));
+        var defaults = service.creationDefaults(LocalDate.of(2028, 1, 1));
+        assertThat(defaults.getSourceReviewPeriodId()).isEqualTo(source.getId());
+        assertThat(defaults.getEmployeeLevelConfigurations()).allMatch(c -> c.getId() == null);
+        assertThat(defaults.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
+        assertThat(defaults.getRoleConfigurations().get(0).getEmployeeLevelId()).isEqualTo(6L);
+        assertThat(defaults.getRoleConfigurations().get(1).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
+        var next = validRequest(); next.setName("2028 Annual Review"); next.setStartDate(LocalDate.of(2028, 1, 1));
+        next.setEndDate(LocalDate.of(2028, 12, 31)); setSetup(next, next.getStartDate());
+        next.setEmployeeLevelConfigurations(null); next.getRoleConfigurations().get(0).setReviewFrequency(null);
+        next.setAttitudeSelfAssessmentDeadline(null); next.setSuperiorAttitudeEvaluationDeadline(null);
+        next.setAppraisalRecommendationDeadline(null); next.setHrFinalisationDeadline(null);
+        var created = service.create(next, false, actor);
+        assertThat(created.getEmployeeLevelConfigurations().get(3).getCompanyKpiWeight()).isEqualByComparingTo("20");
+        assertThat(created.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
+        storedWeights.get(created.getId()).get(3).setCompanyKpiWeight(new BigDecimal("30"));
+        assertThat(storedWeights.get(source.getId()).get(3).getCompanyKpiWeight()).isEqualByComparingTo("20");
+        verify(periods, atLeastOnce()).findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED),
+                LocalDate.of(2028, 1, 1));
+    }
+
+    @Test
+    void explicitValuesOverrideDefaultsAndUpdatesNeverReloadThem() {
+        var request = validRequest();
+        request.getEmployeeLevelConfigurations().get(3).setCompanyKpiWeight(new BigDecimal("20"));
+        request.getEmployeeLevelConfigurations().get(3).setIndividualKpiWeight(new BigDecimal("55"));
+        var draft = service.create(request, false, actor);
+        request.setEmployeeLevelConfigurations(null);
+        clearInvocations(periods);
+        var updated = service.update(draft.getId(), request, actor);
+        assertThat(updated.getEmployeeLevelConfigurations().get(3).getIndividualKpiWeight()).isEqualByComparingTo("55");
+        verify(periods, never()).findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(any(), any());
     }
 
     @Test
@@ -189,7 +303,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
                 r -> r.setName(null), r -> r.setName(" "), r -> r.setName("x".repeat(256)),
                 r -> r.setStartDate(null), r -> r.setEndDate(null), r -> r.setEndDate(r.getStartDate()),
                 r -> r.setAnnualKpiConsolidationMethod(null),
-                r -> r.setCompanyKpiWeight(null), r -> r.setIndividualKpiWeight(new BigDecimal("59")),
+                r -> r.getEmployeeLevelConfigurations().get(0).setCompanyKpiWeight(null),
+                r -> r.getEmployeeLevelConfigurations().get(0).setIndividualKpiWeight(new BigDecimal("59")),
                 r -> r.setKpiPerformanceWeight(new BigDecimal("49")),
                 r -> r.setAttitudeEvaluationWeight(null),
                 r -> r.setCompanyKpiWeight(new BigDecimal("-1")),
@@ -351,9 +466,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         request.setName("2027 Annual KPI Review");
         request.setStartDate(LocalDate.of(2027, 1, 1));
         request.setEndDate(LocalDate.of(2027, 12, 31));
-        request.setCompanyKpiWeight(new BigDecimal("15"));
-        request.setDepartmentKpiWeight(new BigDecimal("25"));
-        request.setIndividualKpiWeight(new BigDecimal("60"));
+        request.setEmployeeLevelConfigurations(EmployeeLevelFixtures.weights());
         request.setAnnualKpiConsolidationMethod(AnnualKpiConsolidationMethod.FINAL_CHECKPOINT);
         setSetup(request, request.getStartDate());
         request.setSelfAssessmentDaysAfterCheckpoint(5);

@@ -1,9 +1,13 @@
 # Annual KPI Phase 1
 
 V27 adds only the four annual-review foundation tables and nullable role review-frequency default.
+V28 adds the dedicated annual KPI review period authority and grants it to the active `superadmin` role.
+It retains legacy authority records/grants and extends the inherited authority enum CHECK constraint.
+V29 adds six Employee Levels, configurable Role classification and independent per-period level weights.
+Old global weight columns remain as migration evidence but are no longer mapped or used at runtime.
 The application's existing `ddl-auto: update` and `flyway.enabled: false` remain unchanged.
 
-Do not start the application with the new entities before applying V27: Hibernate may otherwise
+Do not start the application with the new entities before applying V27-V29: Hibernate may otherwise
 create untracked tables without the migration's constraints. Do not enable the legacy Flyway location.
 
 ## Local migration
@@ -18,9 +22,14 @@ java --class-path $classpath ApplyAnnualReviewPeriodFoundation.java --apply 'C:\
 
 The runner checks the inherited IDs, migration history and absence of partial Phase 1 structures,
 backs up the local database under the user's `.apex/database-backups` directory, explicitly records the inherited schema as baseline 26
-when history is empty, and discovers **only** this directory's V27. Baseline 26 does not claim that
+when history is empty, and discovers **only** this directory's V27-V29. Baseline 26 does not claim that
 V2-V26 were executed. Preserve applied migration files and the generated backup.
-Already-applied V27 is validated, not replayed.
+Already-applied migrations are validated, not replayed. A backup is required before any pending migration.
+V28 refuses missing/ambiguous active Super Admin roles instead of guessing permission recipients.
+V29 copies actual old global weights into all six period-level rows, including incomplete Draft values.
+It leaves inherited Role classifications unset. It refuses existing participants or published Role configuration
+because their historical level associations need an explicit, reviewed mapping. Do not guess using Role names
+or current Role assignments; resolve that backfill in a separately reviewed rollout before applying V29 there.
 Flyway cannot baseline an existing empty history table. After backup, the runner locks and
 reinitialises only that zero-row metadata table. It never removes a nonempty migration history.
 
@@ -28,7 +37,7 @@ reinitialises only that zero-row metadata table. It never removes a nonempty mig
 
 ```powershell
 $env:APEX_PHASE1_POSTGRES_TEST = 'true'
-.\mvnw.cmd '-Dtest=AnnualReviewPeriodFoundationTest,AnnualReviewPeriodPostgresTest' test
+.\mvnw.cmd '-Dtest=AnnualReviewPeriodFoundationTest,AnnualReviewPeriodPostgresTest,AnnualReviewPeriodPermissionPostgresTest,EmployeeLevelMigrationPostgresTest' test
 ```
 
 The PostgreSQL test runs the migration and JPA repositories in a temporary transactional schema,
@@ -38,8 +47,8 @@ then rolls back. It does not start Spring or run legacy migrations. Normal test 
 
 - This is a persistence foundation, not the complete Review Period REST/UI workflow.
 - Partial drafts are stored; published configurations require complete dates, scoring settings and valid totals.
-- Role frequencies and participant role/department/superior labels are annual snapshots.
+- Role frequencies and Employee Level configuration references are annual snapshots; participant role/department/superior labels remain directly snapshotted.
 - Date-only deadlines have no invented time-of-day or holiday rules; generated offsets use calendar days.
 - No automatic closure, eligibility inference, transfer/resignation handling or KPI/Appraisal behaviour is added.
 - The consolidation method is stored but no annual scores are calculated in Phase 1.
-- Review-period publication/overlap concurrency and closure prerequisites belong to later workflow implementation.
+- Publication and overlap rules are enforced by the Phase 1 application service; closure prerequisites remain unresolved.

@@ -14,6 +14,7 @@ import { NzModalModule, NzModalRef, NzModalService } from 'ng-zorro-antd/modal';
 import { NzAutocompleteModule } from 'ng-zorro-antd/auto-complete';
 
 import { OrgChart } from '../../../../models/orgChart.model';
+import { EmployeeLevel } from '../../../../models/role.model';
 
 import { OrgChartService } from '../../../../services/orgChart.service';
 import { JobScopeService } from '../../../../services/jobScope.service';
@@ -40,6 +41,7 @@ export class AddRoleComponent {
   private readonly confirmOkKey = "PAGE.ROLE.OVERVIEW.ADD.CONFIRM.OK";
 
   orgChartList: OrgChart[] = [];
+  employeeLevels: EmployeeLevel[] = [];
   jobScopeList: string[] = [];
   filteredJobScopeList = [...this.jobScopeList];
 
@@ -53,6 +55,7 @@ export class AddRoleComponent {
   private destroy$ = new Subject<void>();
   validateForm = this.fb.group({
     department: [null as unknown as number, [Validators.required]],
+    employeeLevel: [null as unknown as number, [Validators.required]],
     role: [null as unknown as string, [Validators.required]],
     description: [null as unknown as string, null],
     visibility: [false as boolean, [Validators.required]],
@@ -70,9 +73,11 @@ export class AddRoleComponent {
     if (!this.initialized$.value) {
       forkJoin({
         orgChart: this.orgChartService.getAllOrgChart(),
-        jobScope: this.jobScopeService.getAllJobScopes()
+        jobScope: this.jobScopeService.getAllJobScopes(),
+        employeeLevels: this.roleService.getEmployeeLevels()
       }).subscribe({
-        next: ({ orgChart, jobScope }) => {
+        next: ({ orgChart, jobScope, employeeLevels }) => {
+          this.employeeLevels = employeeLevels;
           this.orgChartList = orgChart;
 
           this.jobScopeList = jobScope.map((jobScope) =>
@@ -116,6 +121,7 @@ export class AddRoleComponent {
   uninitialize(): void {
     this.validateForm.reset({
       department: null as unknown as number,
+      employeeLevel: null as unknown as number,
       role: null as unknown as string,
       description: null as unknown as string,
       visibility: false as boolean,
@@ -204,6 +210,7 @@ export class AddRoleComponent {
       if (!orgChartId || !roleName) return;
 
       const requestBody: RoleCreation = {
+        employeeLevelId: this.validateForm.controls.employeeLevel.value,
         orgChartId,
         roleName,
         visibility: visibility ?? false,

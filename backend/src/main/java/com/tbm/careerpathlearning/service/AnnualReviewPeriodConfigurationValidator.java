@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.service;
 
 import com.tbm.careerpathlearning.model.AnnualKpiReviewPeriod;
+import com.tbm.careerpathlearning.model.ReviewPeriodEmployeeLevelConfiguration;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -20,8 +21,7 @@ public class AnnualReviewPeriodConfigurationValidator {
                 && !period.getStartDate().isBefore(period.getEndDate())) {
             throw new IllegalArgumentException("Start date must be before end date");
         }
-        Stream.of(period.getCompanyKpiWeight(), period.getDepartmentKpiWeight(), period.getIndividualKpiWeight(),
-                        period.getKpiPerformanceWeight(), period.getAttitudeEvaluationWeight())
+        Stream.of(period.getKpiPerformanceWeight(), period.getAttitudeEvaluationWeight())
                 .filter(Objects::nonNull).forEach(this::validateWeight);
         validateOffset(period.getSelfAssessmentDaysAfterCheckpoint());
         validateOffset(period.getSuperiorAssessmentDaysAfterSelfDeadline());
@@ -36,7 +36,6 @@ public class AnnualReviewPeriodConfigurationValidator {
                 || period.getSuperiorAssessmentDaysAfterSelfDeadline() == null) {
             throw new IllegalArgumentException("Review period configuration is incomplete");
         }
-        requireTotal(period.getCompanyKpiWeight(), period.getDepartmentKpiWeight(), period.getIndividualKpiWeight());
         requireTotal(period.getKpiPerformanceWeight(), period.getAttitudeEvaluationWeight());
     }
 
@@ -82,6 +81,12 @@ public class AnnualReviewPeriodConfigurationValidator {
                 || Math.max(weight.stripTrailingZeros().scale(), 0) > 2) {
             throw new IllegalArgumentException("Weights must be between 0 and 100 with at most two decimal places");
         }
+    }
+
+    public void validateLevelWeights(ReviewPeriodEmployeeLevelConfiguration configuration, boolean publish) {
+        Stream.of(configuration.getCompanyKpiWeight(), configuration.getDepartmentKpiWeight(), configuration.getIndividualKpiWeight())
+                .filter(Objects::nonNull).forEach(this::validateWeight);
+        if (publish) requireTotal(configuration.getCompanyKpiWeight(), configuration.getDepartmentKpiWeight(), configuration.getIndividualKpiWeight());
     }
 
     private void validateOffset(Integer days) {

@@ -31,6 +31,8 @@ class RoleServiceImplTest {
     @Mock
     private RoleRepository roleRepository;
     @Mock
+    private com.tbm.careerpathlearning.repository.EmployeeLevelRepository employeeLevelRepository;
+    @Mock
     private AppMapper appMapper;
     @Mock
     private MessageSource messageSource;
@@ -56,6 +58,7 @@ class RoleServiceImplTest {
         mockRole = new Role();
         mockRole.setId(roleId);
         mockRole.setName("Developer");
+        mockRole.setEmployeeLevel(EmployeeLevelFixtures.levels().get(3));
         mockRole.setDeleted(false);
         mockRole.setOrgChart(new OrgChart());
         mockRole.getOrgChart().setId(orgId);
@@ -63,12 +66,16 @@ class RoleServiceImplTest {
         mockRoleDto = new RoleDto();
         mockRoleDto.setId(roleId);
         mockRoleDto.setName("Developer");
+        mockRoleDto.setEmployeeLevelId(4L);
         mockRoleDto.setOrgChart(mockOrgChartDto);
         mockRoleDto.setDeleted(false);
         mockRoleDto.setCreatedBy(userUUID);
         mockRoleDto.setUpdatedBy(userUUID);
 
         lenient().when(messageSource.getMessage(any(), any(), any(Locale.class))).thenReturn("Mock Error");
+        lenient().when(employeeLevelRepository.findById(4L)).thenReturn(Optional.of(mockRole.getEmployeeLevel()));
+        lenient().when(roleRepository.findById(roleId)).thenReturn(Optional.of(mockRole));
+        lenient().when(appMapper.toEntity(any(RoleDto.class))).thenReturn(new Role());
     }
 
     // --- Find Tests ---
@@ -320,6 +327,7 @@ class RoleServiceImplTest {
         // 2. New Role (To Create - ID Null)
         RoleDto newDto = new RoleDto();
         newDto.setName("New Role");
+        newDto.setEmployeeLevelId(4L);
         newDto.setOrgChart(mockOrgChartDto);
 
         List<RoleDto> inputList = List.of(existingDto, newDto);

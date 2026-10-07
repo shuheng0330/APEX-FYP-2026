@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.exception.DataAccessException;
 import com.tbm.careerpathlearning.mapper.AppMapper;
 import com.tbm.careerpathlearning.model.Role;
 import com.tbm.careerpathlearning.repository.RoleRepository;
+import com.tbm.careerpathlearning.repository.EmployeeLevelRepository;
 import com.tbm.careerpathlearning.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
@@ -22,6 +23,9 @@ public class RoleServiceImpl implements RoleService {
 
     @Autowired
     private RoleRepository roleRepository;
+
+    @Autowired
+    private EmployeeLevelRepository employeeLevelRepository;
 
     @Autowired
     private AppMapper appMapper;
@@ -87,7 +91,7 @@ public class RoleServiceImpl implements RoleService {
 
         this.checkRedundancyWithinSameDepartmentByName(dto.getOrgChart().getId(), null, dto.getName());
 
-        return appMapper.toDto(this.roleRepository.save(appMapper.toEntity(dto)));
+        return appMapper.toDto(this.roleRepository.save(mapRole(dto, true)));
     }
 
     @Transactional
@@ -142,7 +146,7 @@ public class RoleServiceImpl implements RoleService {
                 throw new BadRequestException(errorTitle, errorMessage);
             }
 
-            return appMapper.toEntity(dto);
+            return mapRole(dto, true);
         }).toList();
 
         return roleRepository.saveAll(entities).stream().map(appMapper::toDto).collect(Collectors.toList());
@@ -255,8 +259,9 @@ public class RoleServiceImpl implements RoleService {
         roleDtoToBeUpdated.setDeleted(dto.isDeleted());
         roleDtoToBeUpdated.setUpdatedBy(dto.getUpdatedBy());
         roleDtoToBeUpdated.setUpdatedAt(dto.getUpdatedAt());
+        if (dto.getEmployeeLevelId() != null) roleDtoToBeUpdated.setEmployeeLevelId(dto.getEmployeeLevelId());
 
-        return appMapper.toDto(roleRepository.save(appMapper.toEntity(roleDtoToBeUpdated)));
+        return appMapper.toDto(roleRepository.save(mapRole(roleDtoToBeUpdated, !dto.isDeleted())));
     }
 
     @Transactional
@@ -295,8 +300,10 @@ public class RoleServiceImpl implements RoleService {
             dto.setDeleted(dtoMap.get(dto.getId()).isDeleted());
             dto.setUpdatedBy(dtoMap.get(dto.getId()).getUpdatedBy());
             dto.setUpdatedAt(dtoMap.get(dto.getId()).getUpdatedAt());
+            if (dtoMap.get(dto.getId()).getEmployeeLevelId() != null)
+                dto.setEmployeeLevelId(dtoMap.get(dto.getId()).getEmployeeLevelId());
 
-            return appMapper.toEntity(dto);
+            return mapRole(dto, !dto.isDeleted());
         }).toList();
 
         return roleRepository.saveAll(entitIes).stream().map(appMapper::toDto).collect(Collectors.toList());
@@ -399,8 +406,9 @@ public class RoleServiceImpl implements RoleService {
 
             roleDto.setUpdatedBy(dto.getUpdatedBy());
             roleDto.setUpdatedAt(dto.getUpdatedAt());
+            if (dto.getEmployeeLevelId() != null) roleDto.setEmployeeLevelId(dto.getEmployeeLevelId());
 
-            return appMapper.toEntity(roleDto);
+            return mapRole(roleDto, !dto.isDeleted());
         }).toList();
 
         return roleRepository.saveAll(entities).stream().map(appMapper::toDto).collect(Collectors.toList());
@@ -415,7 +423,7 @@ public class RoleServiceImpl implements RoleService {
         roleDto.setUpdatedBy(userId);
         roleDto.setUpdatedAt(OffsetDateTime.now());
 
-        roleRepository.save(appMapper.toEntity(roleDto));
+        roleRepository.save(mapRole(roleDto, false));
     }
 
     @Transactional
@@ -429,7 +437,7 @@ public class RoleServiceImpl implements RoleService {
             roleDto.setUpdatedBy(userId);
         });
 
-        roleRepository.saveAll(roleDtoList.stream().map(appMapper::toEntity).collect(Collectors.toList()));
+        roleRepository.saveAll(roleDtoList.stream().map(dto -> mapRole(dto, false)).collect(Collectors.toList()));
     }
 
     @Transactional
@@ -446,5 +454,22 @@ public class RoleServiceImpl implements RoleService {
         roleRepository.saveAll(toDelete);
 
         return toDelete.stream().map(appMapper::toDto).collect(Collectors.toList());
+    }
+
+    private Role mapRole(RoleDto dto, boolean requireLevel) {
+        Role existing = dto.getId() == null ? null : roleRepository.findById(dto.getId())
+                .orElseThrow(() -> new BadRequestException("Role does not exist"));
+        Role entity = appMapper.toEntity(dto);
+        if (existing != null) {
+            entity.setDefaultReviewFrequency(existing.getDefaultReviewFrequency());
+            entity.setEmployeeLevel(existing.getEmployeeLevel());
+        }
+        if (dto.getEmployeeLevelId() != null) {
+            entity.setEmployeeLevel(employeeLevelRepository.findById(dto.getEmployeeLevelId())
+                    .orElseThrow(() -> new BadRequestException("Employee Level does not exist")));
+        }
+        if (requireLevel && entity.getEmployeeLevel() == null)
+            throw new BadRequestException("Select an Employee Level for this Role");
+        return entity;
     }
 }

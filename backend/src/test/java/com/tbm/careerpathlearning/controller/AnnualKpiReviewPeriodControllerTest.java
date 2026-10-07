@@ -27,7 +27,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AnnualKpiReviewPeriodController.class)
+@WebMvcTest({AnnualKpiReviewPeriodController.class, EvaluationCycleController.class,
+        AppraisalRecordController.class, OrgWideEvaluationController.class, EmployeeLevelController.class})
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = "frontend.origin=http://localhost:4200")
 class AnnualKpiReviewPeriodControllerTest {
@@ -35,19 +36,129 @@ class AnnualKpiReviewPeriodControllerTest {
     private final UUID actor = UUID.randomUUID();
     @Autowired private MockMvc mvc;
     @MockitoBean private AnnualKpiReviewPeriodService service;
+    @MockitoBean private EmployeeLevelService employeeLevelService;
+    @MockitoBean private EvaluationCycleService legacyCycleService;
+    @MockitoBean private AppraisalRecordService legacyAppraisalService;
+    @MockitoBean private OrgWideEvaluationService legacyOrganisationService;
     @MockitoBean private TokenService tokenService;
     @MockitoBean private ValidationService validationService;
     @MockitoBean private MessageSource messageSource;
 
     private UsernamePasswordAuthenticationToken admin() {
         return new UsernamePasswordAuthenticationToken(actor, null,
+                List.of(new SimpleGrantedAuthority("CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD")));
+    }
+
+    @Test
+    void legacyPermissionCannotAccessAnyAnnualPeriodEndpoint() throws Exception {
+        when(messageSource.getMessage(anyString(), any(), any(Locale.class))).thenReturn("Forbidden");
+        var legacyAdmin = new UsernamePasswordAuthenticationToken(actor, null,
                 List.of(new SimpleGrantedAuthority("CAN_MANAGE_EVALUATION_CYCLE")));
+        for (String route : List.of("", "/1", "/roles")) {
+            mvc.perform(get(BASE + route).with(authentication(legacyAdmin))).andExpect(status().isForbidden());
+        }
+        for (String route : List.of("", "/preview")) {
+            mvc.perform(post(BASE + route).with(authentication(legacyAdmin))
+                            .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(post(BASE + "/1/publish").with(authentication(legacyAdmin))).andExpect(status().isForbidden());
+        mvc.perform(put(BASE + "/1").with(authentication(legacyAdmin))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(BASE + "/1").with(authentication(legacyAdmin))).andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void annualPermissionDoesNotAuthoriseObsoleteLegacyFeatures() throws Exception {
+        when(messageSource.getMessage(anyString(), any(), any(Locale.class))).thenReturn("Forbidden");
+        mvc.perform(post("/api/evaluation-cycle").with(authentication(admin()))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/evaluation-cycle/update/1").with(authentication(admin()))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        for (String route : List.of("/api/appraisal/pending", "/api/appraisal/review-records",
+                "/api/evaluation/org/summary", "/api/evaluation/org/score-distribution",
+                "/api/evaluation/org/department-ranking", "/api/evaluation/org/competency-breakdown",
+                "/api/evaluation/org/competency-breakdown/all", "/api/evaluation/org/department-trend",
+                "/api/evaluation/org/average-trend")) {
+            mvc.perform(get(route).with(authentication(admin()))).andExpect(status().isForbidden());
+        }
+        for (String action : List.of("approve", "override-approve", "return")) {
+            mvc.perform(put("/api/appraisal/" + UUID.randomUUID() + "/" + action).with(authentication(admin()))
+                            .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isForbidden());
+        }
+        verifyNoInteractions(legacyCycleService, legacyAppraisalService, legacyOrganisationService);
+    }
+
+    @Test
+    void legacyPermissionStillAuthorisesItsOwnEndpoints() throws Exception {
+        var legacyAdmin = new UsernamePasswordAuthenticationToken(actor, null,
+                List.of(new SimpleGrantedAuthority("CAN_MANAGE_EVALUATION_CYCLE")));
+        mvc.perform(post("/api/evaluation-cycle").with(authentication(legacyAdmin))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated());
+        mvc.perform(put("/api/evaluation-cycle/update/1").with(authentication(legacyAdmin))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/appraisal/pending").with(authentication(legacyAdmin))).andExpect(status().isOk());
+        mvc.perform(get("/api/evaluation/org/summary").with(authentication(legacyAdmin))).andExpect(status().isOk());
+        verify(legacyCycleService).openNewCycle(any(), eq(actor));
+        verify(legacyCycleService).updateEvaluationCycle(eq(1L), any(), eq(actor));
+        verify(legacyAppraisalService).getPendingRecords();
+        verify(legacyOrganisationService).getSummary();
+        verifyNoInteractions(service);
     }
 
     @Test
     void anonymousIsUnauthorised() throws Exception {
         mvc.perform(get(BASE)).andExpect(status().isUnauthorized());
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void creationDefaultsRequireAnnualManagementPermissionAndValidDate() throws Exception {
+        mvc.perform(get(BASE + "/creation-defaults").param("startDate", "2027-01-01")
+                .with(authentication(admin()))).andExpect(status().isOk());
+        verify(service).creationDefaults(java.time.LocalDate.of(2027, 1, 1));
+        mvc.perform(get(BASE + "/creation-defaults").with(authentication(admin()))).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/creation-defaults").param("startDate", "invalid")
+                .with(authentication(admin()))).andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CAN_MANAGE_ROLE", "CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD", "CAN_MANAGE_EVALUATION_CYCLE", "ROLE_USER"})
+    void levelOptionsAreRestrictedToAuthorisedAdministrators(String authority) throws Exception {
+        when(messageSource.getMessage(anyString(), any(), any(Locale.class))).thenReturn("Forbidden");
+        var user = new UsernamePasswordAuthenticationToken(actor, null, List.of(new SimpleGrantedAuthority(authority)));
+        boolean permitted = authority.equals("CAN_MANAGE_ROLE") || authority.equals("CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD");
+        mvc.perform(get("/api/employee-levels").with(authentication(user))).andExpect(status().is(permitted ? 200 : 403));
+        if (permitted) verify(employeeLevelService).options();
+        else verifyNoInteractions(employeeLevelService);
+    }
+
+    @Test
+    void obsoleteGlobalKpiWeightsAreRejectedBeforeServiceCall() throws Exception {
+        mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"companyKpiWeight\":15}" )).andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CAN_MANAGE_EVALUATION_CYCLE", "CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD"})
+    void bearerTokenUsesTheExactPermissionWithoutLegacyAlias(String permission) throws Exception {
+        when(messageSource.getMessage(anyString(), any(), any(Locale.class))).thenReturn("Forbidden");
+        var claims = io.jsonwebtoken.Jwts.claims().subject(actor.toString())
+                .add("roles", List.of(permission)).build();
+        when(tokenService.extractClaims("permission-test-token")).thenReturn(claims);
+        boolean annual = permission.equals("CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD");
+        mvc.perform(get(BASE).header("Authorization", "Bearer permission-test-token"))
+                .andExpect(status().is(annual ? 200 : 403));
+        if (annual) verify(service).list();
+        else verifyNoInteractions(service);
     }
 
     @ParameterizedTest

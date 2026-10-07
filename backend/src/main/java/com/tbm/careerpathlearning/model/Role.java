@@ -47,6 +47,13 @@ public class Role {
     @Column(name = "default_review_frequency", length = 20)
     private ReviewFrequency defaultReviewFrequency;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_level_id", foreignKey = @ForeignKey(name = "fk_role_employee_level"))
+    private EmployeeLevel employeeLevel;
+
+    public EmployeeLevel getEmployeeLevel() { return employeeLevel; }
+    public void setEmployeeLevel(EmployeeLevel employeeLevel) { this.employeeLevel = employeeLevel; }
+
     public Role() {
     }
 

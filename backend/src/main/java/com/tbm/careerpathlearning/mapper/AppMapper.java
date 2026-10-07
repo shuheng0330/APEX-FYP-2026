@@ -147,8 +147,13 @@ public interface AppMapper {
     ParentChildNode toEntity(ParentChildNodeDto dto);
 
     // === Role ===
+    @Mapping(target = "employeeLevelId", source = "employeeLevel.id")
+    @Mapping(target = "employeeLevelName", source = "employeeLevel.name")
+    @Mapping(target = "employeeLevelCode", source = "employeeLevel.code")
     RoleDto toDto(Role entity);
 
+    @Mapping(target = "employeeLevel", ignore = true)
+    @Mapping(target = "defaultReviewFrequency", ignore = true)
     Role toEntity(RoleDto entity);
 
     // === Career Pathway ===

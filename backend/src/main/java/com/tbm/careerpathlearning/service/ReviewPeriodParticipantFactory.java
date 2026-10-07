@@ -17,6 +17,12 @@ public class ReviewPeriodParticipantFactory {
                 || !sameRole(staff.getRole(), configuration.getRole()) || configuration.getReviewFrequency() == null) {
             throw new IllegalArgumentException("Configuration must belong to this period and the employee's role");
         }
+        if (configuration.getEmployeeLevelConfiguration() == null
+                || configuration.getEmployeeLevelConfigurationId() == null
+                || !configuration.getEmployeeLevelConfigurationId().equals(configuration.getEmployeeLevelConfiguration().getId())
+                || !samePeriod(period, configuration.getEmployeeLevelConfiguration().getReviewPeriod())) {
+            throw new IllegalArgumentException("A saved, period-bound Employee Level configuration is required");
+        }
         if (department != null && department.getType() != OrgChartType.D) {
             throw new IllegalArgumentException("Department must be a department organisation node");
         }
@@ -31,6 +37,8 @@ public class ReviewPeriodParticipantFactory {
         participant.setSuperior(staff.getManager());
         participant.setSuperiorName(staff.getManager() == null ? null : staff.getManager().getName());
         participant.setReviewFrequency(configuration.getReviewFrequency());
+        participant.setEmployeeLevelConfiguration(configuration.getEmployeeLevelConfiguration());
+        participant.setEmployeeLevelConfigurationId(configuration.getEmployeeLevelConfigurationId());
         return participant;
     }
 

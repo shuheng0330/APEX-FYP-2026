@@ -74,22 +74,24 @@ class AnnualReviewPeriodFoundationTest {
                 () -> validator.validateForScheduling(new AnnualKpiReviewPeriod()));
         var period = period();
         assertThatCode(() -> validator.validateForScheduling(period)).doesNotThrowAnyException();
-        period.setIndividualKpiWeight(new BigDecimal("59.00"));
-        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateForScheduling(period));
-        period.setIndividualKpiWeight(new BigDecimal("60.00"));
+        var weight = new ReviewPeriodEmployeeLevelConfiguration();
+        weight.setCompanyKpiWeight(new BigDecimal("15"));
+        weight.setDepartmentKpiWeight(new BigDecimal("25"));
+        weight.setIndividualKpiWeight(new BigDecimal("59"));
+        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateLevelWeights(weight, true));
         period.setAttitudeEvaluationWeight(new BigDecimal("49.00"));
         assertThatIllegalArgumentException().isThrownBy(() -> validator.validateForScheduling(period));
     }
 
     @Test
     void invalidWeightRangeAndPrecisionAreRejected() {
-        var period = period();
-        period.setCompanyKpiWeight(new BigDecimal("-1"));
-        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateDraft(period));
-        period.setCompanyKpiWeight(new BigDecimal("100.01"));
-        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateDraft(period));
-        period.setCompanyKpiWeight(new BigDecimal("15.001"));
-        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateDraft(period));
+        var weight = new ReviewPeriodEmployeeLevelConfiguration();
+        weight.setCompanyKpiWeight(new BigDecimal("-1"));
+        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateLevelWeights(weight, false));
+        weight.setCompanyKpiWeight(new BigDecimal("100.01"));
+        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateLevelWeights(weight, false));
+        weight.setCompanyKpiWeight(new BigDecimal("15.001"));
+        assertThatIllegalArgumentException().isThrownBy(() -> validator.validateLevelWeights(weight, false));
     }
 
     @Test
@@ -124,6 +126,9 @@ class AnnualReviewPeriodFoundationTest {
         var configuration = new ReviewPeriodRoleConfiguration();
         configuration.setReviewPeriod(period); configuration.setRole(role);
         configuration.setReviewFrequency(ReviewFrequency.MONTHLY);
+        var weight = new ReviewPeriodEmployeeLevelConfiguration();
+        weight.setId(1L); weight.setReviewPeriod(period);
+        configuration.setEmployeeLevelConfiguration(weight); configuration.setEmployeeLevelConfigurationId(1L);
         var participant = new ReviewPeriodParticipantFactory().snapshot(period, staff, configuration, department);
         role.setName("New Role"); department.setName("New Department"); superior.setName("New Superior");
         configuration.setReviewFrequency(ReviewFrequency.ANNUALLY);
@@ -147,9 +152,6 @@ class AnnualReviewPeriodFoundationTest {
         period.setName("2027 Annual KPI Review");
         period.setStartDate(LocalDate.of(2027, 1, 1)); period.setEndDate(LocalDate.of(2027, 12, 31));
         period.setSelfAssessmentDaysAfterCheckpoint(5); period.setSuperiorAssessmentDaysAfterSelfDeadline(5);
-        period.setCompanyKpiWeight(new BigDecimal("15.00"));
-        period.setDepartmentKpiWeight(new BigDecimal("25.00"));
-        period.setIndividualKpiWeight(new BigDecimal("60.00"));
         period.setAnnualKpiConsolidationMethod(AnnualKpiConsolidationMethod.FINAL_CHECKPOINT);
         return period;
     }

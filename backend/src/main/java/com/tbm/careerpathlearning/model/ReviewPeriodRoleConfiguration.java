@@ -30,6 +30,16 @@ public class ReviewPeriodRoleConfiguration {
     @Column(name = "review_frequency", nullable = false, length = 20)
     private ReviewFrequency reviewFrequency;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns(value = {
+        @JoinColumn(name = "review_period_id", referencedColumnName = "review_period_id", insertable = false, updatable = false),
+        @JoinColumn(name = "employee_level_configuration_id", referencedColumnName = "id", insertable = false, updatable = false)
+    }, foreignKey = @ForeignKey(name = "fk_period_role_level_config"))
+    private ReviewPeriodEmployeeLevelConfiguration employeeLevelConfiguration;
+
+    @Column(name = "employee_level_configuration_id")
+    private Long employeeLevelConfigurationId;
+
     public static ReviewFrequency resolveFrequency(Role role, ReviewFrequency override) {
         if (override != null) return override;
         if (role != null && role.getDefaultReviewFrequency() != null) return role.getDefaultReviewFrequency();

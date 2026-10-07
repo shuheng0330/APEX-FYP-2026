@@ -2,6 +2,8 @@ package com.tbm.careerpathlearning.controller;
 
 import com.tbm.careerpathlearning.dto.AnnualKpiReviewPeriodDto;
 import com.tbm.careerpathlearning.dto.AnnualKpiReviewPeriodRequest;
+import com.tbm.careerpathlearning.dto.AnnualKpiReviewPeriodDefaultsDto;
+import java.time.LocalDate;
 import com.tbm.careerpathlearning.service.AnnualKpiReviewPeriodService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/annual-kpi-review-periods")
-@PreAuthorize("hasAuthority(T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_EVALUATION_CYCLE.getAuthorityName())")
+@PreAuthorize("hasAuthority(T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD.getAuthorityName())")
 public class AnnualKpiReviewPeriodController {
     private final AnnualKpiReviewPeriodService service;
 
@@ -52,6 +54,11 @@ public class AnnualKpiReviewPeriodController {
     @GetMapping("/roles")
     public List<AnnualKpiReviewPeriodDto.RoleConfiguration> availableRoles() {
         return service.availableRoles();
+    }
+
+    @GetMapping("/creation-defaults")
+    public AnnualKpiReviewPeriodDefaultsDto creationDefaults(@RequestParam LocalDate startDate) {
+        return service.creationDefaults(startDate);
     }
 
     @PostMapping("/preview")

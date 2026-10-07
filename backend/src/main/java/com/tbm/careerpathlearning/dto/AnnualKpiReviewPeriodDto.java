@@ -17,9 +17,7 @@ public class AnnualKpiReviewPeriodDto {
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
-    private BigDecimal companyKpiWeight;
-    private BigDecimal departmentKpiWeight;
-    private BigDecimal individualKpiWeight;
+    private List<ReviewPeriodEmployeeLevelConfigurationDto> employeeLevelConfigurations = new ArrayList<>();
     private BigDecimal kpiPerformanceWeight;
     private BigDecimal attitudeEvaluationWeight;
     private AnnualKpiConsolidationMethod annualKpiConsolidationMethod;
@@ -48,6 +46,8 @@ public class AnnualKpiReviewPeriodDto {
         private String roleName;
         private String departmentName;
         private ReviewFrequency reviewFrequency;
+        private Long employeeLevelId;
+        private String employeeLevelName;
     }
 
     @Data

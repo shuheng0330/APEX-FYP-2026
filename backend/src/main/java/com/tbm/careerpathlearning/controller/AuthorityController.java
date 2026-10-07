@@ -110,6 +110,7 @@ public class AuthorityController {
     private static final String MANAGE_EVALUATION_NOTES = "auth.can.manage.evaluation.desc";
 
     private static final String MANAGE_EVALUATION_CYCLE_NOTES = "auth.can.manage.evaluation.cycle.desc";
+    private static final String MANAGE_ANNUAL_KPI_REVIEW_PERIOD_NOTES = "auth.can.manage.annual.kpi.review.period.desc";
 
     private static final String DEPT_NAME_COLUMN = "Department Name";
 
@@ -146,6 +147,7 @@ public class AuthorityController {
     private static final String MANAGE_EVALUATION_COLUMN = "Manage Evaluation";
 
     private static final String MANAGE_EVALUATION_CYCLE_COLUMN = "Manage Evaluation Cycle";
+    private static final String MANAGE_ANNUAL_KPI_REVIEW_PERIOD_COLUMN = "Manage Annual KPI Review Period";
 
     private static final String INTERNAL_SERVER_ERROR_EXP_ERR_TITLE_CODE = "internal.server.err.title";
 
@@ -535,6 +537,11 @@ public class AuthorityController {
             cellManageEvaluationCycle.setCellValue(MANAGE_EVALUATION_CYCLE_COLUMN);
             createCellComment(drawing, cellManageEvaluationCycle, messageSource.getMessage(MANAGE_EVALUATION_CYCLE_NOTES, null, Locale.getDefault()));
 
+            Cell cellManageAnnualKpiReviewPeriod = header.createCell(18);
+            cellManageAnnualKpiReviewPeriod.setCellValue(MANAGE_ANNUAL_KPI_REVIEW_PERIOD_COLUMN);
+            createCellComment(drawing, cellManageAnnualKpiReviewPeriod,
+                    messageSource.getMessage(MANAGE_ANNUAL_KPI_REVIEW_PERIOD_NOTES, null, Locale.getDefault()));
+
             rowIndex++;
 
             List<RoleDto> allRoles = roleService.getAllByDeletedIsFalse();
@@ -565,6 +572,7 @@ public class AuthorityController {
                 row.createCell(15).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_LEARNING_MATERIAL) ? YES : null);
                 row.createCell(16).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_EVALUATION) ? YES : null);
                 row.createCell(17).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_EVALUATION_CYCLE) ? YES : null);
+                row.createCell(18).setCellValue(assignedAuthorities.contains(AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD) ? YES : null);
 
                 rowIndex++;
             }
@@ -683,6 +691,11 @@ public class AuthorityController {
 
         // -- check headers --
         Row header = sheet.getRow(0);
+        String annualPermissionHeader = getCellValueAsString(header.getCell(18));
+        boolean hasAnnualPermissionColumn = !validationService.isNullOrBlank(annualPermissionHeader);
+        if (hasAnnualPermissionColumn && !annualPermissionHeader.equalsIgnoreCase(MANAGE_ANNUAL_KPI_REVIEW_PERIOD_COLUMN)) {
+            throw new BadRequestException(messageSource.getMessage(IMPORT_FILE_INVALID_ERR_MSG_CODE, null, Locale.getDefault()));
+        }
         if (!getCellValueAsString(header.getCell(0)).equalsIgnoreCase(DEPT_NAME_COLUMN)
                 || !getCellValueAsString(header.getCell(1)).equalsIgnoreCase(ROLE_NAME_COLUMN)
                 || !getCellValueAsString(header.getCell(2)).equalsIgnoreCase(USER_COLUMN)
@@ -844,6 +857,21 @@ public class AuthorityController {
 
             if (!validationService.isNullOrBlank(manageEvaluationCycle) && manageEvaluationCycle.equalsIgnoreCase(YES)) {
                 inputtedAuthority.add(new RoleAuthorityId(roleId, allAuthorityNameMap.get(AuthorityName.CAN_MANAGE_EVALUATION_CYCLE)));
+            }
+
+            Long annualAuthorityId = allAuthorityNameMap.get(AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD);
+            if (hasAnnualPermissionColumn) {
+                String manageAnnualKpiReviewPeriod = getCellValueAsString(row.getCell(18));
+                if (!validationService.isNullOrBlank(manageAnnualKpiReviewPeriod) && manageAnnualKpiReviewPeriod.equalsIgnoreCase(YES)) {
+                    if (annualAuthorityId == null) {
+                        throw new BadRequestException("Annual KPI review period permission is not installed. Apply migration V28 first.");
+                    }
+                    inputtedAuthority.add(new RoleAuthorityId(roleId, annualAuthorityId));
+                }
+            } else if (annualAuthorityId != null) {
+                // Older templates must not revoke a permission they cannot represent.
+                RoleAuthorityId annualAssignment = new RoleAuthorityId(roleId, annualAuthorityId);
+                if (assignedAuthority.contains(annualAssignment)) inputtedAuthority.add(annualAssignment);
             }
 
             Set<RoleAuthorityId> toAdd = new HashSet<>(inputtedAuthority);

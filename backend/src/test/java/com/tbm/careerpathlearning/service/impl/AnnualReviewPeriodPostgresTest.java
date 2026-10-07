@@ -55,8 +55,11 @@ class AnnualReviewPeriodPostgresTest {
                 }
                 // The integration test also works after V27 is installed in public.
                 execute(connection, "ALTER TABLE " + schema + ".role DROP COLUMN IF EXISTS default_review_frequency");
+                execute(connection, "ALTER TABLE " + schema + ".role DROP COLUMN IF EXISTS employee_level_id");
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource(
                         "db/migration/annual-kpi/V27__annual_review_period_foundation.sql"));
+                execute(connection, new ClassPathResource("db/migration/annual-kpi/V29__employee_level_kpi_weightages.sql")
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
 
                 var configuration = new Configuration();
                 configuration.setProperty("hibernate.connection.url", url);
@@ -80,6 +83,7 @@ class AnnualReviewPeriodPostgresTest {
                     session.persist(department);
                     var role = new Role(); role.setName("Phase 1 Test Retail Sales"); role.setOrgChart(department);
                     role.setCreatedAt(now); role.setUpdatedAt(now); role.setDefaultReviewFrequency(ReviewFrequency.QUARTERLY);
+                    role.setEmployeeLevel(session.find(EmployeeLevel.class, 4L));
                     session.persist(role);
                     var superior = staff("Phase 1 Test Superior", role, now); session.persist(superior);
                     var employee = staff("Phase 1 Test Employee", role, now); employee.setManager(superior);
@@ -92,14 +96,19 @@ class AnnualReviewPeriodPostgresTest {
                     var participants = factory.getRepository(ReviewPeriodParticipantRepository.class);
                     var period = new AnnualKpiReviewPeriod(); period.setName("Phase 1 Test 2027");
                     period.setStartDate(LocalDate.of(2027, 1, 1)); period.setEndDate(LocalDate.of(2027, 12, 31));
-                    period.setCompanyKpiWeight(new BigDecimal("15.00"));
-                    period.setDepartmentKpiWeight(new BigDecimal("25.00"));
-                    period.setIndividualKpiWeight(new BigDecimal("60.00"));
                     period.setAnnualKpiConsolidationMethod(AnnualKpiConsolidationMethod.FINAL_CHECKPOINT);
                     period.setSelfAssessmentDaysAfterCheckpoint(5); period.setSuperiorAssessmentDaysAfterSelfDeadline(5);
                     periods.saveAndFlush(period);
+                    var levelWeight = new ReviewPeriodEmployeeLevelConfiguration();
+                    levelWeight.setReviewPeriod(period); levelWeight.setEmployeeLevel(role.getEmployeeLevel());
+                    levelWeight.setCompanyKpiWeight(new BigDecimal("15"));
+                    levelWeight.setDepartmentKpiWeight(new BigDecimal("25"));
+                    levelWeight.setIndividualKpiWeight(new BigDecimal("60"));
+                    session.persist(levelWeight); session.flush();
                     var roleConfiguration = new ReviewPeriodRoleConfiguration();
                     roleConfiguration.setReviewPeriod(period); roleConfiguration.setRole(role);
+                    roleConfiguration.setEmployeeLevelConfiguration(levelWeight);
+                    roleConfiguration.setEmployeeLevelConfigurationId(levelWeight.getId());
                     roleConfiguration.setReviewFrequency(ReviewFrequency.MONTHLY); roles.saveAndFlush(roleConfiguration);
                     checkpoints.saveAllAndFlush(new ReviewCheckpointGenerator().generate(period, ReviewFrequency.MONTHLY));
                     var participant = new ReviewPeriodParticipantFactory().snapshot(period, employee, roleConfiguration, department);
@@ -109,6 +118,8 @@ class AnnualReviewPeriodPostgresTest {
                     assertThat(periods.existsByName(period.getName())).isTrue();
                     assertThat(periods.findAllByOrderByStartDateDescIdDesc()).hasSize(1);
                     assertThat(roles.findByReviewPeriodIdAndRoleId(period.getId(), role.getId())).isPresent();
+                    assertThat(roles.findByReviewPeriodIdAndRoleId(period.getId(), role.getId()).orElseThrow()
+                            .getEmployeeLevelConfiguration().getEmployeeLevel().getCode()).isEqualTo("EXECUTIVE");
                     assertThat(checkpoints.findAllByReviewPeriodIdAndReviewFrequencyOrderBySequenceNumberAsc(
                             period.getId(), ReviewFrequency.MONTHLY)).hasSize(12);
                     assertThat(participants.findByReviewPeriodIdAndStaffId(period.getId(), employee.getId()))
@@ -125,15 +136,16 @@ class AnnualReviewPeriodPostgresTest {
 
                     verifyApplicationWorkflow(factory, connection, periods, roles, checkpoints, participants,
                             role, superior, clock(), env);
+                    verifyDefaultsOrdering(connection, periods);
 
-                    reject(connection, "23505", "INSERT INTO review_period_participant(review_period_id,staff_id,review_frequency) "
-                            + "SELECT review_period_id,staff_id,review_frequency FROM review_period_participant");
+                    reject(connection, "23505", "INSERT INTO review_period_participant(review_period_id,staff_id,review_frequency,employee_level_configuration_id) "
+                            + "SELECT review_period_id,staff_id,review_frequency,employee_level_configuration_id FROM review_period_participant");
                     reject(connection, "23505", "INSERT INTO review_period_role_configuration(review_period_id,role_id,review_frequency) "
                             + "SELECT review_period_id,role_id,review_frequency FROM review_period_role_configuration");
                     reject(connection, "23505", "INSERT INTO review_checkpoint(review_period_id,review_frequency,sequence_number,"
                             + "start_date,end_date,self_assessment_deadline,superior_assessment_deadline) SELECT review_period_id,"
                             + "review_frequency,sequence_number,start_date,end_date,self_assessment_deadline,superior_assessment_deadline FROM review_checkpoint");
-                    reject(connection, "23514", "UPDATE annual_kpi_review_period SET individual_kpi_weight=59");
+                    reject(connection, "23514", "UPDATE review_period_employee_level_configuration SET individual_kpi_weight=-1");
                     reject(connection, "23514", "UPDATE review_checkpoint SET self_assessment_deadline=end_date");
                     reject(connection, "23514", "UPDATE role SET default_review_frequency='WEEKLY'");
                     reject(connection, "23503", "DELETE FROM staff WHERE id='" + employee.getId() + "'");
@@ -157,13 +169,40 @@ class AnnualReviewPeriodPostgresTest {
         return Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"));
     }
 
+    private void verifyDefaultsOrdering(Connection connection, AnnualKpiReviewPeriodRepository periods) throws Exception {
+        String[] statuses = {"CLOSED", "OPEN", "UPCOMING", "DRAFT", "CLOSED"};
+        long expected = 0;
+        var inserted = new java.util.ArrayList<Long>();
+        for (int i = 0; i < statuses.length; i++) {
+            try (var statement = connection.prepareStatement("INSERT INTO annual_kpi_review_period(reference_number,name,start_date,"
+                    + "end_date,status,annual_kpi_consolidation_method,self_assessment_days_after_checkpoint,"
+                    + "superior_assessment_days_after_self_deadline) VALUES(?,?,?,?,?,'FINAL_CHECKPOINT',5,5) RETURNING id")) {
+                statement.setString(1, UUID.randomUUID().toString());
+                statement.setString(2, "Defaults ordering " + i);
+                statement.setObject(3, LocalDate.of(2010, i == 0 ? 1 : 2, 1));
+                statement.setObject(4, i == 4 ? LocalDate.of(2011, 1, 1) : LocalDate.of(2010, 12, 31));
+                statement.setString(5, statuses[i]);
+                try (var result = statement.executeQuery()) {
+                    result.next(); inserted.add(result.getLong(1));
+                    if (i == 2) expected = result.getLong(1);
+                }
+            }
+        }
+        assertThat(periods.findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED),
+                LocalDate.of(2011, 1, 1)).orElseThrow().getId()).isEqualTo(expected);
+        for (long id : inserted) execute(connection, "DELETE FROM annual_kpi_review_period WHERE id=" + id);
+    }
+
     private void verifyApplicationWorkflow(JpaRepositoryFactory factory, Connection connection,
             AnnualKpiReviewPeriodRepository periods, ReviewPeriodRoleConfigurationRepository configurations,
             ReviewCheckpointRepository checkpoints, ReviewPeriodParticipantRepository participants,
             Role role, Staff actor, Clock clock, Dotenv env) throws Exception {
         var service = new AnnualKpiReviewPeriodServiceImpl(periods, configurations, checkpoints, participants,
                 factory.getRepository(RoleRepository.class), Mappers.getMapper(AnnualKpiReviewPeriodMapper.class),
-                new AnnualReviewPeriodConfigurationValidator(), new ReviewCheckpointGenerator(), clock);
+                new AnnualReviewPeriodConfigurationValidator(), new ReviewCheckpointGenerator(), clock,
+                factory.getRepository(EmployeeLevelRepository.class),
+                factory.getRepository(ReviewPeriodEmployeeLevelConfigurationRepository.class));
         var request = AnnualKpiReviewPeriodServiceImplTest.validRequest();
         request.setName("Application workflow 2028");
         request.setStartDate(LocalDate.of(2028, 1, 1));

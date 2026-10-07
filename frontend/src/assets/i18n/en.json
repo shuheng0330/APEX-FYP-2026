@@ -168,6 +168,11 @@
             }
         },
         "ROLE": {
+            "EMPLOYEE_LEVEL": {
+                "LABEL": "Employee Level",
+                "PLACEHOLDER": "Select an Employee Level",
+                "REQUIRED": "Please select an Employee Level"
+            },
             "TITLE": "Roles",
             "OVERVIEW": {
                 "TITLE": "Role Overview",

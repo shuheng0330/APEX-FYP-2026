@@ -3,6 +3,10 @@ package com.tbm.careerpathlearning.dto;
 import java.util.List;
 
 public class CreateRoleRequestDto {
+    private Long employeeLevelId;
+
+    public Long getEmployeeLevelId() { return employeeLevelId; }
+    public void setEmployeeLevelId(Long employeeLevelId) { this.employeeLevelId = employeeLevelId; }
 
     private Long orgChartId;
     private String roleName;

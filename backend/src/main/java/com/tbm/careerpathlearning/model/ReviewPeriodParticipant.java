@@ -64,6 +64,16 @@ public class ReviewPeriodParticipant {
     @Column(name = "review_frequency", nullable = false, length = 20, updatable = false)
     private ReviewFrequency reviewFrequency;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumns(value = {
+        @JoinColumn(name = "review_period_id", referencedColumnName = "review_period_id", insertable = false, updatable = false),
+        @JoinColumn(name = "employee_level_configuration_id", referencedColumnName = "id", insertable = false, updatable = false)
+    }, foreignKey = @ForeignKey(name = "fk_participant_level_config"))
+    private ReviewPeriodEmployeeLevelConfiguration employeeLevelConfiguration;
+
+    @Column(name = "employee_level_configuration_id", nullable = false, updatable = false)
+    private Long employeeLevelConfigurationId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

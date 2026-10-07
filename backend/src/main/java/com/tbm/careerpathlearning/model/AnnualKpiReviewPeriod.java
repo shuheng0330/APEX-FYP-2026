@@ -39,15 +39,6 @@ public class AnnualKpiReviewPeriod {
     @Column(nullable = false, length = 20)
     private AnnualKpiReviewPeriodStatus status = AnnualKpiReviewPeriodStatus.DRAFT;
 
-    @Column(name = "company_kpi_weight", precision = 5, scale = 2)
-    private BigDecimal companyKpiWeight;
-
-    @Column(name = "department_kpi_weight", precision = 5, scale = 2)
-    private BigDecimal departmentKpiWeight;
-
-    @Column(name = "individual_kpi_weight", precision = 5, scale = 2)
-    private BigDecimal individualKpiWeight;
-
     @Column(name = "kpi_performance_weight", precision = 5, scale = 2)
     private BigDecimal kpiPerformanceWeight = new BigDecimal("50.00");
 
