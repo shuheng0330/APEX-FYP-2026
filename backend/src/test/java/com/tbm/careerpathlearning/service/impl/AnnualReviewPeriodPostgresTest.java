@@ -136,7 +136,7 @@ class AnnualReviewPeriodPostgresTest {
 
                     verifyApplicationWorkflow(factory, connection, periods, roles, checkpoints, participants,
                             role, superior, clock(), env);
-                    verifyDefaultsOrdering(connection, periods);
+                    verifyDefaultsOrdering(connection, periods, roles, role.getId());
 
                     reject(connection, "23505", "INSERT INTO review_period_participant(review_period_id,staff_id,review_frequency,employee_level_configuration_id) "
                             + "SELECT review_period_id,staff_id,review_frequency,employee_level_configuration_id FROM review_period_participant");
@@ -169,7 +169,8 @@ class AnnualReviewPeriodPostgresTest {
         return Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"));
     }
 
-    private void verifyDefaultsOrdering(Connection connection, AnnualKpiReviewPeriodRepository periods) throws Exception {
+    private void verifyDefaultsOrdering(Connection connection, AnnualKpiReviewPeriodRepository periods,
+            ReviewPeriodRoleConfigurationRepository configurations, Long roleId) throws Exception {
         String[] statuses = {"CLOSED", "OPEN", "UPCOMING", "DRAFT", "CLOSED"};
         long expected = 0;
         var inserted = new java.util.ArrayList<Long>();
@@ -191,6 +192,26 @@ class AnnualReviewPeriodPostgresTest {
         assertThat(periods.findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED),
                 LocalDate.of(2011, 1, 1)).orElseThrow().getId()).isEqualTo(expected);
+        // The latest period omits this Role. Its older published configuration still supplies the default.
+        for (int index : List.of(0, 1, 3, 4)) {
+            try (var statement = connection.prepareStatement("INSERT INTO review_period_role_configuration"
+                    + "(review_period_id,role_id,review_frequency) VALUES(?,?,'QUARTERLY')")) {
+                statement.setLong(1, inserted.get(index));
+                statement.setLong(2, roleId);
+                statement.executeUpdate();
+            }
+        }
+        var history = configurations.findPublishedConfigurationsBefore(LocalDate.of(2011, 1, 1),
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED));
+        assertThat(history).extracting(c -> c.getReviewPeriod().getId())
+                .containsExactly(inserted.get(1), inserted.get(0));
+        assertThat(history).allMatch(c -> c.getRole().getId().equals(roleId));
+        // Equal dates are ordered by ID descending, not by the Role default.
+        execute(connection, "UPDATE annual_kpi_review_period SET start_date='2010-02-01' WHERE id=" + inserted.get(0));
+        assertThat(configurations.findPublishedConfigurationsBefore(LocalDate.of(2011, 1, 1),
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED)))
+                .extracting(c -> c.getReviewPeriod().getId()).containsExactly(inserted.get(1), inserted.get(0));
+        for (long id : inserted) execute(connection, "DELETE FROM review_period_role_configuration WHERE review_period_id=" + id);
         for (long id : inserted) execute(connection, "DELETE FROM annual_kpi_review_period WHERE id=" + id);
     }
 

@@ -83,6 +83,17 @@ class AnnualKpiReviewPeriodServiceImplTest {
         });
         when(configurations.findAllByReviewPeriodIdOrderByIdAsc(anyLong()))
                 .thenAnswer(i -> storedRoles.getOrDefault(i.getArgument(0), List.of()));
+        when(configurations.findPublishedConfigurationsBefore(any(), any())).thenAnswer(i -> {
+            LocalDate startDate = i.getArgument(0);
+            Collection<AnnualKpiReviewPeriodStatus> statuses = i.getArgument(1);
+            return storedRoles.values().stream().flatMap(Collection::stream)
+                    .filter(c -> statuses.contains(c.getReviewPeriod().getStatus())
+                            && c.getReviewPeriod().getEndDate().isBefore(startDate))
+                    .sorted(Comparator.comparing((ReviewPeriodRoleConfiguration c) -> c.getReviewPeriod().getEndDate())
+                            .thenComparing(c -> c.getReviewPeriod().getStartDate())
+                            .thenComparing(c -> c.getReviewPeriod().getId()).reversed())
+                    .toList();
+        });
         when(checkpoints.findAllByReviewPeriodIdOrderByReviewFrequencyAscSequenceNumberAsc(anyLong()))
                 .thenAnswer(i -> storedCheckpoints.getOrDefault(i.getArgument(0), List.of()));
         doAnswer(i -> { storedRoles.remove(i.getArgument(0)); return null; }).when(configurations).deleteAllByReviewPeriodId(anyLong());
@@ -181,9 +192,74 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThat(created.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
         storedWeights.get(created.getId()).get(3).setCompanyKpiWeight(new BigDecimal("30"));
         assertThat(storedWeights.get(source.getId()).get(3).getCompanyKpiWeight()).isEqualByComparingTo("20");
+        next.getRoleConfigurations().get(0).setReviewFrequency(ReviewFrequency.QUARTERLY);
+        var updated = service.update(created.getId(), next, actor);
+        assertThat(updated.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
+        assertThat(storedRoles.get(source.getId()).get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
+        assertThat(sales.getDefaultReviewFrequency()).isNull();
         verify(periods, atLeastOnce()).findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED),
                 LocalDate.of(2028, 1, 1));
+    }
+
+    @Test
+    void eachRoleReusesItsLatestSavedFrequencyEvenWhenMissingFromNewestPeriod() {
+        var older = savedFrequency(10L, 2025, sales, ReviewFrequency.MONTHLY);
+        var oldManager = savedFrequency(10L, 2025, manager, ReviewFrequency.MONTHLY);
+        var newerManager = savedFrequency(11L, 2026, manager, ReviewFrequency.ANNUALLY);
+        storedRoles.put(10L, List.of(older, oldManager));
+        storedRoles.put(11L, List.of(newerManager));
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(sales, manager));
+
+        var defaults = service.creationDefaults(LocalDate.of(2027, 1, 1));
+        assertThat(defaults.getRoleConfigurations()).extracting(AnnualKpiReviewPeriodDto.RoleConfiguration::getReviewFrequency)
+                .containsExactly(ReviewFrequency.MONTHLY, ReviewFrequency.ANNUALLY);
+        // Employee Level weightages still use lookup defaults when no weightage source is available.
+        assertThat(defaults.getEmployeeLevelConfigurations()).hasSize(6);
+        var request = validRequest();
+        request.setRoleConfigurations(List.of(frequency(1L, null), frequency(2L, null)));
+        var created = service.create(request, true, actor);
+        assertThat(created.getRoleConfigurations()).extracting(AnnualKpiReviewPeriodDto.RoleConfiguration::getReviewFrequency)
+                .containsExactly(ReviewFrequency.MONTHLY, ReviewFrequency.ANNUALLY);
+        assertThat(created.getCheckpoints()).hasSize(13);
+        verify(configurations, atLeastOnce()).findPublishedConfigurationsBefore(LocalDate.of(2027, 1, 1),
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED));
+    }
+
+    @Test
+    void creationDefaultsUseRoleDefaultsAndAnnualFallbackWhenNoHistoryExists() {
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(sales, manager));
+        var defaults = service.creationDefaults(LocalDate.of(2027, 1, 1));
+        assertThat(defaults.getRoleConfigurations()).extracting(AnnualKpiReviewPeriodDto.RoleConfiguration::getReviewFrequency)
+                .containsExactly(ReviewFrequency.ANNUALLY, ReviewFrequency.QUARTERLY);
+    }
+
+    @Test
+    void explicitCreationAndPreviewFrequenciesOverrideHistory() {
+        storedRoles.put(10L, List.of(savedFrequency(10L, 2026, sales, ReviewFrequency.QUARTERLY)));
+        var request = validRequest();
+        assertThat(service.preview(request, null).getRoleConfigurations().get(0).getReviewFrequency())
+                .isEqualTo(ReviewFrequency.MONTHLY);
+        var created = service.create(request, false, actor);
+        assertThat(created.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
+        request.getRoleConfigurations().get(0).setReviewFrequency(null);
+        clearInvocations(configurations);
+        assertThat(service.update(created.getId(), request, actor).getRoleConfigurations().get(0).getReviewFrequency())
+                .isEqualTo(ReviewFrequency.MONTHLY);
+        verify(configurations, never()).findPublishedConfigurationsBefore(any(), any());
+    }
+
+    private ReviewPeriodRoleConfiguration savedFrequency(Long id, int year, Role role, ReviewFrequency frequency) {
+        var period = new AnnualKpiReviewPeriod();
+        period.setId(id);
+        period.setStartDate(LocalDate.of(year, 1, 1));
+        period.setEndDate(LocalDate.of(year, 12, 31));
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);
+        var configuration = new ReviewPeriodRoleConfiguration();
+        configuration.setReviewPeriod(period);
+        configuration.setRole(role);
+        configuration.setReviewFrequency(frequency);
+        return configuration;
     }
 
     @Test

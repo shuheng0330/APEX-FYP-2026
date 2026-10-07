@@ -20,7 +20,7 @@ Base: `/api/annual-kpi-review-periods`
 | GET | base | List periods, including configuration and checkpoints |
 | GET | `/{id}` | Retrieve configuration and generated schedule |
 | GET | `/roles` | Non-deleted roles with configured default frequency, or ANNUALLY |
-| GET | `/creation-defaults?startDate=2027-01-01` | Copied Employee Level weights and Role frequencies from the latest earlier published period, or initial defaults |
+| GET | `/creation-defaults?startDate=2027-01-01` | Employee Level weights from the latest earlier published period and each Role's latest earlier saved frequency, or initial defaults |
 | POST | `/preview` | Validate full configuration and return an unsaved configuration/schedule preview |
 | DELETE | `/{id}` | Delete an editable Draft/Upcoming and its role/checkpoint configuration; returns 204 |
 
@@ -84,8 +84,11 @@ Role exports append `Employee Level Code` as column nine. Older eight-column imp
 new Roles require the additional level code. No Role-name matching is performed.
 
 Creation defaults select Upcoming/Open/Closed periods with End Date strictly before the intended Start Date,
-ordered by End Date, Start Date and ID descending. Drafts are excluded. Weights are copied independently;
-frequencies match by Role ID. New Roles use their default frequency, then ANNUALLY. Current Role-to-Level
+ordered by End Date, Start Date and ID descending. Drafts are excluded. Weights come from the latest qualifying
+period. Each Role's frequency comes from the latest qualifying period containing that Role's saved configuration,
+even when that Role is absent from the newest period. Without saved history, use `Role.default_review_frequency`,
+then ANNUALLY. Explicit creation frequencies override these defaults. All copies are independent.
+`sourceReviewPeriodId` identifies the weightage source, not a shared source for all Role frequencies. Current Role-to-Level
 mappings are used for the new period, not inherited historical Role classifications.
 No deadlines, checkpoints, participants or statuses are copied.
 

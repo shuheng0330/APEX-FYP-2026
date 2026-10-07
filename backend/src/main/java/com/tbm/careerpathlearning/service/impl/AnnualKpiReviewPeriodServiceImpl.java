@@ -372,8 +372,14 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     }
 
     private List<ReviewPeriodRoleConfiguration> previousRoles(AnnualKpiReviewPeriod period) {
-        AnnualKpiReviewPeriod source = previousPeriod(period.getStartDate());
-        return source == null ? List.of() : configurations.findAllByReviewPeriodIdOrderByIdAsc(source.getId());
+        if (period.getStartDate() == null) return List.of();
+        Map<Long, ReviewPeriodRoleConfiguration> latestByRole = new LinkedHashMap<>();
+        // A Role may be absent from the latest period, so retain its newest earlier saved configuration.
+        configurations.findPublishedConfigurationsBefore(period.getStartDate(),
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN,
+                        AnnualKpiReviewPeriodStatus.CLOSED))
+                .forEach(configuration -> latestByRole.putIfAbsent(configuration.getRole().getId(), configuration));
+        return new ArrayList<>(latestByRole.values());
     }
 
     private List<ReviewPeriodEmployeeLevelConfiguration> defaultWeights(AnnualKpiReviewPeriod period) {
