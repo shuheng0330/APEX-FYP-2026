@@ -34,13 +34,16 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     private final AnnualReviewPeriodConfigurationValidator validator;
     private final ReviewCheckpointGenerator generator;
     private final Clock clock;
+    private final ReviewPeriodEnrolmentService enrolment;
+    private final KpiPlanRepository kpiPlans;
 
     public AnnualKpiReviewPeriodServiceImpl(AnnualKpiReviewPeriodRepository periods,
             ReviewPeriodRoleConfigurationRepository configurations, ReviewCheckpointRepository checkpoints,
             ReviewPeriodParticipantRepository participants, RoleRepository roles, AnnualKpiReviewPeriodMapper mapper,
             AnnualReviewPeriodConfigurationValidator validator, ReviewCheckpointGenerator generator,
             @Qualifier("annualKpiReviewClock") Clock clock, EmployeeLevelRepository levels,
-            ReviewPeriodEmployeeLevelConfigurationRepository levelConfigurations) {
+            ReviewPeriodEmployeeLevelConfigurationRepository levelConfigurations,
+            ReviewPeriodEnrolmentService enrolment, KpiPlanRepository kpiPlans) {
         this.periods = periods;
         this.configurations = configurations;
         this.checkpoints = checkpoints;
@@ -52,6 +55,8 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         this.clock = clock;
         this.levels = levels;
         this.levelConfigurations = levelConfigurations;
+        this.enrolment = enrolment;
+        this.kpiPlans = kpiPlans;
     }
 
     @Override
@@ -72,6 +77,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         bindLevels(period, selected, weights, false);
         configurations.saveAllAndFlush(selected);
         checkpoints.saveAllAndFlush(schedule);
+        if (publish) { enrolment.enrol(period, selected); periods.saveAndFlush(period); }
         return details(period);
     }
 
@@ -80,6 +86,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         periods.lockConfiguration();
         AnnualKpiReviewPeriod period = requirePeriod(id);
         requireEditable(period);
+        if (period.getStatus() == AnnualKpiReviewPeriodStatus.UPCOMING) return updateUpcoming(period, request, actor);
         requireNoParticipants(id);
         List<ReviewPeriodRoleConfiguration> old = configurations.findAllByReviewPeriodIdOrderByIdAsc(id);
         apply(request, period);
@@ -128,6 +135,8 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         checkpoints.deleteAllByReviewPeriodId(id);
         checkpoints.flush();
         checkpoints.saveAllAndFlush(schedule);
+        enrolment.enrol(period, selected);
+        periods.saveAndFlush(period);
         return details(period);
     }
 
@@ -170,6 +179,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             period.setStatus(existing.getStatus());
             old = configurations.findAllByReviewPeriodIdOrderByIdAsc(excludedPeriodId);
             period.setId(excludedPeriodId);
+            if (existing.getStatus() == AnnualKpiReviewPeriodStatus.UPCOMING) requireFrozenConfiguration(existing, request);
         }
         apply(request, period);
         List<ReviewPeriodEmployeeLevelConfiguration> weights = resolveWeights(period, request, excludedPeriodId);
@@ -195,6 +205,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         AnnualKpiReviewPeriod period = requirePeriod(id);
         requireEditable(period);
         requireNoParticipants(id);
+        if (kpiPlans.existsByReviewPeriodId(id)) throw new BadRequestException("This review period contains KPI plans and cannot be deleted");
         checkpoints.deleteAllByReviewPeriodId(id);
         configurations.deleteAllByReviewPeriodId(id);
         configurations.flush();
@@ -350,7 +361,51 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
                 .stream().map(mapper::toDto).toList());
         dto.setEmployeeLevelConfigurations(levelConfigurations.findAllByReviewPeriodIdOrderByEmployeeLevelDisplayOrderAsc(period.getId())
                 .stream().map(mapper::toDto).toList());
+        boolean editable = period.getStatus() == AnnualKpiReviewPeriodStatus.DRAFT ||
+                period.getStatus() == AnnualKpiReviewPeriodStatus.UPCOMING && period.getStartDate().isAfter(LocalDate.now(clock));
+        dto.setEditMode(!editable ? "READ_ONLY" : period.getStatus() == AnnualKpiReviewPeriodStatus.DRAFT ? "FULL" : "LIMITED");
+        dto.setCanDelete(editable && !participants.existsByReviewPeriodId(period.getId()) && !kpiPlans.existsByReviewPeriodId(period.getId()));
         return dto;
+    }
+
+    private AnnualKpiReviewPeriodDto updateUpcoming(AnnualKpiReviewPeriod period, AnnualKpiReviewPeriodRequest request, UUID actor) {
+        requireFrozenConfiguration(period, request);
+        var selected = configurations.findAllByReviewPeriodIdOrderByIdAsc(period.getId());
+        var weights = levelConfigurations.findAllByReviewPeriodIdOrderByEmployeeLevelDisplayOrderAsc(period.getId());
+        apply(request, period);
+        validate(period, selected, weights, true);
+        var schedule = generate(period, selected);
+        checkpoints.deleteAllByReviewPeriodId(period.getId()); checkpoints.flush();
+        checkpoints.saveAllAndFlush(schedule);
+        markPublished(period); period.setUpdatedBy(actor); periods.saveAndFlush(period);
+        return details(period);
+    }
+
+    private void requireFrozenConfiguration(AnnualKpiReviewPeriod period, AnnualKpiReviewPeriodRequest request) {
+        if (request == null) throw new BadRequestException("Review period configuration is required");
+        var selected = configurations.findAllByReviewPeriodIdOrderByIdAsc(period.getId());
+        var requested = request.getRoleConfigurations();
+        boolean unchanged = requested != null && requested.size() == selected.size() &&
+                requested.stream().filter(Objects::nonNull).map(AnnualKpiReviewPeriodRequest.RoleFrequency::getRoleId).distinct().count() == selected.size() &&
+                requested.stream().allMatch(input -> input != null && selected.stream().anyMatch(saved ->
+                        saved.getRole().getId().equals(input.getRoleId()) && (input.getReviewFrequency() == null || saved.getReviewFrequency() == input.getReviewFrequency())));
+        var weights = levelConfigurations.findAllByReviewPeriodIdOrderByEmployeeLevelDisplayOrderAsc(period.getId());
+        var supplied = request.getEmployeeLevelConfigurations();
+        if (supplied != null) unchanged &= supplied.size() == weights.size() && supplied.stream().filter(Objects::nonNull)
+                .map(ReviewPeriodEmployeeLevelConfigurationDto::getEmployeeLevelId).distinct().count() == weights.size() &&
+                supplied.stream().allMatch(input -> input != null && weights.stream().anyMatch(saved ->
+                        saved.getEmployeeLevel().getId().equals(input.getEmployeeLevelId()) &&
+                        equalWeight(saved.getCompanyKpiWeight(), input.getCompanyKpiWeight()) &&
+                        equalWeight(saved.getDepartmentKpiWeight(), input.getDepartmentKpiWeight()) &&
+                        equalWeight(saved.getIndividualKpiWeight(), input.getIndividualKpiWeight())));
+        unchanged &= equalWeight(period.getKpiPerformanceWeight(), request.getKpiPerformanceWeight()) &&
+                equalWeight(period.getAttitudeEvaluationWeight(), request.getAttitudeEvaluationWeight()) &&
+                period.getAnnualKpiConsolidationMethod() == request.getAnnualKpiConsolidationMethod();
+        if (!unchanged) throw new BadRequestException("Upcoming periods allow name, date and deadline changes only; coverage, frequencies and scoring configuration are frozen after publication");
+    }
+
+    private boolean equalWeight(java.math.BigDecimal a, java.math.BigDecimal b) {
+        return a == null ? b == null : b != null && a.compareTo(b) == 0;
     }
 
     @Override

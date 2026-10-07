@@ -11,6 +11,8 @@ import java.util.UUID;
 
 @Repository
 public interface StaffRepository extends JpaRepository<Staff, UUID> {
+    @org.springframework.data.jpa.repository.Query("select s from Staff s join fetch s.role r left join fetch s.manager where s.isDeleted=false and s.accountStatus=:status and r.id in :roleIds and r.isDeleted=false and r.performanceReviewEligible=true")
+    List<Staff> findEligibleReviewStaff(Set<Long> roleIds, com.tbm.careerpathlearning.enums.StaffAccountStatus status);
 
     Optional<Staff> findByIsDeletedIsFalseAndEmail(String email);
 

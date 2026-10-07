@@ -13,6 +13,9 @@ public class CompanyKpiPlanController {
     @GetMapping public List<KpiPlanDto> list() {return service.companyPlans();}
     @GetMapping("/periods") public List<KpiPeriodContextDto> periods() {return service.companyPeriods();}
     @GetMapping("/{id}") public KpiPlanDto get(@PathVariable Long id) {return service.companyPlan(id);}
+    @PostMapping("/{id}/publish") public KpiPlanDto publish(@PathVariable Long id,Authentication auth) {
+        return service.publishCompany(id,UUID.fromString(auth.getName()));
+    }
     @PostMapping public ResponseEntity<KpiPlanDto> create(@RequestBody KpiPlanRequest request,Authentication auth) {
         return ResponseEntity.status(201).body(service.createCompany(request,UUID.fromString(auth.getName())));
     }

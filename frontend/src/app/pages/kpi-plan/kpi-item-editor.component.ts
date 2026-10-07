@@ -9,12 +9,14 @@ import { KpiItem, emptyKpiItem } from '../../models/kpi-plan.model';
   imports: [FormsModule, TranslateModule, NzButtonModule, NzInputModule],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   template: `
-    <p class="notice">{{ 'KPI_PLAN.WEIGHT_HELP' | translate }}</p>
+    @if (!singleItem) { <p class="notice">{{ 'KPI_PLAN.WEIGHT_HELP' | translate }}</p> }
     @for (item of items; track item; let index = $index) {
       <section class="card">
-        <div class="card-head actions"><h3>{{ 'KPI_PLAN.ITEM' | translate }} {{ index + 1 }}</h3>
-          @if (!readonly) { <button nz-button nzDanger (click)="items.splice(index, 1)">{{ 'KPI_PLAN.REMOVE' | translate }}</button> }
-        </div>
+        @if (!singleItem) {
+          <div class="card-head actions"><h3>{{ 'KPI_PLAN.ITEM' | translate }} {{ index + 1 }}</h3>
+            @if (!readonly) { <button nz-button nzDanger (click)="items.splice(index, 1)">{{ 'KPI_PLAN.REMOVE' | translate }}</button> }
+          </div>
+        }
         <div class="card-body grid">
           <label class="field">{{ 'KPI_PLAN.NAME' | translate }}<input nz-input [disabled]="readonly" maxlength="255" [(ngModel)]="item.name"></label>
           <label class="field">{{ 'KPI_PLAN.WEIGHT' | translate }}<input nz-input type="number" min="0" max="100" step="0.01" [disabled]="readonly" [(ngModel)]="item.weightage"></label>
@@ -33,13 +35,16 @@ import { KpiItem, emptyKpiItem } from '../../models/kpi-plan.model';
         </div>
       </section>
     }
-    @if (!readonly) { <button nz-button (click)="items.push(newItem())">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
-    <p class="total" [class.valid]="total === 100" [class.invalid]="total !== 100">{{ 'KPI_PLAN.TOTAL' | translate }}: {{ total }}% / 100%</p>
+    @if (!singleItem) {
+      @if (!readonly) { <button nz-button (click)="items.push(newItem())">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
+      <p class="total" [class.valid]="total === 100" [class.invalid]="total !== 100">{{ 'KPI_PLAN.TOTAL' | translate }}: {{ total }}% / 100%</p>
+    }
   `
 })
 export class KpiItemEditorComponent {
   @Input() items: KpiItem[] = [];
   @Input() readonly = false;
+  @Input() singleItem = false;
   points = [1, 2, 3, 4, 5];
   newItem = emptyKpiItem;
   get total() { return Math.round(this.items.reduce((n, i) => n + (i.weightage ?? 0), 0) * 100) / 100; }

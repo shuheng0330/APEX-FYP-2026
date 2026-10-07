@@ -26,4 +26,7 @@ public class KpiPlan {
     @Column(name="updated_at", nullable=false) private OffsetDateTime updatedAt;
     @Column(name="created_by", nullable=false, updatable=false) private UUID createdBy;
     @Column(name="updated_by", nullable=false) private UUID updatedBy;
+    @Column(name="published_at") private OffsetDateTime publishedAt;
+    @Column(name="published_by") private UUID publishedBy;
+    @Column(name="published_late") private Boolean publishedLate;
 }

@@ -70,6 +70,7 @@ export class ReviewPeriodFormComponent implements OnInit {
   defaultsNotice = '';
   defaultsNeedRefresh = false;
   viewOnly = false;
+  get limitedEdit(): boolean { return this.period?.status === 'UPCOMING'; }
   roleSearch = '';
   departmentFilter: string | null = null;
   private defaults$ = new Subject<string | null>();
@@ -124,6 +125,7 @@ export class ReviewPeriodFormComponent implements OnInit {
   }
 
   private populate(period: AnnualReviewPeriod | null, options: ReviewRoleConfiguration[]): void {
+    this.form.enable({ emitEvent: false });
     this.defaultsNotice = ''; this.defaultsNeedRefresh = false; this.issues = [];
     this.form.reset({ kpiPerformanceWeight: 50, attitudeEvaluationWeight: 50 }, { emitEvent: false });
     this.roleRows.clear({ emitEvent: false }); this.levelRows.clear({ emitEvent: false });
@@ -144,6 +146,12 @@ export class ReviewPeriodFormComponent implements OnInit {
         superiorAssessmentDaysAfterSelfDeadline: period.superiorAssessmentDaysAfterSelfDeadline }, { emitEvent: false });
     }
     this.form.markAsPristine();
+    if (this.limitedEdit) {
+      this.roleRows.disable({ emitEvent: false }); this.levelRows.disable({ emitEvent: false });
+      this.form.controls.kpiPerformanceWeight.disable({ emitEvent: false });
+      this.form.controls.attitudeEvaluationWeight.disable({ emitEvent: false });
+      this.form.controls.annualKpiConsolidationMethod.disable({ emitEvent: false });
+    }
   }
 
   get departments(): string[] { return [...new Set(this.roleOptions.map(r => r.departmentName).filter((name): name is string => !!name))].sort(); }
@@ -152,10 +160,10 @@ export class ReviewPeriodFormComponent implements OnInit {
     return (!this.departmentFilter || role.departmentName === this.departmentFilter) && role.roleName.toLowerCase().includes(this.roleSearch.trim().toLowerCase());
   }
   get selectedRoleCount(): number { return this.roleRows.controls.filter(r => r.controls.selected.value).length; }
-  selectAll(selected: boolean): void { this.roleRows.controls.forEach((row, index) => { if (this.roleVisible(index)) row.controls.selected.setValue(selected); }); this.roleRows.markAsDirty(); }
+  selectAll(selected: boolean): void { if (this.limitedEdit) return; this.roleRows.controls.forEach((row, index) => { if (this.roleVisible(index)) row.controls.selected.setValue(selected); }); this.roleRows.markAsDirty(); }
 
   refreshRoles(): void {
-    if (this.busy || this.loadingRoles || this.viewOnly) return;
+    if (this.busy || this.loadingRoles || this.viewOnly || this.limitedEdit) return;
     this.loadingRoles = true;
     this.api.roles().pipe(finalize(() => this.loadingRoles = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: options => {

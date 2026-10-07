@@ -40,10 +40,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
-        path: 'kpi-administration/company-kpis', canActivate: [PermissionGuard],
+        path: 'kpi-management/company-kpis', canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] },
         loadComponent: () => import('./pages/kpi-plan/company-kpi-plan.component').then(m => m.CompanyKpiPlanComponent)
       },
+      { path: 'kpi-administration/company-kpis', pathMatch: 'full', redirectTo: 'kpi-management/company-kpis' },
       {
         path: 'kpi-administration/review-periods',
         canActivate: [PermissionGuard],

@@ -7,4 +7,5 @@ public interface KpiPlanService {
     KpiPlanDto companyPlan(Long id);
     KpiPlanDto createCompany(KpiPlanRequest request,UUID actor);
     KpiPlanDto updateCompany(Long id,KpiPlanRequest request,UUID actor);
+    KpiPlanDto publishCompany(Long id,UUID actor);
 }

@@ -14,6 +14,7 @@ export interface KpiItem {
 export interface KpiPeriodContext {
   id: number; name: string | null; status: 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
   startDate: string | null; endDate: string | null; kpiSetupDeadline: string | null;
+  participantsSnapshottedAt?: string | null;
 }
 export interface KpiPlanRequest {
   reviewPeriodId: number; departmentId?: number; ownerParticipantId?: number; items: KpiItem[];
@@ -23,6 +24,7 @@ export interface KpiPlan extends KpiPlanRequest {
   level: KpiLevel; status: KpiPlanStatus; departmentName?: string; employeeName?: string;
   kpiSetupDeadline: string | null; totalWeightage: number; overdue: boolean;
   createdAt: string; updatedAt: string;
+  publishedAt?: string; publishedLate?: boolean;
 }
 export function emptyKpiItem(): KpiItem {
   return { name: null, description: null, perspective: null, kra: null, target: null, measurementUnit: null, weightage: null, scoringDefinitions: {} };

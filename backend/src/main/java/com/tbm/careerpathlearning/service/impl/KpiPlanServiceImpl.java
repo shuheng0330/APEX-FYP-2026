@@ -21,9 +21,11 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private final KpiPlanMapper mapper;
     private final KpiPlanValidator validator;
     private final Clock clock;
+    private final KpiAssignmentService assignments;
     public KpiPlanServiceImpl(KpiPlanRepository plans,AnnualKpiReviewPeriodRepository periods,
-            KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock) {
+            KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock, KpiAssignmentService assignments) {
         this.plans=plans; this.periods=periods; this.mapper=mapper; this.validator=validator; this.clock=clock;
+        this.assignments=assignments;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_MANAGE_COMPANY_KPI')")
     public List<KpiPeriodContextDto> companyPeriods() {
@@ -67,6 +69,16 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         if(plan.getLevel()!=level) throw new BadRequestException("KPI plan does not match this workflow");
         return plan;
     }
+    @Override @PreAuthorize("hasAuthority('CAN_MANAGE_COMPANY_KPI')")
+    public KpiPlanDto publishCompany(Long id,UUID actor) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.COMPANY,true);requireEditable(plan);
+        assignments.requirePublishedRoster(plan.getReviewPeriod());
+        validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
+        plan.setStatus(KpiPlanStatus.PUBLISHED);plan.setPublishedAt(OffsetDateTime.now(clock));plan.setPublishedBy(actor);
+        plan.setPublishedLate(late(plan));touch(plan,actor);plans.saveAndFlush(plan);
+        assignments.cascade(plan);return details(plan);
+    }
+    private boolean late(KpiPlan plan) {return plan.getReviewPeriod().getKpiSetupDeadline()!=null && LocalDate.now(clock).isAfter(plan.getReviewPeriod().getKpiSetupDeadline());}
     private void requireWritable(AnnualKpiReviewPeriod period) {
         if(period.getStatus()==AnnualKpiReviewPeriodStatus.CLOSED) throw new BadRequestException("Closed review periods are read-only");
     }

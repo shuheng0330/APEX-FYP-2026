@@ -32,6 +32,8 @@ public interface AnnualKpiReviewPeriodMapper {
     @Mapping(target = "roleConfigurations", ignore = true)
     @Mapping(target = "checkpoints", ignore = true)
     @Mapping(target = "employeeLevelConfigurations", ignore = true)
+    @Mapping(target = "editMode", ignore = true)
+    @Mapping(target = "canDelete", ignore = true)
     AnnualKpiReviewPeriodDto toDto(AnnualKpiReviewPeriod period);
 
     @Mapping(target = "roleId", source = "role.id")

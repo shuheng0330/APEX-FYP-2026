@@ -12,4 +12,5 @@ export class KpiPlanService {
   get(id: number) { return this.http.get<KpiPlan>(`${this.base}/${id}`, this.options); }
   create(request: KpiPlanRequest) { return this.http.post<KpiPlan>(this.base, request, this.options); }
   update(id: number, request: KpiPlanRequest) { return this.http.put<KpiPlan>(`${this.base}/${id}`, request, this.options); }
+  publish(id: number) { return this.http.post<KpiPlan>(`${this.base}/${id}/publish`, {}, this.options); }
 }

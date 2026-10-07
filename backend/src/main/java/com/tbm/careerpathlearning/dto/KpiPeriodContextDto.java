@@ -10,4 +10,5 @@ public class KpiPeriodContextDto {
     private LocalDate startDate;
     private LocalDate endDate;
     private LocalDate kpiSetupDeadline;
+    private java.time.OffsetDateTime participantsSnapshottedAt;
 }

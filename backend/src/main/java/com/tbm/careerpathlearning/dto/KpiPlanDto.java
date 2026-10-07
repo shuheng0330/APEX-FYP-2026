@@ -24,4 +24,7 @@ public class KpiPlanDto {
     private UUID createdBy;
     private UUID updatedBy;
     private boolean overdue;
+    private OffsetDateTime publishedAt;
+    private UUID publishedBy;
+    private Boolean publishedLate;
 }

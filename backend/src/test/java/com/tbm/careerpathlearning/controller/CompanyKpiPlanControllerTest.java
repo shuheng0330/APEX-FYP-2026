@@ -35,4 +35,16 @@ class CompanyKpiPlanControllerTest {
         when(service.companyPeriods()).thenReturn(List.of());
         mvc.perform(get("/api/company-kpi-plans/periods").with(authentication(md))).andExpect(status().isOk());
     }
+    @Test void publishRequiresBusinessAuthorityNotAnnualAdministration() throws Exception {
+        when(messageSource.getMessage(anyString(),any(),any(Locale.class))).thenReturn("Forbidden");
+        var admin=new UsernamePasswordAuthenticationToken(UUID.randomUUID(),null,List.of(new SimpleGrantedAuthority("CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD")));
+        mvc.perform(post("/api/company-kpi-plans/10/publish").with(authentication(admin))).andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+    @Test void publishUsesAuthenticatedMdIdentityAndWholePlanId() throws Exception {
+        var actor=UUID.randomUUID();
+        var md=new UsernamePasswordAuthenticationToken(actor,null,List.of(new SimpleGrantedAuthority("CAN_MANAGE_COMPANY_KPI")));
+        mvc.perform(post("/api/company-kpi-plans/10/publish").with(authentication(md))).andExpect(status().isOk());
+        verify(service).publishCompany(10L,actor);
+    }
 }

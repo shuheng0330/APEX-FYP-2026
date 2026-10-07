@@ -17,6 +17,7 @@
     }
     @if (viewOnly && period) { <app-review-period-summary [period]="period"></app-review-period-summary> }
     @else if (employeeLevels.length) {
+      @if (limitedEdit) { <p class="notice">{{ 'KPI_PLAN.LIMITED_PERIOD_EDIT' | translate }}</p> }
       @if (issues.length) {
         <div class="error-box" role="alert"><strong>{{ 'REVIEW_PERIOD.FIX_ERRORS' | translate }}</strong>
           <div class="actions">@for (section of sections; track section) {
@@ -62,16 +63,16 @@
               <nz-select [ngModel]="departmentFilter" (ngModelChange)="departmentFilter = $event" [ngModelOptions]="{standalone: true}" nzAllowClear [nzPlaceHolder]="'REVIEW_PERIOD.ALL_DEPARTMENTS' | translate">
                 @for (department of departments; track department) { <nz-option [nzValue]="department" [nzLabel]="department"></nz-option> }
               </nz-select>
-              <button nz-button type="button" (click)="selectAll(true)">{{ 'REVIEW_PERIOD.SELECT_VISIBLE' | translate }}</button>
-              <button nz-button type="button" (click)="selectAll(false)">{{ 'REVIEW_PERIOD.CLEAR_VISIBLE' | translate }}</button>
-              <button nz-button type="button" [disabled]="busy" [nzLoading]="loadingRoles" (click)="refreshRoles()">{{ 'REVIEW_PERIOD.REFRESH_ROLES' | translate }}</button>
+              <button nz-button type="button" [disabled]="busy || limitedEdit" (click)="selectAll(true)">{{ 'REVIEW_PERIOD.SELECT_VISIBLE' | translate }}</button>
+              <button nz-button type="button" [disabled]="busy || limitedEdit" (click)="selectAll(false)">{{ 'REVIEW_PERIOD.CLEAR_VISIBLE' | translate }}</button>
+              <button nz-button type="button" [disabled]="busy || limitedEdit" [nzLoading]="loadingRoles" (click)="refreshRoles()">{{ 'REVIEW_PERIOD.REFRESH_ROLES' | translate }}</button>
             </div>
             <div class="table-scroll" formArrayName="roleConfigurations"><table class="data-table">
               <thead><tr><th>{{ 'REVIEW_PERIOD.INCLUDE' | translate }}</th><th>{{ 'REVIEW_PERIOD.ROLE' | translate }}</th><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.FREQUENCY_LABEL' | translate }}</th></tr></thead>
               <tbody>@for (row of roleRows.controls; track row.controls.roleId.value; let index = $index) {
                 @if (roleVisible(index)) {
                   <tr [formGroupName]="index">
-                    <td><label nz-checkbox formControlName="selected" [nzDisabled]="busy" [attr.aria-label]="roleOptions[index].roleName"></label></td>
+                    <td><label nz-checkbox formControlName="selected" [nzDisabled]="busy || limitedEdit" [attr.aria-label]="roleOptions[index].roleName"></label></td>
                     <td><strong>{{ roleOptions[index].roleName }}</strong><div class="help">{{ roleOptions[index].departmentName }}</div></td>
                     <td>
                       {{ roleOptions[index].employeeLevelName || ('REVIEW_PERIOD.UNCLASSIFIED' | translate) }}
@@ -80,7 +81,7 @@
                         @if (auth.hasRole('CAN_MANAGE_ROLE')) { <a routerLink="/roles" target="_blank" rel="noopener">{{ 'REVIEW_PERIOD.OPEN_ROLES' | translate }}</a> }
                       }
                     </td>
-                    <td><nz-select formControlName="reviewFrequency" [nzDisabled]="!row.controls.selected.value || busy || loadingDefaults" style="width: 145px;">
+                    <td><nz-select formControlName="reviewFrequency" [nzDisabled]="limitedEdit || !row.controls.selected.value || busy || loadingDefaults" style="width: 145px;">
                       @for (frequency of frequencies; track frequency) { <nz-option [nzValue]="frequency" [nzLabel]="('REVIEW_PERIOD.FREQUENCY.' + frequency) | translate"></nz-option> }
                     </nz-select></td>
                   </tr>
@@ -96,7 +97,7 @@
               <tbody>@for (row of levelRows.controls; track row.controls.employeeLevelId.value; let index = $index) {
                 <tr [formGroupName]="index"><td><strong>{{ employeeLevels[index].name }}</strong></td>
                   @for (field of ['companyKpiWeight', 'departmentKpiWeight', 'individualKpiWeight']; track field) {
-                    <td><nz-input-number [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzStep]="1" [nzDisabled]="busy || loadingDefaults" style="width: 100px;" [attr.aria-label]="employeeLevels[index].name + ' ' + (('REVIEW_PERIOD.FIELD.' + field) | translate)"></nz-input-number></td>
+                    <td><nz-input-number [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzStep]="1" [nzDisabled]="limitedEdit || busy || loadingDefaults" style="width: 100px;" [attr.aria-label]="employeeLevels[index].name + ' ' + (('REVIEW_PERIOD.FIELD.' + field) | translate)"></nz-input-number></td>
                   }
                   <td class="total" [class.valid]="total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) === 100" [class.invalid]="total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) !== 100">
                     {{ total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) ?? '-' }} / 100%
@@ -111,7 +112,7 @@
             <div class="card-body grid">
               @for (field of ['kpiPerformanceWeight', 'attitudeEvaluationWeight']; track field) {
                 <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} (%)</label>
-                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzDisabled]="busy"></nz-input-number>
+                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzDisabled]="busy || limitedEdit"></nz-input-number>
                   @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
                 </div>
               }
@@ -123,7 +124,7 @@
           </section>
           <section class="card" id="review-consolidation" tabindex="-1">
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.consolidation' | translate }}</h3></div>
-            <div class="card-body"><nz-radio-group formControlName="annualKpiConsolidationMethod" [nzDisabled]="busy">
+            <div class="card-body"><nz-radio-group formControlName="annualKpiConsolidationMethod" [nzDisabled]="busy || limitedEdit">
               <label nz-radio nzValue="FINAL_CHECKPOINT">{{ 'REVIEW_PERIOD.CONSOLIDATION.FINAL_CHECKPOINT' | translate }}</label>
               <label nz-radio nzValue="AVERAGE">{{ 'REVIEW_PERIOD.CONSOLIDATION.AVERAGE' | translate }}</label>
             </nz-radio-group>

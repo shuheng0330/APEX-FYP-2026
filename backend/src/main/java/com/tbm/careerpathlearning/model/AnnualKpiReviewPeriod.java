@@ -87,6 +87,8 @@ public class AnnualKpiReviewPeriod {
 
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
+    @Column(name="participants_snapshotted_at")
+    private OffsetDateTime participantsSnapshottedAt;
 
     @PrePersist
     void initialiseTimestamps() {

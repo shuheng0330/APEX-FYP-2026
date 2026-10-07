@@ -32,6 +32,9 @@ public class AnnualKpiReviewPeriodDto {
     private OffsetDateTime updatedAt;
     private OffsetDateTime openedAt;
     private OffsetDateTime closedAt;
+    private OffsetDateTime participantsSnapshottedAt;
+    private String editMode;
+    private boolean canDelete;
     private UUID createdBy;
     private UUID updatedBy;
     private List<RoleConfiguration> roleConfigurations = new ArrayList<>();

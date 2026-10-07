@@ -28,6 +28,7 @@ export class ReviewPeriodListComponent implements OnInit {
   deleting: number | null = null;
   error = '';
   editable = editableReviewPeriod;
+  deletable(period: AnnualReviewPeriod): boolean { return this.editable(period) && period.canDelete !== false; }
   private reload$ = new Subject<void>();
   private destroyRef = inject(DestroyRef);
   constructor(private api: AnnualReviewPeriodService, private modal: NzModalService,
@@ -51,7 +52,7 @@ export class ReviewPeriodListComponent implements OnInit {
   retry(): void { this.reload$.next(); }
 
   confirmDelete(period: AnnualReviewPeriod): void {
-    if (!this.editable(period) || period.id === null || this.deleting !== null) return;
+    if (!this.deletable(period) || period.id === null || this.deleting !== null) return;
     this.modal.confirm({
       nzTitle: this.translate.instant('REVIEW_PERIOD.DELETE_TITLE'),
       nzContent: this.translate.instant('REVIEW_PERIOD.DELETE_DETAIL', { name: period.name }),

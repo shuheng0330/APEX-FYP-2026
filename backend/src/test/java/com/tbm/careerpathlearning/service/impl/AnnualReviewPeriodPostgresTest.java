@@ -49,7 +49,7 @@ class AnnualReviewPeriodPostgresTest {
             try {
                 execute(connection, "CREATE SCHEMA " + schema);
                 execute(connection, "SET LOCAL search_path TO " + schema);
-                for (String table : List.of("org_chart", "role", "staff")) {
+                for (String table : List.of("org_chart", "role", "staff", "authority")) {
                     execute(connection, "CREATE TABLE " + schema + "." + table
                             + " (LIKE public." + table + " INCLUDING ALL)");
                 }
@@ -65,6 +65,8 @@ class AnnualReviewPeriodPostgresTest {
                 execute(connection, "INSERT INTO role(name,is_visible,is_deleted,created_at,updated_at) VALUES ('superadmin',true,false,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V30__review_period_eligibility_and_setup_deadline.sql")
                         .getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                execute(connection, new ClassPathResource("db/migration/annual-kpi/V31__kpi_plan_foundation.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                execute(connection, new ClassPathResource("db/migration/annual-kpi/V32__review_participant_snapshot_and_company_publication.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
 
                 var configuration = new Configuration();
                 configuration.setProperty("hibernate.connection.url", url);
@@ -93,6 +95,8 @@ class AnnualReviewPeriodPostgresTest {
                     var superior = staff("Phase 1 Test Superior", role, now); session.persist(superior);
                     var employee = staff("Phase 1 Test Employee", role, now); employee.setManager(superior);
                     session.persist(employee);
+                    var inactive = staff("Inactive staff excluded", role, now); inactive.setAccountStatus(StaffAccountStatus.INACTIVE); session.persist(inactive);
+                    var deleted = staff("Deleted staff excluded", role, now); deleted.setDeleted(true); session.persist(deleted);
 
                     var factory = new JpaRepositoryFactory(session);
                     var periods = factory.getRepository(AnnualKpiReviewPeriodRepository.class);
@@ -177,6 +181,10 @@ class AnnualReviewPeriodPostgresTest {
 
     private void verifyDefaultsOrdering(Connection connection, AnnualKpiReviewPeriodRepository periods,
             ReviewPeriodRoleConfigurationRepository configurations, Long roleId) throws Exception {
+        var publishedStatuses = List.of(AnnualKpiReviewPeriodStatus.UPCOMING,
+                AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED);
+        var existingHistory = configurations.findPublishedConfigurations(publishedStatuses).stream()
+                .map(c -> c.getReviewPeriod().getId()).toList();
         String[] statuses = {"CLOSED", "OPEN", "UPCOMING", "DRAFT", "CLOSED"};
         long expected = 0;
         var inserted = new java.util.ArrayList<Long>();
@@ -208,14 +216,16 @@ class AnnualReviewPeriodPostgresTest {
         }
         var history = configurations.findPublishedConfigurations(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED));
+        var expectedHistory = new java.util.ArrayList<>(List.of(inserted.get(4), inserted.get(1), inserted.get(0)));
+        expectedHistory.addAll(existingHistory);
         assertThat(history).extracting(c -> c.getReviewPeriod().getId())
-                .containsExactly(inserted.get(4), inserted.get(1), inserted.get(0), 1L);
+                .containsExactlyElementsOf(expectedHistory);
         assertThat(history).allMatch(c -> c.getRole().getId().equals(roleId));
         // Equal dates are ordered by ID descending, not by the Role default.
         execute(connection, "UPDATE annual_kpi_review_period SET start_date='2030-02-01' WHERE id=" + inserted.get(0));
         assertThat(configurations.findPublishedConfigurations(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED)))
-                .extracting(c -> c.getReviewPeriod().getId()).containsExactly(inserted.get(4), inserted.get(1), inserted.get(0), 1L);
+                .extracting(c -> c.getReviewPeriod().getId()).containsExactlyElementsOf(expectedHistory);
         for (long id : inserted) execute(connection, "DELETE FROM review_period_role_configuration WHERE review_period_id=" + id);
         for (long id : inserted) execute(connection, "DELETE FROM annual_kpi_review_period WHERE id=" + id);
     }
@@ -228,7 +238,11 @@ class AnnualReviewPeriodPostgresTest {
                 factory.getRepository(RoleRepository.class), Mappers.getMapper(AnnualKpiReviewPeriodMapper.class),
                 new AnnualReviewPeriodConfigurationValidator(), new ReviewCheckpointGenerator(), clock,
                 factory.getRepository(EmployeeLevelRepository.class),
-                factory.getRepository(ReviewPeriodEmployeeLevelConfigurationRepository.class));
+                factory.getRepository(ReviewPeriodEmployeeLevelConfigurationRepository.class),
+                new com.tbm.careerpathlearning.service.ReviewPeriodEnrolmentService(factory.getRepository(StaffRepository.class), participants,
+                        new ReviewPeriodParticipantFactory(), new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(
+                                factory.getRepository(OrgChartRepository.class),org.mockito.Mockito.mock(ParentChildNodeRepository.class)),clock),
+                factory.getRepository(KpiPlanRepository.class));
         var request = AnnualKpiReviewPeriodServiceImplTest.validRequest();
         request.setName("Application workflow 2028");
         request.setStartDate(LocalDate.of(2028, 1, 1));
@@ -272,16 +286,28 @@ class AnnualReviewPeriodPostgresTest {
         assertThat(count(connection, "annual_kpi_review_period")).isEqualTo(initial + 1);
 
         request.getRoleConfigurations().get(0).setReviewFrequency(ReviewFrequency.QUARTERLY);
+        assertThatThrownBy(() -> service.update(draft.getId(), request, actor.getId())).hasMessageContaining("frozen");
+        request.getRoleConfigurations().get(0).setReviewFrequency(ReviewFrequency.MONTHLY);
+        var rosterIds=participants.findAllByReviewPeriodId(draft.getId()).stream().map(ReviewPeriodParticipant::getId).toList();
+        var configurationIds=configurations.findAllByReviewPeriodIdOrderByIdAsc(draft.getId()).stream().map(ReviewPeriodRoleConfiguration::getId).toList();
+        request.setName("Renamed annual review");
         var updated = service.update(draft.getId(), request, actor.getId());
-        assertThat(updated.getCheckpoints()).hasSize(4);
+        assertThat(updated.getCheckpoints()).hasSize(12);
         assertThat(service.get(draft.getId()).getRoleConfigurations().get(0).getReviewFrequency())
-                .isEqualTo(ReviewFrequency.QUARTERLY);
+                .isEqualTo(ReviewFrequency.MONTHLY);
         assertThat(service.list()).hasSize(2);
         assertThat(service.availableRoles()).isNotEmpty();
-        service.delete(draft.getId());
-        assertThat(count(connection, "annual_kpi_review_period")).isEqualTo(initial);
-        assertThat(configurations.findAllByReviewPeriodIdOrderByIdAsc(draft.getId())).isEmpty();
-        assertThat(checkpoints.findAllByReviewPeriodIdOrderByReviewFrequencyAscSequenceNumberAsc(draft.getId())).isEmpty();
+        assertThat(published.getParticipantsSnapshottedAt()).isNotNull();
+        assertThat(participants.findAllByReviewPeriodId(draft.getId())).hasSize(2);
+        assertThat(participants.findAllByReviewPeriodId(draft.getId())).extracting(ReviewPeriodParticipant::getId).containsExactlyElementsOf(rosterIds);
+        assertThat(configurations.findAllByReviewPeriodIdOrderByIdAsc(draft.getId())).extracting(ReviewPeriodRoleConfiguration::getId).containsExactlyElementsOf(configurationIds);
+        var snapshottedEmployee=participants.findByReviewPeriodIdAndStaffId(draft.getId(),
+            factory.getRepository(StaffRepository.class).findEligibleReviewStaff(java.util.Set.of(role.getId()),StaffAccountStatus.ACTIVE).stream()
+                .filter(s->s.getManager()!=null).findFirst().orElseThrow().getId()).orElseThrow();
+        assertThat(snapshottedEmployee.getSuperior().getId()).isEqualTo(actor.getId());
+        assertThat(snapshottedEmployee.getDepartmentName()).isEqualTo("Phase 1 Test Sales");
+        assertThatThrownBy(() -> service.delete(draft.getId())).hasMessageContaining("participant records");
+        assertThat(count(connection, "annual_kpi_review_period")).isEqualTo(initial + 1);
     }
 
     private Staff staff(String name, Role role, OffsetDateTime now) {

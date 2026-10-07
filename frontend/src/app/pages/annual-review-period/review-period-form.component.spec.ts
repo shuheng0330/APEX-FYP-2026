@@ -165,6 +165,19 @@ describe('Annual review period form', () => {
     expect(api.update).toHaveBeenCalled(); expect(component.viewOnly).toBeTrue();
     expect(fixture.nativeElement.querySelector('form')).toBeNull();
   });
+  it('limits Upcoming edits to name, dates and deadlines while sending frozen settings unchanged', () => {
+    params.next(convertToParamMap({ id: '29' })); api.get.and.returnValue(of({ ...savedReview(), editMode: 'LIMITED' }));
+    fixture.detectChanges();
+    expect(component.limitedEdit).toBeTrue(); expect(component.roleRows.disabled).toBeTrue(); expect(component.levelRows.disabled).toBeTrue();
+    expect(component.form.controls.kpiPerformanceWeight.disabled).toBeTrue();
+    expect(component.form.controls.annualKpiConsolidationMethod.disabled).toBeTrue();
+    expect(component.form.controls.name.enabled).toBeTrue(); expect(component.dates.endDate.enabled).toBeTrue();
+    component.selectAll(false); expect(component.selectedRoleCount).toBe(1);
+    component.form.controls.name.setValue('Updated name'); component.save();
+    expect(api.update).toHaveBeenCalledWith(29, jasmine.objectContaining({ name: 'Updated name',
+      roleConfigurations: [{ roleId: 7, reviewFrequency: 'MONTHLY' }], kpiPerformanceWeight: 50, attitudeEvaluationWeight: 50 }));
+    expect(api.creationDefaults).not.toHaveBeenCalled();
+  });
   it('keeps the form and API error when publication fails', () => {
     params.next(convertToParamMap({ id: '29' })); fixture.detectChanges(); component.preview();
     api.publish.and.returnValue(throwError(() => ({ error: { message: 'Dates overlap an Open period' } })));

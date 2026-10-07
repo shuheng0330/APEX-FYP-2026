@@ -3,6 +3,13 @@
 details summary { cursor: pointer; font-weight: 600; }
 textarea { min-height: 64px; resize: vertical; }
 .plan-picker { min-width: 280px; max-width: 100%; }
+.plan-summary { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+.weight-total { font-size: 28px; font-weight: 700; margin: 4px 0; }
+.target-cell { max-width: 460px; overflow-wrap: anywhere; }
+.drawer-help { margin-bottom: 20px; }
+.drawer-actions { justify-content: flex-end; }
+.footer-actions { padding-right: 64px; }
+@media (max-width: 700px) { .plan-summary { flex-direction: column; align-items: flex-start; } }
 .status[data-status='PUBLISHED'], .status[data-status='APPROVED'] { background: #e6f6f2; color: #087a6e; }
 .status[data-status='PENDING_APPROVAL'] { background: #fff5df; color: #916000; }
 .status[data-status='RETURNED'] { background: #fff2f0; color: var(--tbm-danger); }

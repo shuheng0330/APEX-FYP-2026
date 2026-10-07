@@ -40,4 +40,9 @@ describe('Annual review period list', () => {
     component.confirmDelete({ ...savedReview(), status: 'OPEN' }); component.confirmDelete({ ...savedReview(), status: 'CLOSED' });
     expect(modal.confirm).not.toHaveBeenCalled(); expect(api.delete).not.toHaveBeenCalled();
   });
+  it('respects backend deletion guards for Upcoming periods with participants or KPI plans', () => {
+    const period = { ...savedReview(), canDelete: false };
+    expect(component.deletable(period)).toBeFalse(); component.confirmDelete(period);
+    expect(modal.confirm).not.toHaveBeenCalled(); expect(api.delete).not.toHaveBeenCalled();
+  });
 });

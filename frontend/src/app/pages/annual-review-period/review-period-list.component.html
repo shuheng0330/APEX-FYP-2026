@@ -32,7 +32,7 @@
                   <a nz-button nzSize="small" [routerLink]="['/kpi-administration/review-periods', period.id]">{{ 'REVIEW_PERIOD.VIEW' | translate }}</a>
                   @if (editable(period)) {
                     <a nz-button nzSize="small" [routerLink]="['/kpi-administration/review-periods', period.id, 'edit']">{{ 'REVIEW_PERIOD.EDIT' | translate }}</a>
-                    <button nz-button nzSize="small" nzDanger [disabled]="deleting !== null" (click)="confirmDelete(period)">{{ 'REVIEW_PERIOD.DELETE' | translate }}</button>
+                    @if (deletable(period)) { <button nz-button nzSize="small" nzDanger [disabled]="deleting !== null" (click)="confirmDelete(period)">{{ 'REVIEW_PERIOD.DELETE' | translate }}</button> }
                   }
                 </div></td>
               </tr>

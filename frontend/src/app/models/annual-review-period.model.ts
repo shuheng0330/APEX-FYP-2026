@@ -60,6 +60,9 @@ export interface AnnualReviewPeriod extends Omit<AnnualReviewPeriodRequest, 'rol
   checkpoints: ReviewCheckpoint[];
   createdAt: string | null;
   updatedAt: string | null;
+  participantsSnapshottedAt?: string | null;
+  editMode?: 'FULL' | 'LIMITED' | 'READ_ONLY';
+  canDelete?: boolean;
 }
 
 export interface AnnualReviewCreationDefaults {

@@ -37,6 +37,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
     private final Map<Long, List<ReviewCheckpoint>> storedCheckpoints = new HashMap<>();
     private final UUID actor = UUID.randomUUID();
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"));
+    private final ReviewPeriodEnrolmentService enrolment = mock(ReviewPeriodEnrolmentService.class);
+    private final KpiPlanRepository kpiPlans = mock(KpiPlanRepository.class);
     private AnnualKpiReviewPeriodServiceImpl service;
     private Role sales;
     private Role manager;
@@ -45,7 +47,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
     void setup() {
         service = new AnnualKpiReviewPeriodServiceImpl(periods, configurations, checkpoints, participants, roles,
                 Mappers.getMapper(AnnualKpiReviewPeriodMapper.class), new AnnualReviewPeriodConfigurationValidator(),
-                new ReviewCheckpointGenerator(), clock, levels, weights);
+                new ReviewCheckpointGenerator(), clock, levels, weights, enrolment, kpiPlans);
+        doAnswer(i -> { ((AnnualKpiReviewPeriod)i.getArgument(0)).setParticipantsSnapshottedAt(OffsetDateTime.now(clock)); return null; }).when(enrolment).enrol(any(), any());
         when(levels.findAllByOrderByDisplayOrderAsc()).thenReturn(EmployeeLevelFixtures.levels());
         when(weights.saveAllAndFlush(any())).thenAnswer(i -> {
             List<ReviewPeriodEmployeeLevelConfiguration> items = i.getArgument(0);
@@ -328,7 +331,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         order.verify(periods).existsByName(request.getName());
         order.verify(periods).existsOverlappingPeriod(request.getStartDate(), request.getEndDate(), null,
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN));
-        order.verify(periods).saveAndFlush(any());
+        order.verify(periods, times(2)).saveAndFlush(any());
     }
 
     @Test
@@ -342,8 +345,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThat(sales.getDefaultReviewFrequency()).isNull();
         assertThat(manager.getDefaultReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
         request.getRoleConfigurations().get(1).setReviewFrequency(ReviewFrequency.MONTHLY);
-        dto = service.update(dto.getId(), request, actor);
-        assertThat(dto.getCheckpoints()).hasSize(13);
+        Long id = dto.getId();
+        assertThatThrownBy(() -> service.update(id, request, actor)).hasMessageContaining("frozen");
         assertThat(manager.getDefaultReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
     }
 
@@ -354,13 +357,12 @@ class AnnualKpiReviewPeriodServiceImplTest {
         sales.setDefaultReviewFrequency(ReviewFrequency.QUARTERLY);
         request.getRoleConfigurations().get(0).setReviewFrequency(null);
         request.setEndDate(LocalDate.of(2027, 6, 30));
-        request.setAnnualKpiConsolidationMethod(AnnualKpiConsolidationMethod.AVERAGE);
         var dto = service.update(id, request, actor);
         assertThat(dto.getCheckpoints()).hasSize(6);
         assertThat(dto.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
-        assertThat(dto.getAnnualKpiConsolidationMethod()).isEqualTo(AnnualKpiConsolidationMethod.AVERAGE);
+        assertThat(dto.getAnnualKpiConsolidationMethod()).isEqualTo(AnnualKpiConsolidationMethod.FINAL_CHECKPOINT);
         verify(checkpoints).deleteAllByReviewPeriodId(id);
-        verify(configurations).deleteAllByReviewPeriodId(id);
+        verify(configurations, never()).deleteAllByReviewPeriodId(id);
         verify(periods).existsOverlappingPeriod(request.getStartDate(), request.getEndDate(), id,
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN));
     }
@@ -503,7 +505,40 @@ class AnnualKpiReviewPeriodServiceImplTest {
         Long id = service.create(validRequest(), true, actor).getId();
         when(participants.existsByReviewPeriodId(id)).thenReturn(true);
         assertThatThrownBy(() -> service.delete(id)).hasMessageContaining("participant records");
-        assertThatThrownBy(() -> service.update(id, validRequest(), actor)).hasMessageContaining("participant records");
+        var before = service.get(id).getParticipantsSnapshottedAt();
+        assertThat(service.update(id, validRequest(), actor).getParticipantsSnapshottedAt()).isEqualTo(before);
+        verify(enrolment, times(1)).enrol(any(), any());
+    }
+
+    @Test void draftSavesAndPreviewDoNotEnrolAndEachPublicationPathEnrolsOnce() {
+        var request=validRequest();service.preview(request,null);
+        var draft=service.create(request,false,actor);verifyNoInteractions(enrolment);
+        service.publish(draft.getId(),actor);verify(enrolment,times(1)).enrol(any(),any());
+        request.setName("Second period");service.create(request,true,actor);verify(enrolment,times(2)).enrol(any(),any());
+    }
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void annualPublicationRollsBackIfEnrolmentFails(boolean directPublication) {
+        var draft=directPublication ? null : service.create(validRequest(),false,actor);
+        doThrow(new BadRequestException("Ambiguous department")).when(enrolment).enrol(any(),any());
+        var manager=mock(org.springframework.transaction.PlatformTransactionManager.class);
+        var status=mock(org.springframework.transaction.TransactionStatus.class);
+        when(manager.getTransaction(any())).thenReturn(status);
+        var proxy=new org.springframework.aop.framework.ProxyFactory(service);
+        proxy.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        var transactional=(AnnualKpiReviewPeriodService)proxy.getProxy();
+        assertThatThrownBy(()->{
+            if(directPublication) transactional.create(validRequest(),true,actor);
+            else transactional.publish(draft.getId(),actor);
+        }).isInstanceOf(BadRequestException.class).hasMessageContaining("Ambiguous department");
+        verify(manager).rollback(status);verify(manager,never()).commit(any());
+    }
+    @Test void reviewPeriodsContainingKpiPlansCannotBeDeletedEvenWithoutParticipants() {
+        var id=service.create(validRequest(),false,actor).getId();
+        when(kpiPlans.existsByReviewPeriodId(id)).thenReturn(true);
+        assertThat(service.get(id).isCanDelete()).isFalse();
+        assertThatThrownBy(()->service.delete(id)).hasMessageContaining("KPI plans");
+        verify(periods,never()).delete(any());
     }
 
     @Test

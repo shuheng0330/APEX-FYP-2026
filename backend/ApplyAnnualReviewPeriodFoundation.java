@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 31;
+    private static final int LATEST_VERSION = 32;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -105,6 +105,13 @@ public class ApplyAnnualReviewPeriodFoundation {
                     + "AND table_name IN ('kpi_plan','kpi','kpi_scoring_definition','employee_kpi_assignment')");
             if (kpiTables != (extraApplied > 0 ? 4 : 0))
                 throw new IllegalStateException("Partial/untracked KPI foundation detected; reconcile before migration");
+            long snapshotColumn=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='annual_kpi_review_period' AND column_name='participants_snapshotted_at'");
+            if(snapshotColumn!=(extraApplied>=2?1:0)) throw new IllegalStateException("Partial/untracked V32 snapshot schema");
+            long publicationColumns = scalar(connection, "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan' AND column_name IN ('published_at','published_by','published_late')");
+            if (publicationColumns != (extraApplied >= 2 ? 3 : 0))
+                throw new IllegalStateException("Partial/untracked V32 Company publication schema");
             connection.rollback();
         }
 
