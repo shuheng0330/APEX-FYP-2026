@@ -29,13 +29,12 @@
         "STATUS": { "DRAFT": "Draft", "UPCOMING": "Upcoming", "OPEN": "Open", "CLOSED": "Closed" },
         "SECTION": {
             "basic": "Basic Information", "roles": "Role-Based Review Frequency", "levels": "KPI Weightage by Employee Level",
-            "composition": "Performance Composition", "consolidation": "Annual KPI Consolidation", "setup": "KPI Setup Deadlines",
+            "composition": "Performance Composition", "consolidation": "Annual KPI Consolidation", "setup": "KPI Setup Deadline",
             "assessment": "Performance Assessment Schedule", "attitude": "Attitude & Appraisal Deadlines"
         },
         "FIELD": {
             "name": "Review Period Name", "startDate": "Start Date", "endDate": "End Date",
-            "companyKpiCreationDeadline": "Company KPI Creation Deadline", "departmentKpiCreationDeadline": "Department KPI Creation Deadline",
-            "individualKpiSubmissionDeadline": "Individual KPI Submission Deadline", "individualKpiApprovalDeadline": "Individual KPI Approval Deadline",
+            "kpiSetupDeadline": "KPI Setup Deadline",
             "attitudeSelfAssessmentDeadline": "Attitude Self-Assessment Deadline", "superiorAttitudeEvaluationDeadline": "Superior Attitude Evaluation Deadline",
             "appraisalRecommendationDeadline": "Appraisal Recommendation Deadline", "hrFinalisationDeadline": "HR Finalisation Deadline",
             "selfAssessmentDaysAfterCheckpoint": "Employee Self-Assessment (days)", "superiorAssessmentDaysAfterSelfDeadline": "Superior Assessment (days)",
@@ -47,8 +46,9 @@
         "PERIOD_END_HELP": "End Date is the performance measurement cut-off, not an automatic closure date. Final assessments may be due after it.",
         "LOAD_DEFAULTS": "Load Previous Settings", "DEFAULTS_HELP": "Choose a Start Date to load previous weightages and Role frequencies. Other dates and settings are not copied.",
         "COPIED_DEFAULTS": "Previous weightages and each Role's latest saved frequency have been loaded. These are independent settings for this new period.",
+        "COPIED_DEFAULTS_FROM": "Settings copied from {{period}}. Changes here will not affect that period.",
         "INITIAL_DEFAULTS": "Initial weightages and available Role frequency defaults have been loaded. Adjust them for this period if needed.",
-        "DEFAULTS_CHANGED_DATE": "Start Date changed. Reload settings if you want defaults for the new date.",
+        "DEFAULTS_CHANGED_DATE": "Your edited settings have been kept. You can reload the latest published settings if needed.",
         "RELOAD_DEFAULTS_TITLE": "Replace current weightages and frequencies?",
         "RELOAD_DEFAULTS_DETAIL": "This reload replaces your edited Employee-Level weightages and Role frequencies. Selected Roles and other form fields are kept.",
         "ROLES_HELP": "Select the Job Roles covered by this annual period. Monthly, Quarterly and Annually are checkpoints within the same period, not separate periods.",
@@ -65,7 +65,7 @@
         "KPI_PERFORMANCE": "KPI Performance", "ATTITUDE": "Attitude Evaluation",
         "CONSOLIDATION": { "FINAL_CHECKPOINT": "Final Checkpoint", "AVERAGE": "Average" },
         "CONSOLIDATION_HELP": "Final Checkpoint uses the last reviewed checkpoint for the annual KPI result. Average uses the reviewed checkpoint results across the year.",
-        "SETUP_HELP": "Set a separate deadline for each setup task. All four must be on or before the Start Date.",
+        "SETUP_HELP": "Set the date by which Company, Department and Individual KPI setup, including required submission, review and approval, should be completed. This date must be on or before the Start Date.",
         "ASSESSMENT_HELP": "Enter positive calendar-day offsets. Monthly checkpoints normally end at month-end and Quarterly at quarter-end. The final checkpoint, including Annually, ends on the period End Date. Preview shows the actual dates.",
         "DAYS_AFTER_CHECKPOINT": "calendar days after the review checkpoint ends",
         "DAYS_AFTER_SELF": "calendar days after the Self-Assessment deadline",
@@ -89,7 +89,7 @@
             "SETUP_DATE": "This setup deadline must be on or before Start Date.",
             "DEADLINE_ORDER": "This deadline must be after the preceding deadline.",
             "ATTITUDE_DATE": "Attitude Self-Assessment cannot be due before Start Date.",
-            "APPRAISAL_DATE": "Allow the final KPI Superior Assessment and Superior Attitude Evaluation to finish before the appraisal recommendation deadline."
+            "APPRAISAL_DATE": "Set the Appraisal Recommendation Deadline after the final KPI assessment and Superior Attitude Evaluation have been completed."
         }
     },
     "APP": {

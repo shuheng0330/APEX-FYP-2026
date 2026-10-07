@@ -27,6 +27,10 @@ public class Role {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 
+    // System-role eligibility is independent of permissions and Employee Level.
+    @Column(name = "performance_review_eligible", nullable = false)
+    private boolean performanceReviewEligible = true;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
@@ -53,6 +57,8 @@ public class Role {
 
     public EmployeeLevel getEmployeeLevel() { return employeeLevel; }
     public void setEmployeeLevel(EmployeeLevel employeeLevel) { this.employeeLevel = employeeLevel; }
+    public boolean isPerformanceReviewEligible() { return performanceReviewEligible; }
+    public void setPerformanceReviewEligible(boolean eligible) { this.performanceReviewEligible = eligible; }
 
     public Role() {
     }

@@ -76,6 +76,26 @@ describe('Annual review period form', () => {
     expect(api.create).not.toHaveBeenCalled();
     expect(api.update).not.toHaveBeenCalled();
   });
+  it('shows only the single setup deadline and sends only that active deadline field', () => {
+    fixture.detectChanges(); completeForm(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('#review-setup nz-date-picker').length).toBe(1);
+    expect(component.request().kpiSetupDeadline).toBe('2027-12-15');
+    expect(Object.keys(component.request())).not.toContain('individualKpiApprovalDeadline');
+    expect(Object.keys(component.request())).not.toContain('companyKpiCreationDeadline');
+  });
+  it('loads changed published settings for an earlier new Start Date and can explicitly reload them', () => {
+    const values = defaults(); values.sourceReviewPeriodName = '2027 Annual Review Period';
+    values.employeeLevelConfigurations[0].companyKpiWeight = 70;
+    values.roleConfigurations[0].reviewFrequency = 'QUARTERLY';
+    api.creationDefaults.and.returnValue(of(values)); fixture.detectChanges();
+    component.dates.startDate.setValue(new Date(2026, 9, 7));
+    expect(component.levelRows.at(0).controls.companyKpiWeight.value).toBe(70);
+    expect(component.roleRows.at(0).controls.reviewFrequency.value).toBe('QUARTERLY');
+    component.levelRows.at(0).controls.companyKpiWeight.setValue(60);
+    component.loadDefaults();
+    expect(component.levelRows.at(0).controls.companyKpiWeight.value).toBe(70);
+    expect(values.employeeLevelConfigurations[0].companyKpiWeight).toBe(70);
+  });
   it('cancels an older defaults request when the Start Date changes', () => {
     const first = new Subject<AnnualReviewCreationDefaults>(); const second = new Subject<AnnualReviewCreationDefaults>();
     api.creationDefaults.and.returnValues(first, second); fixture.detectChanges();

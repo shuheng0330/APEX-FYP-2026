@@ -1,6 +1,6 @@
 # Annual KPI Review Period Management
 
-Scope: UC-01 / UC-02 and Employee Level selection in the existing Role drawers. No annual-period frontend, KPI, assessment, attitude scoring, result or appraisal implementation.
+Scope: UC-01 / UC-02 and Employee Level selection in the existing Role drawers. Includes the annual-period frontend; no KPI, assessment, attitude scoring, result or appraisal implementation.
 
 ## Access and APIs
 
@@ -19,8 +19,8 @@ Base: `/api/annual-kpi-review-periods`
 | PUT | `/{id}` | Replace editable configuration; Draft remains Draft, Upcoming remains published |
 | GET | base | List periods, including configuration and checkpoints |
 | GET | `/{id}` | Retrieve configuration and generated schedule |
-| GET | `/roles` | Non-deleted roles with configured default frequency, or ANNUALLY |
-| GET | `/creation-defaults?startDate=2027-01-01` | Employee Level weights from the latest earlier published period and each Role's latest earlier saved frequency, or initial defaults |
+| GET | `/roles` | Non-deleted, performance-review-eligible roles with configured default frequency, or ANNUALLY |
+| GET | `/creation-defaults?startDate=2027-01-01` | Employee Level weights from the latest published period and each Role's latest saved frequency, or initial defaults |
 | POST | `/preview` | Validate full configuration and return an unsaved configuration/schedule preview |
 | DELETE | `/{id}` | Delete an editable Draft/Upcoming and its role/checkpoint configuration; returns 204 |
 
@@ -38,7 +38,7 @@ Role and Employee Level IDs are illustrative: use `GET /roles` and `GET /api/emp
   "startDate": "2027-01-01",
   "endDate": "2027-12-31",
   "roleConfigurations": [
-    { "roleId": 1, "reviewFrequency": "MONTHLY" }
+    { "roleId": 7, "reviewFrequency": "MONTHLY" }
   ],
   "employeeLevelConfigurations": [
     {"employeeLevelId": 1, "companyKpiWeight": 50, "departmentKpiWeight": 30, "individualKpiWeight": 20},
@@ -51,10 +51,7 @@ Role and Employee Level IDs are illustrative: use `GET /roles` and `GET /api/emp
   "kpiPerformanceWeight": 50,
   "attitudeEvaluationWeight": 50,
   "annualKpiConsolidationMethod": "FINAL_CHECKPOINT",
-  "companyKpiCreationDeadline": "2026-12-20",
-  "departmentKpiCreationDeadline": "2026-12-23",
-  "individualKpiSubmissionDeadline": "2026-12-27",
-  "individualKpiApprovalDeadline": "2026-12-31",
+  "kpiSetupDeadline": "2026-12-31",
   "selfAssessmentDaysAfterCheckpoint": 5,
   "superiorAssessmentDaysAfterSelfDeadline": 5,
   "attitudeSelfAssessmentDeadline": "2027-12-05",
@@ -83,12 +80,12 @@ Omitting a level on an already-classified Role preserves it. Role updates and bu
 Role exports append `Employee Level Code` as column nine. Older eight-column imports preserve existing mappings;
 new Roles require the additional level code. No Role-name matching is performed.
 
-Creation defaults select Upcoming/Open/Closed periods with End Date strictly before the intended Start Date,
-ordered by End Date, Start Date and ID descending. Drafts are excluded. Weights come from the latest qualifying
-period. Each Role's frequency comes from the latest qualifying period containing that Role's saved configuration,
+Creation defaults select Upcoming/Open/Closed periods, regardless of overlap with the intended Start Date,
+ordered by End Date, Start Date and ID descending. Drafts are excluded. Weights come from the latest published
+period. Each Role's frequency comes from the latest published period containing that Role's saved configuration,
 even when that Role is absent from the newest period. Without saved history, use `Role.default_review_frequency`,
 then ANNUALLY. Explicit creation frequencies override these defaults. All copies are independent.
-`sourceReviewPeriodId` identifies the weightage source, not a shared source for all Role frequencies. Current Role-to-Level
+`sourceReviewPeriodId` and `sourceReviewPeriodName` identify the weightage source, not a shared source for all Role frequencies. Current Role-to-Level
 mappings are used for the new period, not inherited historical Role classifications.
 No deadlines, checkpoints, participants or statuses are copied.
 
@@ -102,10 +99,11 @@ does not change it, including when an unrelated Upcoming-period field is edited.
 ## Rules
 
 - Drafts can be incomplete, including provisional weight totals; supplied values must still be valid.
-- Publishing requires name, dates, at least one unique non-deleted role, all deadline settings, all weights and a consolidation method.
+- Publishing requires name, dates, at least one unique non-deleted eligible role, all deadline settings, all weights and a consolidation method.
 - Names are trimmed, limited to 255 characters and unique using the inherited database's case-sensitive uniqueness convention.
 - Start Date must precede End Date.
-- Each of the four KPI setup deadlines must be on/before Start Date, following the detailed UC rather than the older January setup example.
+- The single KPI Setup Deadline must be on/before Start Date. It covers completion of Company, Department and Individual KPI setup, including any required submission/review/approval. Non-null obsolete separate deadline inputs are rejected.
+- Super Admin is a system role, excluded from available/configured review roles, validation and participant creation. Management permissions are unchanged. Eligibility is persisted independently of the Role name, permissions and Employee Level; Role edits/imports preserve it.
 - Weights are 0-100, with at most two decimal places. Each of all six Employee Level configurations must total 100 at publication; performance/attitude weights separately total 100. Every selected Role must be classified.
 - Assessment offsets are positive calendar days. Self-assessment follows checkpoint end; superior assessment follows self-assessment deadline.
 - Attitude self-assessment cannot precede Start Date; superior attitude deadline follows self-assessment deadline.
@@ -124,12 +122,13 @@ does not change it, including when an unrelated Upcoming-period field is edited.
 ## Deliberately Deferred
 
 - Manual closure prerequisites, incomplete/overdue assessment exceptions and any closure override.
-- Automatic participant enrolment/eligibility and handling transfers, joiners, resignations or changed superiors.
+- Automatic participant enrolment and other eligibility rules and handling transfers, joiners, resignations or changed superiors.
 - Later-phase KPI assignments, KPI revisions, assessments, attitude scoring, annual results, appraisal and analytics.
 
 The scheduler uses the server's existing default time zone, as does the inherited scheduler.
 Offsets use calendar days, not a new holiday/business-day policy.
-V28 adds the permission and V29 adds Employee Level configuration using the isolated annual-kpi Flyway location. Global Flyway baseline settings,
+V28 adds the permission, V29 adds Employee Level configuration and V30 adds system-role eligibility and the single setup deadline using the isolated annual-kpi Flyway location.
+V30 retains the four old deadline columns as historical evidence and backfills the single deadline from their latest value. It removes Super Admin configuration and only newly unused schedules; historical participants require manual review rather than deletion. Global Flyway baseline settings,
 Hibernate ddl-auto settings and legacy endpoint security remain unchanged.
 
 ## Legacy Permission Boundaries
@@ -156,13 +155,15 @@ Run the focused suite in PowerShell:
 
 ```powershell
 $env:APEX_PHASE1_POSTGRES_TEST = 'true'
-.\mvnw.cmd '-Dtest=AnnualKpiReviewPeriodServiceImplTest,AnnualKpiReviewPeriodControllerTest,AnnualReviewPeriodFoundationTest,AnnualReviewPeriodPostgresTest,AnnualReviewPeriodPermissionPostgresTest,EmployeeLevelMigrationPostgresTest,RoleEmployeeLevelTest,AuthorityControllerTest,AuthorityServiceTest,RoleServiceImplTest,RoleControllerTest,RoleCompetenciesControllerTest,RoleAuthorityServiceTest,EvaluationCycleServiceImplTest,EvaluationCycleControllerTest,TokenServiceTest' test
+.\mvnw.cmd '-Dtest=AnnualKpiReviewPeriodServiceImplTest,AnnualKpiReviewPeriodControllerTest,AnnualReviewPeriodFoundationTest,AnnualReviewPeriodPostgresTest,AnnualReviewPeriodPermissionPostgresTest,EmployeeLevelMigrationPostgresTest,RoleEmployeeLevelTest,ReviewPeriodRefinementMigrationPostgresTest,AuthorityControllerTest,AuthorityServiceTest,RoleServiceImplTest,RoleControllerTest,RoleCompetenciesControllerTest,RoleAuthorityServiceTest,EvaluationCycleServiceImplTest,EvaluationCycleControllerTest,TokenServiceTest' test
 .\mvnw.cmd '-DskipTests' package
 ```
 
-The PostgreSQL test executes V27/V29 and service/repository scenarios in an isolated, transaction-rolled-back schema.
+The PostgreSQL test executes V27/V29/V30 and service/repository scenarios in an isolated, transaction-rolled-back schema.
 It does not replay legacy migrations, start Hibernate schema updates or retain test records in public.
 The V28 PostgreSQL tests use rolled-back copies of inherited RBAC tables and check preserved legacy data,
 new Super Admin-only grants, retry safety, enum constraints and rejection of ambiguous/missing Super Admin roles.
 The V29 tests check example defaults, preserved historical/partial weights, same-period composite foreign keys,
 protected referenced configuration and safe refusal of ambiguous historical classifications.
+
+The V30 tests verify deadline backfill/history, Super Admin exclusion, shared checkpoint preservation and safe refusal of ambiguous participant or incomplete published deadline data.

@@ -146,7 +146,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     @Override
     @Transactional(readOnly = true)
     public List<AnnualKpiReviewPeriodDto.RoleConfiguration> availableRoles() {
-        return roles.findAllByIsDeletedIsFalse().stream().map(role -> {
+        return roles.findAllByIsDeletedIsFalse().stream().filter(Role::isPerformanceReviewEligible).map(role -> {
             ReviewPeriodRoleConfiguration configuration = new ReviewPeriodRoleConfiguration();
             configuration.setRole(role);
             configuration.setReviewFrequency(ReviewPeriodRoleConfiguration.resolveFrequency(role, null));
@@ -224,6 +224,9 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         if (!request.isGlobalKpiWeightsAbsent()) {
             throw new BadRequestException("Configure KPI weightages per Employee Level; global KPI weights are no longer accepted");
         }
+        if (!request.isSeparateSetupDeadlinesAbsent()) {
+            throw new BadRequestException("Use the single KPI Setup Deadline; separate KPI setup deadlines are no longer supported");
+        }
         mapper.updateConfiguration(request, period);
         if (period.getName() != null) period.setName(period.getName().strip());
     }
@@ -247,6 +250,9 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         List<ReviewPeriodRoleConfiguration> selected = new ArrayList<>();
         for (var item : request.getRoleConfigurations()) {
             Role role = applicable.get(item.getRoleId());
+            if (!role.isPerformanceReviewEligible()) {
+                throw new BadRequestException("System administrative roles do not participate in performance reviews");
+            }
             ReviewPeriodRoleConfiguration configuration = new ReviewPeriodRoleConfiguration();
             configuration.setReviewPeriod(period);
             configuration.setRole(role);
@@ -264,6 +270,9 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
 
     private void validate(AnnualKpiReviewPeriod period, List<ReviewPeriodRoleConfiguration> selected,
             List<ReviewPeriodEmployeeLevelConfiguration> weights, boolean publish) {
+        if (selected.stream().anyMatch(c -> !c.getRole().isPerformanceReviewEligible())) {
+            throw new BadRequestException("System administrative roles do not participate in performance reviews");
+        }
         try {
             for (var weight : weights) validator.validateLevelWeights(weight, publish);
             if (publish) validator.validateForPublication(period);
@@ -336,7 +345,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     private AnnualKpiReviewPeriodDto details(AnnualKpiReviewPeriod period) {
         AnnualKpiReviewPeriodDto dto = mapper.toDto(period);
         dto.setRoleConfigurations(configurations.findAllByReviewPeriodIdOrderByIdAsc(period.getId())
-                .stream().map(mapper::toDto).toList());
+                .stream().filter(c -> c.getRole().isPerformanceReviewEligible()).map(mapper::toDto).toList());
         dto.setCheckpoints(checkpoints.findAllByReviewPeriodIdOrderByReviewFrequencyAscSequenceNumberAsc(period.getId())
                 .stream().map(mapper::toDto).toList());
         dto.setEmployeeLevelConfigurations(levelConfigurations.findAllByReviewPeriodIdOrderByEmployeeLevelDisplayOrderAsc(period.getId())
@@ -353,6 +362,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         AnnualKpiReviewPeriodDefaultsDto dto = new AnnualKpiReviewPeriodDefaultsDto();
         AnnualKpiReviewPeriod source = previousPeriod(startDate);
         dto.setSourceReviewPeriodId(source == null ? null : source.getId());
+        dto.setSourceReviewPeriodName(source == null ? null : source.getName());
         dto.setEmployeeLevelConfigurations(defaultWeights(period).stream().map(mapper::toDto).toList());
         Map<Long, ReviewFrequency> frequencies = new HashMap<>();
         previousRoles(period).forEach(c -> frequencies.put(c.getRole().getId(), c.getReviewFrequency()));
@@ -366,18 +376,19 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
 
     private AnnualKpiReviewPeriod previousPeriod(LocalDate startDate) {
         if (startDate == null) return null;
-        return periods.findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
+        return periods.findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN,
-                        AnnualKpiReviewPeriodStatus.CLOSED), startDate).orElse(null);
+                        AnnualKpiReviewPeriodStatus.CLOSED)).orElse(null);
     }
 
     private List<ReviewPeriodRoleConfiguration> previousRoles(AnnualKpiReviewPeriod period) {
         if (period.getStartDate() == null) return List.of();
         Map<Long, ReviewPeriodRoleConfiguration> latestByRole = new LinkedHashMap<>();
-        // A Role may be absent from the latest period, so retain its newest earlier saved configuration.
-        configurations.findPublishedConfigurationsBefore(period.getStartDate(),
+        // A Role may be absent from the latest period, so retain its latest published configuration.
+        configurations.findPublishedConfigurations(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN,
                         AnnualKpiReviewPeriodStatus.CLOSED))
+                .stream().filter(c -> c.getRole().isPerformanceReviewEligible())
                 .forEach(configuration -> latestByRole.putIfAbsent(configuration.getRole().getId(), configuration));
         return new ArrayList<>(latestByRole.values());
     }

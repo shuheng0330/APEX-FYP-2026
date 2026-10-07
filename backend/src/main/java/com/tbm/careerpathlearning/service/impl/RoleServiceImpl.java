@@ -462,6 +462,7 @@ public class RoleServiceImpl implements RoleService {
         Role entity = appMapper.toEntity(dto);
         if (existing != null) {
             entity.setDefaultReviewFrequency(existing.getDefaultReviewFrequency());
+            entity.setPerformanceReviewEligible(existing.isPerformanceReviewEligible());
             entity.setEmployeeLevel(existing.getEmployeeLevel());
         }
         if (dto.getEmployeeLevelId() != null) {

@@ -24,8 +24,7 @@ export interface EmployeeLevelConfiguration {
 }
 
 export const REVIEW_DATE_FIELDS = [
-  'startDate', 'endDate', 'companyKpiCreationDeadline', 'departmentKpiCreationDeadline',
-  'individualKpiSubmissionDeadline', 'individualKpiApprovalDeadline',
+  'startDate', 'endDate', 'kpiSetupDeadline',
   'attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline',
   'appraisalRecommendationDeadline', 'hrFinalisationDeadline'
 ] as const;
@@ -65,6 +64,7 @@ export interface AnnualReviewPeriod extends Omit<AnnualReviewPeriodRequest, 'rol
 
 export interface AnnualReviewCreationDefaults {
   sourceReviewPeriodId: number | null;
+  sourceReviewPeriodName?: string | null;
   employeeLevelConfigurations: EmployeeLevelConfiguration[];
   roleConfigurations: ReviewRoleConfiguration[];
 }

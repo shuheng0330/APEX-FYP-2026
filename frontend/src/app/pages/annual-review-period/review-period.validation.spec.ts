@@ -27,8 +27,8 @@ describe('Annual review configuration validation', () => {
     expect(validateReviewConfiguration(validReviewRequest(), false, reviewLevels.map(l => l.id), roles)).toEqual([]);
   });
   it('points to the setup section when a setup deadline is after Start Date', () => {
-    const request = validReviewRequest(); request.individualKpiApprovalDeadline = '2028-01-15';
-    expect(validate(request).some(i => i.section === 'setup' && i.field === 'individualKpiApprovalDeadline')).toBeTrue();
+    const request = validReviewRequest(); request.kpiSetupDeadline = '2028-01-15';
+    expect(validate(request).some(i => i.section === 'setup' && i.field === 'kpiSetupDeadline')).toBeTrue();
   });
   it('rejects zero and fractional assessment day offsets', () => {
     const request = validReviewRequest(); request.selfAssessmentDaysAfterCheckpoint = 0; request.superiorAssessmentDaysAfterSelfDeadline = 1.5;

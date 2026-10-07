@@ -141,6 +141,28 @@ class AnnualKpiReviewPeriodControllerTest {
     }
 
     @Test
+    void obsoleteSeparateSetupDeadlinesAreRejectedBeforeServiceCall() throws Exception {
+        mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"individualKpiApprovalDeadline\":\"2026-12-31\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void singleSetupDeadlineIsAcceptedAndReturnedWithoutObsoleteFields() throws Exception {
+        var dto = new AnnualKpiReviewPeriodDto();
+        dto.setKpiSetupDeadline(java.time.LocalDate.of(2026, 12, 31));
+        when(service.create(any(), eq(false), eq(actor))).thenReturn(dto);
+        mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"kpiSetupDeadline\":\"2026-12-31\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.kpiSetupDeadline").value("2026-12-31"))
+                .andExpect(jsonPath("$.companyKpiCreationDeadline").doesNotExist())
+                .andExpect(jsonPath("$.individualKpiApprovalDeadline").doesNotExist());
+        verify(service).create(argThat(r -> java.time.LocalDate.of(2026, 12, 31).equals(r.getKpiSetupDeadline())), eq(false), eq(actor));
+    }
+
+    @Test
     void obsoleteGlobalKpiWeightsAreRejectedBeforeServiceCall() throws Exception {
         mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"companyKpiWeight\":15}" )).andExpect(status().isBadRequest());

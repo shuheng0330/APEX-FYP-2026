@@ -14,8 +14,8 @@ import java.util.Optional;
 public interface AnnualKpiReviewPeriodRepository extends JpaRepository<AnnualKpiReviewPeriod, Long> {
     List<AnnualKpiReviewPeriod> findAllByOrderByStartDateDescIdDesc();
     List<AnnualKpiReviewPeriod> findAllByStatus(AnnualKpiReviewPeriodStatus status);
-    Optional<AnnualKpiReviewPeriod> findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
-            Collection<AnnualKpiReviewPeriodStatus> statuses, LocalDate startDate);
+    Optional<AnnualKpiReviewPeriod> findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(
+            Collection<AnnualKpiReviewPeriodStatus> statuses);
     boolean existsByName(String name);
     boolean existsByNameAndIdNot(String name, Long id);
     List<AnnualKpiReviewPeriod> findAllByStatusAndStartDateLessThanEqual(

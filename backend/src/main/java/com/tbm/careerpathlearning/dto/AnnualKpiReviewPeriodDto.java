@@ -21,10 +21,7 @@ public class AnnualKpiReviewPeriodDto {
     private BigDecimal kpiPerformanceWeight;
     private BigDecimal attitudeEvaluationWeight;
     private AnnualKpiConsolidationMethod annualKpiConsolidationMethod;
-    private LocalDate companyKpiCreationDeadline;
-    private LocalDate departmentKpiCreationDeadline;
-    private LocalDate individualKpiSubmissionDeadline;
-    private LocalDate individualKpiApprovalDeadline;
+    private LocalDate kpiSetupDeadline;
     private Integer selfAssessmentDaysAfterCheckpoint;
     private Integer superiorAssessmentDaysAfterSelfDeadline;
     private LocalDate attitudeSelfAssessmentDeadline;

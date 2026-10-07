@@ -49,17 +49,8 @@ public class AnnualKpiReviewPeriod {
     @Column(name = "annual_kpi_consolidation_method", length = 30)
     private AnnualKpiConsolidationMethod annualKpiConsolidationMethod;
 
-    @Column(name = "company_kpi_creation_deadline")
-    private LocalDate companyKpiCreationDeadline;
-
-    @Column(name = "department_kpi_creation_deadline")
-    private LocalDate departmentKpiCreationDeadline;
-
-    @Column(name = "individual_kpi_submission_deadline")
-    private LocalDate individualKpiSubmissionDeadline;
-
-    @Column(name = "individual_kpi_approval_deadline")
-    private LocalDate individualKpiApprovalDeadline;
+    @Column(name = "kpi_setup_deadline")
+    private LocalDate kpiSetupDeadline;
 
     @Column(name = "self_assessment_days_after_checkpoint")
     private Integer selfAssessmentDaysAfterCheckpoint;

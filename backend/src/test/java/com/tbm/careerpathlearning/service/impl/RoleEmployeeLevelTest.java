@@ -44,6 +44,17 @@ class RoleEmployeeLevelTest {
     }
 
     @Test
+    void systemRoleEligibilityCannotBeResetThroughRoleEditOrImport() {
+        existing.setPerformanceReviewEligible(false);
+        service.update(10L, request);
+        verify(roles).save(argThat(r -> !r.isPerformanceReviewEligible()));
+        request.setId(10L);
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(existing));
+        service.createAndUpdateAll(List.of(request));
+        verify(roles).saveAll(argThat(rows -> !((List<Role>) rows).get(0).isPerformanceReviewEligible()));
+    }
+
+    @Test
     void creationRequiresKnownLevelAndReturnsLevelMetadata() {
         assertThatThrownBy(() -> service.create(request)).isInstanceOf(BadRequestException.class).hasMessageContaining("Select");
         request.setEmployeeLevelId(999L);

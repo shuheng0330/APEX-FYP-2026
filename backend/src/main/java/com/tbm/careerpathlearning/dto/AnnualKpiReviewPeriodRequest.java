@@ -39,10 +39,22 @@ public class AnnualKpiReviewPeriodRequest {
     private BigDecimal kpiPerformanceWeight = new BigDecimal("50.00");
     private BigDecimal attitudeEvaluationWeight = new BigDecimal("50.00");
     private AnnualKpiConsolidationMethod annualKpiConsolidationMethod;
+    private LocalDate kpiSetupDeadline;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private LocalDate companyKpiCreationDeadline;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private LocalDate departmentKpiCreationDeadline;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private LocalDate individualKpiSubmissionDeadline;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private LocalDate individualKpiApprovalDeadline;
+
+    @JsonIgnore
+    @AssertTrue(message = "Use the single KPI Setup Deadline; separate KPI setup deadlines are no longer supported")
+    public boolean isSeparateSetupDeadlinesAbsent() {
+        return companyKpiCreationDeadline == null && departmentKpiCreationDeadline == null
+                && individualKpiSubmissionDeadline == null && individualKpiApprovalDeadline == null;
+    }
     private Integer selfAssessmentDaysAfterCheckpoint;
     private Integer superiorAssessmentDaysAfterSelfDeadline;
     private LocalDate attitudeSelfAssessmentDeadline;

@@ -154,6 +154,7 @@ public interface AppMapper {
 
     @Mapping(target = "employeeLevel", ignore = true)
     @Mapping(target = "defaultReviewFrequency", ignore = true)
+    @Mapping(target = "performanceReviewEligible", ignore = true)
     Role toEntity(RoleDto entity);
 
     // === Career Pathway ===

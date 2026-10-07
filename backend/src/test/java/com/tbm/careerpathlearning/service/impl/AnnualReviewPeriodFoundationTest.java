@@ -100,7 +100,7 @@ class AnnualReviewPeriodFoundationTest {
         period.setAppraisalRecommendationDeadline(LocalDate.of(2028, 1, 15));
         period.setHrFinalisationDeadline(LocalDate.of(2028, 1, 25));
         assertThatCode(() -> validator.validateForScheduling(period)).doesNotThrowAnyException();
-        period.setCompanyKpiCreationDeadline(LocalDate.of(2027, 1, 2));
+        period.setKpiSetupDeadline(LocalDate.of(2027, 1, 2));
         assertThatIllegalArgumentException().isThrownBy(() -> validator.validateForScheduling(period));
     }
 
@@ -145,6 +145,17 @@ class AnnualReviewPeriodFoundationTest {
         configuration.setReviewPeriod(period()); configuration.setReviewFrequency(ReviewFrequency.MONTHLY);
         assertThatIllegalArgumentException().isThrownBy(
                 () -> new ReviewPeriodParticipantFactory().snapshot(period, staff, configuration, null));
+    }
+
+    @Test
+    void systemRolesCannotBecomePerformanceReviewParticipants() {
+        var period = period(); var role = new Role(); var staff = new Staff(); staff.setRole(role);
+        role.setPerformanceReviewEligible(false);
+        var configuration = new ReviewPeriodRoleConfiguration(); configuration.setRole(role);
+        configuration.setReviewPeriod(period); configuration.setReviewFrequency(ReviewFrequency.MONTHLY);
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> new ReviewPeriodParticipantFactory().snapshot(period, staff, configuration, null))
+                .withMessageContaining("do not participate");
     }
 
     private AnnualKpiReviewPeriod period() {

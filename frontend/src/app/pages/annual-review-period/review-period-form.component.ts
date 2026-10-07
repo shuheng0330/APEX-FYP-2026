@@ -198,7 +198,9 @@ export class ReviewPeriodFormComponent implements OnInit {
       if (saved) row.controls.reviewFrequency.setValue(saved.reviewFrequency, { emitEvent: false });
     });
     this.previewPeriod = null; this.defaultsNeedRefresh = false;
-    this.defaultsNotice = this.translate.instant(defaults.sourceReviewPeriodId ? 'REVIEW_PERIOD.COPIED_DEFAULTS' : 'REVIEW_PERIOD.INITIAL_DEFAULTS');
+    this.defaultsNotice = defaults.sourceReviewPeriodName
+      ? this.translate.instant('REVIEW_PERIOD.COPIED_DEFAULTS_FROM', { period: defaults.sourceReviewPeriodName })
+      : this.translate.instant(defaults.sourceReviewPeriodId ? 'REVIEW_PERIOD.COPIED_DEFAULTS' : 'REVIEW_PERIOD.INITIAL_DEFAULTS');
     if (this.issues.length) this.validate(this.publishingValidation);
   }
 

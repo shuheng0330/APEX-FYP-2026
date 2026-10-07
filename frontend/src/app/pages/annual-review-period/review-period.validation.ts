@@ -2,7 +2,7 @@ import { AnnualReviewPeriodRequest, ReviewDateField, ReviewRoleConfiguration, we
 
 export type ReviewSection = 'basic' | 'roles' | 'levels' | 'composition' | 'consolidation' | 'setup' | 'assessment' | 'attitude';
 export interface ReviewValidationIssue { section: ReviewSection; field: string; key: string; params?: Record<string, string | number>; }
-export const SETUP_DEADLINES: ReviewDateField[] = ['companyKpiCreationDeadline', 'departmentKpiCreationDeadline', 'individualKpiSubmissionDeadline', 'individualKpiApprovalDeadline'];
+export const SETUP_DEADLINES: ReviewDateField[] = ['kpiSetupDeadline'];
 export const FINAL_DEADLINES: ReviewDateField[] = ['attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline', 'appraisalRecommendationDeadline', 'hrFinalisationDeadline'];
 
 export function validateReviewConfiguration(request: AnnualReviewPeriodRequest, publish: boolean,

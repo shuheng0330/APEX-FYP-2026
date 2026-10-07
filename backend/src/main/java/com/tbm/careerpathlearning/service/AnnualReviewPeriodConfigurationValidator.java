@@ -41,8 +41,7 @@ public class AnnualReviewPeriodConfigurationValidator {
 
     public void validateForPublication(AnnualKpiReviewPeriod period) {
         validateForScheduling(period);
-        if (Stream.of(period.getCompanyKpiCreationDeadline(), period.getDepartmentKpiCreationDeadline(),
-                        period.getIndividualKpiSubmissionDeadline(), period.getIndividualKpiApprovalDeadline(),
+        if (Stream.of(period.getKpiSetupDeadline(),
                         period.getAttitudeSelfAssessmentDeadline(), period.getSuperiorAttitudeEvaluationDeadline(),
                         period.getAppraisalRecommendationDeadline(), period.getHrFinalisationDeadline())
                 .anyMatch(Objects::isNull)) {
@@ -57,7 +56,7 @@ public class AnnualReviewPeriodConfigurationValidator {
                     .plusDays(period.getSuperiorAssessmentDaysAfterSelfDeadline());
             if (period.getAppraisalRecommendationDeadline().isBefore(finalSuperiorDeadline)
                     || period.getAppraisalRecommendationDeadline().isBefore(period.getSuperiorAttitudeEvaluationDeadline())) {
-                throw new IllegalArgumentException("Appraisal recommendation deadline cannot precede final KPI or attitude review deadlines");
+                throw new IllegalArgumentException("Set the Appraisal Recommendation Deadline after the final KPI assessment and Superior Attitude Evaluation have been completed.");
             }
         } catch (DateTimeException ex) {
             throw new IllegalArgumentException("Assessment deadline offsets produce an invalid date", ex);
@@ -65,11 +64,10 @@ public class AnnualReviewPeriodConfigurationValidator {
     }
 
     private void validateDeadlines(AnnualKpiReviewPeriod period) {
-        Stream.of(period.getCompanyKpiCreationDeadline(), period.getDepartmentKpiCreationDeadline(),
-                        period.getIndividualKpiSubmissionDeadline(), period.getIndividualKpiApprovalDeadline())
+        Stream.of(period.getKpiSetupDeadline())
                 .filter(Objects::nonNull).forEach(deadline -> {
                     if (period.getStartDate() != null && deadline.isAfter(period.getStartDate())) {
-                        throw new IllegalArgumentException("KPI setup deadlines must not be after the period start date");
+                        throw new IllegalArgumentException("KPI Setup Deadline must be on or before the period Start Date");
                     }
                 });
         validateOrder(period.getAttitudeSelfAssessmentDeadline(), period.getSuperiorAttitudeEvaluationDeadline());

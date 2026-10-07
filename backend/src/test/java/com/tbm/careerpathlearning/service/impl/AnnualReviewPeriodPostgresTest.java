@@ -56,9 +56,14 @@ class AnnualReviewPeriodPostgresTest {
                 // The integration test also works after V27 is installed in public.
                 execute(connection, "ALTER TABLE " + schema + ".role DROP COLUMN IF EXISTS default_review_frequency");
                 execute(connection, "ALTER TABLE " + schema + ".role DROP COLUMN IF EXISTS employee_level_id");
+                execute(connection, "ALTER TABLE " + schema + ".role DROP COLUMN IF EXISTS performance_review_eligible");
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource(
                         "db/migration/annual-kpi/V27__annual_review_period_foundation.sql"));
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V29__employee_level_kpi_weightages.sql")
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+
+                execute(connection, "INSERT INTO role(name,is_visible,is_deleted,created_at,updated_at) VALUES ('superadmin',true,false,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+                execute(connection, new ClassPathResource("db/migration/annual-kpi/V30__review_period_eligibility_and_setup_deadline.sql")
                         .getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
 
                 var configuration = new Configuration();
@@ -96,6 +101,7 @@ class AnnualReviewPeriodPostgresTest {
                     var participants = factory.getRepository(ReviewPeriodParticipantRepository.class);
                     var period = new AnnualKpiReviewPeriod(); period.setName("Phase 1 Test 2027");
                     period.setStartDate(LocalDate.of(2027, 1, 1)); period.setEndDate(LocalDate.of(2027, 12, 31));
+                    period.setKpiSetupDeadline(period.getStartDate());
                     period.setAnnualKpiConsolidationMethod(AnnualKpiConsolidationMethod.FINAL_CHECKPOINT);
                     period.setSelfAssessmentDaysAfterCheckpoint(5); period.setSuperiorAssessmentDaysAfterSelfDeadline(5);
                     periods.saveAndFlush(period);
@@ -177,22 +183,21 @@ class AnnualReviewPeriodPostgresTest {
         for (int i = 0; i < statuses.length; i++) {
             try (var statement = connection.prepareStatement("INSERT INTO annual_kpi_review_period(reference_number,name,start_date,"
                     + "end_date,status,annual_kpi_consolidation_method,self_assessment_days_after_checkpoint,"
-                    + "superior_assessment_days_after_self_deadline) VALUES(?,?,?,?,?,'FINAL_CHECKPOINT',5,5) RETURNING id")) {
+                    + "superior_assessment_days_after_self_deadline,kpi_setup_deadline) VALUES(?,?,?,?,?,'FINAL_CHECKPOINT',5,5,'2030-01-01') RETURNING id")) {
                 statement.setString(1, UUID.randomUUID().toString());
                 statement.setString(2, "Defaults ordering " + i);
-                statement.setObject(3, LocalDate.of(2010, i == 0 ? 1 : 2, 1));
-                statement.setObject(4, i == 4 ? LocalDate.of(2011, 1, 1) : LocalDate.of(2010, 12, 31));
+                statement.setObject(3, LocalDate.of(2030, i == 0 ? 1 : 2, 1));
+                statement.setObject(4, i == 4 ? LocalDate.of(2031, 1, 1) : LocalDate.of(2030, 12, 31));
                 statement.setString(5, statuses[i]);
                 try (var result = statement.executeQuery()) {
                     result.next(); inserted.add(result.getLong(1));
-                    if (i == 2) expected = result.getLong(1);
+                    if (i == 4) expected = result.getLong(1);
                 }
             }
         }
-        assertThat(periods.findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
-                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED),
-                LocalDate.of(2011, 1, 1)).orElseThrow().getId()).isEqualTo(expected);
-        // The latest period omits this Role. Its older published configuration still supplies the default.
+        assertThat(periods.findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED)).orElseThrow().getId()).isEqualTo(expected);
+        // Published configurations remain eligible regardless of the new period's intended dates.
         for (int index : List.of(0, 1, 3, 4)) {
             try (var statement = connection.prepareStatement("INSERT INTO review_period_role_configuration"
                     + "(review_period_id,role_id,review_frequency) VALUES(?,?,'QUARTERLY')")) {
@@ -201,16 +206,16 @@ class AnnualReviewPeriodPostgresTest {
                 statement.executeUpdate();
             }
         }
-        var history = configurations.findPublishedConfigurationsBefore(LocalDate.of(2011, 1, 1),
+        var history = configurations.findPublishedConfigurations(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED));
         assertThat(history).extracting(c -> c.getReviewPeriod().getId())
-                .containsExactly(inserted.get(1), inserted.get(0));
+                .containsExactly(inserted.get(4), inserted.get(1), inserted.get(0), 1L);
         assertThat(history).allMatch(c -> c.getRole().getId().equals(roleId));
         // Equal dates are ordered by ID descending, not by the Role default.
-        execute(connection, "UPDATE annual_kpi_review_period SET start_date='2010-02-01' WHERE id=" + inserted.get(0));
-        assertThat(configurations.findPublishedConfigurationsBefore(LocalDate.of(2011, 1, 1),
+        execute(connection, "UPDATE annual_kpi_review_period SET start_date='2030-02-01' WHERE id=" + inserted.get(0));
+        assertThat(configurations.findPublishedConfigurations(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED)))
-                .extracting(c -> c.getReviewPeriod().getId()).containsExactly(inserted.get(1), inserted.get(0));
+                .extracting(c -> c.getReviewPeriod().getId()).containsExactly(inserted.get(4), inserted.get(1), inserted.get(0), 1L);
         for (long id : inserted) execute(connection, "DELETE FROM review_period_role_configuration WHERE review_period_id=" + id);
         for (long id : inserted) execute(connection, "DELETE FROM annual_kpi_review_period WHERE id=" + id);
     }
@@ -228,10 +233,7 @@ class AnnualReviewPeriodPostgresTest {
         request.setName("Application workflow 2028");
         request.setStartDate(LocalDate.of(2028, 1, 1));
         request.setEndDate(LocalDate.of(2028, 12, 31));
-        request.setCompanyKpiCreationDeadline(request.getStartDate());
-        request.setDepartmentKpiCreationDeadline(request.getStartDate());
-        request.setIndividualKpiSubmissionDeadline(request.getStartDate());
-        request.setIndividualKpiApprovalDeadline(request.getStartDate());
+        request.setKpiSetupDeadline(request.getStartDate());
         request.setAttitudeSelfAssessmentDeadline(LocalDate.of(2028, 12, 5));
         request.setSuperiorAttitudeEvaluationDeadline(LocalDate.of(2028, 12, 15));
         request.setAppraisalRecommendationDeadline(LocalDate.of(2029, 1, 15));

@@ -13,8 +13,7 @@ export function validReviewRequest(): AnnualReviewPeriodRequest {
       companyKpiWeight: 15, departmentKpiWeight: 25, individualKpiWeight: 60 })),
     roleConfigurations: [{ roleId: 7, reviewFrequency: 'MONTHLY' }],
     kpiPerformanceWeight: 50, attitudeEvaluationWeight: 50, annualKpiConsolidationMethod: 'FINAL_CHECKPOINT',
-    companyKpiCreationDeadline: '2027-12-15', departmentKpiCreationDeadline: '2027-12-20',
-    individualKpiSubmissionDeadline: '2027-12-25', individualKpiApprovalDeadline: '2027-12-31',
+    kpiSetupDeadline: '2027-12-15',
     selfAssessmentDaysAfterCheckpoint: 5, superiorAssessmentDaysAfterSelfDeadline: 5,
     attitudeSelfAssessmentDeadline: '2028-12-20', superiorAttitudeEvaluationDeadline: '2028-12-27',
     appraisalRecommendationDeadline: '2029-01-10', hrFinalisationDeadline: '2029-01-20'

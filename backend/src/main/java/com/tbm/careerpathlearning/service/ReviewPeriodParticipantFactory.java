@@ -13,6 +13,10 @@ public class ReviewPeriodParticipantFactory {
         Objects.requireNonNull(period, "Review period is required");
         Objects.requireNonNull(staff, "Staff is required");
         Objects.requireNonNull(configuration, "Period role configuration is required");
+        if ((staff.getRole() != null && !staff.getRole().isPerformanceReviewEligible())
+                || (configuration.getRole() != null && !configuration.getRole().isPerformanceReviewEligible())) {
+            throw new IllegalArgumentException("System administrative roles do not participate in performance reviews");
+        }
         if (!samePeriod(period, configuration.getReviewPeriod())
                 || !sameRole(staff.getRole(), configuration.getRole()) || configuration.getReviewFrequency() == null) {
             throw new IllegalArgumentException("Configuration must belong to this period and the employee's role");

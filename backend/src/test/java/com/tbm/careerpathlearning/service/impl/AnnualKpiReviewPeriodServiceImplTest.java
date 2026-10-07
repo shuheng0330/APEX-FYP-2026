@@ -83,12 +83,10 @@ class AnnualKpiReviewPeriodServiceImplTest {
         });
         when(configurations.findAllByReviewPeriodIdOrderByIdAsc(anyLong()))
                 .thenAnswer(i -> storedRoles.getOrDefault(i.getArgument(0), List.of()));
-        when(configurations.findPublishedConfigurationsBefore(any(), any())).thenAnswer(i -> {
-            LocalDate startDate = i.getArgument(0);
-            Collection<AnnualKpiReviewPeriodStatus> statuses = i.getArgument(1);
+        when(configurations.findPublishedConfigurations(any())).thenAnswer(i -> {
+            Collection<AnnualKpiReviewPeriodStatus> statuses = i.getArgument(0);
             return storedRoles.values().stream().flatMap(Collection::stream)
-                    .filter(c -> statuses.contains(c.getReviewPeriod().getStatus())
-                            && c.getReviewPeriod().getEndDate().isBefore(startDate))
+                    .filter(c -> statuses.contains(c.getReviewPeriod().getStatus()))
                     .sorted(Comparator.comparing((ReviewPeriodRoleConfiguration c) -> c.getReviewPeriod().getEndDate())
                             .thenComparing(c -> c.getReviewPeriod().getStartDate())
                             .thenComparing(c -> c.getReviewPeriod().getId()).reversed())
@@ -168,11 +166,49 @@ class AnnualKpiReviewPeriodServiceImplTest {
     }
 
     @Test
+    void latestPublishedDefaultsAreCopiedEvenWhenTheNewDatesOverlapOrPrecedeIt() {
+        var source = service.create(validRequest(), true, actor);
+        storedWeights.get(source.getId()).get(0).setCompanyKpiWeight(new BigDecimal("70"));
+        storedWeights.get(source.getId()).get(0).setDepartmentKpiWeight(new BigDecimal("10"));
+        when(periods.findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(any()))
+                .thenReturn(Optional.of(stored.get(source.getId())));
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(sales, manager));
+        var defaults = service.creationDefaults(LocalDate.of(2026, 10, 7));
+        assertThat(defaults.getSourceReviewPeriodName()).isEqualTo(source.getName());
+        assertThat(defaults.getEmployeeLevelConfigurations().get(0).getCompanyKpiWeight()).isEqualByComparingTo("70");
+        assertThat(defaults.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
+        var next = validRequest();
+        next.setName("Earlier Draft"); next.setStartDate(LocalDate.of(2026, 10, 7));
+        next.setEndDate(LocalDate.of(2026, 10, 29)); next.setKpiSetupDeadline(null);
+        next.setEmployeeLevelConfigurations(null); next.getRoleConfigurations().get(0).setReviewFrequency(null);
+        var draft = service.create(next, false, actor);
+        assertThat(draft.getEmployeeLevelConfigurations().get(0).getCompanyKpiWeight()).isEqualByComparingTo("70");
+        assertThat(draft.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
+        storedWeights.get(draft.getId()).get(0).setCompanyKpiWeight(new BigDecimal("80"));
+        assertThat(storedWeights.get(source.getId()).get(0).getCompanyKpiWeight()).isEqualByComparingTo("70");
+    }
+
+    @Test
+    void obsoleteSeparateDeadlinesAreRejectedRatherThanSilentlyIgnored() {
+        var request = validRequest(); request.setIndividualKpiApprovalDeadline(request.getKpiSetupDeadline());
+        assertThatThrownBy(() -> service.create(request, false, actor))
+                .hasMessageContaining("single KPI Setup Deadline");
+        verify(periods, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void appraisalDeadlineMessageExplainsWhichAssessmentsMustFinish() {
+        var request = validRequest(); request.setAppraisalRecommendationDeadline(request.getEndDate());
+        assertThatThrownBy(() -> service.create(request, true, actor)).hasMessage(
+                "Set the Appraisal Recommendation Deadline after the final KPI assessment and Superior Attitude Evaluation have been completed.");
+    }
+
+    @Test
     void previousPublishedValuesAndFrequenciesAreCopiedIndependently() {
         var source = service.create(validRequest(), true, actor);
         storedWeights.get(source.getId()).get(3).setCompanyKpiWeight(new BigDecimal("20"));
         storedWeights.get(source.getId()).get(3).setIndividualKpiWeight(new BigDecimal("55"));
-        when(periods.findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(any(), eq(LocalDate.of(2028, 1, 1))))
+        when(periods.findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(any()))
                 .thenReturn(Optional.of(stored.get(source.getId())));
         when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(sales, manager));
         sales.setEmployeeLevel(EmployeeLevelFixtures.levels().get(5));
@@ -197,9 +233,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThat(updated.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
         assertThat(storedRoles.get(source.getId()).get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.MONTHLY);
         assertThat(sales.getDefaultReviewFrequency()).isNull();
-        verify(periods, atLeastOnce()).findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(
-                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED),
-                LocalDate.of(2028, 1, 1));
+        verify(periods, atLeastOnce()).findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(
+                List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED));
     }
 
     @Test
@@ -222,7 +257,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThat(created.getRoleConfigurations()).extracting(AnnualKpiReviewPeriodDto.RoleConfiguration::getReviewFrequency)
                 .containsExactly(ReviewFrequency.MONTHLY, ReviewFrequency.ANNUALLY);
         assertThat(created.getCheckpoints()).hasSize(13);
-        verify(configurations, atLeastOnce()).findPublishedConfigurationsBefore(LocalDate.of(2027, 1, 1),
+        verify(configurations, atLeastOnce()).findPublishedConfigurations(
                 List.of(AnnualKpiReviewPeriodStatus.UPCOMING, AnnualKpiReviewPeriodStatus.OPEN, AnnualKpiReviewPeriodStatus.CLOSED));
     }
 
@@ -246,7 +281,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         clearInvocations(configurations);
         assertThat(service.update(created.getId(), request, actor).getRoleConfigurations().get(0).getReviewFrequency())
                 .isEqualTo(ReviewFrequency.MONTHLY);
-        verify(configurations, never()).findPublishedConfigurationsBefore(any(), any());
+        verify(configurations, never()).findPublishedConfigurations(any());
     }
 
     private ReviewPeriodRoleConfiguration savedFrequency(Long id, int year, Role role, ReviewFrequency frequency) {
@@ -272,7 +307,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         clearInvocations(periods);
         var updated = service.update(draft.getId(), request, actor);
         assertThat(updated.getEmployeeLevelConfigurations().get(3).getIndividualKpiWeight()).isEqualByComparingTo("55");
-        verify(periods, never()).findFirstByStatusInAndEndDateBeforeOrderByEndDateDescStartDateDescIdDesc(any(), any());
+        verify(periods, never()).findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(any());
     }
 
     @Test
@@ -388,11 +423,10 @@ class AnnualKpiReviewPeriodServiceImplTest {
                 r -> r.setSelfAssessmentDaysAfterCheckpoint(null),
                 r -> r.setSelfAssessmentDaysAfterCheckpoint(0),
                 r -> r.setSuperiorAssessmentDaysAfterSelfDeadline(-1),
-                r -> r.setCompanyKpiCreationDeadline(null), r -> r.setDepartmentKpiCreationDeadline(null),
-                r -> r.setIndividualKpiSubmissionDeadline(null), r -> r.setIndividualKpiApprovalDeadline(null),
+                r -> r.setKpiSetupDeadline(null),
                 r -> r.setAttitudeSelfAssessmentDeadline(null), r -> r.setSuperiorAttitudeEvaluationDeadline(null),
                 r -> r.setAppraisalRecommendationDeadline(null), r -> r.setHrFinalisationDeadline(null),
-                r -> r.setCompanyKpiCreationDeadline(r.getStartDate().plusDays(1)),
+                r -> r.setKpiSetupDeadline(r.getStartDate().plusDays(1)),
                 r -> r.setSuperiorAttitudeEvaluationDeadline(r.getAttitudeSelfAssessmentDeadline()),
                 r -> r.setAttitudeSelfAssessmentDeadline(r.getStartDate().minusDays(1)),
                 r -> r.setAppraisalRecommendationDeadline(r.getEndDate().plusDays(9)),
@@ -537,6 +571,33 @@ class AnnualKpiReviewPeriodServiceImplTest {
         verify(roles, never()).save(any());
     }
 
+    @Test
+    void systemRolesAreNotAvailableForPerformanceReviewConfiguration() {
+        sales.setPerformanceReviewEligible(false);
+        sales.setEmployeeLevel(null);
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(sales, manager));
+        assertThat(service.availableRoles()).extracting(AnnualKpiReviewPeriodDto.RoleConfiguration::getRoleId)
+                .containsExactly(manager.getId());
+        assertThat(service.creationDefaults(LocalDate.of(2027, 1, 1)).getRoleConfigurations())
+                .extracting(AnnualKpiReviewPeriodDto.RoleConfiguration::getRoleId).containsExactly(manager.getId());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void systemRolesCannotBeIncludedEvenByDirectApiRequests(boolean publish) {
+        sales.setPerformanceReviewEligible(false);
+        assertThatThrownBy(() -> service.create(validRequest(), publish, actor))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("do not participate");
+        verify(periods, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void savedDraftCannotPublishWithAnIneligibleRole() {
+        var draft = service.create(validRequest(), false, actor);
+        sales.setPerformanceReviewEligible(false);
+        assertThatThrownBy(() -> service.publish(draft.getId(), actor)).hasMessageContaining("do not participate");
+    }
+
     static AnnualKpiReviewPeriodRequest validRequest() {
         var request = new AnnualKpiReviewPeriodRequest();
         request.setName("2027 Annual KPI Review");
@@ -556,10 +617,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
     }
 
     private static void setSetup(AnnualKpiReviewPeriodRequest request, LocalDate deadline) {
-        request.setCompanyKpiCreationDeadline(deadline);
-        request.setDepartmentKpiCreationDeadline(deadline);
-        request.setIndividualKpiSubmissionDeadline(deadline);
-        request.setIndividualKpiApprovalDeadline(deadline);
+        request.setKpiSetupDeadline(deadline);
     }
 
     static AnnualKpiReviewPeriodRequest.RoleFrequency frequency(Long id, ReviewFrequency frequency) {
