@@ -11,6 +11,7 @@ public interface KpiPlanMapper {
     @Mapping(target="departmentId",source="department.id")
     @Mapping(target="departmentName",source="department.name")
     @Mapping(target="employeeName",source="ownerParticipant.staffName")
+    @Mapping(target="submittedByName",source="submitter.name")
     @Mapping(target="totalWeightage",ignore=true) @Mapping(target="overdue",ignore=true)
     KpiPlanDto toDto(KpiPlan plan);
     KpiItemDto toDto(Kpi item);

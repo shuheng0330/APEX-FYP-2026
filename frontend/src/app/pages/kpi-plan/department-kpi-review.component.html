@@ -1,0 +1,97 @@
+<main class="review-page">
+  <div class="page-heading">
+    <div><h2>{{ 'DEPARTMENT_REVIEW.TITLE' | translate }}</h2><p class="help">{{ 'DEPARTMENT_REVIEW.HELP' | translate }}</p></div>
+  </div>
+  @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div> }
+  @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
+  @if (loading) { <p role="status">{{ 'DEPARTMENT_REVIEW.LOADING' | translate }}</p> }
+  <section class="review-status-tabs" [attr.aria-label]="'DEPARTMENT_REVIEW.FILTER' | translate">
+    @for (status of statuses; track status) {
+      <button type="button" class="review-status-tab" [class.active]="filter === status" [attr.aria-pressed]="filter === status"
+        (click)="filter = status">
+        <span>{{ 'KPI_PLAN.STATUS.' + status | translate }}</span><strong>{{ count(status) }}</strong>
+      </button>
+    }
+  </section>
+  <section class="card">
+    <div class="table-scroll"><table class="data-table">
+      <thead><tr>
+        <th>{{ 'DEPARTMENT_KPI.DEPARTMENT' | translate }}</th>
+        <th>{{ 'DEPARTMENT_REVIEW.SUBMITTED_BY' | translate }}</th>
+        <th>{{ 'KPI_PLAN.PERIOD' | translate }}</th>
+        <th>{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</th>
+        <th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
+      </tr></thead>
+      <tbody>
+        @for (plan of visiblePlans; track plan.id) {
+          <tr>
+            <td><strong>{{ plan.departmentName }}</strong></td>
+            <td>{{ plan.submittedByName || ('DEPARTMENT_REVIEW.NAME_UNAVAILABLE' | translate) }}
+              @if (plan.submittedAt) { <p class="help">{{ plan.submittedAt | date:'dd MMM yyyy' }}</p> }
+            </td>
+            <td>{{ plan.reviewPeriodName }}</td>
+            <td><span class="status" [attr.data-status]="plan.status">{{ 'KPI_PLAN.STATUS.' + plan.status | translate }}</span></td>
+            <td><button nz-button [disabled]="loading || busy" (click)="open(plan.id)">
+              {{ (plan.status === 'PENDING_APPROVAL' && plan.reviewPeriodStatus !== 'CLOSED' ? 'DEPARTMENT_REVIEW.REVIEW' : 'REVIEW_PERIOD.VIEW') | translate }}
+            </button></td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5" class="empty">{{ 'DEPARTMENT_REVIEW.EMPTY.' + filter | translate }}</td></tr>
+        }
+      </tbody>
+    </table></div>
+  </section>
+  <nz-drawer [nzVisible]="drawerVisible" [nzTitle]="drawerTitle" nzWidth="min(880px, 100vw)" [nzFooter]="reviewFooter"
+    [nzClosable]="!busy" [nzMaskClosable]="!busy" [nzKeyboard]="!busy" (nzOnClose)="close()">
+    <ng-container *nzDrawerContent>
+      @if (selected; as plan) {
+        @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+        @if (success) { <div class="notice" role="status">{{ success }}</div> }
+        <div class="review-detail-summary">
+          <div><span class="help">{{ 'DEPARTMENT_KPI.DEPARTMENT' | translate }}</span><strong>{{ plan.departmentName }}</strong></div>
+          <div><span class="help">{{ 'KPI_PLAN.PERIOD' | translate }}</span><strong>{{ plan.reviewPeriodName }}</strong></div>
+          <div><span class="help">{{ 'DEPARTMENT_REVIEW.SUBMITTED_BY' | translate }}</span><strong>{{ plan.submittedByName || ('DEPARTMENT_REVIEW.NAME_UNAVAILABLE' | translate) }}</strong></div>
+          <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="plan.status">{{ 'KPI_PLAN.STATUS.' + plan.status | translate }}</span></div>
+        </div>
+        @if (plan.status === 'RETURNED' && plan.returnReason) {
+          <div class="return-note"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong><p>{{ plan.returnReason }}</p></div>
+        }
+        <p class="help review-detail-intro">{{ 'DEPARTMENT_REVIEW.DETAIL_HELP' | translate }}</p>
+        @for (item of plan.items; track item.id ?? $index; let index = $index) {
+          <section class="review-item-card">
+            <div class="review-item-heading"><h3>{{ index + 1 }}. {{ item.name }}</h3><span>{{ item.weightage | number:'1.0-2' }}%</span></div>
+            <app-kpi-item-editor [items]="[item]" [readonly]="true" [singleItem]="true" scope="DEPARTMENT" />
+          </section>
+        }
+      }
+    </ng-container>
+  </nz-drawer>
+  <ng-template #drawerTitle>
+    <div class="drawer-title"><strong>{{ 'DEPARTMENT_REVIEW.DETAIL_TITLE' | translate }}</strong>
+      <span>{{ selected?.departmentName }} · {{ selected?.reviewPeriodName }}</span>
+    </div>
+  </ng-template>
+  <ng-template #reviewFooter>
+    <div class="review-drawer-footer">
+      @if (returnMode) {
+        <label class="field" for="department-return-reason">{{ 'DEPARTMENT_REVIEW.REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+        <textarea id="department-return-reason" rows="3" maxlength="10000" [placeholder]="'DEPARTMENT_REVIEW.REASON_PLACEHOLDER' | translate"
+          [(ngModel)]="returnReason" (ngModelChange)="reasonError = false" [attr.aria-invalid]="reasonError"></textarea>
+        @if (reasonError) { <span class="field-error" role="alert">{{ 'DEPARTMENT_REVIEW.REASON_REQUIRED' | translate }}</span> }
+      }
+      <div class="actions drawer-actions">
+        @if (returnMode) {
+          <button nz-button [disabled]="busy" (click)="cancelReturn()">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</button>
+          <button nz-button nzDanger [nzLoading]="busy" [disabled]="busy" (click)="returnForRevision()">{{ 'DEPARTMENT_REVIEW.CONFIRM_RETURN' | translate }}</button>
+        } @else {
+          <button nz-button [disabled]="busy" (click)="close()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
+          @if (canDecide) {
+            <button nz-button nzDanger [disabled]="busy" (click)="beginReturn()">{{ 'DEPARTMENT_REVIEW.RETURN' | translate }}</button>
+            <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="!canApprove || busy" (click)="confirmApprove()">{{ 'DEPARTMENT_REVIEW.APPROVE' | translate }}</button>
+          }
+        }
+      </div>
+      @if (canDecide && !canApprove) { <p class="help">{{ 'DEPARTMENT_REVIEW.PUBLISH_PERIOD_FIRST' | translate }}</p> }
+    </div>
+  </ng-template>
+</main>

@@ -30,7 +30,10 @@ public class KpiPlan {
     @Column(name="published_by") private UUID publishedBy;
     @Column(name="published_late") private Boolean publishedLate;
     private OffsetDateTime submittedAt;
-    private UUID submittedBy;
+    @Column(name="submitted_by") private UUID submittedBy;
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="submitted_by", insertable=false, updatable=false, foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private Staff submitter;
     private Boolean submittedLate;
     private OffsetDateTime reviewedAt;
     private UUID reviewedBy;

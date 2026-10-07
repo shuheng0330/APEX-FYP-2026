@@ -25,6 +25,8 @@ export interface KpiPlan extends KpiPlanRequest {
   kpiSetupDeadline: string | null; totalWeightage: number; overdue: boolean;
   createdAt: string; updatedAt: string;
   publishedAt?: string; publishedLate?: boolean;
+  submittedAt?: string | null; submittedBy?: string | null; submittedByName?: string | null; submittedLate?: boolean | null;
+  reviewedAt?: string | null; reviewedBy?: string | null; reviewedLate?: boolean | null; returnReason?: string | null;
 }
 export function emptyKpiItem(): KpiItem {
   return { name: null, description: null, perspective: null, kra: null, target: null, measurementUnit: null, weightage: null, scoringDefinitions: {} };

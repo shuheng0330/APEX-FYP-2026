@@ -35,3 +35,20 @@ textarea { min-height: 64px; resize: vertical; }
 .status[data-status='PUBLISHED'], .status[data-status='APPROVED'] { background: #e6f6f2; color: #087a6e; }
 .status[data-status='PENDING_APPROVAL'] { background: #fff5df; color: #916000; }
 .status[data-status='RETURNED'] { background: #fff2f0; color: var(--tbm-danger); }
+.return-note { border: 1px solid #efb5ad; background: #fff7f5; color: var(--tbm-text); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
+.return-note p { margin: 6px 0 0; white-space: pre-wrap; }
+.review-status-tabs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.review-status-tab { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-width: 160px; padding: 14px 18px; background: var(--tbm-surface); color: var(--tbm-text); border: 1px solid var(--tbm-border); border-radius: 10px; cursor: pointer; box-shadow: var(--tbm-shadow); }
+.review-status-tab.active { border-color: var(--tbm-primary); color: var(--tbm-primary); background: #edf3fc; }
+.review-status-tab strong { font-size: 18px; }
+.review-detail-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 16px; background: var(--tbm-surface-subtle); border: 1px solid var(--tbm-border); border-radius: 8px; margin-bottom: 20px; }
+.review-detail-summary > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.review-detail-intro { margin-bottom: 20px; }
+.review-item-card { border: 1px solid var(--tbm-border); border-radius: 8px; padding: 20px; margin-bottom: 18px; }
+.review-item-heading { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--tbm-border); padding-bottom: 10px; margin-bottom: 18px; }
+.review-item-heading h3 { font-size: 16px; margin: 0; }
+.review-item-heading span { font-weight: 600; white-space: nowrap; }
+.review-drawer-footer { display: grid; gap: 8px; max-height: 35vh; overflow-y: auto; }
+.review-drawer-footer textarea { width: 100%; border: 1px solid var(--tbm-border); border-radius: 8px; padding: 10px 12px; resize: vertical; }
+.review-drawer-footer textarea[aria-invalid='true'] { border-color: var(--tbm-danger); }
+@media (max-width: 700px) { .review-detail-summary { grid-template-columns: 1fr; } .review-status-tab { flex: 1 1 150px; } }

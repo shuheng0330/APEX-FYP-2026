@@ -44,6 +44,16 @@ export const routes: Routes = [
         data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] },
         loadComponent: () => import('./pages/kpi-plan/company-kpi-plan.component').then(m => m.CompanyKpiPlanComponent)
       },
+      {
+        path: 'kpi-management/department-kpis', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_DEPARTMENT_KPI'] },
+        loadComponent: () => import('./pages/kpi-plan/department-kpi-plan.component').then(m => m.DepartmentKpiPlanComponent)
+      },
+      {
+        path: 'kpi-management/kpi-review', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI'] },
+        loadComponent: () => import('./pages/kpi-plan/department-kpi-review.component').then(m => m.DepartmentKpiReviewComponent)
+      },
       { path: 'kpi-administration/company-kpis', pathMatch: 'full', redirectTo: 'kpi-management/company-kpis' },
       {
         path: 'kpi-administration/review-periods',

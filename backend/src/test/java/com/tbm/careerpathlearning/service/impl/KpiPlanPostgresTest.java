@@ -121,6 +121,7 @@ class KpiPlanPostgresTest {
                     reject(c,"23514","UPDATE kpi_plan SET status='PENDING_APPROVAL' WHERE id="+departmentDraft.getId());
                     var pending=service.submitDepartment(departmentDraft.getId(),actor);session.clear();
                     assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.departmentPlan(pending.getId(),actor).getStatus());
+                    assertEquals(hod.getName(),service.departmentPlan(pending.getId(),actor).getSubmittedByName());
                     assertNotNull(pending.getSubmittedAt());assertEquals(actor,pending.getSubmittedBy());
                     reject(c,"23514","UPDATE kpi_plan SET status='RETURNED',reviewed_at=now(),reviewed_by=created_by,reviewed_late=false WHERE id="+pending.getId());
                     var reason=new KpiPlanReturnRequest();reason.setReason("Clarify department target");

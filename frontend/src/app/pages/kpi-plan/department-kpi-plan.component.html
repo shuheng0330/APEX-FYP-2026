@@ -1,0 +1,107 @@
+<main class="review-page">
+  <div class="page-heading">
+    <div><h2>{{ 'DEPARTMENT_KPI.TITLE' | translate }}</h2><p class="help">{{ 'DEPARTMENT_KPI.HELP' | translate }}</p></div>
+    <div class="actions">
+      <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}
+        <nz-select class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible">
+          @for (period of periods; track period.id) {
+            <nz-option [nzValue]="period.id" [nzLabel]="(period.name || ('REVIEW_PERIOD.UNTITLED' | translate)) + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
+          }
+        </nz-select>
+      </label>
+      @if (departments.length > 1) {
+        <label class="field">{{ 'DEPARTMENT_KPI.DEPARTMENT' | translate }}
+          <nz-select class="plan-picker" [ngModel]="departmentId" (ngModelChange)="changeDepartment($event)" [nzDisabled]="busy || drawerVisible">
+            @for (department of departments; track department.id) { <nz-option [nzValue]="department.id" [nzLabel]="department.name" /> }
+          </nz-select>
+        </label>
+      }
+    </div>
+  </div>
+  @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+  @if (success) { <div class="notice" role="status">{{ success }}</div> }
+  @if (busy) { <p role="status">{{ 'DEPARTMENT_KPI.LOADING' | translate }}</p> }
+  @if (!busy && !periods.length) { <p class="empty">{{ 'KPI_PLAN.NO_PERIODS' | translate }}</p> }
+  @if (!busy && !departments.length) { <p class="empty">{{ 'DEPARTMENT_KPI.NO_DEPARTMENT' | translate }}</p> }
+  @if (selectedPeriod && selectedDepartment) {
+    <section class="card"><div class="card-body plan-summary">
+      <div>
+        <p class="help">{{ 'KPI_PLAN.TOTAL' | translate }}</p>
+        <p class="weight-total" [class.valid]="total === 100" [class.invalid]="total > 100">{{ total | number:'1.0-2' }}% <span class="help">/ 100%</span></p>
+        <div class="weight-progress" role="progressbar" [attr.aria-label]="'KPI_PLAN.TOTAL' | translate" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="total > 100 ? 100 : total">
+          <span [style.width.%]="total > 100 ? 100 : total" [class.over-limit]="total > 100"></span>
+        </div>
+        <p class="help">{{ 'DEPARTMENT_KPI.WEIGHT_HELP' | translate }}</p>
+      </div>
+      <div>
+        <p class="help">{{ 'DEPARTMENT_KPI.DEPARTMENT' | translate }}</p><strong>{{ selectedDepartment.name }}</strong>
+        @if (hasMeaningfulItems || plan?.status === 'PENDING_APPROVAL' || plan?.status === 'APPROVED' || plan?.status === 'RETURNED') {
+          <p class="help">{{ 'KPI_PLAN.PLAN_STATUS' | translate }}</p>
+          <span class="status" [attr.data-status]="plan?.status || 'DRAFT'">{{ 'KPI_PLAN.STATUS.' + (plan?.status || 'DRAFT') | translate }}</span>
+        }
+        <p class="help">{{ 'KPI_PLAN.SETUP_DEADLINE' | translate }}: {{ (selectedPeriod.kpiSetupDeadline | date:'dd MMM yyyy') || ('REVIEW_PERIOD.NOT_SET' | translate) }}</p>
+      </div>
+    </div></section>
+    @if (plan?.status === 'RETURNED' && plan?.returnReason) {
+      <div class="return-note" role="status"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong><p>{{ plan?.returnReason }}</p></div>
+    }
+    @if (plan?.overdue) { <p class="warning">{{ 'KPI_PLAN.LATE_HELP' | translate }}</p> }
+    @if (readonly) {
+      <p class="notice">{{ (selectedPeriod.status === 'CLOSED' ? 'DEPARTMENT_KPI.CLOSED_HELP' : 'DEPARTMENT_KPI.READ_ONLY') | translate }}</p>
+    }
+    <section class="card">
+      <div class="card-head plan-summary">
+        <div><h3>{{ 'DEPARTMENT_KPI.PLAN' | translate }}</h3><p class="help">{{ selectedPeriod.name }} · {{ selectedDepartment.name }}</p></div>
+        @if (!readonly) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
+      </div>
+      <div class="table-scroll"><table class="data-table">
+        <thead><tr><th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'KPI_PLAN.WEIGHT' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th></tr></thead>
+        <tbody>
+          @for (item of items; track item; let index = $index) {
+            <tr>
+              <td><strong>{{ item.name || ('KPI_PLAN.UNTITLED_ITEM' | translate) }}</strong><p class="help">{{ item.perspective }}{{ item.perspective && item.kra ? ' / ' : '' }}{{ item.kra }}</p></td>
+              <td class="target-cell">{{ item.target || ('REVIEW_PERIOD.NOT_SET' | translate) }}</td>
+              <td>{{ item.weightage === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (item.weightage | number:'1.0-2') + '%' }}</td>
+              <td><div class="actions">
+                <button nz-button [disabled]="busy" (click)="openItem(index, true)">{{ 'REVIEW_PERIOD.VIEW' | translate }}</button>
+                @if (!readonly) {
+                  <button nz-button [disabled]="busy" (click)="openItem(index)">{{ 'REVIEW_PERIOD.EDIT' | translate }}</button>
+                  <button nz-button nzDanger [disabled]="busy" (click)="removeItem(index)">{{ 'KPI_PLAN.REMOVE' | translate }}</button>
+                }
+              </div></td>
+            </tr>
+          } @empty { <tr><td colspan="4" class="empty">{{ 'DEPARTMENT_KPI.EMPTY_PLAN' | translate }}</td></tr> }
+        </tbody>
+      </table></div>
+    </section>
+    @if (!readonly) {
+      <div class="footer-actions">
+        @if (!canSubmit && submitBlocker; as blocker) {
+          <span class="help publish-reason" role="status">{{ blocker.key | translate:blocker.params }}</span>
+        }
+        <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="!canSubmit || busy || drawerVisible" (click)="confirmSubmit()">
+          {{ (plan?.status === 'RETURNED' ? 'DEPARTMENT_KPI.RESUBMIT' : 'DEPARTMENT_KPI.SUBMIT') | translate }}
+        </button>
+      </div>
+    }
+  }
+  <nz-drawer [nzVisible]="drawerVisible" [nzTitle]="drawerTitle" nzWidth="min(720px, 100vw)" [nzFooter]="itemFooter"
+    [nzClosable]="!busy" [nzMaskClosable]="!busy" [nzKeyboard]="!busy" (nzOnClose)="drawerVisible = false">
+    <ng-container *nzDrawerContent>
+      <p class="help drawer-help">{{ (drawerReadonly ? 'DEPARTMENT_KPI.VIEW_HELP' : 'DEPARTMENT_KPI.DRAWER_HELP') | translate }}</p>
+      @if (itemError) { <div class="error-box" role="alert">{{ itemError }}</div> }
+      <app-kpi-item-editor [items]="editorItems" [readonly]="drawerReadonly" [errors]="fieldErrors" [singleItem]="true" scope="DEPARTMENT" />
+    </ng-container>
+  </nz-drawer>
+  <ng-template #drawerTitle>
+    <div class="drawer-title"><strong>{{ (drawerReadonly ? 'DEPARTMENT_KPI.VIEW_ITEM' : (editingIndex === null ? 'DEPARTMENT_KPI.CREATE_ITEM' : 'DEPARTMENT_KPI.EDIT_ITEM')) | translate }}</strong>
+      <span>{{ 'DEPARTMENT_KPI.SCOPE' | translate }}</span>
+    </div>
+  </ng-template>
+  <ng-template #itemFooter>
+    <div class="actions drawer-actions">
+      <button nz-button [disabled]="busy" (click)="drawerVisible = false">{{ (drawerReadonly ? 'KPI_PLAN.CLOSE' : 'REVIEW_PERIOD.CANCEL') | translate }}</button>
+      @if (!drawerReadonly) { <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="busy" (click)="applyItem()">{{ 'KPI_PLAN.APPLY_ITEM' | translate }}</button> }
+    </div>
+  </ng-template>
+</main>

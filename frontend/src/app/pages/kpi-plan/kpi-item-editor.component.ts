@@ -16,6 +16,7 @@ import { KpiItem, KpiItemErrors, emptyKpiItem } from '../../models/kpi-plan.mode
 export class KpiItemEditorComponent {
   @Input() items: KpiItem[] = [];
   @Input() readonly = false;
+  @Input() scope: 'COMPANY' | 'DEPARTMENT' = 'COMPANY';
   @Input() singleItem = false;
   @Input() errors: KpiItemErrors = {};
   readonly fields: { key: 'perspective' | 'kra' | 'name' | 'target'; label: string; tooltip?: string }[] = [
