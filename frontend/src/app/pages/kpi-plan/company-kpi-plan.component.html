@@ -62,11 +62,10 @@
       </div>
     </section>
     @if (!readonly) {
-      <p class="help">{{ 'KPI_PLAN.PUBLISH_HELP' | translate }}</p>
-      @if (selectedPeriod.status === 'DRAFT') { <p class="warning">{{ 'KPI_PLAN.DRAFT_PERIOD' | translate }}</p> }
-      @else if (!selectedPeriod.participantsSnapshottedAt) { <p class="warning">{{ 'KPI_PLAN.NO_ROSTER' | translate }}</p> }
       <div class="footer-actions">
-        <span class="help">{{ 'KPI_PLAN.AUTO_SAVE_HELP' | translate }}</span>
+        @if (!canPublish && publishBlocker; as blocker) {
+          <span class="help publish-reason" role="status">{{ blocker.key | translate:blocker.params }}</span>
+        }
         <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="!canPublish || busy || drawerVisible" (click)="confirmPublish()">{{ 'KPI_PLAN.PUBLISH' | translate }}</button>
       </div>
     }

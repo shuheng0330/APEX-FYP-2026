@@ -54,6 +54,33 @@ describe('Company KPI plan workspace', () => {
     expect(fixture.nativeElement.querySelectorAll('tbody tr').length).toBe(2);
     expect(fixture.nativeElement.querySelector('.weight-total').textContent).toContain('100%');
   });
+  it('shows only the current publication blocker beside Publish', () => {
+    component.plan = plan(); fixture.detectChanges();
+    const reason = () => fixture.nativeElement.querySelector('.publish-reason')?.textContent.trim();
+    expect(reason()).toBe('KPI_PLAN.ADD_BEFORE_PUBLISH');
+    expect(fixture.nativeElement.textContent).not.toContain('KPI_PLAN.PUBLISH_HELP');
+    expect(fixture.nativeElement.textContent).not.toContain('KPI_PLAN.AUTO_SAVE_HELP');
+
+    component.items = [item('Revenue', 60)]; fixture.detectChanges();
+    expect(component.publishBlocker?.params?.amount).toBe(40);
+    expect(reason()).toBe('KPI_PLAN.WEIGHT_REMAINING');
+
+    component.items[0].weightage = 100;
+    delete component.items[0].scoringDefinitions[5]; fixture.detectChanges();
+    expect(reason()).toBe('KPI_PLAN.COMPLETE_BEFORE_PUBLISH');
+
+    component.items[0].scoringDefinitions[5] = 'Excellent'; fixture.detectChanges();
+    expect(reason()).toBeUndefined();
+  });
+  it('shows review-period eligibility only after the KPI plan is ready', () => {
+    component.plan = plan(); component.items = [item('Revenue', 60)];
+    component.periods = [{ ...period(), participantsSnapshottedAt: null }];
+    expect(component.publishBlocker?.key).toBe('KPI_PLAN.WEIGHT_REMAINING');
+    component.items[0].weightage = 100;
+    expect(component.publishBlocker?.key).toBe('KPI_PLAN.NO_ROSTER');
+    component.periods = [period('DRAFT')];
+    expect(component.publishBlocker?.key).toBe('KPI_PLAN.PUBLISH_PERIOD_FIRST');
+  });
   it('retains an existing incomplete Draft without publishing it', () => {
     const incomplete = { ...plan(), items: [emptyKpiItem()] };
     component.plans = [incomplete]; component.selectPeriod();

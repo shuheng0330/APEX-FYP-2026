@@ -37,6 +37,18 @@ export class CompanyKpiPlanComponent implements OnInit {
   get canPublish() { return !this.readonly && this.plan?.status === 'DRAFT' && kpiPlanComplete(this.items) && !!this.selectedPeriod?.participantsSnapshottedAt &&
     ['UPCOMING', 'OPEN'].includes(this.selectedPeriod.status); }
   get total() { return Math.round(this.items.reduce((n, i) => n + (i.weightage ?? 0), 0) * 100) / 100; }
+  get publishBlocker(): { key: string; params?: { amount: number } } | null {
+    if (this.readonly || !this.selectedPeriod) return null;
+    if (!this.items.length) return { key: 'KPI_PLAN.ADD_BEFORE_PUBLISH' };
+    if (this.items.some(item => Object.keys(kpiItemErrors(item)).length > 0)) return { key: 'KPI_PLAN.COMPLETE_BEFORE_PUBLISH' };
+    if (this.total < 100) return { key: 'KPI_PLAN.WEIGHT_REMAINING', params: { amount: Math.round((100 - this.total) * 100) / 100 } };
+    if (this.total > 100) return { key: 'KPI_PLAN.WEIGHT_EXCESS', params: { amount: Math.round((this.total - 100) * 100) / 100 } };
+    if (!kpiPlanComplete(this.items)) return { key: 'KPI_PLAN.COMPLETE_BEFORE_PUBLISH' };
+    if (this.selectedPeriod.status === 'DRAFT') return { key: 'KPI_PLAN.PUBLISH_PERIOD_FIRST' };
+    if (!this.selectedPeriod.participantsSnapshottedAt) return { key: 'KPI_PLAN.NO_ROSTER' };
+    if (!this.plan) return { key: 'KPI_PLAN.SAVE_BEFORE_PUBLISH' };
+    return null;
+  }
   confirmPublish() {
     if (!this.canPublish || this.busy) return;
     this.modal.confirm({ nzTitle: this.translate.instant('KPI_PLAN.PUBLISH'), nzContent: this.translate.instant('KPI_PLAN.PUBLISH_CONFIRM'),

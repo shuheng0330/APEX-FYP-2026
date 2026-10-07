@@ -30,6 +30,7 @@ textarea { min-height: 64px; resize: vertical; }
 .drawer-title span { font-size: 12px; font-weight: 400; color: var(--tbm-muted); }
 .drawer-actions { justify-content: flex-end; }
 .footer-actions { padding-right: 64px; }
+.publish-reason { margin-right: auto; }
 @media (max-width: 700px) { .plan-summary { flex-direction: column; align-items: flex-start; } }
 .status[data-status='PUBLISHED'], .status[data-status='APPROVED'] { background: #e6f6f2; color: #087a6e; }
 .status[data-status='PENDING_APPROVAL'] { background: #fff5df; color: #916000; }
