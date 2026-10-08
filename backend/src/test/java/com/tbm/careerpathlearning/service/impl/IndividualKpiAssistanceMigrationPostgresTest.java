@@ -26,7 +26,8 @@ class IndividualKpiAssistanceMigrationPostgresTest {
                     sql(c,"CREATE TABLE "+table+" (LIKE public."+table+" INCLUDING ALL)");
                 sql(c,"INSERT INTO staff SELECT * FROM public.staff");
                 sql(c,"INSERT INTO review_period_participant SELECT * FROM public.review_period_participant");
-                sql(c,"INSERT INTO authority OVERRIDING SYSTEM VALUE SELECT * FROM public.authority WHERE name <> 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE'");
+                sql(c,"INSERT INTO authority OVERRIDING SYSTEM VALUE SELECT * FROM public.authority "
+                    +"WHERE name NOT IN ('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE','CAN_REVIEW_KPI_ASSESSMENT')");
                 sql(c,"INSERT INTO role_authority SELECT r.* FROM public.role_authority r JOIN authority a ON a.id=r.authority_id");
                 sql(c,"SELECT setval(pg_get_serial_sequence('authority','id'),(SELECT max(id)+1 FROM authority),false)");
                 if(!scenario.equals("empty")) sql(c,"INSERT INTO kpi_plan SELECT * FROM public.kpi_plan WHERE assistance_authorization_id IS NULL");

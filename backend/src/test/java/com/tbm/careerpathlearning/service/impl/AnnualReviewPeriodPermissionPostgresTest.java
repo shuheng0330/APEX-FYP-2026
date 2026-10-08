@@ -97,9 +97,10 @@ class AnnualReviewPeriodPermissionPostgresTest {
                     execute(connection, "CREATE TABLE " + table + " (LIKE public." + table + " INCLUDING ALL)");
                 }
                 execute(connection, "INSERT INTO role OVERRIDING SYSTEM VALUE SELECT * FROM public.role");
-                // Reconstruct V28's input, not later Phase 2 authorities installed in public.
+                // Reconstruct V28's input, excluding authorities introduced by later migrations.
                 execute(connection, "INSERT INTO authority OVERRIDING SYSTEM VALUE SELECT * FROM public.authority "
-                        + "WHERE name NOT IN ('" + NAME + "','CAN_MANAGE_COMPANY_KPI','CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')");
+                        + "WHERE name NOT IN ('" + NAME + "','CAN_MANAGE_COMPANY_KPI','CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI',"
+                        + "'CAN_REVIEW_INDIVIDUAL_KPI','CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE','CAN_REVIEW_KPI_ASSESSMENT')");
                 execute(connection, "INSERT INTO role_authority SELECT ra.* FROM public.role_authority ra "
                         + "JOIN authority a ON a.id=ra.authority_id");
                 execute(connection, "SELECT setval(pg_get_serial_sequence('authority','id'), (SELECT max(id)+1 FROM authority), false)");

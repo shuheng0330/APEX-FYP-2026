@@ -72,6 +72,21 @@ class EmailServiceImplTest {
     }
 
     @Test
+    void kpiAssessmentSubmissionNotifiesTheSuperior() {
+        emailService.sendKpiSelfAssessmentSubmittedEmail(RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE);
+        verify(messageSource).getMessage(eq("email.kpi.assessment.submitted.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.kpi.assessment.submitted.body"),any(),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void notificationFailureDoesNotUndoAssessmentSubmission() {
+        doThrow(new MailSendException("Server down")).when(mailSender).send(any(MimeMessage.class));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendKpiSelfAssessmentSubmittedEmail(
+                RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE));
+    }
+
+    @Test
     void sendAccountRegisteredEmail_Success() {
         emailService.sendAccountRegisteredEmail(RECIPIENT, LOCALE);
 

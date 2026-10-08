@@ -166,6 +166,19 @@ public class EmailServiceImpl implements EmailService {
         this.mailSender = mailSender;
     }
 
+    @Override @Async
+    public void sendKpiSelfAssessmentSubmittedEmail(String to, String employee, String period, String checkpoint, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.kpi.assessment.submitted.title",null,locale));
+            helper.setText(messageSource.getMessage("email.kpi.assessment.submitted.body",
+                    new Object[]{employee,period,checkpoint,FRONTEND_ORIGIN+"/team-performance/team-reviews"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send KPI assessment submission notification",e);}
+    }
+
     @Async
     @Override
     public void sendPasswordResetEmail(String to, String otp, Locale locale) {

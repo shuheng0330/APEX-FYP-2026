@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 38;
+    private static final int LATEST_VERSION = 39;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -141,6 +141,10 @@ public class ApplyAnnualReviewPeriodFoundation {
                 throw new IllegalStateException("Partial/untracked V38 assistance request reason schema");
             if(extraApplied==7 && compatibleRequestReason==1)
                 System.out.println("Verified compatible nullable TEXT request_reason column; V38 will preserve it and add validation.");
+            long assessmentTables=scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                    + "AND table_name IN ('kpi_assessment','kpi_assessment_item','kpi_assessment_evidence')");
+            if(assessmentTables!=(extraApplied>=9?3:0))
+                throw new IllegalStateException("Partial/untracked V39 assessment schema; reconcile before migration");
             connection.rollback();
         }
 

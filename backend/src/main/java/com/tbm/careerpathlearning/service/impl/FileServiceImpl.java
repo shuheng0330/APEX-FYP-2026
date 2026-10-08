@@ -39,7 +39,12 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public Path getFilePath(String relativePath) {
-        return Paths.get(FILE_UPLOAD_DIR).resolve(relativePath).normalize();
+        Path root=Paths.get(FILE_UPLOAD_DIR).toAbsolutePath().normalize();
+        Path target=root.resolve(relativePath).normalize();
+        if(!target.startsWith(root) || target.startsWith(root.resolve(
+                com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.PRIVATE_FOLDER)))
+            throw new org.springframework.security.access.AccessDeniedException("Assessment evidence requires scoped access");
+        return target;
     }
 
     @Override

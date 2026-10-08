@@ -26,7 +26,8 @@ class DepartmentKpiMigrationPostgresTest {
                     sql(c,"CREATE TABLE "+table+" (LIKE public."+table+" INCLUDING ALL)");
                 sql(c,"INSERT INTO staff SELECT * FROM public.staff");
                 sql(c,"INSERT INTO authority OVERRIDING SYSTEM VALUE SELECT * FROM public.authority "
-                    +"WHERE name NOT IN ('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI','CAN_REVIEW_INDIVIDUAL_KPI','CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')");
+                    +"WHERE name NOT IN ('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI','CAN_REVIEW_INDIVIDUAL_KPI',"
+                    +"'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE','CAN_REVIEW_KPI_ASSESSMENT')");
                 sql(c,"INSERT INTO role_authority SELECT r.* FROM public.role_authority r JOIN authority a ON a.id=r.authority_id");
                 sql(c,"SELECT setval(pg_get_serial_sequence('authority','id'),(SELECT max(id)+1 FROM authority),false)");
                 if(!scenario.equals("fresh-empty")) {

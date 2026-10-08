@@ -212,6 +212,24 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
 - Cancellation, expiry, revocation, takeover policies, UC-05 revision, participant refresh and later
   assessments/attitude/appraisals/analytics remain unimplemented.
 
+## Phase 3 Slice 1: KPI Self-Assessment Backend
+
+- V39 adds the assessment parent, assignment-scoped answers and private evidence metadata.
+  Matching period, participant ownership and checkpoint frequency are enforced with composite FKs.
+- Only UC-08 Draft save/submission is implemented. Assessment opens the calendar day after the
+  checkpoint End Date; submission after the inclusive Self deadline remains allowed and records lateness.
+  Annual End Date does not close access. Closed periods remain read-only.
+- Missing assigned levels/points do not prevent Draft saves, but block submission. Late confirmed
+  assignments enter unsubmitted checkpoints without losing answers/evidence; submitted sets are frozen.
+- V39 adds `CAN_REVIEW_KPI_ASSESSMENT` without Role grants. Owner access and the existing live
+  Manager relationship plus saved submission route protect submitted assessment/evidence reads.
+- PDF/PNG/JPEG and a configurable 10 MiB limit are implementation defaults pending TBM file-policy
+  confirmation. Private storage cannot be served through the generic file-download endpoint.
+- Nullable Superior completion fields reserve the approved next slice; Self points produce no official
+  score. No frontend, Superior completion, attitude, annual results or appraisal implementation is included.
+- The isolated runner verifies through V39 without changing applied migrations or global ORM settings.
+  See `backend/docs/kpi-self-assessment-api.md` for API details, test flags and remaining TBC boundaries.
+
 ## Deliberate boundaries
 
 - Review Period management and Company plan Draft/publication REST/UI workflows are implemented.
@@ -219,6 +237,6 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
 - Role frequencies and Employee Level configuration references are annual snapshots; participant role/department/superior labels remain directly snapshotted.
 - Date-only deadlines have no invented time-of-day or holiday rules; generated offsets use calendar days.
 - No automatic closure, additional eligibility inference, participant refresh or transfer/resignation handling is added.
-- KPI revisions and later assessment, attitude, appraisal and analytics workflows remain outside these slices.
+- KPI revisions, Superior assessment completion, attitude, appraisal and analytics workflows remain outside these slices.
 - The consolidation method is stored but no annual scores are calculated in Phase 1.
 - Publication and overlap rules are enforced by the Phase 1 application service; closure prerequisites remain unresolved.

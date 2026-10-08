@@ -48,6 +48,9 @@ class KpiPlanPostgresTest {
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V36__individual_kpi_assistance.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V37__individual_kpi_assistance_rejection.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V38__individual_kpi_assistance_request_reason.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,"ALTER TABLE review_period_participant DROP CONSTRAINT IF EXISTS uq_participant_frequency");
+                sql(c,"ALTER TABLE review_checkpoint DROP CONSTRAINT IF EXISTS uq_checkpoint_frequency");
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V39__kpi_self_assessment.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 // Clone only inherited actors inside the rollback-only test schema; no live Role grants.
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
@@ -186,6 +189,47 @@ class KpiPlanPostgresTest {
                         +participants.findByReviewPeriodIdAndStaffId(savedPeriod.getId(),owner.getId()).orElseThrow().getId()));
                     assertEquals(3,service.myAssignedPlans(savedPeriod.getId(),owner.getId()).size());
                     assertEquals(KpiPlanStatus.APPROVED,service.individualReviewPlans(hod.getId()).get(0).getStatus());
+                    var assessmentClock=Clock.fixed(Instant.parse("2027-02-06T04:00:00Z"),ZoneId.of("Asia/Kuala_Lumpur"));
+                    var checkpoint=new ReviewCheckpoint();checkpoint.setReviewPeriod(session.find(AnnualKpiReviewPeriod.class,savedPeriod.getId()));
+                    checkpoint.setReviewFrequency(ReviewFrequency.MONTHLY);checkpoint.setSequenceNumber(1);
+                    checkpoint.setStartDate(LocalDate.of(2027,1,1));checkpoint.setEndDate(LocalDate.of(2027,1,31));
+                    checkpoint.setSelfAssessmentDeadline(LocalDate.of(2027,2,5));checkpoint.setSuperiorAssessmentDeadline(LocalDate.of(2027,2,10));
+                    session.persist(checkpoint);session.flush();
+                    // Assessment HTTP requests begin after the approval transaction, with a fresh persistence context.
+                    session.clear();
+                    var assessmentRepository=factory.getRepository(KpiAssessmentRepository.class);
+                    var assessmentService=new KpiAssessmentServiceImpl(assessmentRepository,
+                        factory.getRepository(KpiAssessmentItemRepository.class),factory.getRepository(KpiAssessmentEvidenceRepository.class),
+                        participants,factory.getRepository(ReviewCheckpointRepository.class),factory.getRepository(EmployeeKpiAssignmentRepository.class),
+                        periods,factory.getRepository(StaffRepository.class),Mappers.getMapper(KpiPlanMapper.class),
+                        Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssessmentMapper.class),
+                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.class),
+                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),assessmentClock);
+                    assertNull(assessmentService.mine(checkpoint.getId(),owner.getId()).getId());
+                    assertEquals(0L,scalar(c,"SELECT count(*) FROM kpi_assessment"));
+                    var assessmentRequest=new KpiAssessmentRequest();assessmentRequest.setCheckpointId(checkpoint.getId());
+                    var assessmentDraft=assessmentService.create(assessmentRequest,owner.getId());session.clear();
+                    assertEquals(5,assessmentService.get(assessmentDraft.getId(),owner.getId()).getItems().size());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
+                        ()->assessmentService.submit(assessmentDraft.getId(),owner.getId()));
+                    session.clear();
+                    assertEquals(KpiAssessmentStatus.DRAFT,assessmentService.get(assessmentDraft.getId(),owner.getId()).getStatus());
+                    assessmentRequest.setItems(assessmentService.get(assessmentDraft.getId(),owner.getId()).getItems().stream().map(i->{
+                        var answer=new KpiAssessmentRequest.Answer();answer.setAssignmentId(i.getAssignmentId());
+                        answer.setSelfPoint(4);answer.setSelfComment("Observed performance for this checkpoint");return answer;
+                    }).toList());
+                    assessmentService.update(assessmentDraft.getId(),assessmentRequest,owner.getId());session.clear();
+                    var submittedAssessment=assessmentService.submit(assessmentDraft.getId(),owner.getId());session.clear();
+                    var reloadedAssessment=assessmentService.get(submittedAssessment.getId(),owner.getId());
+                    assertEquals(KpiAssessmentStatus.PENDING_REVIEW,reloadedAssessment.getStatus());
+                    assertTrue(reloadedAssessment.getSubmittedLate());assertEquals(hod.getId(),reloadedAssessment.getSubmittedToSuperiorId());
+                    assertNull(reloadedAssessment.getCheckpointScore());
+                    assertEquals(5,reloadedAssessment.getItems().size());
+                    assertTrue(reloadedAssessment.getItems().stream().allMatch(i->i.getSelfPoint()==4 && i.getSuperiorPoint()==null));
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
+                        ()->assessmentService.update(assessmentDraft.getId(),assessmentRequest,owner.getId()));
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
+                        ()->assessmentService.submit(assessmentDraft.getId(),owner.getId()));
                     session.find(Staff.class,owner.getId()).setManager(null);session.flush();
                     assertTrue(service.individualReviewPlans(hod.getId()).isEmpty());
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
