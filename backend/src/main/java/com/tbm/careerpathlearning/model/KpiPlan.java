@@ -44,4 +44,5 @@ public class KpiPlan {
     private Boolean reviewedLate;
     @Column(columnDefinition="text") private String returnReason;
     @Column(name="revision_required",nullable=false) private boolean revisionRequired;
+    @Column(name="assistance_authorization_id",unique=true,updatable=false) private Long assistanceAuthorizationId;
 }

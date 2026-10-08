@@ -39,4 +39,5 @@ public class KpiPlanDto {
     private String returnReason;
     @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
     private boolean revisionRequired;
+    private Long assistanceAuthorizationId;
 }

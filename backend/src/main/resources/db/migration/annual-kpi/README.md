@@ -12,9 +12,10 @@ V32 adds the annual publication-time participant snapshot marker and Company pla
 V33 adds Department plan submission/review metadata, return reasons, validation constraints and two business authorities.
 V34 adds Individual plan submission routing to the immediate Superior, review constraints and a reviewer authority.
 V35 requires a saved content change after every return of a Department/Individual plan or legacy appraisal.
+V36 adds scoped HR authorisation and direct confirmation for Superior-assisted Individual plans.
 The application's existing `ddl-auto: update` and `flyway.enabled: false` remain unchanged.
 
-Do not start the application with the new entities before applying V27-V35: Hibernate may otherwise
+Do not start the application with the new entities before applying V27-V36: Hibernate may otherwise
 create untracked tables without the migration's constraints. Do not enable the legacy Flyway location.
 
 ## Local migration
@@ -29,7 +30,7 @@ java --class-path $classpath ApplyAnnualReviewPeriodFoundation.java --apply 'C:\
 
 The runner checks the inherited IDs, migration history and absence of partial Phase 1 structures,
 backs up the local database under the user's `.apex/database-backups` directory, explicitly records the inherited schema as baseline 26
-when history is empty, and discovers **only** this directory's V27-V35. Baseline 26 does not claim that
+when history is empty, and discovers **only** this directory's V27-V36. Baseline 26 does not claim that
 V2-V26 were executed. Preserve applied migration files and the generated backup.
 Already-applied migrations are validated, not replayed. A backup is required before any pending migration.
 V30 refuses existing Super Admin participants or missing/invalid published setup deadline backfills rather than altering historical data.
@@ -145,7 +146,53 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
   remain unaffected. V35 grants no permissions and changes no already-applied migrations.
 - Opt-in `SubmissionRevisionMigrationPostgresTest` checks empty/populated backfills and constraints;
   `KpiPlanPostgresTest` verifies saved revision state and return/edit/resubmit across JPA reloads.
-  Slice 5 remains deferred and must use the next available migration number, not V35.
+  Slice 5 uses V36; V35 is retained unchanged.
+
+## Slice 5 Backend: Superior-Assisted Individual KPI Plans
+
+- One case identifies an enrolled employee, annual period (through their participant) and requesting
+  immediate Superior. Its state is `REQUESTED -> AUTHORIZED -> CONSUMED`. The unique case prevents
+  repeated requests by that Superior for the same participant. Consent is not a global employee-access grant.
+- Existing `CAN_REVIEW_INDIVIDUAL_KPI` enables the Superior assistance workspace. New
+  `CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE` enables the HR authorisation queue/action. Grant it to
+  verified HR Roles through existing RBAC; V36 assigns it to no Role and checks no hardcoded Role names.
+- Request, HR authorisation, assisted creation, updates and confirmation recheck active/non-deleted
+  accounts and the inherited live Staff manager relationship. Closed periods are read-only. Participants
+  must already belong to a published Upcoming/Open period; no enrolment or participant refresh occurs.
+- The requesting Superior creates/updates an incomplete Draft only after HR authorisation. Confirmation
+  requires the existing complete five-point scoring criteria and exactly 100% within-level item weightage.
+  It directly sets `APPROVED`, records the Superior's confirmation in existing review metadata, consumes
+  the case and assigns every item only to its owner atomically. No employee submission or extra approval
+  is fabricated. Confirmation lateness uses the existing setup deadline and review lateness field.
+- The target and period are derived from the saved case, not plan-request employee IDs. A composite FK
+  enforces that the plan belongs to the case's participant and requesting Superior; the existing participant
+  FK enforces the period. Unique plan/case and employee/period constraints prevent reuse and duplicates.
+- An existing employee plan cannot be taken over, replaced or merged. Owner normal edit/submit endpoints
+  cannot bypass an assisted Draft. Reporting-line changes stop assistance actions rather than silently
+  rerouting or revoking consent; those additional policies remain TBC.
+- API base: `/api/individual-kpi-assistance`:
+
+| Method / Path | Purpose / Authority |
+|---|---|
+| `GET /employees` | Current enrolled subordinate options; Individual review authority |
+| `GET /` / `GET /{id}` | Scoped Superior cases or HR-wide case summaries |
+| `POST /` | Request consent with `{ "ownerParticipantId": 7 }`; Superior |
+| `POST /{id}/authorize` | HR pre-creation authorisation; assistance HR authority |
+| `GET /{id}/plan` | Read the case's existing plan; requesting Superior |
+| `POST /{id}/plan` | Create Draft with `{ "items": [...] }`; authorised requesting Superior |
+| `PUT /{id}/plan` | Update that Draft with `{ "items": [...] }`; same Superior and case |
+| `POST /{id}/confirm` | Complete directly to Approved and consume consent; same Superior and case |
+
+- HR-only authorisation access does not grant KPI content editing or final confirmation. An employee
+  continues to view their plan/assigned items through existing Individual endpoints. Company, Department
+  and normal Individual submission/return/resubmission remain unchanged.
+- `IndividualKpiAssistanceServiceTest` and controller tests cover consent, subordinate/authority boundaries,
+  changed reporting lines, incomplete plans, no takeover, direct confirmation and consumed-case reuse.
+  Opt-in `IndividualKpiAssistanceMigrationPostgresTest` checks empty/populated migration preservation,
+  unchanged Role grants and safe refusals. `KpiPlanPostgresTest` includes real case/plan reloads, scope FKs,
+  owner-only assignments and confirmation/case rollback on cascade failure in its rollback-only schema.
+- Frontend work is deliberately stopped for review. Denial, expiry, revocation, takeover policies, UC-05
+  revision, participant refresh and later assessments/attitude/appraisals/analytics remain unimplemented.
 
 ## Deliberate boundaries
 

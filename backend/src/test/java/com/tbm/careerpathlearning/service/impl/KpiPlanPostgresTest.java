@@ -45,6 +45,7 @@ class KpiPlanPostgresTest {
                 sql(c,"ALTER TABLE appraisal_record DROP CONSTRAINT IF EXISTS ck_appraisal_revision_required");
                 sql(c,"ALTER TABLE appraisal_record DROP COLUMN IF EXISTS revision_required");
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V35__require_changes_after_return.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V36__individual_kpi_assistance.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 // Clone only inherited actors inside the rollback-only test schema; no live Role grants.
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
@@ -67,7 +68,9 @@ class KpiPlanPostgresTest {
                         new com.tbm.careerpathlearning.service.KpiAssignmentService(factory.getRepository(ReviewPeriodParticipantRepository.class),factory.getRepository(EmployeeKpiAssignmentRepository.class),Clock.systemUTC()),
                         factory.getRepository(StaffRepository.class),factory.getRepository(ReviewPeriodParticipantRepository.class),
                         factory.getRepository(OrgChartRepository.class),
-                        new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)));
+                        new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)),
+                        factory.getRepository(IndividualKpiAssistanceAuthorizationRepository.class),
+                        Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class));
                     var request=new KpiPlanRequest();request.setReviewPeriodId(period.getId());request.setItems(List.of(com.tbm.careerpathlearning.service.KpiPlanValidatorTest.item("Sales","100")));
                     var result=service.createCompany(request,actor);session.clear();
                     var loaded=service.companyPlan(result.getId());assertEquals(5,loaded.getItems().get(0).getScoringDefinitions().size());
@@ -185,6 +188,45 @@ class KpiPlanPostgresTest {
                     assertTrue(service.individualReviewPlans(hod.getId()).isEmpty());
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
                         ()->service.updateIndividual(individualDraft.getId(),individualRequest,owner.getId()));
+                    // Assistance is a separate pre-creation HR decision, then direct Superior confirmation.
+                    var assistedParticipant=participants.findAllByReviewPeriodId(savedPeriod.getId()).stream()
+                        .filter(p->!p.getStaff().getId().equals(owner.getId())).findFirst().orElseThrow();
+                    assistedParticipant.getStaff().setManager(session.find(Staff.class,actor));session.flush();
+                    assertEquals(1,service.assistanceEmployees(actor).size());
+                    var assistanceRequest=new KpiAssistanceRequest();assistanceRequest.setOwnerParticipantId(assistedParticipant.getId());
+                    var requested=service.requestAssistance(assistanceRequest,actor);session.flush();session.clear();
+                    assertEquals(KpiAssistanceStatus.REQUESTED,service.assistanceCase(requested.getId(),actor).getStatus());
+                    var assistedItems=new AssistedIndividualKpiPlanRequest();assistedItems.setItems(List.of(KpiPlanValidatorTest.item("Assisted customers","100")));
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
+                        ()->service.createAssistedIndividual(requested.getId(),assistedItems,actor));
+                    service.authorizeAssistance(requested.getId(),actor);session.flush();session.clear();
+                    var assistedDraft=service.createAssistedIndividual(requested.getId(),assistedItems,actor);session.flush();session.clear();
+                    assertEquals(KpiPlanStatus.DRAFT,service.assistedIndividualPlan(requested.getId(),actor).getStatus());
+                    assertEquals(assistedParticipant.getId(),assistedDraft.getOwnerParticipantId());
+                    var beforeAssignments=scalar(c,"SELECT count(*) FROM employee_kpi_assignment");
+                    reject(c,"23514","UPDATE kpi_plan SET status='PENDING_APPROVAL' WHERE id="+assistedDraft.getId());
+                    reject(c,"23503","UPDATE kpi_plan SET created_by='"+owner.getId()+"' WHERE id="+assistedDraft.getId());
+                    var consentRepository=factory.getRepository(IndividualKpiAssistanceAuthorizationRepository.class);
+                    // A failure in the cascade must roll back both the confirmation and consumed consent.
+                    var confirmationSavepoint=c.setSavepoint();
+                    var failingService=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),new KpiPlanValidator(),Clock.systemUTC(),
+                        new com.tbm.careerpathlearning.service.KpiAssignmentService(participants,factory.getRepository(EmployeeKpiAssignmentRepository.class),Clock.systemUTC()) {
+                            @Override public void cascade(KpiPlan ignored) {throw new IllegalStateException("fixture cascade failure");}
+                        },factory.getRepository(StaffRepository.class),participants,factory.getRepository(OrgChartRepository.class),
+                        new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)),
+                        consentRepository,Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class));
+                    assertThrows(IllegalStateException.class,()->failingService.confirmAssistedIndividual(requested.getId(),actor));
+                    c.rollback(confirmationSavepoint);c.releaseSavepoint(confirmationSavepoint);session.clear();
+                    assertEquals(KpiPlanStatus.DRAFT,service.assistedIndividualPlan(requested.getId(),actor).getStatus());
+                    assertEquals(KpiAssistanceStatus.AUTHORIZED,service.assistanceCase(requested.getId(),actor).getStatus());
+                    var confirmed=service.confirmAssistedIndividual(requested.getId(),actor);session.flush();session.clear();
+                    assertEquals(KpiPlanStatus.APPROVED,confirmed.getStatus());assertNull(confirmed.getSubmittedAt());
+                    assertEquals(KpiAssistanceStatus.CONSUMED,service.assistanceCase(requested.getId(),actor).getStatus());
+                    assertEquals(beforeAssignments+1,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
+                    assertEquals(1L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id WHERE k.plan_id="
+                        +confirmed.getId()+" AND a.participant_id="+assistedParticipant.getId()));
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.confirmAssistedIndividual(requested.getId(),actor));
+                    assertEquals(0,service.assistanceEmployees(actor).size());
                     session.getTransaction().rollback();
                 }
             } finally {c.rollback();}

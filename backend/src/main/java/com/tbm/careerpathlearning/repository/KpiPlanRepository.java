@@ -8,6 +8,7 @@ import java.util.*;
 
 public interface KpiPlanRepository extends JpaRepository<KpiPlan,Long> {
     boolean existsByReviewPeriodId(Long periodId);
+    Optional<KpiPlan> findByAssistanceAuthorizationId(Long authorizationId);
     Optional<KpiPlan> findByReviewPeriodIdAndLevel(Long periodId, KpiLevel level);
     List<KpiPlan> findAllByLevelOrderByUpdatedAtDesc(KpiLevel level);
     Optional<KpiPlan> findByReviewPeriodIdAndLevelAndDepartmentId(Long periodId, KpiLevel level, Long departmentId);

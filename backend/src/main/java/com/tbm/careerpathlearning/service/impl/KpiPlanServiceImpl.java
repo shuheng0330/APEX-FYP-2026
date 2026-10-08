@@ -4,6 +4,7 @@ import com.tbm.careerpathlearning.dto.*;
 import com.tbm.careerpathlearning.enums.*;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.mapper.KpiPlanMapper;
+import com.tbm.careerpathlearning.mapper.KpiAssistanceMapper;
 import com.tbm.careerpathlearning.model.*;
 import com.tbm.careerpathlearning.repository.*;
 import com.tbm.careerpathlearning.service.*;
@@ -28,13 +29,17 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private final ReviewPeriodParticipantRepository participants;
     private final OrgChartRepository departments;
     private final PerformanceDepartmentResolver departmentResolver;
+    private final IndividualKpiAssistanceAuthorizationRepository assistance;
+    private final KpiAssistanceMapper assistanceMapper;
     public KpiPlanServiceImpl(KpiPlanRepository plans,AnnualKpiReviewPeriodRepository periods,
             KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock, KpiAssignmentService assignments,
             StaffRepository staff, ReviewPeriodParticipantRepository participants, OrgChartRepository departments,
-            PerformanceDepartmentResolver departmentResolver) {
+            PerformanceDepartmentResolver departmentResolver, IndividualKpiAssistanceAuthorizationRepository assistance,
+            KpiAssistanceMapper assistanceMapper) {
         this.plans=plans; this.periods=periods; this.mapper=mapper; this.validator=validator; this.clock=clock;
         this.assignments=assignments;
         this.staff=staff; this.participants=participants; this.departments=departments; this.departmentResolver=departmentResolver;
+        this.assistance=assistance;this.assistanceMapper=assistanceMapper;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_MANAGE_COMPANY_KPI')")
     public List<KpiPeriodContextDto> companyPeriods() {
@@ -247,6 +252,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     public KpiPlanDto updateIndividual(Long id,KpiPlanRequest request,UUID actor) {
         periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
         requireIndividualOwner(plan,actor);requireEditable(plan);
+        requireUnassistedPlan(plan);
         if(request==null || !Objects.equals(plan.getReviewPeriod().getId(),request.getReviewPeriodId())
                 || request.getDepartmentId()!=null || (request.getOwnerParticipantId()!=null
                 && !request.getOwnerParticipantId().equals(plan.getOwnerParticipantId())))
@@ -257,6 +263,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     public KpiPlanDto submitIndividual(Long id,UUID actor) {
         periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
         var owner=requireIndividualOwner(plan,actor);requireEditable(plan);
+        requireUnassistedPlan(plan);
         SubmissionRevisionGuard.requireRevisionComplete(plan.isRevisionRequired());
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
         var superior=owner.getManager();
@@ -288,6 +295,135 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,superior);
         plan.setRevisionRequired(true);
         plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public List<KpiAssistanceEmployeeDto> assistanceEmployees(UUID superior) {
+        requireActiveStaff(superior);
+        return participants.findCurrentSubordinateParticipants(superior).stream()
+                .filter(p->!p.getStaff().getId().equals(superior))
+                .filter(p->plans.findByLevelAndOwnerParticipantId(KpiLevel.INDIVIDUAL,p.getId()).isEmpty())
+                .map(assistanceMapper::toDto).toList();
+    }
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('CAN_REVIEW_INDIVIDUAL_KPI','CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
+    public List<KpiAssistanceDto> assistanceCases(UUID actor) {
+        requireActiveStaff(actor);
+        var cases=canAuthorizeAssistance()?assistance.findAllByOrderByRequestedAtDescIdDesc():assistance.findCurrentSuperiorCases(actor);
+        return cases.stream().map(this::assistanceDetails).toList();
+    }
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('CAN_REVIEW_INDIVIDUAL_KPI','CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
+    public KpiAssistanceDto assistanceCase(Long id,UUID actor) {
+        requireActiveStaff(actor);var authorization=requireAssistance(id,false);
+        if(!canAuthorizeAssistance()) requireAssistanceSuperior(authorization,actor);
+        return assistanceDetails(authorization);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiAssistanceDto requestAssistance(KpiAssistanceRequest request,UUID superior) {
+        periods.lockConfiguration();var requester=requireActiveStaff(superior);
+        if(request==null || request.getOwnerParticipantId()==null) throw new BadRequestException("Select an enrolled subordinate");
+        var participant=participants.findById(request.getOwnerParticipantId())
+                .orElseThrow(()->new BadRequestException("Review period participant not found"));
+        requireSubordinate(participant,superior);requireWritable(participant.getReviewPeriod());
+        assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
+        if(assistance.existsByOwnerParticipantIdAndSuperiorId(participant.getId(),superior))
+            throw new BadRequestException("An assistance request already exists for this employee and review period; open the existing request");
+        var authorization=new IndividualKpiAssistanceAuthorization();authorization.setOwnerParticipant(participant);
+        authorization.setSuperior(requester);authorization.setRequestedAt(OffsetDateTime.now(clock));
+        assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
+    public KpiAssistanceDto authorizeAssistance(Long id,UUID hr) {
+        periods.lockConfiguration();var reviewer=requireActiveStaff(hr);var authorization=requireAssistance(id,true);
+        if(authorization.getStatus()!=KpiAssistanceStatus.REQUESTED)
+            throw new BadRequestException("Only a requested assistance case can be authorised");
+        requireAssistanceSuperior(authorization,authorization.getSuperior().getId());
+        var participant=authorization.getOwnerParticipant();requireWritable(participant.getReviewPeriod());
+        assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
+        authorization.setStatus(KpiAssistanceStatus.AUTHORIZED);authorization.setAuthorizedAt(OffsetDateTime.now(clock));
+        authorization.setAuthorizedBy(reviewer);assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto assistedIndividualPlan(Long authorizationId,UUID superior) {
+        var authorization=requireAssistance(authorizationId,false);requireAssistanceSuperior(authorization,superior);
+        return details(requireAssistedPlan(authorization,false));
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto createAssistedIndividual(Long authorizationId,AssistedIndividualKpiPlanRequest request,UUID superior) {
+        periods.lockConfiguration();var authorization=requireAuthorizedAssistance(authorizationId,superior);
+        var participant=authorization.getOwnerParticipant();requireNoIndividualPlan(participant);
+        if(request==null) throw new BadRequestException("Provide the Individual KPI items");
+        validator.validate(request.getItems(),false);
+        var plan=new KpiPlan();plan.setReviewPeriod(participant.getReviewPeriod());plan.setLevel(KpiLevel.INDIVIDUAL);
+        plan.setOwnerParticipantId(participant.getId());plan.setOwnerParticipant(participant);
+        plan.setAssistanceAuthorizationId(authorization.getId());plan.setCreatedAt(OffsetDateTime.now(clock));
+        plan.setCreatedBy(superior);touch(plan,superior);plans.saveAndFlush(plan);
+        replaceItems(plan,request.getItems());plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto updateAssistedIndividual(Long authorizationId,AssistedIndividualKpiPlanRequest request,UUID superior) {
+        periods.lockConfiguration();var authorization=requireAuthorizedAssistance(authorizationId,superior);
+        var plan=requireAssistedPlan(authorization,true);requireEditable(plan);
+        if(request==null) throw new BadRequestException("Provide the Individual KPI items");
+        replaceItems(plan,request.getItems());touch(plan,superior);plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto confirmAssistedIndividual(Long authorizationId,UUID superior) {
+        periods.lockConfiguration();var authorization=requireAuthorizedAssistance(authorizationId,superior);
+        var plan=requireAssistedPlan(authorization,true);requireEditable(plan);
+        validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
+        // Record the Superior's direct confirmation, not a second approval or employee submission.
+        plan.setStatus(KpiPlanStatus.APPROVED);review(plan,superior);plans.saveAndFlush(plan);
+        authorization.setStatus(KpiAssistanceStatus.CONSUMED);authorization.setConsumedAt(OffsetDateTime.now(clock));
+        assistance.saveAndFlush(authorization);assignments.cascade(plan);return details(plan);
+    }
+    private IndividualKpiAssistanceAuthorization requireAssistance(Long id,boolean lock) {
+        if(id==null) throw new BadRequestException("Select an assistance request");
+        return (lock?assistance.lockById(id):assistance.findById(id))
+                .orElseThrow(()->new BadRequestException("Individual KPI assistance request not found"));
+    }
+    private IndividualKpiAssistanceAuthorization requireAuthorizedAssistance(Long id,UUID superior) {
+        var authorization=requireAssistance(id,true);requireAssistanceSuperior(authorization,superior);
+        if(authorization.getStatus()!=KpiAssistanceStatus.AUTHORIZED)
+            throw new BadRequestException("HR must authorise this assistance request before creating or confirming the plan; consumed authorisations cannot be reused");
+        var period=authorization.getOwnerParticipant().getReviewPeriod();requireWritable(period);assignments.requirePublishedRoster(period);
+        return authorization;
+    }
+    private void requireAssistanceSuperior(IndividualKpiAssistanceAuthorization authorization,UUID actor) {
+        if(!authorization.getSuperior().getId().equals(actor)) throw new AccessDeniedException("This assistance case belongs to another Superior");
+        requireSubordinate(authorization.getOwnerParticipant(),actor);
+    }
+    private void requireSubordinate(ReviewPeriodParticipant participant,UUID superior) {
+        requireActiveStaff(superior);var employee=requireActiveStaff(participant.getStaff().getId());
+        if(employee.getId().equals(superior) || employee.getManager()==null || !employee.getManager().getId().equals(superior))
+            throw new AccessDeniedException("You may assist only your currently assigned subordinates");
+    }
+    private void requireNoIndividualPlan(ReviewPeriodParticipant participant) {
+        if(plans.findByLevelAndOwnerParticipantId(KpiLevel.INDIVIDUAL,participant.getId()).isPresent())
+            throw new BadRequestException("This employee already has an Individual KPI plan; assistance cannot replace or take over it");
+    }
+    private KpiPlan requireAssistedPlan(IndividualKpiAssistanceAuthorization authorization,boolean lock) {
+        var found=plans.findByAssistanceAuthorizationId(authorization.getId())
+                .orElseThrow(()->new BadRequestException("Create the authorised Individual KPI plan first"));
+        var plan=lock?requirePlan(found.getId(),KpiLevel.INDIVIDUAL,true):found;
+        if(plan.getLevel()!=KpiLevel.INDIVIDUAL || !Objects.equals(plan.getOwnerParticipantId(),authorization.getOwnerParticipant().getId())
+                || !Objects.equals(plan.getReviewPeriod().getId(),authorization.getOwnerParticipant().getReviewPeriod().getId())
+                || !Objects.equals(plan.getCreatedBy(),authorization.getSuperior().getId()))
+            throw new BadRequestException("The plan does not match this scoped assistance authorisation");
+        return plan;
+    }
+    private KpiAssistanceDto assistanceDetails(IndividualKpiAssistanceAuthorization authorization) {
+        var dto=assistanceMapper.toDto(authorization);
+        plans.findByAssistanceAuthorizationId(authorization.getId()).ifPresent(p->dto.setPlanId(p.getId()));return dto;
+    }
+    private boolean canAuthorizeAssistance() {
+        var authentication=SecurityContextHolder.getContext().getAuthentication();
+        return authentication!=null && authentication.getAuthorities().stream()
+                .anyMatch(a->a.getAuthority().equals("CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE"));
+    }
+    private void requireUnassistedPlan(KpiPlan plan) {
+        if(plan.getAssistanceAuthorizationId()!=null)
+            throw new BadRequestException("This plan is prepared through authorised Superior assistance; use that workflow to complete it");
     }
     private ReviewPeriodParticipant ownerParticipant(Long periodId,UUID actor) {
         if(periodId==null) throw new BadRequestException("Select an Annual KPI Review Period");

@@ -26,10 +26,14 @@ class DepartmentKpiMigrationPostgresTest {
                     sql(c,"CREATE TABLE "+table+" (LIKE public."+table+" INCLUDING ALL)");
                 sql(c,"INSERT INTO staff SELECT * FROM public.staff");
                 sql(c,"INSERT INTO authority OVERRIDING SYSTEM VALUE SELECT * FROM public.authority "
-                    +"WHERE name NOT IN ('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI')");
+                    +"WHERE name NOT IN ('CAN_MANAGE_DEPARTMENT_KPI','CAN_APPROVE_DEPARTMENT_KPI','CAN_REVIEW_INDIVIDUAL_KPI','CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')");
                 sql(c,"INSERT INTO role_authority SELECT r.* FROM public.role_authority r JOIN authority a ON a.id=r.authority_id");
                 sql(c,"SELECT setval(pg_get_serial_sequence('authority','id'),(SELECT max(id)+1 FROM authority),false)");
-                if(!scenario.equals("fresh-empty")) sql(c,"INSERT INTO kpi_plan SELECT * FROM public.kpi_plan");
+                if(!scenario.equals("fresh-empty")) {
+                    // Pre-V33 fixtures cannot contain plans requiring later submission metadata.
+                    var filter=scenario.equals("hibernate-populated") ? "" : " WHERE level='COMPANY' OR status='DRAFT'";
+                    sql(c,"INSERT INTO kpi_plan SELECT * FROM public.kpi_plan"+filter);
+                }
                 for(var name:List.of("ck_department_submission_metadata","ck_department_review_metadata","ck_department_return_reason"))
                     sql(c,"ALTER TABLE kpi_plan DROP CONSTRAINT IF EXISTS "+name);
                 if(!scenario.equals("hibernate-populated")) {

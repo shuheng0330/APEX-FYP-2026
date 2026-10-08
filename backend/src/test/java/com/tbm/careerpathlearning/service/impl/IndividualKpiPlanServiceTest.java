@@ -27,7 +27,8 @@ class IndividualKpiPlanServiceTest {
     Clock clock=Clock.fixed(Instant.parse("2027-06-01T00:00:00Z"),ZoneOffset.UTC);
     KpiPlanServiceImpl service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),
             new KpiPlanValidator(),clock,assignments,staff,participants,mock(OrgChartRepository.class),
-            mock(PerformanceDepartmentResolver.class));
+            mock(PerformanceDepartmentResolver.class),mock(IndividualKpiAssistanceAuthorizationRepository.class),
+            mock(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class));
     UUID employeeId=UUID.randomUUID(),superiorId=UUID.randomUUID(),outsiderId=UUID.randomUUID();
     Staff employee,superior,outsider; ReviewPeriodParticipant participant; AnnualKpiReviewPeriod period;
     KpiPlan plan; KpiPlanRequest request;

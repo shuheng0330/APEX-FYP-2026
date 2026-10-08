@@ -29,4 +29,13 @@ public interface KpiPlanService {
     KpiPlanDto submitIndividual(Long id,UUID actor);
     KpiPlanDto approveIndividual(Long id,UUID superior);
     KpiPlanDto returnIndividual(Long id,KpiPlanReturnRequest request,UUID superior);
+    List<KpiAssistanceEmployeeDto> assistanceEmployees(UUID superior);
+    List<KpiAssistanceDto> assistanceCases(UUID actor);
+    KpiAssistanceDto assistanceCase(Long id,UUID actor);
+    KpiAssistanceDto requestAssistance(KpiAssistanceRequest request,UUID superior);
+    KpiAssistanceDto authorizeAssistance(Long id,UUID hr);
+    KpiPlanDto assistedIndividualPlan(Long authorizationId,UUID superior);
+    KpiPlanDto createAssistedIndividual(Long authorizationId,AssistedIndividualKpiPlanRequest request,UUID superior);
+    KpiPlanDto updateAssistedIndividual(Long authorizationId,AssistedIndividualKpiPlanRequest request,UUID superior);
+    KpiPlanDto confirmAssistedIndividual(Long authorizationId,UUID superior);
 }
