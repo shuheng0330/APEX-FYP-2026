@@ -25,14 +25,16 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private final Clock clock;
     private final KpiAssignmentService assignments;
     private final StaffRepository staff;
+    private final ReviewPeriodParticipantRepository participants;
     private final OrgChartRepository departments;
     private final PerformanceDepartmentResolver departmentResolver;
     public KpiPlanServiceImpl(KpiPlanRepository plans,AnnualKpiReviewPeriodRepository periods,
             KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock, KpiAssignmentService assignments,
-            StaffRepository staff, OrgChartRepository departments, PerformanceDepartmentResolver departmentResolver) {
+            StaffRepository staff, ReviewPeriodParticipantRepository participants, OrgChartRepository departments,
+            PerformanceDepartmentResolver departmentResolver) {
         this.plans=plans; this.periods=periods; this.mapper=mapper; this.validator=validator; this.clock=clock;
         this.assignments=assignments;
-        this.staff=staff; this.departments=departments; this.departmentResolver=departmentResolver;
+        this.staff=staff; this.participants=participants; this.departments=departments; this.departmentResolver=departmentResolver;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_MANAGE_COMPANY_KPI')")
     public List<KpiPeriodContextDto> companyPeriods() {
@@ -175,6 +177,124 @@ public class KpiPlanServiceImpl implements KpiPlanService {
             throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the HOD knows what to revise");
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,actor);
         plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
+    public List<KpiPeriodContextDto> individualPeriods(UUID actor) {
+        requireActiveStaff(actor);
+        return participants.findAllByStaffIdOrderByReviewPeriodStartDateDesc(actor).stream()
+                .map(participant->mapper.toContext(participant.getReviewPeriod())).toList();
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
+    public List<KpiPlanDto> myIndividualPlans(UUID actor) {
+        requireActiveStaff(actor);
+        return plans.findAllByLevelAndOwnerStaffId(KpiLevel.INDIVIDUAL,actor).stream().map(this::details).toList();
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
+    public List<KpiPlanDto> myAssignedPlans(Long reviewPeriodId,UUID actor) {
+        requireActiveStaff(actor);
+        var participant=ownerParticipant(reviewPeriodId,actor);
+        return plans.findAssignedPlans(participant.getId(),reviewPeriodId).stream().map(this::details).toList();
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public List<KpiPlanDto> pendingIndividualPlans(UUID superior) {
+        requireActiveStaff(superior);
+        return plans.findAllByLevelAndStatusAndSubmittedToSuperiorIdOrderBySubmittedAtAscIdAsc(
+                KpiLevel.INDIVIDUAL,KpiPlanStatus.PENDING_APPROVAL,superior).stream().map(this::details).toList();
+    }
+    @Override @Transactional(readOnly=true)
+    @PreAuthorize("hasAnyAuthority('ROLE_USER','CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto individualPlan(Long id,UUID actor) {
+        requireActiveStaff(actor);
+        var plan=requirePlan(id,KpiLevel.INDIVIDUAL,false);
+        if(!plan.getOwnerParticipant().getStaff().getId().equals(actor)
+                && !(canReviewIndividuals() && Objects.equals(plan.getSubmittedToSuperiorId(),actor)))
+            throw new AccessDeniedException("You may view only your own or routed subordinate's Individual KPI plan");
+        return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('ROLE_USER')")
+    public KpiPlanDto createIndividual(KpiPlanRequest request,UUID actor) {
+        periods.lockConfiguration();requireActiveStaff(actor);
+        if(request==null || request.getReviewPeriodId()==null || request.getDepartmentId()!=null)
+            throw new BadRequestException("Select an Annual KPI Review Period for your Individual KPI plan");
+        var participant=ownerParticipant(request.getReviewPeriodId(),actor);
+        if(request.getOwnerParticipantId()!=null && !request.getOwnerParticipantId().equals(participant.getId()))
+            throw new AccessDeniedException("You can create only your own Individual KPI plan");
+        requireWritable(participant.getReviewPeriod());
+        assignments.requirePublishedRoster(participant.getReviewPeriod());
+        if(plans.findByLevelAndOwnerParticipantId(KpiLevel.INDIVIDUAL,participant.getId()).isPresent())
+            throw new BadRequestException("You already have an Individual KPI plan for this review period");
+        validator.validate(request.getItems(),false);
+        var plan=new KpiPlan();plan.setReviewPeriod(participant.getReviewPeriod());plan.setLevel(KpiLevel.INDIVIDUAL);
+        plan.setOwnerParticipantId(participant.getId());plan.setOwnerParticipant(participant);
+        plan.setCreatedAt(OffsetDateTime.now(clock));plan.setCreatedBy(actor);touch(plan,actor);
+        plans.saveAndFlush(plan);replaceItems(plan,request.getItems());plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('ROLE_USER')")
+    public KpiPlanDto updateIndividual(Long id,KpiPlanRequest request,UUID actor) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
+        requireIndividualOwner(plan,actor);requireEditable(plan);
+        if(request==null || !Objects.equals(plan.getReviewPeriod().getId(),request.getReviewPeriodId())
+                || request.getDepartmentId()!=null || (request.getOwnerParticipantId()!=null
+                && !request.getOwnerParticipantId().equals(plan.getOwnerParticipantId())))
+            throw new BadRequestException("The KPI plan scope cannot be changed");
+        replaceItems(plan,request.getItems());touch(plan,actor);plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('ROLE_USER')")
+    public KpiPlanDto submitIndividual(Long id,UUID actor) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
+        var owner=requireIndividualOwner(plan,actor);requireEditable(plan);
+        validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
+        var superior=owner.getManager();
+        if(superior==null || superior.getId().equals(actor) || superior.isDeleted()
+                || superior.getAccountStatus()!=StaffAccountStatus.ACTIVE)
+            throw new BadRequestException("Assign an active immediate Superior before submitting this KPI plan");
+        plan.setStatus(KpiPlanStatus.PENDING_APPROVAL);
+        plan.setSubmittedAt(OffsetDateTime.now(clock));plan.setSubmittedBy(actor);plan.setSubmitter(owner);
+        plan.setSubmittedToSuperiorId(superior.getId());plan.setSubmittedToSuperior(superior);
+        plan.setSubmittedLate(late(plan));plan.setReviewedAt(null);plan.setReviewedBy(null);
+        plan.setReviewedLate(null);plan.setReturnReason(null);touch(plan,actor);
+        plans.saveAndFlush(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto approveIndividual(Long id,UUID superior) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
+        requireImmediateSuperior(plan,superior);requirePendingReview(plan);
+        assignments.requirePublishedRoster(plan.getReviewPeriod());
+        validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
+        plan.setStatus(KpiPlanStatus.APPROVED);review(plan,superior);plan.setReturnReason(null);
+        plans.saveAndFlush(plan);assignments.cascade(plan);return details(plan);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public KpiPlanDto returnIndividual(Long id,KpiPlanReturnRequest request,UUID superior) {
+        periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
+        requireImmediateSuperior(plan,superior);requirePendingReview(plan);
+        if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
+            throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the employee knows what to revise");
+        plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,superior);
+        plans.saveAndFlush(plan);return details(plan);
+    }
+    private ReviewPeriodParticipant ownerParticipant(Long periodId,UUID actor) {
+        if(periodId==null) throw new BadRequestException("Select an Annual KPI Review Period");
+        return participants.findByReviewPeriodIdAndStaffId(periodId,actor)
+                .orElseThrow(()->new AccessDeniedException("You are not included in this Annual KPI Review Period"));
+    }
+    private Staff requireIndividualOwner(KpiPlan plan,UUID actor) {
+        var owner=requireActiveStaff(actor);
+        if(plan.getOwnerParticipant()==null || !plan.getOwnerParticipant().getStaff().getId().equals(actor))
+            throw new AccessDeniedException("You can change only your own Individual KPI plan");
+        return owner;
+    }
+    private void requireImmediateSuperior(KpiPlan plan,UUID actor) {
+        requireActiveStaff(actor);
+        var owner=plan.getOwnerParticipant().getStaff();
+        if(!Objects.equals(plan.getSubmittedToSuperiorId(),actor) || owner.getManager()==null
+                || !owner.getManager().getId().equals(actor))
+            throw new AccessDeniedException("Only the employee's routed immediate Superior can review this KPI plan");
+    }
+    private boolean canReviewIndividuals() {
+        var authentication=SecurityContextHolder.getContext().getAuthentication();
+        return authentication!=null && authentication.getAuthorities().stream()
+                .anyMatch(a->a.getAuthority().equals("CAN_REVIEW_INDIVIDUAL_KPI"));
     }
     private void requirePendingReview(KpiPlan plan) {
         requireWritable(plan.getReviewPeriod());

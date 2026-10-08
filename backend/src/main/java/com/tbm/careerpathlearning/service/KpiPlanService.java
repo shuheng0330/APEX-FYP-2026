@@ -18,4 +18,14 @@ public interface KpiPlanService {
     KpiPlanDto submitDepartment(Long id,UUID actor);
     KpiPlanDto approveDepartment(Long id,UUID actor);
     KpiPlanDto returnDepartment(Long id,KpiPlanReturnRequest request,UUID actor);
+    List<KpiPeriodContextDto> individualPeriods(UUID actor);
+    List<KpiPlanDto> myIndividualPlans(UUID actor);
+    List<KpiPlanDto> myAssignedPlans(Long reviewPeriodId,UUID actor);
+    List<KpiPlanDto> pendingIndividualPlans(UUID superior);
+    KpiPlanDto individualPlan(Long id,UUID actor);
+    KpiPlanDto createIndividual(KpiPlanRequest request,UUID actor);
+    KpiPlanDto updateIndividual(Long id,KpiPlanRequest request,UUID actor);
+    KpiPlanDto submitIndividual(Long id,UUID actor);
+    KpiPlanDto approveIndividual(Long id,UUID superior);
+    KpiPlanDto returnIndividual(Long id,KpiPlanReturnRequest request,UUID superior);
 }

@@ -30,6 +30,8 @@ public class KpiPlanDto {
     private OffsetDateTime submittedAt;
     private UUID submittedBy;
     private String submittedByName;
+    private UUID submittedToSuperiorId;
+    private String submittedToSuperiorName;
     private Boolean submittedLate;
     private OffsetDateTime reviewedAt;
     private UUID reviewedBy;

@@ -27,7 +27,7 @@ class DepartmentKpiPlanServiceTest {
     KpiAssignmentService assignments=mock(KpiAssignmentService.class);
     Clock clock=Clock.fixed(Instant.parse("2027-06-01T00:00:00Z"),ZoneOffset.UTC);
     KpiPlanServiceImpl service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),
-        new KpiPlanValidator(),clock,assignments,staff,departments,resolver);
+        new KpiPlanValidator(),clock,assignments,staff,mock(ReviewPeriodParticipantRepository.class),departments,resolver);
     UUID actor=UUID.randomUUID();
     Staff hod; Role role; OrgChart department; AnnualKpiReviewPeriod period; KpiPlan plan; KpiPlanRequest request;
 

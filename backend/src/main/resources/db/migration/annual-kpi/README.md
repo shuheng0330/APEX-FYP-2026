@@ -10,9 +10,10 @@ The old deadline columns remain as history; the single deadline is backfilled fr
 V31 introduces whole KPI plans, their items, 1-5 scoring definitions and materialised assignments.
 V32 adds the annual publication-time participant snapshot marker and Company plan publication metadata.
 V33 adds Department plan submission/review metadata, return reasons, validation constraints and two business authorities.
+V34 adds Individual plan submission routing to the immediate Superior, review constraints and a reviewer authority.
 The application's existing `ddl-auto: update` and `flyway.enabled: false` remain unchanged.
 
-Do not start the application with the new entities before applying V27-V33: Hibernate may otherwise
+Do not start the application with the new entities before applying V27-V34: Hibernate may otherwise
 create untracked tables without the migration's constraints. Do not enable the legacy Flyway location.
 
 ## Local migration
@@ -27,7 +28,7 @@ java --class-path $classpath ApplyAnnualReviewPeriodFoundation.java --apply 'C:\
 
 The runner checks the inherited IDs, migration history and absence of partial Phase 1 structures,
 backs up the local database under the user's `.apex/database-backups` directory, explicitly records the inherited schema as baseline 26
-when history is empty, and discovers **only** this directory's V27-V33. Baseline 26 does not claim that
+when history is empty, and discovers **only** this directory's V27-V34. Baseline 26 does not claim that
 V2-V26 were executed. Preserve applied migration files and the generated backup.
 Already-applied migrations are validated, not replayed. A backup is required before any pending migration.
 V30 refuses existing Super Admin participants or missing/invalid published setup deadline backfills rather than altering historical data.
@@ -96,7 +97,23 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
   V33 is forward-only, preserves existing Company plans and grants, and does not change Hibernate/Flyway settings.
   It can reconcile all seven verified nullable review columns created by development Hibernate; partial
   or incompatible columns are refused. The migration adds the required foreign keys and checks after backup.
-- Department frontend and Slice 4 remain deliberately unimplemented pending UI review.
+- Department frontend is implemented; Slice 4 adds backend functionality only and stops before its frontend.
+
+## Slice 4 Backend
+
+- Employees manage one Individual KPI plan per Annual Review Period in which they are enrolled.
+  Draft/Returned plans are editable, including after the target KPI Setup Deadline while the period remains writable.
+- Submission requires a complete plan with five scoring definitions per item and exactly 100% within-level weightage.
+  It routes to the employee's active immediate Superior from the inherited Staff manager relationship.
+- The routed Superior also needs `CAN_REVIEW_INDIVIDUAL_KPI`, assigned through existing RBAC. This migration
+  does not guess which Roles should receive it. Reviewers may approve or return the whole plan; return requires a reason.
+- Approval atomically assigns all Individual KPI items only to the plan owner's existing Review Period participant.
+  Neither submission nor approval creates participants. Pending/Approved plans cannot be edited.
+- Review checks both the stored submission route and the current reporting relationship. Automatic rerouting after
+  a Manager change, assisted creation and KPI revision remain outside Slice 4.
+- V34 is forward-only and refuses pre-existing non-Draft Individual plans with unknown routing. It can reconcile
+  a verified nullable UUID routing column created by development Hibernate, then adds the foreign key and checks.
+  Existing Company and Department plan data and permissions are preserved.
 
 ## Deliberate boundaries
 

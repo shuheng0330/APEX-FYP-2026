@@ -34,6 +34,10 @@ public class KpiPlan {
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="submitted_by", insertable=false, updatable=false, foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Staff submitter;
+    @Column(name="submitted_to_superior_id") private UUID submittedToSuperiorId;
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="submitted_to_superior_id", insertable=false, updatable=false, foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private Staff submittedToSuperior;
     private Boolean submittedLate;
     private OffsetDateTime reviewedAt;
     private UUID reviewedBy;

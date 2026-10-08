@@ -17,7 +17,8 @@ class CompanyKpiPlanServiceTest {
     AnnualKpiReviewPeriodRepository periods=mock(AnnualKpiReviewPeriodRepository.class);
     com.tbm.careerpathlearning.service.KpiAssignmentService assignments=mock(com.tbm.careerpathlearning.service.KpiAssignmentService.class);
     KpiPlanServiceImpl service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),new KpiPlanValidator(),Clock.systemUTC(),assignments,
-        mock(StaffRepository.class),mock(OrgChartRepository.class),mock(com.tbm.careerpathlearning.service.PerformanceDepartmentResolver.class));
+        mock(StaffRepository.class),mock(ReviewPeriodParticipantRepository.class),mock(OrgChartRepository.class),
+        mock(com.tbm.careerpathlearning.service.PerformanceDepartmentResolver.class));
     AnnualKpiReviewPeriod period; KpiPlanRequest request;
     @BeforeEach void setup() {
         period=new AnnualKpiReviewPeriod();period.setId(1L);period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);

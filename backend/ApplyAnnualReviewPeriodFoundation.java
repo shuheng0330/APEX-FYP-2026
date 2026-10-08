@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 33;
+    private static final int LATEST_VERSION = 34;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -123,6 +123,14 @@ public class ApplyAnnualReviewPeriodFoundation {
             boolean compatibleHibernateReview = extraApplied == 2 && reviewColumns == 7 && compatibleReviewColumns == 7;
             if (reviewColumns != (extraApplied >= 3 ? 7 : 0) && !compatibleHibernateReview)
                 throw new IllegalStateException("Partial/untracked V33 Department review schema");
+            long individualRoutingColumn = scalar(connection, "SELECT count(*) FROM information_schema.columns "
+                    + "WHERE table_schema='public' AND table_name='kpi_plan' AND column_name='submitted_to_superior_id'");
+            long compatibleIndividualRouting = scalar(connection, "SELECT count(*) FROM information_schema.columns "
+                    + "WHERE table_schema='public' AND table_name='kpi_plan' AND column_name='submitted_to_superior_id' "
+                    + "AND udt_name='uuid' AND is_nullable='YES' AND column_default IS NULL");
+            if (individualRoutingColumn != (extraApplied >= 4 ? 1 : 0)
+                    && !(extraApplied == 3 && individualRoutingColumn == 1 && compatibleIndividualRouting == 1))
+                throw new IllegalStateException("Partial/untracked V34 Individual review routing schema");
             connection.rollback();
         }
 

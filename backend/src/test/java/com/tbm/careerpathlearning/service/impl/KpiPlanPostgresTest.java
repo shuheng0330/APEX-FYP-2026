@@ -41,6 +41,7 @@ class KpiPlanPostgresTest {
                 sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS participants_snapshotted_at");
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V32__review_participant_snapshot_and_company_publication.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V33__department_kpi_plan_review.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V34__individual_kpi_plan_review.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 // Clone only inherited actors inside the rollback-only test schema; no live Role grants.
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
@@ -61,7 +62,8 @@ class KpiPlanPostgresTest {
                     UUID actor=session.createQuery("select s.id from Staff s",UUID.class).setMaxResults(1).getSingleResult();
                     var service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),new KpiPlanValidator(),Clock.systemUTC(),
                         new com.tbm.careerpathlearning.service.KpiAssignmentService(factory.getRepository(ReviewPeriodParticipantRepository.class),factory.getRepository(EmployeeKpiAssignmentRepository.class),Clock.systemUTC()),
-                        factory.getRepository(StaffRepository.class),factory.getRepository(OrgChartRepository.class),
+                        factory.getRepository(StaffRepository.class),factory.getRepository(ReviewPeriodParticipantRepository.class),
+                        factory.getRepository(OrgChartRepository.class),
                         new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)));
                     var request=new KpiPlanRequest();request.setReviewPeriodId(period.getId());request.setItems(List.of(com.tbm.careerpathlearning.service.KpiPlanValidatorTest.item("Sales","100")));
                     var result=service.createCompany(request,actor);session.clear();
@@ -139,6 +141,28 @@ class KpiPlanPostgresTest {
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.updateDepartment(approved.getId(),departmentRequest,actor));
                     reject(c,"23505","INSERT INTO kpi_plan(review_period_id,level,department_id,status,created_at,updated_at,created_by,updated_by) "
                         +"SELECT review_period_id,level,department_id,'DRAFT',created_at,updated_at,created_by,updated_by FROM kpi_plan WHERE id="+approved.getId());
+                    var owner=participants.findAllByReviewPeriodId(savedPeriod.getId()).get(0).getStaff();
+                    owner.setManager(hod);session.flush();
+                    var individualRequest=new KpiPlanRequest();individualRequest.setReviewPeriodId(savedPeriod.getId());
+                    individualRequest.setItems(List.of(KpiPlanValidatorTest.item("Individual sales","100")));
+                    var individualDraft=service.createIndividual(individualRequest,owner.getId());
+                    assertEquals(KpiPlanStatus.DRAFT,individualDraft.getStatus());
+                    assertEquals(1,service.myIndividualPlans(owner.getId()).size());
+                    var individualPending=service.submitIndividual(individualDraft.getId(),owner.getId());
+                    assertEquals(hod.getId(),individualPending.getSubmittedToSuperiorId());
+                    assertEquals(1,service.pendingIndividualPlans(hod.getId()).size());
+                    var individualReturn=new KpiPlanReturnRequest();individualReturn.setReason("Clarify the sales target");
+                    assertEquals(KpiPlanStatus.RETURNED,service.returnIndividual(individualDraft.getId(),individualReturn,hod.getId()).getStatus());
+                    assertEquals("Clarify the sales target",service.individualPlan(individualDraft.getId(),owner.getId()).getReturnReason());
+                    assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitIndividual(individualDraft.getId(),owner.getId()).getStatus());
+                    var individualApproved=service.approveIndividual(individualDraft.getId(),hod.getId());
+                    assertEquals(KpiPlanStatus.APPROVED,individualApproved.getStatus());
+                    assertEquals(1L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id "
+                        +"WHERE k.plan_id="+individualDraft.getId()+" AND a.participant_id="
+                        +participants.findByReviewPeriodIdAndStaffId(savedPeriod.getId(),owner.getId()).orElseThrow().getId()));
+                    assertEquals(3,service.myAssignedPlans(savedPeriod.getId(),owner.getId()).size());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
+                        ()->service.updateIndividual(individualDraft.getId(),individualRequest,owner.getId()));
                     session.getTransaction().rollback();
                 }
             } finally {c.rollback();}
