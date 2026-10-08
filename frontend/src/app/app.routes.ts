@@ -40,6 +40,12 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'my-performance/my-assessments', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['ROLE_USER'] },
+        loadComponent: () => import('./pages/kpi-assessment/my-assessments.component').then(m => m.MyAssessmentsComponent)
+      },
+      {
         path: 'my-performance/my-kpi-plan', canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'] },
         loadComponent: () => import('./pages/kpi-plan/my-kpi-plan.component').then(m => m.MyKpiPlanComponent)

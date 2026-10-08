@@ -79,6 +79,7 @@ describe('Individual KPI navigation', () => {
   it('places each new page under its requested header group', () => {
     for (const [url, title, group] of [
       ['/my-performance/my-kpi-plan', 'INDIVIDUAL_KPI.TITLE', 'NAV.MY_PERFORMANCE'],
+      ['/my-performance/my-assessments', 'MY_ASSESSMENTS.TITLE', 'NAV.MY_PERFORMANCE'],
       ['/team-performance/team-reviews', 'TEAM_REVIEWS.TITLE', 'NAV.TEAM_PERFORMANCE']
     ]) {
       const router = jasmine.createSpyObj<Router>('router', ['navigate'], { url, events: new Subject() });
@@ -87,5 +88,16 @@ describe('Individual KPI navigation', () => {
       const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
       expect(header.page).toEqual({ title, group }); expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
     }
+  });
+});
+
+describe('My Assessments navigation', () => {
+  it('requires standard employee permission without annual administration or review privileges', () => {
+    const children = routes.find(route => route.path === '')?.children ?? [];
+    expect(children.find(route => route.path === 'my-performance/my-assessments')?.data?.['requiredRoles']).toEqual(['ROLE_USER']);
+    const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.callFake(permission => permission === 'ROLE_USER');
+    const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
+    const personal = menu.navItems.find(item => item.key === 'NAV.MY_PERFORMANCE')!;
+    expect(personal.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toContain('/my-performance/my-assessments');
   });
 });

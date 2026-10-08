@@ -1,0 +1,49 @@
+.assessment-toolbar, .checkpoint-context, .checkpoint-details, .assessment-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.refresh-assessment { margin-bottom: 16px; }
+.assessment-toolbar { justify-content: space-between; margin: 8px 0 20px; }
+.checkpoint-context { flex: 1 1 100%; min-width: 0; }
+.checkpoint-field { flex: 0 0 240px; }
+.checkpoint-picker { min-width: 240px; }
+.checkpoint-details { margin-left: auto; justify-content: flex-end; gap: 10px 16px; }
+.checkpoint-details .help { margin: 0; }
+.assessment-heading { justify-content: space-between; }
+.assessment-heading h3 { margin: 0; }
+.assessment-actions { margin-left: auto; }
+.submission-readiness { border-left: 3px solid #d49a25; background: #fff9ec; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; }
+.submission-readiness ul { margin: 4px 0 0; padding-left: 20px; }
+.overdue { color: var(--tbm-danger); background: #fff2f0; }
+.overdue-help { margin: 0 0 16px; }
+.status[data-status='PENDING_REVIEW'] { background: #fff5df; color: #916000; }
+.status[data-status='REVIEWED'] { background: #e6f6f2; color: #087a6e; }
+.assessment-table { min-width: 960px; }
+.assessment-table th:first-child { width: 125px; }
+.assessment-table td { padding-top: 20px; padding-bottom: 20px; }
+.kpi-name { min-width: 175px; max-width: 280px; overflow-wrap: anywhere; }
+.criteria-link { display: block; padding: 6px 0; height: auto; font-size: 12px; white-space: normal; text-align: left; }
+.target-cell { min-width: 150px; max-width: 260px; white-space: pre-wrap; }
+.level-pill { display: inline-block; border-radius: 20px; padding: 3px 9px; font-size: 11px; font-weight: 600; color: var(--tbm-primary); background: #edf3fc; white-space: nowrap; }
+.level-pill[data-level='DEPARTMENT'] { background: #f3edff; color: #7953b6; }
+.level-pill[data-level='INDIVIDUAL'] { background: #e6f6f2; color: #087a6e; }
+.point-selector { display: flex; gap: 5px; padding: 0; border: 0; margin: 0; min-width: 180px; }
+.point-option { position: relative; cursor: pointer; }
+.point-option input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.point-option span { display: flex; align-items: center; justify-content: center; width: 31px; height: 32px; border: 1px solid var(--tbm-border); background: var(--tbm-surface-subtle); color: var(--tbm-muted); border-radius: 5px; font-weight: 600; }
+.point-option.selected span { background: var(--tbm-primary); border-color: var(--tbm-primary); color: white; }
+.point-option input:focus-visible + span { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
+.point-option input:disabled { cursor: not-allowed; }
+.saved-point { font-size: 18px; color: var(--tbm-primary); }
+.evidence-cell { min-width: 260px; width: 32%; }
+.evidence-cell textarea { min-height: 62px; resize: vertical; border-radius: 7px; }
+.evidence-cell textarea[aria-invalid='true'] { border-color: var(--tbm-danger); }
+.evidence-cell .ant-btn-link { padding-left: 0; height: auto; font-size: 12px; }
+.evidence-file { border-top: 1px solid var(--tbm-border); padding-top: 6px; margin-top: 6px; }
+.evidence-name, .saved-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
+.saved-comment { margin: 0 0 6px; }
+.evidence-name { display: block; max-width: 360px; font-size: 12px; }
+.evidence-guidance { padding: 0 20px 16px; }
+@media (max-width: 900px) {
+  .checkpoint-context { align-items: flex-start; flex-direction: column; }
+  .checkpoint-field { flex-basis: auto; }
+  .checkpoint-details { margin-left: 0; justify-content: flex-start; }
+  .assessment-actions { margin-left: 0; }
+}
