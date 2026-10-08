@@ -57,6 +57,9 @@ class IndividualKpiAssistanceControllerTest {
         mvc.perform(get("/api/individual-kpi-assistance/8").with(authentication(hr))).andExpect(status().isOk());
         mvc.perform(post("/api/individual-kpi-assistance/8/authorize").with(authentication(hr))).andExpect(status().isOk());
         verify(service).authorizeAssistance(8L,actor);
+        mvc.perform(post("/api/individual-kpi-assistance/8/reject").with(authentication(hr)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"reason\":\"Please clarify the need\"}")).andExpect(status().isOk());
+        verify(service).rejectAssistance(eq(8L),argThat(r->r.getReason().equals("Please clarify the need")),eq(actor));
         mvc.perform(get("/api/individual-kpi-assistance/employees").with(authentication(hr))).andExpect(status().isForbidden());
         mvc.perform(post("/api/individual-kpi-assistance").with(authentication(hr)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"ownerParticipantId\":7}")).andExpect(status().isForbidden());
@@ -69,6 +72,8 @@ class IndividualKpiAssistanceControllerTest {
     @Test void superiorCannotAuthorizeOwnRequestWithReviewPermissionAlone() throws Exception {
         messages();mvc.perform(post("/api/individual-kpi-assistance/8/authorize")
             .with(authentication(user("CAN_REVIEW_INDIVIDUAL_KPI")))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/individual-kpi-assistance/8/reject").with(authentication(user("CAN_REVIEW_INDIVIDUAL_KPI")))
+            .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Not needed\"}")).andExpect(status().isForbidden());
         verifyNoInteractions(service);
     }
     @Test void roleNamesAndUnrelatedPermissionsDoNotGrantAssistanceAccess() throws Exception {

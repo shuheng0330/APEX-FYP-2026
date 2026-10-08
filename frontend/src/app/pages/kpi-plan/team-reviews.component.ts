@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -11,16 +11,19 @@ import { finalize } from 'rxjs';
 import { KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiAssistanceComponent } from './kpi-assistance.component';
 
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })
 export class TeamReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
+  tab: 'reviews' | 'assistance' = 'reviews';
+  @ViewChild(KpiAssistanceComponent) assistanceWorkspace?: KpiAssistanceComponent;
   readonly statuses: ReviewStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'RETURNED'];
   filter: ReviewStatus = 'PENDING_APPROVAL';
   periodId: number | null = null;
@@ -39,6 +42,13 @@ export class TeamReviewsComponent implements OnInit {
 
   constructor(private api: IndividualKpiPlanService, private translate: TranslateService, private modal: NzModalService) {}
   ngOnInit() { this.load(); }
+  selectTab(tab: 'reviews' | 'assistance') {
+    if (this.busy || this.drawerVisible) return;
+    if (this.assistanceWorkspace?.locked) {
+      this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
+    }
+    this.tab = tab;
+  }
   get periods() {
     return [...new Map(this.plans.map(plan => [plan.reviewPeriodId, { id: plan.reviewPeriodId, name: plan.reviewPeriodName }])).values()];
   }

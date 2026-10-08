@@ -61,8 +61,8 @@ export const routes: Routes = [
       },
       {
         path: 'kpi-management/kpi-review', canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI'] },
-        loadComponent: () => import('./pages/kpi-plan/department-kpi-review.component').then(m => m.DepartmentKpiReviewComponent)
+        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE'] },
+        loadComponent: () => import('./pages/kpi-plan/kpi-review.component').then(m => m.KpiReviewComponent)
       },
       { path: 'kpi-administration/company-kpis', pathMatch: 'full', redirectTo: 'kpi-management/company-kpis' },
       {

@@ -57,6 +57,7 @@ export class MyKpiPlanComponent implements OnInit {
   get selectedPeriod() { return this.periods.find(period => period.id === this.periodId); }
   get readonly() {
     return !this.ready || !this.selectedPeriod || !['UPCOMING', 'OPEN'].includes(this.selectedPeriod.status)
+      || !!this.plan?.assistanceAuthorizationId
       || !this.selectedPeriod.participantsSnapshottedAt || (!!this.plan && !['DRAFT', 'RETURNED'].includes(this.plan.status));
   }
   get drawerReadonly() { return this.viewOnly || this.readonly; }

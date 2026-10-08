@@ -26,6 +26,10 @@ public class IndividualKpiAssistanceController {
     }
     @PostMapping("/{id}/authorize") @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
     public KpiAssistanceDto authorize(@PathVariable Long id,Authentication auth) {return service.authorizeAssistance(id,actor(auth));}
+    @PostMapping("/{id}/reject") @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
+    public KpiAssistanceDto reject(@PathVariable Long id,@RequestBody KpiPlanReturnRequest request,Authentication auth) {
+        return service.rejectAssistance(id,request,actor(auth));
+    }
     @GetMapping("/{id}/plan") @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiPlanDto plan(@PathVariable Long id,Authentication auth) {return service.assistedIndividualPlan(id,actor(auth));}
     @PostMapping("/{id}/plan") @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")

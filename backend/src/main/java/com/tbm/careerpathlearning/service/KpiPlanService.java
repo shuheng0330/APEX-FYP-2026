@@ -34,6 +34,7 @@ public interface KpiPlanService {
     KpiAssistanceDto assistanceCase(Long id,UUID actor);
     KpiAssistanceDto requestAssistance(KpiAssistanceRequest request,UUID superior);
     KpiAssistanceDto authorizeAssistance(Long id,UUID hr);
+    KpiAssistanceDto rejectAssistance(Long id,KpiPlanReturnRequest request,UUID hr);
     KpiPlanDto assistedIndividualPlan(Long authorizationId,UUID superior);
     KpiPlanDto createAssistedIndividual(Long authorizationId,AssistedIndividualKpiPlanRequest request,UUID superior);
     KpiPlanDto updateAssistedIndividual(Long authorizationId,AssistedIndividualKpiPlanRequest request,UUID superior);

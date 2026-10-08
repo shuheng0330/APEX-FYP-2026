@@ -63,8 +63,12 @@
     }
     @if (plan?.overdue && !readonly) { <p class="warning">{{ 'KPI_PLAN.LATE_HELP' | translate }}</p> }
     @if (readonly) {
+      @if (plan?.assistanceAuthorizationId && period.status !== 'CLOSED') {
+        <p class="notice">{{ (plan?.status === 'APPROVED' ? 'KPI_ASSISTANCE.EMPLOYEE_CONFIRMED' : 'KPI_ASSISTANCE.EMPLOYEE_DRAFT') | translate }}</p>
+      } @else {
       <p class="notice">{{ (period.status === 'CLOSED' ? 'INDIVIDUAL_KPI.CLOSED_HELP' : plan?.status === 'PENDING_APPROVAL'
         ? 'INDIVIDUAL_KPI.PENDING_HELP' : plan?.status === 'APPROVED' ? 'INDIVIDUAL_KPI.APPROVED_HELP' : 'INDIVIDUAL_KPI.PERIOD_UNAVAILABLE') | translate }}</p>
+      }
     }
     <section class="card">
       <div class="card-head plan-summary">

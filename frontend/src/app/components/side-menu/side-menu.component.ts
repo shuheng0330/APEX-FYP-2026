@@ -58,9 +58,9 @@ export class SideMenuComponent {
       children: [
         { key: 'KPI_PLAN.COMPANY_TITLE', route: '/kpi-management/company-kpis', requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] },
         { key: 'DEPARTMENT_KPI.TITLE', route: '/kpi-management/department-kpis', requiredRoles: ['CAN_MANAGE_DEPARTMENT_KPI'] },
-        { key: 'DEPARTMENT_REVIEW.NAV_TITLE', route: '/kpi-management/kpi-review', requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI'] }
+        { key: 'DEPARTMENT_REVIEW.NAV_TITLE', route: '/kpi-management/kpi-review', requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE'] }
       ],
-      requiredRoles: ['CAN_MANAGE_COMPANY_KPI', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_APPROVE_DEPARTMENT_KPI']
+      requiredRoles: ['CAN_MANAGE_COMPANY_KPI', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE']
     },
     {
       key: 'NAV.ORGANISATION_MANAGEMENT', icon: 'apartment',

@@ -39,7 +39,7 @@ describe('Department KPI navigation', () => {
     expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/kpi-review']);
     const children = routes.find(route => route.path === '')?.children ?? [];
     expect(children.find(route => route.path === 'kpi-management/department-kpis')?.data?.['requiredRoles']).toEqual(['CAN_MANAGE_DEPARTMENT_KPI']);
-    expect(children.find(route => route.path === 'kpi-management/kpi-review')?.data?.['requiredRoles']).toEqual(['CAN_APPROVE_DEPARTMENT_KPI']);
+    expect(children.find(route => route.path === 'kpi-management/kpi-review')?.data?.['requiredRoles']).toEqual(['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE']);
     expect(children.some(route => route.path === 'kpi-management/team-reviews')).toBeFalse();
   });
   it('labels the separate Department pages in the top header', () => {
@@ -47,12 +47,20 @@ describe('Department KPI navigation', () => {
     const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.returnValue(false);
     const cycles = jasmine.createSpyObj<EvaluationCycleService>('cycles', ['getCurrentCycle']);
     const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
-    expect(header.page).toEqual({ title: 'DEPARTMENT_REVIEW.TITLE', group: 'NAV.KPI_MANAGEMENT' });
+    expect(header.page).toEqual({ title: 'KPI_ASSISTANCE.REVIEW_TITLE', group: 'NAV.KPI_MANAGEMENT' });
     expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
   });
 });
 
 describe('Individual KPI navigation', () => {
+  it('exposes the existing KPI Review item to HR assistance permission without granting Team Reviews', () => {
+    const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.callFake(value => value === 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE');
+    const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
+    const management = menu.navItems.find(item => item.key === 'NAV.KPI_MANAGEMENT')!;
+    expect(menu.hasVisibleChildren(management)).toBeTrue();
+    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/kpi-review']);
+    expect(menu.hasVisibleChildren(menu.navItems.find(item => item.key === 'NAV.TEAM_PERFORMANCE')!)).toBeFalse();
+  });
   it('uses separate employee and Superior permissions for the new page groups', () => {
     const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']);
     auth.hasRole.and.callFake(permission => permission === 'ROLE_USER');

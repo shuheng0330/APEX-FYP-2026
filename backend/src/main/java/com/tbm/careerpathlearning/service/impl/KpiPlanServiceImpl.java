@@ -326,7 +326,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
                 .orElseThrow(()->new BadRequestException("Review period participant not found"));
         requireSubordinate(participant,superior);requireWritable(participant.getReviewPeriod());
         assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
-        if(assistance.existsByOwnerParticipantIdAndSuperiorId(participant.getId(),superior))
+        if(assistance.existsByOwnerParticipantIdAndSuperiorIdAndStatusNot(participant.getId(),superior,KpiAssistanceStatus.REJECTED))
             throw new BadRequestException("An assistance request already exists for this employee and review period; open the existing request");
         var authorization=new IndividualKpiAssistanceAuthorization();authorization.setOwnerParticipant(participant);
         authorization.setSuperior(requester);authorization.setRequestedAt(OffsetDateTime.now(clock));
@@ -342,6 +342,21 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
         authorization.setStatus(KpiAssistanceStatus.AUTHORIZED);authorization.setAuthorizedAt(OffsetDateTime.now(clock));
         authorization.setAuthorizedBy(reviewer);assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
+    public KpiAssistanceDto rejectAssistance(Long id,KpiPlanReturnRequest request,UUID hr) {
+        periods.lockConfiguration();var reviewer=requireActiveStaff(hr);var authorization=requireAssistance(id,true);
+        if(authorization.getStatus()!=KpiAssistanceStatus.REQUESTED)
+            throw new BadRequestException("Only a pending assistance request can be rejected");
+        var reason=request==null?null:request.getReason();
+        if(reason==null || reason.isBlank() || reason.strip().length()>10000)
+            throw new BadRequestException("Provide a rejection reason of no more than 10000 characters");
+        requireAssistanceSuperior(authorization,authorization.getSuperior().getId());
+        var participant=authorization.getOwnerParticipant();requireWritable(participant.getReviewPeriod());
+        assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
+        authorization.setStatus(KpiAssistanceStatus.REJECTED);authorization.setRejectedAt(OffsetDateTime.now(clock));
+        authorization.setRejectedBy(reviewer);authorization.setRejectionReason(reason.strip());
+        assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiPlanDto assistedIndividualPlan(Long authorizationId,UUID superior) {

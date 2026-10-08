@@ -5,3 +5,4 @@
 - **Content Change**: A change to editable submission information. An unchanged save, outer whitespace, numeric formatting, generated identifiers, item ordering or automatic review metadata does not count.
 - **Individual KPI Assistance**: An immediate Superior prepares an Individual KPI Plan for their subordinate with case-specific HR authorisation. Completing the authorised plan requires no further KPI approval.
 - **Assistance Authorisation**: HR's permission for one requesting Superior to assist one employee in one Annual KPI Review Period. It is consumed when that plan is confirmed.
+- **Assistance Rejection**: HR declines a pending assistance request with a reason. The rejected record remains visible; a fresh request is allowed only if the original eligibility rules are still met.

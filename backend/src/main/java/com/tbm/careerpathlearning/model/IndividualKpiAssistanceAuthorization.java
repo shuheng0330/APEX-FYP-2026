@@ -7,8 +7,7 @@ import lombok.Setter;
 import java.time.OffsetDateTime;
 
 @Entity @Getter @Setter
-@Table(name="individual_kpi_assistance_authorization",
-    uniqueConstraints=@UniqueConstraint(name="uq_assistance_case",columnNames={"owner_participant_id","superior_id"}))
+@Table(name="individual_kpi_assistance_authorization")
 public class IndividualKpiAssistanceAuthorization {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
     @ManyToOne(fetch=FetchType.LAZY,optional=false)
@@ -22,4 +21,7 @@ public class IndividualKpiAssistanceAuthorization {
     private OffsetDateTime authorizedAt;
     @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="authorized_by") private Staff authorizedBy;
     private OffsetDateTime consumedAt;
+    private OffsetDateTime rejectedAt;
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="rejected_by") private Staff rejectedBy;
+    @Column(columnDefinition="TEXT") private String rejectionReason;
 }

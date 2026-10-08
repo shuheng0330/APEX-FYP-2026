@@ -1,0 +1,81 @@
+@if (!allowed) { <p class="error-box" role="alert">{{ 'KPI_ASSISTANCE.ACCESS_CHANGED' | translate }}</p> }
+@else if (workspace) {
+  <app-assisted-kpi-plan [assistance]="workspace" (back)="closeWorkspace()" (changed)="replace($event)" />
+} @else {
+  <div class="page-heading"><div><h3>{{ (hr ? 'KPI_ASSISTANCE.HR_TITLE' : 'KPI_ASSISTANCE.TITLE') | translate }}</h3><p class="help">{{ (hr ? 'KPI_ASSISTANCE.HR_HELP' : 'KPI_ASSISTANCE.HELP') | translate }}</p></div>
+    <div class="actions"><button nz-button [disabled]="loading || busy" (click)="load()">{{ 'KPI_ASSISTANCE.REFRESH' | translate }}</button>
+      @if (!hr) { <button nz-button nzType="primary" [disabled]="loading || busy || !ready" (click)="requestPermission()">{{ 'KPI_ASSISTANCE.REQUEST_PERMISSION' | translate }}</button> }
+    </div>
+  </div>
+  @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div> }
+  @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
+  @if (loading) { <p role="status">{{ 'TEAM_REVIEWS.LOADING' | translate }}</p> }
+  <section class="review-status-tabs" [attr.aria-label]="'TEAM_REVIEWS.FILTER' | translate">
+    @for (status of statuses; track status) { <button type="button" class="review-status-tab" [class.active]="filter === status" [attr.aria-pressed]="filter === status" (click)="filter = status"><span>{{ 'KPI_ASSISTANCE.STATUS.' + status | translate }}</span><strong>{{ count(status) }}</strong></button> }
+  </section>
+  <section class="card"><div class="card-body review-queue-filters">
+    <label class="field">{{ 'TEAM_REVIEWS.SEARCH' | translate }}<input type="search" [(ngModel)]="search" [placeholder]="'KPI_ASSISTANCE.SEARCH_PLACEHOLDER' | translate"></label>
+    <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}<nz-select class="plan-picker" [(ngModel)]="periodId" [nzDisabled]="loading || busy"><nz-option [nzValue]="null" [nzLabel]="'TEAM_REVIEWS.ALL_PERIODS' | translate" />
+      @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
+    </nz-select></label>
+  </div></section>
+  <section class="card"><div class="table-scroll"><table class="data-table"><thead><tr>
+    <th>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</th>@if (hr) { <th>{{ 'KPI_ASSISTANCE.REQUESTING_SUPERIOR' | translate }}</th> }
+    <th>{{ 'KPI_PLAN.PERIOD' | translate }}</th><th>{{ 'KPI_ASSISTANCE.REQUESTED_DATE' | translate }}</th><th>{{ 'KPI_ASSISTANCE.REQUEST_STATUS' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
+  </tr></thead><tbody>
+    @for (value of visibleCases; track value.id) {
+      <tr><td><strong>{{ value.employeeName }}</strong><p class="help">{{ value.departmentName }}</p></td>@if (hr) { <td>{{ value.superiorName }}</td> }
+        <td>{{ value.reviewPeriodName }}</td><td>{{ value.requestedAt | date:'dd MMM yyyy' }}</td><td><span class="status" [attr.data-status]="value.status">{{ 'KPI_ASSISTANCE.STATUS.' + value.status | translate }}</span>
+          @if (value.status === 'AUTHORIZED' && value.planId) { <p class="help">{{ 'KPI_ASSISTANCE.DRAFT_PROGRESS' | translate }}</p> }
+        </td><td><div class="actions"><button nz-button [disabled]="loading || busy" (click)="open(value)">{{ (hr && value.status === 'REQUESTED' && value.reviewPeriodStatus !== 'CLOSED' ? 'KPI_ASSISTANCE.REVIEW_REQUEST' : 'KPI_ASSISTANCE.VIEW_REQUEST') | translate }}</button>
+          @if (canPrepare(value)) { <button nz-button [disabled]="loading || busy" (click)="open(value, true)">{{ (value.status === 'CONSUMED' || value.reviewPeriodStatus === 'CLOSED' ? 'KPI_ASSISTANCE.VIEW_PLAN' : value.planId ? 'KPI_ASSISTANCE.CONTINUE_PLAN' : 'KPI_ASSISTANCE.CREATE_PLAN') | translate }}</button> }
+          @if (canRequestAgain(value)) { <button nz-button [disabled]="loading || busy" (click)="requestPermission(value)">{{ 'KPI_ASSISTANCE.REQUEST_AGAIN' | translate }}</button> }
+        </div></td></tr>
+    } @empty { <tr><td [attr.colspan]="hr ? 6 : 5" class="empty">{{ (search || periodId !== null ? 'TEAM_REVIEWS.NO_MATCHES' : 'KPI_ASSISTANCE.EMPTY.' + filter) | translate }}</td></tr> }
+  </tbody></table></div></section>
+  <nz-drawer [nzVisible]="drawerVisible" [nzTitle]="'KPI_ASSISTANCE.REQUEST_DETAILS' | translate" nzWidth="min(640px, 100vw)" [nzFooter]="detailFooter"
+    [nzClosable]="!busy && !loading" [nzMaskClosable]="!busy && !loading" [nzKeyboard]="!busy && !loading" (nzOnClose)="close()">
+    <ng-container *nzDrawerContent>
+      @if (selected; as value) {
+        @if (error) { <div class="error-box" role="alert">{{ error }}</div> } @if (success) { <div class="notice" role="status">{{ success }}</div> }
+        <div class="review-detail-summary">
+          <div><span class="help">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</span><strong>{{ value.employeeName }}</strong></div>
+          <div><span class="help">{{ 'KPI_ASSISTANCE.REQUESTING_SUPERIOR' | translate }}</span><strong>{{ value.superiorName }}</strong></div>
+          <div><span class="help">{{ 'KPI_PLAN.PERIOD' | translate }}</span><strong>{{ value.reviewPeriodName }}</strong></div>
+          <div><span class="help">{{ 'KPI_ASSISTANCE.REQUEST_STATUS' | translate }}</span><span class="status" [attr.data-status]="value.status">{{ 'KPI_ASSISTANCE.STATUS.' + value.status | translate }}</span></div>
+          <div><span class="help">{{ 'KPI_ASSISTANCE.REQUESTED_DATE' | translate }}</span><strong>{{ value.requestedAt | date:'dd MMM yyyy, HH:mm' }}</strong></div>
+        </div>
+        @if (value.authorizedAt) { <p>{{ 'KPI_ASSISTANCE.APPROVED_BY' | translate }} <strong>{{ value.authorizedByName }}</strong> · {{ value.authorizedAt | date:'dd MMM yyyy, HH:mm' }}</p> }
+        @if (value.status === 'REJECTED') { <div class="return-note"><strong>{{ 'KPI_ASSISTANCE.REJECTION_REASON' | translate }}</strong><p>{{ value.rejectionReason }}</p><p class="help">{{ 'KPI_ASSISTANCE.REJECTED_BY' | translate }} {{ value.rejectedByName }} · {{ value.rejectedAt | date:'dd MMM yyyy, HH:mm' }}</p></div> }
+        @if (value.consumedAt) { <p class="help">{{ 'KPI_ASSISTANCE.COMPLETED_DATE' | translate }} {{ value.consumedAt | date:'dd MMM yyyy, HH:mm' }}</p> }
+        @if (value.reviewPeriodStatus === 'CLOSED') { <p class="notice">{{ 'INDIVIDUAL_KPI.CLOSED_HELP' | translate }}</p> }
+        @if (rejectMode && canDecide) {
+          <label class="field" for="assistance-rejection-reason">{{ 'KPI_ASSISTANCE.REJECTION_REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+          <textarea id="assistance-rejection-reason" class="assistance-reason" rows="4" maxlength="10000" [(ngModel)]="reason" (ngModelChange)="reasonError = false" [attr.aria-invalid]="reasonError" [placeholder]="'KPI_ASSISTANCE.REASON_PLACEHOLDER' | translate"></textarea>
+          @if (reasonError) { <p class="field-error" role="alert">{{ 'KPI_ASSISTANCE.REASON_REQUIRED' | translate }}</p> }
+        }
+      }
+    </ng-container>
+  </nz-drawer>
+  <ng-template #detailFooter><div class="actions drawer-actions">
+    <button nz-button [disabled]="busy || loading" (click)="close()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
+    @if (canDecide) {
+      @if (rejectMode) { <button nz-button [disabled]="busy" (click)="rejectMode = false">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</button><button nz-button nzDanger [nzLoading]="busy" [disabled]="busy" (click)="reject()">{{ 'KPI_ASSISTANCE.REJECT_REQUEST' | translate }}</button> }
+      @else { <button nz-button nzDanger [disabled]="busy || loading" (click)="rejectMode = true; reasonError = false">{{ 'KPI_ASSISTANCE.REJECT_REQUEST' | translate }}</button><button nz-button nzType="primary" [nzLoading]="busy" [disabled]="busy || loading" (click)="approve()">{{ 'KPI_ASSISTANCE.APPROVE_REQUEST' | translate }}</button> }
+    }
+  </div></ng-template>
+  <nz-modal [nzVisible]="requestVisible" [nzTitle]="'KPI_ASSISTANCE.REQUEST_PERMISSION' | translate" [nzFooter]="requestFooter" [nzClosable]="!busy" [nzMaskClosable]="!busy" [nzKeyboard]="!busy" (nzOnCancel)="requestVisible = false">
+    <ng-container *nzModalContent>
+      @if (requestError) { <div class="error-box" role="alert">{{ requestError }}</div> }
+      @if (!eligible.length) { <p class="empty">{{ 'KPI_ASSISTANCE.NO_ELIGIBLE' | translate }}</p> } @else {
+        <div class="information-fields"><label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}<nz-select class="plan-picker" [(ngModel)]="requestPeriodId" (ngModelChange)="participantId = null" [nzDisabled]="busy">
+          @for (period of requestPeriods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
+        </nz-select></label>
+        <label class="field">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}<nz-select class="plan-picker" [(ngModel)]="participantId" nzShowSearch [nzDisabled]="busy" [nzPlaceHolder]="'KPI_ASSISTANCE.SELECT_EMPLOYEE' | translate">
+          @for (employee of requestEmployees; track employee.ownerParticipantId) { <nz-option [nzValue]="employee.ownerParticipantId" [nzLabel]="employee.employeeName + (employee.departmentName ? ' · ' + employee.departmentName : '')" /> }
+        </nz-select></label></div>
+      }
+    </ng-container>
+  </nz-modal>
+  <ng-template #requestFooter><div class="actions drawer-actions"><button nz-button [disabled]="busy" (click)="requestVisible = false">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</button><button nz-button nzType="primary" [nzLoading]="busy" [disabled]="busy || participantId === null" (click)="sendRequest()">{{ 'KPI_ASSISTANCE.SEND_REQUEST' | translate }}</button></div></ng-template>
+}

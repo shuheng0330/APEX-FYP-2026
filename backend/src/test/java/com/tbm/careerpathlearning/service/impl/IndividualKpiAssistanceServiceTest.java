@@ -90,9 +90,9 @@ class IndividualKpiAssistanceServiceTest {
         verify(assistance,never()).saveAndFlush(any());
     }
     @Test void duplicateRequestsAndExistingPlansAreNotOverwritten() {
-        when(assistance.existsByOwnerParticipantIdAndSuperiorId(7L,superiorId)).thenReturn(true);
+        when(assistance.existsByOwnerParticipantIdAndSuperiorIdAndStatusNot(7L,superiorId,KpiAssistanceStatus.REJECTED)).thenReturn(true);
         assertThrows(BadRequestException.class,()->service.requestAssistance(request(),superiorId));
-        when(assistance.existsByOwnerParticipantIdAndSuperiorId(7L,superiorId)).thenReturn(false);
+        when(assistance.existsByOwnerParticipantIdAndSuperiorIdAndStatusNot(7L,superiorId,KpiAssistanceStatus.REJECTED)).thenReturn(false);
         when(plans.findByLevelAndOwnerParticipantId(KpiLevel.INDIVIDUAL,7L)).thenReturn(Optional.of(new KpiPlan()));
         assertThrows(BadRequestException.class,()->service.requestAssistance(request(),superiorId));
         assertThrows(BadRequestException.class,()->service.authorizeAssistance(8L,hrId));
@@ -197,5 +197,40 @@ class IndividualKpiAssistanceServiceTest {
     @Test void assistedUpdatesCannotReuseItemIdsFromAnotherPlan() {
         created();var request=items("100");request.getItems().get(0).setId(999L);
         assertThrows(BadRequestException.class,()->service.updateAssistedIndividual(8L,request,superiorId));
+    }
+    @Test void rejectionPreservesHistoryAndAllowsAFreshEligibleRequest() {
+        var reason=new KpiPlanReturnRequest();reason.setReason(" Please discuss the targets first ");
+        var result=service.rejectAssistance(8L,reason,hrId);
+        assertEquals(KpiAssistanceStatus.REJECTED,result.getStatus());assertEquals("Please discuss the targets first",result.getRejectionReason());
+        assertEquals(hrId,result.getRejectedById());assertNotNull(result.getRejectedAt());assertNull(result.getAuthorizedAt());
+        assertEquals("Please discuss the targets first",service.assistanceCase(8L,superiorId).getRejectionReason());
+        assertThrows(BadRequestException.class,()->service.authorizeAssistance(8L,hrId));
+        for(var action:List.of("create","update","confirm")) assertThrows(BadRequestException.class,()->perform(action,superiorId));
+        var fresh=service.requestAssistance(request(),superiorId);
+        assertEquals(KpiAssistanceStatus.REQUESTED,fresh.getStatus());assertNull(fresh.getRejectionReason());
+        assertEquals(KpiAssistanceStatus.REJECTED,authorization.getStatus());
+        verify(assistance).existsByOwnerParticipantIdAndSuperiorIdAndStatusNot(7L,superiorId,KpiAssistanceStatus.REJECTED);
+        verify(assistance,atLeastOnce()).lockById(8L);
+    }
+    @Test void rejectionRequiresReasonAndOnlyOneHrDecisionCanSucceed() {
+        for(var value:Arrays.asList(null,"", "   ","x".repeat(10001))) {
+            var reason=new KpiPlanReturnRequest();reason.setReason(value);
+            assertThrows(BadRequestException.class,()->service.rejectAssistance(8L,reason,hrId));
+        }
+        assertThrows(BadRequestException.class,()->service.rejectAssistance(8L,null,hrId));
+        var reason=new KpiPlanReturnRequest();reason.setReason("Not required");
+        authorized();assertThrows(BadRequestException.class,()->service.rejectAssistance(8L,reason,hrId));
+        assertNull(authorization.getRejectedAt());
+    }
+    @Test void rejectedRequestDoesNotBypassNewRequestEligibilityOrDecisionScope() {
+        var reason=new KpiPlanReturnRequest();reason.setReason("Review requirements");
+        employee.setManager(outsider);assertThrows(AccessDeniedException.class,()->service.rejectAssistance(8L,reason,hrId));
+        employee.setManager(superior);period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);
+        assertThrows(BadRequestException.class,()->service.rejectAssistance(8L,reason,hrId));
+        period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);service.rejectAssistance(8L,reason,hrId);
+        assertThrows(BadRequestException.class,()->service.rejectAssistance(8L,reason,hrId));
+        employee.setManager(outsider);assertThrows(AccessDeniedException.class,()->service.requestAssistance(request(),superiorId));
+        employee.setManager(superior);when(plans.findByLevelAndOwnerParticipantId(KpiLevel.INDIVIDUAL,7L)).thenReturn(Optional.of(new KpiPlan()));
+        assertThrows(BadRequestException.class,()->service.requestAssistance(request(),superiorId));
     }
 }

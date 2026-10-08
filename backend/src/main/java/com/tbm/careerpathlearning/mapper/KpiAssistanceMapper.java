@@ -15,6 +15,7 @@ public interface KpiAssistanceMapper {
     @Mapping(target="reviewPeriodStatus",source="ownerParticipant.reviewPeriod.status")
     @Mapping(target="superiorId",source="superior.id") @Mapping(target="superiorName",source="superior.name")
     @Mapping(target="authorizedById",source="authorizedBy.id") @Mapping(target="authorizedByName",source="authorizedBy.name")
+    @Mapping(target="rejectedById",source="rejectedBy.id") @Mapping(target="rejectedByName",source="rejectedBy.name")
     @Mapping(target="planId",ignore=true)
     KpiAssistanceDto toDto(IndividualKpiAssistanceAuthorization authorization);
 

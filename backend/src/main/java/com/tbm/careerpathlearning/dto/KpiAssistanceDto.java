@@ -23,5 +23,9 @@ public class KpiAssistanceDto {
     private UUID authorizedById;
     private String authorizedByName;
     private OffsetDateTime consumedAt;
+    private OffsetDateTime rejectedAt;
+    private UUID rejectedById;
+    private String rejectedByName;
+    private String rejectionReason;
     private Long planId;
 }

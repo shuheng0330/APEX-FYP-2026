@@ -1,3 +1,3 @@
 package com.tbm.careerpathlearning.enums;
 
-public enum KpiAssistanceStatus { REQUESTED, AUTHORIZED, CONSUMED }
+public enum KpiAssistanceStatus { REQUESTED, AUTHORIZED, REJECTED, CONSUMED }

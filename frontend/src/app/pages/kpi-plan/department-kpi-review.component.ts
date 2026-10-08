@@ -14,6 +14,7 @@ import { KpiItemEditorComponent } from './kpi-item-editor.component';
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 
 @Component({
+  selector: 'app-department-kpi-review',
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],

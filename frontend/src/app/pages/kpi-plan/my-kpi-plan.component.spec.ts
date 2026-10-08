@@ -55,6 +55,17 @@ describe('My KPI Plan', () => {
     component.viewAssigned(component.assignedPlans[0].items[0], 'COMPANY');
     expect(component.drawerReadonly).toBeTrue(); component.applyItem(); expect(api.update).not.toHaveBeenCalled();
   });
+  it('makes assisted Drafts read-only to employees without changing ordinary Drafts', () => {
+    component.plan = { ...plan(), assistanceAuthorizationId: 8 }; component.items = [item()]; fixture.detectChanges();
+    expect(component.readonly).toBeTrue(); expect(component.canSubmit).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('KPI_ASSISTANCE.EMPLOYEE_DRAFT');
+    expect(fixture.nativeElement.textContent).not.toContain('INDIVIDUAL_KPI.ADD_ITEM');
+    component.openItem(0, true); component.applyItem(); component.removeItem(0); component.submitPlan();
+    expect(api.update).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    component.drawerVisible = false; component.plan = { ...component.plan, status: 'APPROVED' }; fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('KPI_ASSISTANCE.EMPLOYEE_CONFIRMED');
+    component.plan = plan(); expect(component.readonly).toBeFalse();
+  });
   it('shows the selected period allocation read-only without scaling editable KPI weights', () => {
     const translate = TestBed.inject(TranslateService);
     translate.setTranslation('en', { INDIVIDUAL_KPI: {
