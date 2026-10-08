@@ -20,6 +20,7 @@ import com.tbm.careerpathlearning.repository.OrgWideEvaluationCycleRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.service.AppraisalRecordService;
 import com.tbm.careerpathlearning.service.StaffService;
+import com.tbm.careerpathlearning.service.SubmissionRevisionGuard;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -72,6 +73,7 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         }
 
         boolean isNew = record.getId() == null;
+        var before=revisionContent(record);
         AppraisalReadinessDto readiness = calculateReadinessScore(
                 staff.getId(),
                 cycle.getId(),
@@ -93,6 +95,7 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         }
 
         applyCalculatedDecisionFields(record, dto, readiness);
+        record.setRevisionRequired(SubmissionRevisionGuard.afterSave(record.isRevisionRequired(),before,revisionContent(record)));
 
         return mapToDto(appraisalRecordRepository.save(record));
     }
@@ -105,6 +108,7 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         if (record.getStatus() == AppraisalStatus.APPROVED) {
             throw new BadRequestException("Invalid Appraisal", "Approved appraisal records cannot be submitted again.");
         }
+        SubmissionRevisionGuard.requireRevisionComplete(record.isRevisionRequired());
 
         if (isBlank(record.getManagerComment())) {
             throw new BadRequestException("Invalid Appraisal", "Manager comment is required before submitting to HR.");
@@ -200,6 +204,7 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
         Staff hrReviewer = getStaff(userId, "Invalid HR Reviewer");
 
         record.setStatus(AppraisalStatus.RETURNED);
+        record.setRevisionRequired(true);
         record.setHrReviewer(hrReviewer);
         record.setHrReturnReason(dto.getHrReturnReason());
         record.setUpdatedBy(userId);
@@ -259,8 +264,20 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
     }
 
     private AppraisalRecord getAppraisalRecord(UUID id) {
-        return appraisalRecordRepository.findById(id)
+        return appraisalRecordRepository.lockById(id)
                 .orElseThrow(() -> new DataAccessException("Invalid Appraisal", "Appraisal record could not be found."));
+    }
+
+    private List<Object> revisionContent(AppraisalRecord record) {
+        // Calculated readiness, timestamps and HR decisions cannot satisfy a Manager revision.
+        boolean promotion=record.getDecisionType()==AppraisalDecisionType.PROMOTION || record.getDecisionType()==AppraisalDecisionType.BOTH;
+        boolean salary=record.getDecisionType()==AppraisalDecisionType.SALARY_INCREMENT || record.getDecisionType()==AppraisalDecisionType.BOTH;
+        return java.util.Arrays.asList(record.getReviewPeriodYears(),record.getDecisionType(),
+                SubmissionRevisionGuard.text(record.getManagerComment()),SubmissionRevisionGuard.text(record.getAiInsight()),
+                promotion && record.getPromotionManagerCategory()!=record.getPromotionSystemCategory() ? record.getPromotionManagerCategory() : null,
+                promotion ? SubmissionRevisionGuard.text(record.getPromotionManagerOverrideReason()) : null,
+                salary && record.getSalaryManagerCategory()!=record.getSalarySystemCategory() ? record.getSalaryManagerCategory() : null,
+                salary ? SubmissionRevisionGuard.text(record.getSalaryManagerOverrideReason()) : null);
     }
 
     private void applyCalculatedDecisionFields(AppraisalRecord record, AppraisalRecordDto dto, AppraisalReadinessDto readiness) {
@@ -455,6 +472,7 @@ public class AppraisalRecordServiceImpl implements AppraisalRecordService {
                 record.getSalaryHrOverrideCategory()
         ));
         dto.setHrReturnReason(record.getHrReturnReason());
+        dto.setRevisionRequired(record.isRevisionRequired());
         dto.setSubmittedAt(record.getSubmittedAt());
         dto.setApprovedAt(record.getApprovedAt());
         dto.setCreatedAt(record.getCreatedAt());

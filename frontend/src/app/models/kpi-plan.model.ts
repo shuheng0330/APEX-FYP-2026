@@ -32,6 +32,7 @@ export interface KpiPlan extends KpiPlanRequest {
   submittedAt?: string | null; submittedBy?: string | null; submittedByName?: string | null; submittedLate?: boolean | null;
   submittedToSuperiorId?: string | null; submittedToSuperiorName?: string | null;
   reviewedAt?: string | null; reviewedBy?: string | null; reviewedLate?: boolean | null; returnReason?: string | null;
+  revisionRequired?: boolean;
 }
 export function emptyKpiItem(): KpiItem {
   return { name: null, description: null, perspective: null, kra: null, target: null, measurementUnit: null, weightage: null, scoringDefinitions: {} };

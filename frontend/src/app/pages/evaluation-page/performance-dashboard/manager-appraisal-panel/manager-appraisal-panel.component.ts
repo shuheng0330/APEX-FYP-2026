@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
+import { canResubmit } from '../../../../models/submission-revision.model';
+import { appraisalEditableContent } from '../../../../models/appraisal-record.model';
 import { forkJoin } from 'rxjs';
 
 import { NzAlertModule } from 'ng-zorro-antd/alert';
@@ -45,6 +48,7 @@ interface DecisionCardState {
   imports: [
     CommonModule,
     FormsModule,
+    TranslateModule,
     NzAlertModule,
     NzButtonModule,
     NzCardModule,
@@ -185,7 +189,7 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
   }
 
   submitToHr(): void {
-    if (!this.canPersist) {
+    if (!this.canSubmit) {
       return;
     }
 
@@ -251,6 +255,13 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
 
   get isReadOnly(): boolean {
     return this.activeRecord?.status === 'PENDING_REVIEW' || this.activeRecord?.status === 'APPROVED';
+  }
+
+  get canSubmit(): boolean {
+    if (!this.canPersist) return false;
+    const changed = !!this.activeRecord && JSON.stringify(appraisalEditableContent(this.activeRecord))
+      !== JSON.stringify(appraisalEditableContent(this.buildRequest()));
+    return canResubmit(this.activeRecord, changed);
   }
 
   get isReturned(): boolean {

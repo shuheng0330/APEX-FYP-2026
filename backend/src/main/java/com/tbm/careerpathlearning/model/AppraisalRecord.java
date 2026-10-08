@@ -77,6 +77,8 @@ public class AppraisalRecord {
     private String salaryHrOverrideReason;
 
     private String hrReturnReason;
+    @Column(name = "revision_required", nullable = false)
+    private boolean revisionRequired;
 
     private LocalDateTime submittedAt;
 

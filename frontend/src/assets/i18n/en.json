@@ -1,4 +1,5 @@
 {
+    "APPROVAL_REVISION": { "CHANGE_REQUIRED": "Make and save at least one change before resubmitting for approval." },
     "INDIVIDUAL_KPI": {
         "TITLE": "My KPI Plan",
         "HELP": "Prepare your Individual KPI Plan and send it to your immediate Superior for approval.",

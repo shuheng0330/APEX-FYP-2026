@@ -141,6 +141,24 @@ class IndividualKpiPlanServiceTest {
         assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitIndividual(10L,employeeId).getStatus());
         assertNull(plan.getReturnReason());assertNull(plan.getReviewedBy());
     }
+    @Test void returnedIndividualRequiresContentChangeAndResetsOnEveryReturn() {
+        pending();service.returnIndividual(10L,reason("Clarify target"),superiorId);
+        assertTrue(service.individualPlan(10L,employeeId).isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitIndividual(10L,employeeId));
+        request.setItems(service.individualPlan(10L,employeeId).getItems());
+        request.getItems().get(0).setName(" New Customers ");
+        request.getItems().get(0).setWeightage(new java.math.BigDecimal("100.00"));
+        service.updateIndividual(10L,request,employeeId);
+        assertTrue(plan.isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitIndividual(10L,employeeId));
+        request.getItems().get(0).getScoringDefinitions().put(5,"Acquire at least 20 customers");
+        assertFalse(service.updateIndividual(10L,request,employeeId).isRevisionRequired());
+        service.submitIndividual(10L,employeeId);
+        service.returnIndividual(10L,reason("Clarify again"),superiorId);
+        assertTrue(plan.isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitIndividual(10L,employeeId));
+        verify(assignments,never()).cascade(any());
+    }
     @Test void approvalAssignsOnlyOwnerPlanAndBecomesImmutable() {
         pending();
         assertEquals(KpiPlanStatus.APPROVED,service.approveIndividual(10L,superiorId).getStatus());

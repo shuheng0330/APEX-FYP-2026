@@ -115,9 +115,23 @@ describe('My KPI Plan', () => {
     component.openItem(null); expect(component.drawerVisible).toBeFalse();
   });
   it('shows return reasons and allows correction and resubmission', () => {
-    component.plan = { ...plan('RETURNED'), returnReason: 'Clarify your target' }; component.items = [item()]; fixture.detectChanges();
+    component.plan = { ...plan('RETURNED'), revisionRequired: true, returnReason: 'Clarify your target' }; component.items = [item()]; fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.return-note').textContent).toContain('Clarify your target');
-    expect(component.readonly).toBeFalse(); component.confirmSubmit(); confirm(); expect(api.submit).toHaveBeenCalledOnceWith(10);
+    expect(component.readonly).toBeFalse(); expect(component.canSubmit).toBeFalse();
+    expect(component.submitBlocker?.key).toBe('APPROVAL_REVISION.CHANGE_REQUIRED');
+    component.confirmSubmit(); expect(modal.confirm).not.toHaveBeenCalled();
+    api.update.and.callFake((id, request) => of({ ...plan('RETURNED'), id, revisionRequired: false, items: request.items }));
+    component.openItem(0); component.editorItems[0].target = '12 new customers'; component.applyItem();
+    expect(component.canSubmit).toBeTrue();
+    component.confirmSubmit(); confirm(); expect(api.submit).toHaveBeenCalledOnceWith(10);
+  });
+  it('uses saved revision state after an unchanged edit or reload', () => {
+    const returned = { ...plan('RETURNED'), revisionRequired: true };
+    api.mine.and.returnValue(of([returned])); component.load();
+    expect(component.canSubmit).toBeFalse();
+    api.update.and.returnValue(of(returned)); component.openItem(0); component.applyItem();
+    expect(api.update).toHaveBeenCalled(); expect(component.canSubmit).toBeFalse();
+    component.load(); expect(component.canSubmit).toBeFalse();
   });
   it('allows late Open-period setup but keeps Approved and Closed plans read-only', () => {
     component.periods = [{ ...period(), kpiSetupDeadline: '2000-01-01' }]; component.plan = plan(); component.items = [item()];

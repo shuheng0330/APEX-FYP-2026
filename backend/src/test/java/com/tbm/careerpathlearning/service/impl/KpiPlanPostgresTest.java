@@ -34,7 +34,7 @@ class KpiPlanPostgresTest {
             try {
                 sql(c,"CREATE SCHEMA "+schema);sql(c,"SET LOCAL search_path TO "+schema);
                 for(var table:List.of("org_chart","role","staff","authority","employee_level","annual_kpi_review_period",
-                        "review_period_employee_level_configuration","review_period_role_configuration","review_checkpoint","review_period_participant"))
+                        "review_period_employee_level_configuration","review_period_role_configuration","review_checkpoint","review_period_participant","appraisal_record"))
                     sql(c,"CREATE TABLE "+schema+"."+table+" (LIKE public."+table+" INCLUDING ALL)");
                 sql(c,"ALTER TABLE review_period_participant DROP CONSTRAINT IF EXISTS uq_participant_id_period");
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V31__kpi_plan_foundation.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
@@ -42,6 +42,9 @@ class KpiPlanPostgresTest {
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V32__review_participant_snapshot_and_company_publication.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V33__department_kpi_plan_review.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V34__individual_kpi_plan_review.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,"ALTER TABLE appraisal_record DROP CONSTRAINT IF EXISTS ck_appraisal_revision_required");
+                sql(c,"ALTER TABLE appraisal_record DROP COLUMN IF EXISTS revision_required");
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V35__require_changes_after_return.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 // Clone only inherited actors inside the rollback-only test schema; no live Role grants.
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
@@ -130,6 +133,14 @@ class KpiPlanPostgresTest {
                     var returned=service.returnDepartment(pending.getId(),reason,actor);session.clear();
                     assertEquals("Clarify department target",service.departmentPlan(returned.getId(),actor).getReturnReason());
                     assertEquals(4L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
+                    assertTrue(service.departmentPlan(returned.getId(),actor).isRevisionRequired());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.submitDepartment(returned.getId(),actor));
+                    departmentRequest.setItems(service.departmentPlan(returned.getId(),actor).getItems());
+                    service.updateDepartment(returned.getId(),departmentRequest,actor);session.flush();session.clear();
+                    assertTrue(service.departmentPlan(returned.getId(),actor).isRevisionRequired());
+                    departmentRequest.getItems().get(0).setTarget("Clarified department target");
+                    service.updateDepartment(returned.getId(),departmentRequest,actor);session.flush();session.clear();
+                    assertFalse(service.departmentPlan(returned.getId(),actor).isRevisionRequired());
                     var resubmitted=service.submitDepartment(returned.getId(),actor);assertNull(resubmitted.getReturnReason());
                     var approved=service.approveDepartment(returned.getId(),actor);session.clear();
                     assertEquals(KpiPlanStatus.APPROVED,service.departmentPlan(approved.getId(),actor).getStatus());
@@ -155,6 +166,13 @@ class KpiPlanPostgresTest {
                     var individualReturn=new KpiPlanReturnRequest();individualReturn.setReason("Clarify the sales target");
                     assertEquals(KpiPlanStatus.RETURNED,service.returnIndividual(individualDraft.getId(),individualReturn,hod.getId()).getStatus());
                     assertEquals("Clarify the sales target",service.individualPlan(individualDraft.getId(),owner.getId()).getReturnReason());
+                    session.flush();session.clear();
+                    assertTrue(service.individualPlan(individualDraft.getId(),owner.getId()).isRevisionRequired());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.submitIndividual(individualDraft.getId(),owner.getId()));
+                    individualRequest.setItems(service.individualPlan(individualDraft.getId(),owner.getId()).getItems());
+                    individualRequest.getItems().get(0).setTarget("Clarified individual target");
+                    service.updateIndividual(individualDraft.getId(),individualRequest,owner.getId());session.flush();session.clear();
+                    assertFalse(service.individualPlan(individualDraft.getId(),owner.getId()).isRevisionRequired());
                     assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitIndividual(individualDraft.getId(),owner.getId()).getStatus());
                     var individualApproved=service.approveIndividual(individualDraft.getId(),hod.getId());
                     assertEquals(KpiPlanStatus.APPROVED,individualApproved.getStatus());
@@ -163,7 +181,7 @@ class KpiPlanPostgresTest {
                         +participants.findByReviewPeriodIdAndStaffId(savedPeriod.getId(),owner.getId()).orElseThrow().getId()));
                     assertEquals(3,service.myAssignedPlans(savedPeriod.getId(),owner.getId()).size());
                     assertEquals(KpiPlanStatus.APPROVED,service.individualReviewPlans(hod.getId()).get(0).getStatus());
-                    owner.setManager(null);session.flush();
+                    session.find(Staff.class,owner.getId()).setManager(null);session.flush();
                     assertTrue(service.individualReviewPlans(hod.getId()).isEmpty());
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
                         ()->service.updateIndividual(individualDraft.getId(),individualRequest,owner.getId()));

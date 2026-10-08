@@ -75,14 +75,26 @@ describe('Department KPI plan workspace', () => {
     expect(component.readonly).toBeTrue();
   });
   it('shows a return reason and allows revision and resubmission', () => {
-    component.plan = { ...plan('RETURNED'), returnReason: 'Clarify the sales target' };
+    component.plan = { ...plan('RETURNED'), revisionRequired: true, returnReason: 'Clarify the sales target' };
     component.items = structuredClone(component.plan.items); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.return-note').textContent).toContain('Clarify the sales target');
     expect(component.readonly).toBeFalse();
+    expect(component.canSubmit).toBeFalse();
+    expect(component.submitBlocker?.key).toBe('APPROVAL_REVISION.CHANGE_REQUIRED');
+    component.confirmSubmit(); expect(modal.confirm).not.toHaveBeenCalled();
+    api.update.and.callFake((id, request) => of({ ...plan('RETURNED'), id, revisionRequired: false, items: request.items }));
     component.openItem(0); component.editorItems[0].name = 'Revised Sales'; component.applyItem();
     expect(api.update).toHaveBeenCalled();
-    component.plan = { ...plan('RETURNED'), returnReason: 'Clarify the sales target' };
+    expect(component.canSubmit).toBeTrue();
     component.confirmSubmit(); confirm(); expect(api.submit).toHaveBeenCalledOnceWith(10);
+  });
+  it('keeps unchanged saves and reloaded returned plans blocked', () => {
+    const returned = { ...plan('RETURNED'), revisionRequired: true };
+    component.plan = returned; component.items = structuredClone(returned.items);
+    api.update.and.returnValue(of(returned)); component.openItem(0); component.applyItem();
+    expect(api.update).toHaveBeenCalled(); expect(component.canSubmit).toBeFalse();
+    component.plans = [returned]; component.selectPlan(); expect(component.canSubmit).toBeFalse();
+    component.submitPlan(); expect(api.submit).not.toHaveBeenCalled();
   });
   it('keeps Pending, Approved and Closed plans read-only', () => {
     component.plan = plan('APPROVED'); component.openItem(null); expect(component.drawerVisible).toBeFalse();

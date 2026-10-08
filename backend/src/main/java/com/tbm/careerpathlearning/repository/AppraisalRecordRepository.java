@@ -4,6 +4,8 @@ import com.tbm.careerpathlearning.enums.AppraisalStatus;
 import com.tbm.careerpathlearning.model.AppraisalRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -15,7 +17,12 @@ import java.util.UUID;
 @Repository
 public interface AppraisalRecordRepository extends JpaRepository<AppraisalRecord, UUID> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AppraisalRecord> findByStaff_IdAndEvaluationCycle_Id(UUID staffId, Long evaluationCycleId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select ar from AppraisalRecord ar where ar.id=:id")
+    Optional<AppraisalRecord> lockById(@Param("id") UUID id);
 
     @Query("""
             SELECT ar

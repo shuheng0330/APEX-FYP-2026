@@ -42,6 +42,8 @@ public class AppraisalRecordDto {
     private AppraisalCategory promotionEffectiveCategory;
     private AppraisalCategory salaryEffectiveCategory;
     private String hrReturnReason;
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private boolean revisionRequired;
     private LocalDateTime submittedAt;
     private LocalDateTime approvedAt;
     private LocalDateTime createdAt;

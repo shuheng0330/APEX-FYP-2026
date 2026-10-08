@@ -11,6 +11,7 @@ import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { KpiItem, KpiItemErrors, KpiLevel, KpiPeriodContext, KpiPlan, emptyKpiItem, kpiItemErrors, kpiPlanComplete } from '../../models/kpi-plan.model';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { canResubmit } from '../../models/submission-revision.model';
 
 @Component({
   standalone: true,
@@ -60,9 +61,10 @@ export class MyKpiPlanComponent implements OnInit {
   }
   get drawerReadonly() { return this.viewOnly || this.readonly; }
   get total() { return this.items.reduce((sum, item) => sum + Math.round((item.weightage ?? 0) * 100), 0) / 100; }
-  get canSubmit() { return !this.readonly && !!this.plan && kpiPlanComplete(this.items); }
+  get canSubmit() { return !this.readonly && !!this.plan && canResubmit(this.plan) && kpiPlanComplete(this.items); }
   get submitBlocker(): { key: string; params?: { amount: number } } | null {
     if (this.readonly) return null;
+    if (!canResubmit(this.plan)) return { key: 'APPROVAL_REVISION.CHANGE_REQUIRED' };
     if (!this.items.length) return { key: 'INDIVIDUAL_KPI.ADD_BEFORE_SUBMIT' };
     if (this.items.some(item => Object.keys(kpiItemErrors(item)).length)) return { key: 'INDIVIDUAL_KPI.COMPLETE_BEFORE_SUBMIT' };
     if (new Set(this.items.map(item => item.name?.trim().toLowerCase())).size !== this.items.length) return { key: 'INDIVIDUAL_KPI.DUPLICATE_NAME' };

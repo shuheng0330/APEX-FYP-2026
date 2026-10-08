@@ -11,6 +11,7 @@ import { forkJoin, finalize } from 'rxjs';
 import { KpiItem, KpiItemErrors, KpiPlan, KpiPeriodContext, emptyKpiItem, kpiItemErrors, kpiPlanComplete } from '../../models/kpi-plan.model';
 import { DepartmentKpiPlanService, KpiDepartmentOption } from '../../services/department-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { canResubmit } from '../../models/submission-revision.model';
 
 @Component({
   standalone: true,
@@ -60,10 +61,11 @@ export class DepartmentKpiPlanComponent implements OnInit {
   get hasMeaningfulItems() { return this.items.some(item => !!item.name?.trim()); }
   get total() { return Math.round(this.items.reduce((sum, item) => sum + (item.weightage ?? 0), 0) * 100) / 100; }
   get canSubmit() {
-    return !this.readonly && !!this.plan && ['DRAFT', 'RETURNED'].includes(this.plan.status) && kpiPlanComplete(this.items);
+    return !this.readonly && !!this.plan && canResubmit(this.plan) && ['DRAFT', 'RETURNED'].includes(this.plan.status) && kpiPlanComplete(this.items);
   }
   get submitBlocker(): { key: string; params?: { amount: number } } | null {
     if (this.readonly || !this.selectedPeriod || !this.selectedDepartment) return null;
+    if (!canResubmit(this.plan)) return { key: 'APPROVAL_REVISION.CHANGE_REQUIRED' };
     if (!this.items.length) return { key: 'DEPARTMENT_KPI.ADD_BEFORE_SUBMIT' };
     if (this.items.some(item => Object.keys(kpiItemErrors(item)).length)) return { key: 'DEPARTMENT_KPI.COMPLETE_BEFORE_SUBMIT' };
     if (this.total < 100) return { key: 'DEPARTMENT_KPI.WEIGHT_REMAINING', params: { amount: Math.round((100 - this.total) * 100) / 100 } };

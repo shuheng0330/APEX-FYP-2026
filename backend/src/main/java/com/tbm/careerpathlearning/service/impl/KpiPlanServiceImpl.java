@@ -153,6 +153,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     public KpiPlanDto submitDepartment(Long id,UUID actor) {
         periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.DEPARTMENT,true);
         requireHodScope(plan.getDepartment().getId(),actor);requireEditable(plan);
+        SubmissionRevisionGuard.requireRevisionComplete(plan.isRevisionRequired());
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
         plan.setStatus(KpiPlanStatus.PENDING_APPROVAL);
         plan.setSubmittedAt(OffsetDateTime.now(clock));plan.setSubmittedBy(actor);plan.setSubmittedLate(late(plan));
@@ -176,6 +177,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
             throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the HOD knows what to revise");
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,actor);
+        plan.setRevisionRequired(true);
         plans.saveAndFlush(plan);return details(plan);
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
@@ -255,6 +257,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     public KpiPlanDto submitIndividual(Long id,UUID actor) {
         periods.lockConfiguration();var plan=requirePlan(id,KpiLevel.INDIVIDUAL,true);
         var owner=requireIndividualOwner(plan,actor);requireEditable(plan);
+        SubmissionRevisionGuard.requireRevisionComplete(plan.isRevisionRequired());
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
         var superior=owner.getManager();
         if(superior==null || superior.getId().equals(actor) || superior.isDeleted()
@@ -283,6 +286,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
             throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the employee knows what to revise");
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,superior);
+        plan.setRevisionRequired(true);
         plans.saveAndFlush(plan);return details(plan);
     }
     private ReviewPeriodParticipant ownerParticipant(Long periodId,UUID actor) {
@@ -357,6 +361,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     }
     private void replaceItems(KpiPlan plan,List<KpiItemDto> inputs) {
         validator.validate(inputs,false);
+        var before=revisionContent(plan);
         Map<Long,Kpi> existing=new HashMap<>(); plan.getItems().forEach(i->existing.put(i.getId(),i));
         Set<Long> seen=new HashSet<>(); List<Kpi> replacement=new ArrayList<>();
         for(var input:inputs) {
@@ -371,6 +376,26 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         }
         plan.getItems().removeIf(i->!replacement.contains(i));
         replacement.forEach(i->{if(!plan.getItems().contains(i)) plan.getItems().add(i);});
+        plan.setRevisionRequired(SubmissionRevisionGuard.afterSave(plan.isRevisionRequired(),before,revisionContent(plan)));
+    }
+    private record ItemRevisionContent(String name,String description,String perspective,String kra,String target,
+            String measurementUnit,java.math.BigDecimal weightage,Map<Integer,String> scoringDefinitions) {}
+    private Map<ItemRevisionContent,Long> revisionContent(KpiPlan plan) {
+        // Compare content as a multiset: order and generated item IDs are not revisions.
+        var content=new HashMap<ItemRevisionContent,Long>();
+        for(var item:plan.getItems()) {
+            var scoring=new TreeMap<Integer,String>();
+            item.getScoringDefinitions().forEach((point,definition)->{
+                var text=SubmissionRevisionGuard.text(definition);
+                if(text!=null) scoring.put(point,text);
+            });
+            var value=new ItemRevisionContent(SubmissionRevisionGuard.text(item.getName()),
+                    SubmissionRevisionGuard.text(item.getDescription()),SubmissionRevisionGuard.text(item.getPerspective()),
+                    SubmissionRevisionGuard.text(item.getKra()),SubmissionRevisionGuard.text(item.getTarget()),
+                    SubmissionRevisionGuard.text(item.getMeasurementUnit()),SubmissionRevisionGuard.decimal(item.getWeightage()),scoring);
+            content.merge(value,1L,Long::sum);
+        }
+        return content;
     }
     private void touch(KpiPlan plan,UUID actor) { plan.setUpdatedBy(actor); plan.setUpdatedAt(OffsetDateTime.now(clock)); }
     private KpiPlanDto details(KpiPlan plan) {

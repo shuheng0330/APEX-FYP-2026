@@ -158,6 +158,32 @@ class DepartmentKpiPlanServiceTest {
         var result=service.submitDepartment(10L,actor);assertEquals(KpiPlanStatus.PENDING_APPROVAL,result.getStatus());
         assertNull(result.getReturnReason());assertNull(result.getReviewedBy());assertNull(result.getReviewedAt());
     }
+    @Test void returnedDepartmentRejectsUnchangedSaveButAcceptsChangedTarget() {
+        pending();service.returnDepartment(10L,reason("Clarify target"),actor);
+        assertTrue(service.departmentPlan(10L,actor).isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitDepartment(10L,actor));
+        request.setItems(service.departmentPlan(10L,actor).getItems());
+        service.updateDepartment(10L,request,actor);
+        assertTrue(plan.isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitDepartment(10L,actor));
+        request.getItems().get(0).setTarget("RM 90,000 monthly sales");
+        assertFalse(service.updateDepartment(10L,request,actor).isRevisionRequired());
+        assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitDepartment(10L,actor).getStatus());
+        service.returnDepartment(10L,reason("Another change needed"),actor);
+        assertTrue(plan.isRevisionRequired());
+    }
+    @Test void reorderingOrRecreatingIdenticalItemsDoesNotCountButRemovingAnItemDoes() {
+        request.setItems(List.of(KpiPlanValidatorTest.item("Sales","60"),KpiPlanValidatorTest.item("Customers","40")));
+        service.updateDepartment(10L,request,actor);service.submitDepartment(10L,actor);
+        service.returnDepartment(10L,reason("Clarify"),actor);
+        request.setItems(List.of(KpiPlanValidatorTest.item("Customers","40.00"),KpiPlanValidatorTest.item("Sales","60.0")));
+        service.updateDepartment(10L,request,actor);
+        assertTrue(plan.isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitDepartment(10L,actor));
+        request.setItems(List.of(KpiPlanValidatorTest.item("Sales","60")));
+        assertFalse(service.updateDepartment(10L,request,actor).isRevisionRequired());
+        assertThrows(BadRequestException.class,()->service.submitDepartment(10L,actor)); // Total still must be 100%.
+    }
     @Test void approvalCascadesOnceAndBecomesImmutable() {
         pending();var dto=service.approveDepartment(10L,actor);
         assertEquals(KpiPlanStatus.APPROVED,dto.getStatus());assertFalse(dto.isOverdue());assertTrue(dto.getReviewedLate());

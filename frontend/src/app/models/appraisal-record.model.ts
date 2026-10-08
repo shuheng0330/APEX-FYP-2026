@@ -16,6 +16,17 @@ export interface HrAppraisalActionDto {
   hrReturnReason?: string | null;
 }
 
+export function appraisalEditableContent(record: AppraisalRecordDto): unknown[] {
+  const text = (value?: string | null) => value?.trim() || null;
+  const promotion = record.decisionType === 'PROMOTION' || record.decisionType === 'BOTH';
+  const salary = record.decisionType === 'SALARY_INCREMENT' || record.decisionType === 'BOTH';
+  return [record.reviewPeriodYears, record.decisionType, text(record.managerComment), text(record.aiInsight),
+    promotion && record.promotionManagerCategory !== record.promotionSystemCategory ? record.promotionManagerCategory ?? null : null,
+    promotion ? text(record.promotionManagerOverrideReason) : null,
+    salary && record.salaryManagerCategory !== record.salarySystemCategory ? record.salaryManagerCategory ?? null : null,
+    salary ? text(record.salaryManagerOverrideReason) : null];
+}
+
 export interface AppraisalRecordDto {
   id?: string;
   staffId: string;
@@ -39,6 +50,7 @@ export interface AppraisalRecordDto {
   managerComment?: string | null;
   aiInsight?: string | null;
   status?: AppraisalStatus;
+  revisionRequired?: boolean;
   hrReviewerId?: string | null;
   hrReviewerName?: string | null;
   promotionHrOverrideCategory?: AppraisalCategory | null;

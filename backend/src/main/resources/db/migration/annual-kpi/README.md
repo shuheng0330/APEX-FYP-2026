@@ -11,9 +11,10 @@ V31 introduces whole KPI plans, their items, 1-5 scoring definitions and materia
 V32 adds the annual publication-time participant snapshot marker and Company plan publication metadata.
 V33 adds Department plan submission/review metadata, return reasons, validation constraints and two business authorities.
 V34 adds Individual plan submission routing to the immediate Superior, review constraints and a reviewer authority.
+V35 requires a saved content change after every return of a Department/Individual plan or legacy appraisal.
 The application's existing `ddl-auto: update` and `flyway.enabled: false` remain unchanged.
 
-Do not start the application with the new entities before applying V27-V34: Hibernate may otherwise
+Do not start the application with the new entities before applying V27-V35: Hibernate may otherwise
 create untracked tables without the migration's constraints. Do not enable the legacy Flyway location.
 
 ## Local migration
@@ -28,7 +29,7 @@ java --class-path $classpath ApplyAnnualReviewPeriodFoundation.java --apply 'C:\
 
 The runner checks the inherited IDs, migration history and absence of partial Phase 1 structures,
 backs up the local database under the user's `.apex/database-backups` directory, explicitly records the inherited schema as baseline 26
-when history is empty, and discovers **only** this directory's V27-V34. Baseline 26 does not claim that
+when history is empty, and discovers **only** this directory's V27-V35. Baseline 26 does not claim that
 V2-V26 were executed. Preserve applied migration files and the generated backup.
 Already-applied migrations are validated, not replayed. A backup is required before any pending migration.
 V30 refuses existing Super Admin participants or missing/invalid published setup deadline backfills rather than altering historical data.
@@ -127,6 +128,24 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
   Individual plan detail access applies the same reviewer scope, and the response shows the participant's
   snapshotted Department label. No migration or new approval workflow is required for these integration changes.
 - Assessment, attitude and assisted-creation interfaces remain deferred. Slice 4 stops before Slice 5.
+
+## Returned Submission Validation
+
+- Department and Individual KPI plans require at least one saved content change after each Return for Revision.
+  The same reusable guard covers the inherited Manager-to-HR appraisal flow; no new appraisal workflow is introduced.
+- V35 stores a response-only `revisionRequired` flag on each affected record. Return sets it; a meaningful
+  save clears it. This remains effective after reloads and legacy appraisal Save Draft transitions.
+- Unchanged saves, timestamps, item ID replacement, item reordering, outer whitespace and decimal scale
+  do not count. Changing KPI information, weights or scoring criteria, adding/removing items, or changing
+  editable appraisal content does count. All existing completeness and 100% checks still apply.
+- First-time/ordinary Draft submission and Company publication are unchanged. Backend validation is
+  authoritative; the frontend disables unchanged resubmission and shows a short explanation.
+- Existing returned records require a fresh change. Legacy Draft appraisals with an HR return reason are
+  conservatively marked the same way because historical content edits cannot be verified. Normal Drafts
+  remain unaffected. V35 grants no permissions and changes no already-applied migrations.
+- Opt-in `SubmissionRevisionMigrationPostgresTest` checks empty/populated backfills and constraints;
+  `KpiPlanPostgresTest` verifies saved revision state and return/edit/resubmit across JPA reloads.
+  Slice 5 remains deferred and must use the next available migration number, not V35.
 
 ## Deliberate boundaries
 

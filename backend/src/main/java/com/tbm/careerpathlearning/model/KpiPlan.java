@@ -43,4 +43,5 @@ public class KpiPlan {
     private UUID reviewedBy;
     private Boolean reviewedLate;
     @Column(columnDefinition="text") private String returnReason;
+    @Column(name="revision_required",nullable=false) private boolean revisionRequired;
 }
