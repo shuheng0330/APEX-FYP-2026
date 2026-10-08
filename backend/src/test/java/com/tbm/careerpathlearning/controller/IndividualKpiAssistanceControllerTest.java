@@ -39,8 +39,8 @@ class IndividualKpiAssistanceControllerTest {
         mvc.perform(get("/api/individual-kpi-assistance").with(authentication(auth))).andExpect(status().isOk());
         mvc.perform(get("/api/individual-kpi-assistance/8").with(authentication(auth))).andExpect(status().isOk());
         mvc.perform(post("/api/individual-kpi-assistance").with(authentication(auth)).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"ownerParticipantId\":7}")).andExpect(status().isCreated());
-        verify(service).requestAssistance(argThat(r->r.getOwnerParticipantId()==7L),eq(actor));
+            .content("{\"ownerParticipantId\":7,\"requestReason\":\"Needs help preparing KPIs\"}")).andExpect(status().isCreated());
+        verify(service).requestAssistance(argThat(r->r.getOwnerParticipantId()==7L && r.getRequestReason().equals("Needs help preparing KPIs")),eq(actor));
         mvc.perform(get("/api/individual-kpi-assistance/8/plan").with(authentication(auth))).andExpect(status().isOk());
         mvc.perform(post("/api/individual-kpi-assistance/8/plan").with(authentication(auth)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"items\":[],\"ownerParticipantId\":999,\"employeeId\":\"arbitrary\"}")).andExpect(status().isCreated());
@@ -62,7 +62,7 @@ class IndividualKpiAssistanceControllerTest {
         verify(service).rejectAssistance(eq(8L),argThat(r->r.getReason().equals("Please clarify the need")),eq(actor));
         mvc.perform(get("/api/individual-kpi-assistance/employees").with(authentication(hr))).andExpect(status().isForbidden());
         mvc.perform(post("/api/individual-kpi-assistance").with(authentication(hr)).contentType(MediaType.APPLICATION_JSON)
-            .content("{\"ownerParticipantId\":7}")).andExpect(status().isForbidden());
+            .content("{\"ownerParticipantId\":7,\"requestReason\":\"Needs help preparing KPIs\"}")).andExpect(status().isForbidden());
         mvc.perform(post("/api/individual-kpi-assistance/8/plan").with(authentication(hr)).contentType(MediaType.APPLICATION_JSON)
             .content("{\"items\":[]}")).andExpect(status().isForbidden());
         mvc.perform(post("/api/individual-kpi-assistance/8/confirm").with(authentication(hr))).andExpect(status().isForbidden());
@@ -87,6 +87,14 @@ class IndividualKpiAssistanceControllerTest {
     @Test void malformedOrMissingParticipantIsRejectedBeforeService() throws Exception {
         var superior=user("CAN_REVIEW_INDIVIDUAL_KPI");
         for(var body:List.of("{}","{\"ownerParticipantId\":0}","{\"ownerParticipantId\":-1}","{\"ownerParticipantId\":\"bad\"}"))
+            mvc.perform(post("/api/individual-kpi-assistance").with(authentication(superior)).contentType(MediaType.APPLICATION_JSON)
+                .content(body)).andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+    @Test void newRequestsRejectMissingBlankOrOverlongReasons() throws Exception {
+        var superior=user("CAN_REVIEW_INDIVIDUAL_KPI");
+        for(var body:List.of("{\"ownerParticipantId\":7}","{\"ownerParticipantId\":7,\"requestReason\":null}",
+            "{\"ownerParticipantId\":7,\"requestReason\":\"   \"}","{\"ownerParticipantId\":7,\"requestReason\":\""+"x".repeat(10001)+"\"}"))
             mvc.perform(post("/api/individual-kpi-assistance").with(authentication(superior)).contentType(MediaType.APPLICATION_JSON)
                 .content(body)).andExpect(status().isBadRequest());
         verifyNoInteractions(service);

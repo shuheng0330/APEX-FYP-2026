@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 37;
+    private static final int LATEST_VERSION = 38;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -131,6 +131,16 @@ public class ApplyAnnualReviewPeriodFoundation {
             if (individualRoutingColumn != (extraApplied >= 4 ? 1 : 0)
                     && !(extraApplied == 3 && individualRoutingColumn == 1 && compatibleIndividualRouting == 1))
                 throw new IllegalStateException("Partial/untracked V34 Individual review routing schema");
+            long requestReasonColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='individual_kpi_assistance_authorization' AND column_name='request_reason'");
+            long compatibleRequestReason=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='individual_kpi_assistance_authorization' AND column_name='request_reason' "
+                    + "AND data_type='text' AND is_nullable='YES' AND column_default IS NULL");
+            if(requestReasonColumns!=(extraApplied>=8?1:0)
+                    && !(extraApplied==7 && requestReasonColumns==1 && compatibleRequestReason==1))
+                throw new IllegalStateException("Partial/untracked V38 assistance request reason schema");
+            if(extraApplied==7 && compatibleRequestReason==1)
+                System.out.println("Verified compatible nullable TEXT request_reason column; V38 will preserve it and add validation.");
             connection.rollback();
         }
 

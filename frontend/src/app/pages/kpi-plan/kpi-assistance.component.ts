@@ -24,12 +24,14 @@ export class KpiAssistanceComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   readonly statuses: KpiAssistanceStatus[] = ['REQUESTED', 'AUTHORIZED', 'REJECTED', 'CONSUMED'];
   filter: KpiAssistanceStatus = 'REQUESTED';
+  requestedDateOrder: 'ascending' | 'descending' = 'descending';
   cases: KpiAssistance[] = []; employees: KpiAssistanceEmployee[] = [];
   selected: KpiAssistance | null = null; workspace: KpiAssistance | null = null;
   loading = false; busy = false; ready = false; accessChanged = false;
   error = ''; success = ''; search = ''; periodId: number | null = null;
   drawerVisible = false; rejectMode = false; reason = ''; reasonError = false;
   requestVisible = false; requestPeriodId: number | null = null; participantId: number | null = null; requestError = '';
+  requestReason = ''; requestReasonError = false;
   constructor(private api: KpiAssistanceService, private auth: AuthService, private translate: TranslateService, private modal: NzModalService) {}
   ngOnInit() { this.load(); }
   get locked() { return this.loading || this.busy || this.drawerVisible || this.requestVisible || !!this.planWorkspace?.busy || !!this.planWorkspace?.drawerVisible; }
@@ -41,7 +43,12 @@ export class KpiAssistanceComponent implements OnInit {
     return this.mine.filter(value => (this.periodId === null || value.reviewPeriodId === this.periodId)
       && (!search || `${value.employeeName} ${value.superiorName} ${value.departmentName ?? ''}`.toLowerCase().includes(search)));
   }
-  get visibleCases() { return this.filtered.filter(value => value.status === this.filter); }
+  get visibleCases() {
+    const direction = this.requestedDateOrder === 'ascending' ? 1 : -1;
+    return this.filtered.filter(value => value.status === this.filter)
+      .sort((a, b) => direction * (Date.parse(a.requestedAt) - Date.parse(b.requestedAt) || a.id - b.id));
+  }
+  toggleRequestedDateOrder() { this.requestedDateOrder = this.requestedDateOrder === 'ascending' ? 'descending' : 'ascending'; }
   count(status: KpiAssistanceStatus) { return this.filtered.filter(value => value.status === status).length; }
   get eligible() {
     return this.employees.filter(employee => !this.mine.some(value => value.ownerParticipantId === employee.ownerParticipantId && value.status !== 'REJECTED'));
@@ -71,7 +78,8 @@ export class KpiAssistanceComponent implements OnInit {
         const target = again ? this.eligible.find(value => value.ownerParticipantId === again.ownerParticipantId) : undefined;
         if (again && !target) { this.error = this.translate.instant('KPI_ASSISTANCE.NOT_ELIGIBLE'); return; }
         this.requestPeriodId = target?.reviewPeriodId ?? this.requestPeriods[0]?.id ?? null;
-        this.participantId = target?.ownerParticipantId ?? null; this.requestError = ''; this.drawerVisible = false; this.requestVisible = true;
+        this.participantId = target?.ownerParticipantId ?? null; this.requestError = ''; this.requestReason = ''; this.requestReasonError = false;
+        this.drawerVisible = false; this.requestVisible = true;
       }, error: error => this.fail(error)
     });
   }
@@ -79,8 +87,10 @@ export class KpiAssistanceComponent implements OnInit {
     if (!this.allowed || this.hr || this.busy || this.loading) return;
     const employee = this.requestEmployees.find(value => value.ownerParticipantId === this.participantId);
     if (!employee) { this.requestError = this.translate.instant('KPI_ASSISTANCE.SELECT_EMPLOYEE'); return; }
+    const reason = this.requestReason.trim();
+    if (!reason || this.requestReason.length > 10000) { this.requestReasonError = true; return; }
     this.busy = true; this.requestError = '';
-    this.api.request(employee.ownerParticipantId).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.api.request(employee.ownerParticipantId, reason).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => { this.replace(value); this.requestVisible = false; this.filter = 'REQUESTED'; this.periodId = value.reviewPeriodId; this.search = ''; this.success = this.translate.instant('KPI_ASSISTANCE.REQUEST_SENT'); },
       error: error => { this.requestError = this.message(error); }
     });

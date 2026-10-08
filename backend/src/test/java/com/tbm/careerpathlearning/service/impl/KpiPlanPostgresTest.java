@@ -47,6 +47,7 @@ class KpiPlanPostgresTest {
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V35__require_changes_after_return.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V36__individual_kpi_assistance.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V37__individual_kpi_assistance_rejection.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V38__individual_kpi_assistance_request_reason.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 // Clone only inherited actors inside the rollback-only test schema; no live Role grants.
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
@@ -195,11 +196,13 @@ class KpiPlanPostgresTest {
                     assistedParticipant.getStaff().setManager(session.find(Staff.class,actor));session.flush();
                     assertEquals(1,service.assistanceEmployees(actor).size());
                     var assistanceRequest=new KpiAssistanceRequest();assistanceRequest.setOwnerParticipantId(assistedParticipant.getId());
+                    assistanceRequest.setRequestReason("Needs assistance preparing KPIs");
                     var rejected=service.requestAssistance(assistanceRequest,actor);session.flush();session.clear();
                     var rejection=new KpiPlanReturnRequest();rejection.setReason("Please clarify assistance");
                     service.rejectAssistance(rejected.getId(),rejection,actor);session.flush();session.clear();
                     assertEquals("Please clarify assistance",service.assistanceCase(rejected.getId(),actor).getRejectionReason());
                     var requested=service.requestAssistance(assistanceRequest,actor);session.flush();session.clear();
+                    assertEquals("Needs assistance preparing KPIs",service.assistanceCase(requested.getId(),actor).getRequestReason());
                     assertNotEquals(rejected.getId(),requested.getId());
                     assertEquals(KpiAssistanceStatus.REQUESTED,service.assistanceCase(requested.getId(),actor).getStatus());
                     var assistedItems=new AssistedIndividualKpiPlanRequest();assistedItems.setItems(List.of(KpiPlanValidatorTest.item("Assisted customers","100")));

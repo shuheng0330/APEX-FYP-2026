@@ -14,9 +14,11 @@ V34 adds Individual plan submission routing to the immediate Superior, review co
 V35 requires a saved content change after every return of a Department/Individual plan or legacy appraisal.
 V36 adds scoped HR authorisation and direct confirmation for Superior-assisted Individual plans.
 V37 adds HR rejection with a required reason and permits fresh eligible requests while retaining rejected history.
+V38 adds a reason for new assistance requests. Earlier requests retain a null reason; no historical text is fabricated.
+It reconciles a verified nullable TEXT column already created by development Hibernate, preserving existing values.
 The application's existing `ddl-auto: update` and `flyway.enabled: false` remain unchanged.
 
-Do not start the application with the new entities before applying V27-V37: Hibernate may otherwise
+Do not start the application with the new entities before applying V27-V38: Hibernate may otherwise
 create untracked tables without the migration's constraints. Do not enable the legacy Flyway location.
 
 ## Local migration
@@ -31,7 +33,7 @@ java --class-path $classpath ApplyAnnualReviewPeriodFoundation.java --apply 'C:\
 
 The runner checks the inherited IDs, migration history and absence of partial Phase 1 structures,
 backs up the local database under the user's `.apex/database-backups` directory, explicitly records the inherited schema as baseline 26
-when history is empty, and discovers **only** this directory's V27-V37. Baseline 26 does not claim that
+when history is empty, and discovers **only** this directory's V27-V38. Baseline 26 does not claim that
 V2-V26 were executed. Preserve applied migration files and the generated backup.
 Already-applied migrations are validated, not replayed. A backup is required before any pending migration.
 V30 refuses existing Super Admin participants or missing/invalid published setup deadline backfills rather than altering historical data.
@@ -178,7 +180,7 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
 |---|---|
 | `GET /employees` | Current enrolled subordinate options; Individual review authority |
 | `GET /` / `GET /{id}` | Scoped Superior cases or HR-wide case summaries |
-| `POST /` | Request consent with `{ "ownerParticipantId": 7 }`; Superior |
+| `POST /` | Request consent with `{ "ownerParticipantId": 7, "requestReason": "Needs help preparing KPIs" }`; Superior |
 | `POST /{id}/authorize` | HR pre-creation authorisation; assistance HR authority |
 | `POST /{id}/reject` | HR rejection with `{ "reason": "..." }`; same HR authority |
 | `GET /{id}/plan` | Read the case's existing plan; requesting Superior |
@@ -199,6 +201,8 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
   cases cannot authorise plan creation. A new request rechecks current subordinate, participant, period,
   existing plan and active-case eligibility without resetting the historical rejection.
 - Frontend reuses Team Reviews (KPI Assistance), KPI Review (Assistance Requests) and My KPI Plan.
+  Assistance requests require a trimmed reason (maximum 10,000 characters), visible to the Superior and HR.
+  Earlier reason-less cases remain reviewable. Requested Date sorts newest/oldest first independently of status filters.
   Request labels are Pending/Approved/Rejected/Completed, separate from the plan's Draft/Approved status.
   Employees may view but cannot edit assisted Drafts. HR-only access does not grant Department review or
   Superior creation actions. Apply to Plan saves the working collection; Confirm finalises without another approval.

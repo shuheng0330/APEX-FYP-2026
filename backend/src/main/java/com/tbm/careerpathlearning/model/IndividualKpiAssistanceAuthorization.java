@@ -18,6 +18,7 @@ public class IndividualKpiAssistanceAuthorization {
     @Enumerated(EnumType.STRING) @Column(nullable=false,length=20)
     private KpiAssistanceStatus status=KpiAssistanceStatus.REQUESTED;
     @Column(nullable=false,updatable=false) private OffsetDateTime requestedAt;
+    @Column(columnDefinition="TEXT",updatable=false) private String requestReason;
     private OffsetDateTime authorizedAt;
     @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="authorized_by") private Staff authorizedBy;
     private OffsetDateTime consumedAt;

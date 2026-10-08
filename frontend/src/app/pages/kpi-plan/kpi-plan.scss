@@ -48,6 +48,10 @@ textarea { min-height: 64px; resize: vertical; }
 .assistance-reason[aria-invalid='true'] { border-color: var(--tbm-danger); }
 .return-note { border: 1px solid #efb5ad; background: #fff7f5; color: var(--tbm-text); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
 .return-note p { margin: 6px 0 0; white-space: pre-wrap; }
+.request-reason { padding: 16px; margin-bottom: 20px; border: 1px solid var(--tbm-border); border-radius: 8px; background: var(--tbm-surface-subtle); }
+.request-reason p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.date-sort-button { border: 0; background: transparent; color: inherit; padding: 0; text-align: left; font: inherit; cursor: pointer; }
+.date-sort-button span { display: block; font-size: 11px; font-weight: 400; color: var(--tbm-primary); }
 .review-status-tabs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .review-status-tab { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-width: 160px; padding: 14px 18px; background: var(--tbm-surface); color: var(--tbm-text); border: 1px solid var(--tbm-border); border-radius: 10px; cursor: pointer; box-shadow: var(--tbm-shadow); }
 .review-status-tab.active { border-color: var(--tbm-primary); color: var(--tbm-primary); background: #edf3fc; }

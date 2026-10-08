@@ -65,7 +65,7 @@ class IndividualKpiAssistanceServiceTest {
         when(staff.findById(id)).thenReturn(Optional.of(value));return value;
     }
     @AfterEach void cleanup() {SecurityContextHolder.clearContext();}
-    KpiAssistanceRequest request() {var request=new KpiAssistanceRequest();request.setOwnerParticipantId(7L);return request;}
+    KpiAssistanceRequest request() {var request=new KpiAssistanceRequest();request.setOwnerParticipantId(7L);request.setRequestReason(" Help preparing measurable KPIs ");return request;}
     AssistedIndividualKpiPlanRequest items(String weight) {
         var request=new AssistedIndividualKpiPlanRequest();request.setItems(List.of(KpiPlanValidatorTest.item("New Customers",weight)));return request;
     }
@@ -78,13 +78,28 @@ class IndividualKpiAssistanceServiceTest {
         var dto=service.requestAssistance(request(),superiorId);
         assertEquals(KpiAssistanceStatus.REQUESTED,dto.getStatus());assertEquals(superiorId,dto.getSuperiorId());
         assertEquals(employeeId,dto.getEmployeeId());assertEquals(1L,dto.getReviewPeriodId());
+        assertEquals("Help preparing measurable KPIs",dto.getRequestReason());
         assertNull(dto.getAuthorizedAt());assertNull(dto.getPlanId());verify(plans,never()).saveAndFlush(any());
         verify(assignments).requirePublishedRoster(period);
+    }
+    @Test void newRequestsRequireANonblankReasonWithinTheLimit() {
+        for(var reason:Arrays.asList(null,"","  ","\t\n","x".repeat(10001))) {
+            var request=request();request.setRequestReason(reason);
+            assertThrows(BadRequestException.class,()->service.requestAssistance(request,superiorId));
+        }
+        verify(assistance,never()).saveAndFlush(any());
+        var request=request();request.setRequestReason("x".repeat(10000));
+        assertEquals(10000,service.requestAssistance(request,superiorId).getRequestReason().length());
+    }
+    @Test void earlierRequestsRemainReadableAndReviewableWithoutAnInventedReason() {
+        assertNull(service.assistanceCase(8L,superiorId).getRequestReason());
+        assertNull(service.authorizeAssistance(8L,hrId).getRequestReason());
+        assertEquals(KpiAssistanceStatus.AUTHORIZED,authorization.getStatus());
     }
     @Test void unrelatedEmployeeSelfAndUnknownParticipantsAreDenied() {
         assertThrows(AccessDeniedException.class,()->service.requestAssistance(request(),outsiderId));
         employee.setManager(employee);assertThrows(AccessDeniedException.class,()->service.requestAssistance(request(),employeeId));
-        var request=new KpiAssistanceRequest();request.setOwnerParticipantId(9L);
+        var request=request();request.setOwnerParticipantId(9L);
         assertThrows(BadRequestException.class,()->service.requestAssistance(request,superiorId));
         assertThrows(BadRequestException.class,()->service.requestAssistance(null,superiorId));
         verify(assistance,never()).saveAndFlush(any());

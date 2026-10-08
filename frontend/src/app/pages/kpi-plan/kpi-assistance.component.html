@@ -21,7 +21,7 @@
   </div></section>
   <section class="card"><div class="table-scroll"><table class="data-table"><thead><tr>
     <th>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</th>@if (hr) { <th>{{ 'KPI_ASSISTANCE.REQUESTING_SUPERIOR' | translate }}</th> }
-    <th>{{ 'KPI_PLAN.PERIOD' | translate }}</th><th>{{ 'KPI_ASSISTANCE.REQUESTED_DATE' | translate }}</th><th>{{ 'KPI_ASSISTANCE.REQUEST_STATUS' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
+    <th>{{ 'KPI_PLAN.PERIOD' | translate }}</th><th [attr.aria-sort]="requestedDateOrder"><button type="button" class="date-sort-button" (click)="toggleRequestedDateOrder()" [attr.aria-label]="'KPI_ASSISTANCE.SORT_DATE' | translate">{{ 'KPI_ASSISTANCE.REQUESTED_DATE' | translate }} <span>{{ (requestedDateOrder === 'descending' ? 'KPI_ASSISTANCE.NEWEST_FIRST' : 'KPI_ASSISTANCE.OLDEST_FIRST') | translate }}</span></button></th><th>{{ 'KPI_ASSISTANCE.REQUEST_STATUS' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
   </tr></thead><tbody>
     @for (value of visibleCases; track value.id) {
       <tr><td><strong>{{ value.employeeName }}</strong><p class="help">{{ value.departmentName }}</p></td>@if (hr) { <td>{{ value.superiorName }}</td> }
@@ -45,6 +45,7 @@
           <div><span class="help">{{ 'KPI_ASSISTANCE.REQUEST_STATUS' | translate }}</span><span class="status" [attr.data-status]="value.status">{{ 'KPI_ASSISTANCE.STATUS.' + value.status | translate }}</span></div>
           <div><span class="help">{{ 'KPI_ASSISTANCE.REQUESTED_DATE' | translate }}</span><strong>{{ value.requestedAt | date:'dd MMM yyyy, HH:mm' }}</strong></div>
         </div>
+        <div class="request-reason"><strong>{{ 'KPI_ASSISTANCE.REQUEST_REASON' | translate }}</strong><p>{{ value.requestReason || ('KPI_ASSISTANCE.NO_REQUEST_REASON' | translate) }}</p></div>
         @if (value.authorizedAt) { <p>{{ 'KPI_ASSISTANCE.APPROVED_BY' | translate }} <strong>{{ value.authorizedByName }}</strong> · {{ value.authorizedAt | date:'dd MMM yyyy, HH:mm' }}</p> }
         @if (value.status === 'REJECTED') { <div class="return-note"><strong>{{ 'KPI_ASSISTANCE.REJECTION_REASON' | translate }}</strong><p>{{ value.rejectionReason }}</p><p class="help">{{ 'KPI_ASSISTANCE.REJECTED_BY' | translate }} {{ value.rejectedByName }} · {{ value.rejectedAt | date:'dd MMM yyyy, HH:mm' }}</p></div> }
         @if (value.consumedAt) { <p class="help">{{ 'KPI_ASSISTANCE.COMPLETED_DATE' | translate }} {{ value.consumedAt | date:'dd MMM yyyy, HH:mm' }}</p> }
@@ -74,6 +75,9 @@
         <label class="field">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}<nz-select class="plan-picker" [(ngModel)]="participantId" nzShowSearch [nzDisabled]="busy" [nzPlaceHolder]="'KPI_ASSISTANCE.SELECT_EMPLOYEE' | translate">
           @for (employee of requestEmployees; track employee.ownerParticipantId) { <nz-option [nzValue]="employee.ownerParticipantId" [nzLabel]="employee.employeeName + (employee.departmentName ? ' · ' + employee.departmentName : '')" /> }
         </nz-select></label></div>
+        <label class="field" for="assistance-request-reason">{{ 'KPI_ASSISTANCE.REQUEST_REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+        <textarea id="assistance-request-reason" class="assistance-reason" rows="4" maxlength="10000" [(ngModel)]="requestReason" (ngModelChange)="requestReasonError = false" [disabled]="busy" [attr.aria-invalid]="requestReasonError" [attr.aria-describedby]="requestReasonError ? 'assistance-request-reason-error' : null" [placeholder]="'KPI_ASSISTANCE.REQUEST_REASON_PLACEHOLDER' | translate"></textarea>
+        @if (requestReasonError) { <p id="assistance-request-reason-error" class="field-error" role="alert">{{ 'KPI_ASSISTANCE.REQUEST_REASON_REQUIRED' | translate }}</p> }
       }
     </ng-container>
   </nz-modal>

@@ -41,8 +41,8 @@ describe('KPI assistance workspace', () => {
   it('refreshes eligible options and does not offer a duplicate active request', () => {
     start(); component.requestPermission(); expect(component.eligible.length).toBe(0); expect(component.requestVisible).toBeTrue();
     component.sendRequest(); expect(api.request).not.toHaveBeenCalled();
-    component.cases = [assistanceCase('REJECTED')]; component.requestPeriodId = 1; component.participantId = 7; component.sendRequest();
-    expect(api.request).toHaveBeenCalledOnceWith(7); expect(component.requestVisible).toBeFalse(); expect(component.cases.length).toBe(2);
+    component.cases = [assistanceCase('REJECTED')]; component.requestPeriodId = 1; component.participantId = 7; component.requestReason = 'Needs help preparing KPIs'; component.sendRequest();
+    expect(api.request).toHaveBeenCalledOnceWith(7, 'Needs help preparing KPIs'); expect(component.requestVisible).toBeFalse(); expect(component.cases.length).toBe(2);
     expect(component.cases.find(value => value.id === 8)?.status).toBe('REJECTED');
   });
   it('offers Request Again only after rejection and preserves the old reason', () => {
@@ -94,5 +94,40 @@ describe('KPI assistance workspace', () => {
   });
   it('does not load APIs or offer actions based on Role names', () => {
     permissions = ['Super Admin', 'HR']; start(true); expect(api.list).not.toHaveBeenCalled(); expect(component.allowed).toBeFalse();
+  });
+  it('requires a request reason and retains input if saving fails', () => {
+    api.list.and.returnValue(of([])); start(); component.requestPermission(); component.participantId = 7;
+    for (const reason of ['', '   ', 'x'.repeat(10001)]) {
+      component.requestReason = reason; component.sendRequest(); expect(component.requestReasonError).toBeTrue();
+    }
+    expect(api.request).not.toHaveBeenCalled();
+    const response = new Subject<KpiAssistance>(); api.request.and.returnValue(response);
+    component.requestReason = ' Needs help preparing KPIs '; component.sendRequest(); component.sendRequest();
+    expect(api.request).toHaveBeenCalledOnceWith(7, 'Needs help preparing KPIs');
+    response.error({ error: { message: 'Please retry' } });
+    expect(component.requestReason).toBe(' Needs help preparing KPIs '); expect(component.requestVisible).toBeTrue(); expect(component.busy).toBeFalse();
+  });
+  it('shows the request reason to HR and keeps earlier requests with no reason viewable', () => {
+    permissions = ['CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE']; start(true); component.open(assistanceCase()); fixture.detectChanges();
+    expect(document.querySelector('.ant-drawer-open .request-reason')?.textContent).toContain('Needs help preparing KPIs');
+    const earlier = { ...assistanceCase(), requestReason: null }; api.get.and.returnValue(of(earlier));
+    component.open(earlier); fixture.detectChanges();
+    expect(document.querySelector('.ant-drawer-open .request-reason')?.textContent).toContain('KPI_ASSISTANCE.NO_REQUEST_REASON');
+    expect(component.canDecide).toBeTrue();
+  });
+  it('sorts requested dates both ways without mutating history or losing filters', () => {
+    api.list.and.returnValue(of([
+      { ...assistanceCase('REQUESTED', 8), requestedAt: '2028-01-02T10:00:00Z' },
+      { ...assistanceCase('REQUESTED', 9), requestedAt: '2028-01-03T10:00:00Z' },
+      { ...assistanceCase('REQUESTED', 10), requestedAt: '2028-01-03T18:00:00+08:00' },
+      assistanceCase('AUTHORIZED', 11)
+    ])); start(); const before = component.cases.map(value => value.id);
+    expect(component.visibleCases.map(value => value.id)).toEqual([10, 9, 8]);
+    fixture.nativeElement.querySelector('.date-sort-button').click(); fixture.detectChanges();
+    expect(component.visibleCases.map(value => value.id)).toEqual([8, 9, 10]);
+    expect(fixture.nativeElement.querySelector('th[aria-sort]').getAttribute('aria-sort')).toBe('ascending');
+    expect(component.cases.map(value => value.id)).toEqual(before);
+    component.search = 'Other employee'; expect(component.visibleCases).toEqual([]);
+    component.search = ''; component.periodId = 2; expect(component.visibleCases).toEqual([]);
   });
 });

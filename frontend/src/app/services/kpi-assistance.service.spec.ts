@@ -16,7 +16,7 @@ describe('KPI assistance API', () => {
     api.get(8).subscribe(); const get = http.expectOne(`${base}/8`); expect(get.request.withCredentials).toBeTrue(); get.flush({});
   });
   it('requests and records HR decisions through their actual endpoints', () => {
-    api.request(7).subscribe(); const request = http.expectOne(base); expect(request.request.method).toBe('POST'); expect(request.request.body).toEqual({ ownerParticipantId: 7 }); request.flush({});
+    api.request(7, 'Needs help preparing KPIs').subscribe(); const request = http.expectOne(base); expect(request.request.method).toBe('POST'); expect(request.request.body).toEqual({ ownerParticipantId: 7, requestReason: 'Needs help preparing KPIs' }); request.flush({});
     api.approve(8).subscribe(); const approve = http.expectOne(`${base}/8/authorize`); expect(approve.request.method).toBe('POST'); approve.flush({});
     api.reject(8, 'Clarify the need').subscribe(); const reject = http.expectOne(`${base}/8/reject`); expect(reject.request.body).toEqual({ reason: 'Clarify the need' }); expect(reject.request.method).toBe('POST'); reject.flush({});
   });

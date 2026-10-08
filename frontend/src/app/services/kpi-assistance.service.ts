@@ -12,7 +12,7 @@ export class KpiAssistanceService {
   employees() { return this.http.get<KpiAssistanceEmployee[]>(`${this.base}/employees`, this.options); }
   list() { return this.http.get<KpiAssistance[]>(this.base, this.options); }
   get(id: number) { return this.http.get<KpiAssistance>(`${this.base}/${id}`, this.options); }
-  request(ownerParticipantId: number) { return this.http.post<KpiAssistance>(this.base, { ownerParticipantId }, this.options); }
+  request(ownerParticipantId: number, requestReason: string) { return this.http.post<KpiAssistance>(this.base, { ownerParticipantId, requestReason }, this.options); }
   approve(id: number) { return this.http.post<KpiAssistance>(`${this.base}/${id}/authorize`, {}, this.options); }
   reject(id: number, reason: string) { return this.http.post<KpiAssistance>(`${this.base}/${id}/reject`, { reason }, this.options); }
   plan(id: number) { return this.http.get<KpiPlan>(`${this.base}/${id}/plan`, this.options); }

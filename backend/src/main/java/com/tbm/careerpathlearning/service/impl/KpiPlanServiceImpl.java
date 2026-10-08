@@ -322,6 +322,9 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     public KpiAssistanceDto requestAssistance(KpiAssistanceRequest request,UUID superior) {
         periods.lockConfiguration();var requester=requireActiveStaff(superior);
         if(request==null || request.getOwnerParticipantId()==null) throw new BadRequestException("Select an enrolled subordinate");
+        var reason=request.getRequestReason();
+        if(reason==null || reason.isBlank() || reason.length()>10000)
+            throw new BadRequestException("Provide a request reason of no more than 10000 characters");
         var participant=participants.findById(request.getOwnerParticipantId())
                 .orElseThrow(()->new BadRequestException("Review period participant not found"));
         requireSubordinate(participant,superior);requireWritable(participant.getReviewPeriod());
@@ -330,6 +333,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
             throw new BadRequestException("An assistance request already exists for this employee and review period; open the existing request");
         var authorization=new IndividualKpiAssistanceAuthorization();authorization.setOwnerParticipant(participant);
         authorization.setSuperior(requester);authorization.setRequestedAt(OffsetDateTime.now(clock));
+        authorization.setRequestReason(reason.strip());
         assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
     }
     @Override @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")

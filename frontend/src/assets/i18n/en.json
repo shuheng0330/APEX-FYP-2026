@@ -10,6 +10,9 @@
         "NOT_ELIGIBLE": "This employee is no longer eligible for a new request. Refresh the list to check the current information.",
         "SEARCH_PLACEHOLDER": "Search employee, Superior or department...", "REQUESTING_SUPERIOR": "Requesting Superior",
         "REQUESTED_DATE": "Requested Date", "REQUEST_STATUS": "Request Status", "REQUEST_DETAILS": "Assistance Request",
+        "SORT_DATE": "Change requested date order", "NEWEST_FIRST": "Newest first", "OLDEST_FIRST": "Oldest first",
+        "REQUEST_REASON": "Reason for Assistance", "REQUEST_REASON_PLACEHOLDER": "e.g. This employee needs help preparing measurable KPIs and scoring definitions.",
+        "REQUEST_REASON_REQUIRED": "Enter a reason for assistance (maximum 10,000 characters).", "NO_REQUEST_REASON": "No reason recorded for this earlier request.",
         "VIEW_REQUEST": "View Request", "REVIEW_REQUEST": "Review Request", "APPROVE_REQUEST": "Approve Request", "REJECT_REQUEST": "Reject Request",
         "APPROVE_HELP": "Allow this Superior to prepare this employee's Individual KPI Plan for the selected review period? No further KPI approval will be required after confirmation.",
         "REJECT_HELP": "Reject this request and send your reason to the Superior? They may make a new request if the employee is still eligible.",
@@ -66,7 +69,7 @@
     },
     "TEAM_REVIEWS": {
         "TITLE": "Team Reviews", "TYPE": "Individual KPI Approval",
-        "HELP": "Review Individual KPI Plans submitted by your team. Approve a complete plan or return it with a reason for revision.",
+        "HELP": "Manage your team's KPI approvals and assisted KPI setup. KPI Self-Assessment and Attitude Evaluation reviews will be available here in a later release.",
         "LOADING": "Loading your team's KPI plans...", "FILTER": "Filter Individual KPI Plans by status",
         "EMPLOYEE": "Employee", "SUBMITTED": "Submitted", "SEARCH": "Find an employee",
         "SEARCH_PLACEHOLDER": "Search employee or department...", "ALL_PERIODS": "All Review Periods",

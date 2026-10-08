@@ -19,6 +19,7 @@ public class KpiAssistanceDto {
     private String superiorName;
     private KpiAssistanceStatus status;
     private OffsetDateTime requestedAt;
+    private String requestReason;
     private OffsetDateTime authorizedAt;
     private UUID authorizedById;
     private String authorizedByName;
