@@ -68,6 +68,10 @@ describe('My KPI Plan', () => {
     component.plan = plan(); component.plans = [plan()]; component.items = [item()]; fixture.detectChanges();
     const allocation = () => fixture.nativeElement.querySelector('.kpi-allocation');
     expect(allocation().textContent).toContain('Executive');
+    expect(allocation().querySelector('.employee-level-pill').textContent).toContain('Executive');
+    expect([...allocation().querySelectorAll('.allocation-bar > span')].map((node: unknown) => (node as HTMLElement).style.width)).toEqual(['15%', '25%', '60%']);
+    expect(allocation().compareDocumentPosition(fixture.nativeElement.querySelector('.weight-total')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fixture.nativeElement.textContent).not.toContain('INDIVIDUAL_KPI.WEIGHT_HELP');
     expect([...allocation().querySelectorAll('dd')].map((node: unknown) => (node as HTMLElement).textContent?.trim())).toEqual(['15%', '25%', '60%']);
     expect(allocation().textContent).toContain('It contributes 60% to your overall KPI performance score.');
     expect(allocation().querySelectorAll('input, button, nz-select').length).toBe(0);
@@ -79,6 +83,7 @@ describe('My KPI Plan', () => {
   it('does not assume an allocation when unavailable and displays a recorded zero', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.kpi-allocation').textContent).toContain('INDIVIDUAL_KPI.ALLOCATION_UNAVAILABLE');
+    expect(fixture.nativeElement.querySelector('.allocation-bar')).toBeNull();
     component.periods = [{ ...period(), kpiAllocation: { employeeLevelId: 4, employeeLevelName: 'Executive',
       companyKpiWeight: 50, departmentKpiWeight: 50, individualKpiWeight: 0 } }]; fixture.detectChanges();
     const values = fixture.nativeElement.querySelectorAll('.allocation-values dd');

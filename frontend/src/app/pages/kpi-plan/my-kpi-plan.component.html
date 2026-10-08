@@ -17,6 +17,30 @@
   @if (busy) { <p role="status">{{ 'INDIVIDUAL_KPI.LOADING' | translate }}</p> }
   @if (ready && !periods.length) { <section class="card"><p class="empty">{{ 'INDIVIDUAL_KPI.NO_PERIODS' | translate }}</p></section> }
   @if (ready && selectedPeriod; as period) {
+    <section class="card kpi-allocation" aria-labelledby="kpi-allocation-title">
+      <div class="card-body">
+        <div class="allocation-heading"><h3 id="kpi-allocation-title">{{ 'INDIVIDUAL_KPI.ALLOCATION_TITLE' | translate }}</h3>
+          @if (period.kpiAllocation?.employeeLevelName) { <span class="employee-level-pill">{{ period.kpiAllocation?.employeeLevelName }}</span> }
+        </div>
+        @if (period.kpiAllocation; as allocation) {
+          @if (allocation.companyKpiWeight !== null && allocation.departmentKpiWeight !== null && allocation.individualKpiWeight !== null) {
+            <div class="allocation-bar" aria-hidden="true">
+              <span class="allocation-company" [style.width.%]="allocation.companyKpiWeight"></span>
+              <span class="allocation-department" [style.width.%]="allocation.departmentKpiWeight"></span>
+              <span class="allocation-individual" [style.width.%]="allocation.individualKpiWeight"></span>
+            </div>
+          }
+          <dl class="allocation-values">
+            <div><dt><span class="allocation-dot allocation-company" aria-hidden="true"></span>{{ 'INDIVIDUAL_KPI.ALLOCATION_COMPANY' | translate }}</dt><dd>{{ allocation.companyKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.companyKpiWeight | number:'1.0-2') + '%' }}</dd></div>
+            <div><dt><span class="allocation-dot allocation-department" aria-hidden="true"></span>{{ 'INDIVIDUAL_KPI.ALLOCATION_DEPARTMENT' | translate }}</dt><dd>{{ allocation.departmentKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.departmentKpiWeight | number:'1.0-2') + '%' }}</dd></div>
+            <div><dt><span class="allocation-dot allocation-individual" aria-hidden="true"></span>{{ 'INDIVIDUAL_KPI.ALLOCATION_INDIVIDUAL' | translate }}</dt><dd>{{ allocation.individualKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.individualKpiWeight | number:'1.0-2') + '%' }}</dd></div>
+          </dl>
+          @if (allocation.individualKpiWeight !== null) {
+            <p class="help allocation-explanation">{{ 'INDIVIDUAL_KPI.ALLOCATION_EXPLANATION' | translate:{ amount: (allocation.individualKpiWeight | number:'1.0-2') } }}</p>
+          }
+        } @else { <p class="help allocation-explanation">{{ 'INDIVIDUAL_KPI.ALLOCATION_UNAVAILABLE' | translate }}</p> }
+      </div>
+    </section>
     <section class="card"><div class="card-body plan-summary">
       <div>
         <p class="help">{{ 'INDIVIDUAL_KPI.TOTAL' | translate }}</p>
@@ -25,7 +49,6 @@
           aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="total > 100 ? 100 : total">
           <span [style.width.%]="total > 100 ? 100 : total" [class.over-limit]="total > 100"></span>
         </div>
-        <p class="help">{{ 'INDIVIDUAL_KPI.WEIGHT_HELP' | translate }}</p>
       </div>
       <div class="plan-context">
         @if (plan?.employeeName) { <strong>{{ plan?.employeeName }}</strong> }
@@ -43,23 +66,6 @@
       <p class="notice">{{ (period.status === 'CLOSED' ? 'INDIVIDUAL_KPI.CLOSED_HELP' : plan?.status === 'PENDING_APPROVAL'
         ? 'INDIVIDUAL_KPI.PENDING_HELP' : plan?.status === 'APPROVED' ? 'INDIVIDUAL_KPI.APPROVED_HELP' : 'INDIVIDUAL_KPI.PERIOD_UNAVAILABLE') | translate }}</p>
     }
-    <section class="card kpi-allocation" aria-labelledby="kpi-allocation-title">
-      <div class="card-body">
-        <div class="allocation-heading"><h3 id="kpi-allocation-title">{{ 'INDIVIDUAL_KPI.ALLOCATION_TITLE' | translate }}</h3>
-          @if (period.kpiAllocation?.employeeLevelName) { <span class="help">{{ period.kpiAllocation?.employeeLevelName }}</span> }
-        </div>
-        @if (period.kpiAllocation; as allocation) {
-          <dl class="allocation-values">
-            <div><dt>{{ 'INDIVIDUAL_KPI.ALLOCATION_COMPANY' | translate }}</dt><dd>{{ allocation.companyKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.companyKpiWeight | number:'1.0-2') + '%' }}</dd></div>
-            <div><dt>{{ 'INDIVIDUAL_KPI.ALLOCATION_DEPARTMENT' | translate }}</dt><dd>{{ allocation.departmentKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.departmentKpiWeight | number:'1.0-2') + '%' }}</dd></div>
-            <div><dt>{{ 'INDIVIDUAL_KPI.ALLOCATION_INDIVIDUAL' | translate }}</dt><dd>{{ allocation.individualKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.individualKpiWeight | number:'1.0-2') + '%' }}</dd></div>
-          </dl>
-          @if (allocation.individualKpiWeight !== null) {
-            <p class="help allocation-explanation">{{ 'INDIVIDUAL_KPI.ALLOCATION_EXPLANATION' | translate:{ amount: (allocation.individualKpiWeight | number:'1.0-2') } }}</p>
-          }
-        } @else { <p class="help allocation-explanation">{{ 'INDIVIDUAL_KPI.ALLOCATION_UNAVAILABLE' | translate }}</p> }
-      </div>
-    </section>
     <section class="card">
       <div class="card-head plan-summary">
         <div><h3>{{ 'INDIVIDUAL_KPI.PLAN' | translate }}</h3><p class="help">{{ period.name }}</p></div>
