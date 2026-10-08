@@ -25,6 +25,8 @@ public class IndividualKpiPlanController {
     }
     @GetMapping("/pending") @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public List<KpiPlanDto> pending(Authentication auth) {return service.pendingIndividualPlans(actor(auth));}
+    @GetMapping("/reviews") @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public List<KpiPlanDto> reviews(Authentication auth) {return service.individualReviewPlans(actor(auth));}
     @GetMapping("/{id}")
     public KpiPlanDto get(@PathVariable Long id,Authentication auth) {return service.individualPlan(id,actor(auth));}
     @PostMapping @PreAuthorize("hasAuthority('ROLE_USER')")

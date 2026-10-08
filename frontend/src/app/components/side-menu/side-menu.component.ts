@@ -39,6 +39,14 @@ export class SideMenuComponent {
 
   navItems: NavItem[] = [
     {
+      key: 'NAV.MY_PERFORMANCE', icon: 'user', requiredRoles: ['ROLE_USER'],
+      children: [{ key: 'INDIVIDUAL_KPI.TITLE', route: '/my-performance/my-kpi-plan', requiredRoles: ['ROLE_USER'] }]
+    },
+    {
+      key: 'NAV.TEAM_PERFORMANCE', icon: 'team', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI'],
+      children: [{ key: 'TEAM_REVIEWS.TITLE', route: '/team-performance/team-reviews', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI'] }]
+    },
+    {
       key: 'NAV.KPI_ADMINISTRATION', icon: 'calendar',
       children: [
         { key: 'NAV.ANNUAL_REVIEW_PERIOD', route: '/kpi-administration/review-periods', requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] }

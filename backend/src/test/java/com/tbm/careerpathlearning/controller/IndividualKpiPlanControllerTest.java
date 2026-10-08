@@ -51,6 +51,7 @@ class IndividualKpiPlanControllerTest {
     @Test void employeeCannotApproveOrReturnEvenWithRoleUser() throws Exception {
         messages();var employee=user("ROLE_USER");
         mvc.perform(get("/api/individual-kpi-plans/pending").with(authentication(employee))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/individual-kpi-plans/reviews").with(authentication(employee))).andExpect(status().isForbidden());
         mvc.perform(post("/api/individual-kpi-plans/10/approve").with(authentication(employee))).andExpect(status().isForbidden());
         mvc.perform(post("/api/individual-kpi-plans/10/return").with(authentication(employee))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Fix target\"}"))
@@ -61,6 +62,8 @@ class IndividualKpiPlanControllerTest {
         var reviewer=user("CAN_REVIEW_INDIVIDUAL_KPI");
         mvc.perform(get("/api/individual-kpi-plans/pending").with(authentication(reviewer))).andExpect(status().isOk());
         verify(service).pendingIndividualPlans(actor);
+        mvc.perform(get("/api/individual-kpi-plans/reviews").with(authentication(reviewer))).andExpect(status().isOk());
+        verify(service).individualReviewPlans(actor);
         mvc.perform(get("/api/individual-kpi-plans/10").with(authentication(reviewer))).andExpect(status().isOk());
         verify(service).individualPlan(10L,actor);
         mvc.perform(post("/api/individual-kpi-plans/10/approve").with(authentication(reviewer))).andExpect(status().isOk());

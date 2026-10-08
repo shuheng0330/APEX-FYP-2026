@@ -16,7 +16,7 @@ import { KpiItem, KpiItemErrors, emptyKpiItem } from '../../models/kpi-plan.mode
 export class KpiItemEditorComponent {
   @Input() items: KpiItem[] = [];
   @Input() readonly = false;
-  @Input() scope: 'COMPANY' | 'DEPARTMENT' = 'COMPANY';
+  @Input() scope: 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL' = 'COMPANY';
   @Input() singleItem = false;
   @Input() errors: KpiItemErrors = {};
   readonly fields: { key: 'perspective' | 'kra' | 'name' | 'target'; label: string; tooltip?: string }[] = [
@@ -29,6 +29,15 @@ export class KpiItemEditorComponent {
   newItem = emptyKpiItem;
   constructor() { inject(NzIconService).addIcon(InfoCircleOutline); }
   get total() { return Math.round(this.items.reduce((n, i) => n + (i.weightage ?? 0), 0) * 100) / 100; }
+  placeholder(field: string) {
+    if (field === 'name' && this.scope !== 'COMPANY') return this.scope === 'INDIVIDUAL'
+      ? 'INDIVIDUAL_KPI.NAME_PLACEHOLDER' : 'DEPARTMENT_KPI.NAME_PLACEHOLDER';
+    return 'KPI_PLAN.PLACEHOLDER.' + field;
+  }
+  get weightHelp() {
+    return this.scope === 'INDIVIDUAL' ? 'INDIVIDUAL_KPI.WEIGHT_FIELD_HELP'
+      : this.scope === 'DEPARTMENT' ? 'DEPARTMENT_KPI.WEIGHT_FIELD_HELP' : 'KPI_PLAN.WEIGHT_FIELD_HELP';
+  }
   clearError(field: string) { delete this.errors[field]; }
   preventNonNumeric(event: KeyboardEvent) {
     if (!event.ctrlKey && !event.metaKey && event.key.length === 1 && !/[0-9.]/.test(event.key)) event.preventDefault();

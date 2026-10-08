@@ -51,3 +51,33 @@ describe('Department KPI navigation', () => {
     expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
   });
 });
+
+describe('Individual KPI navigation', () => {
+  it('uses separate employee and Superior permissions for the new page groups', () => {
+    const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']);
+    auth.hasRole.and.callFake(permission => permission === 'ROLE_USER');
+    const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
+    const personal = menu.navItems.find(item => item.key === 'NAV.MY_PERFORMANCE')!;
+    const team = menu.navItems.find(item => item.key === 'NAV.TEAM_PERFORMANCE')!;
+    expect(menu.hasVisibleChildren(personal)).toBeTrue(); expect(menu.hasVisibleChildren(team)).toBeFalse();
+    auth.hasRole.and.callFake(permission => permission === 'CAN_REVIEW_INDIVIDUAL_KPI');
+    expect(menu.hasVisibleChildren(team)).toBeTrue(); expect(menu.hasVisibleChildren(personal)).toBeFalse();
+    expect(personal.children?.[0].route).toBe('/my-performance/my-kpi-plan');
+    expect(team.children?.[0].route).toBe('/team-performance/team-reviews');
+    const children = routes.find(route => route.path === '')?.children ?? [];
+    expect(children.find(route => route.path === 'my-performance/my-kpi-plan')?.data?.['requiredRoles']).toEqual(['ROLE_USER']);
+    expect(children.find(route => route.path === 'team-performance/team-reviews')?.data?.['requiredRoles']).toEqual(['CAN_REVIEW_INDIVIDUAL_KPI']);
+  });
+  it('places each new page under its requested header group', () => {
+    for (const [url, title, group] of [
+      ['/my-performance/my-kpi-plan', 'INDIVIDUAL_KPI.TITLE', 'NAV.MY_PERFORMANCE'],
+      ['/team-performance/team-reviews', 'TEAM_REVIEWS.TITLE', 'NAV.TEAM_PERFORMANCE']
+    ]) {
+      const router = jasmine.createSpyObj<Router>('router', ['navigate'], { url, events: new Subject() });
+      const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.returnValue(false);
+      const cycles = jasmine.createSpyObj<EvaluationCycleService>('cycles', ['getCurrentCycle']);
+      const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
+      expect(header.page).toEqual({ title, group }); expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
+    }
+  });
+});

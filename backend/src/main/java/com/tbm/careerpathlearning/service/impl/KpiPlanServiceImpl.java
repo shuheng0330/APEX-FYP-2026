@@ -201,14 +201,22 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         return plans.findAllByLevelAndStatusAndSubmittedToSuperiorIdOrderBySubmittedAtAscIdAsc(
                 KpiLevel.INDIVIDUAL,KpiPlanStatus.PENDING_APPROVAL,superior).stream().map(this::details).toList();
     }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
+    public List<KpiPlanDto> individualReviewPlans(UUID superior) {
+        requireActiveStaff(superior);
+        return plans.findIndividualReviewPlans(KpiLevel.INDIVIDUAL,
+                List.of(KpiPlanStatus.PENDING_APPROVAL,KpiPlanStatus.APPROVED,KpiPlanStatus.RETURNED),superior)
+                .stream().map(this::details).toList();
+    }
     @Override @Transactional(readOnly=true)
     @PreAuthorize("hasAnyAuthority('ROLE_USER','CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiPlanDto individualPlan(Long id,UUID actor) {
         requireActiveStaff(actor);
         var plan=requirePlan(id,KpiLevel.INDIVIDUAL,false);
-        if(!plan.getOwnerParticipant().getStaff().getId().equals(actor)
-                && !(canReviewIndividuals() && Objects.equals(plan.getSubmittedToSuperiorId(),actor)))
-            throw new AccessDeniedException("You may view only your own or routed subordinate's Individual KPI plan");
+        if(!plan.getOwnerParticipant().getStaff().getId().equals(actor)) {
+            if(!canReviewIndividuals()) throw new AccessDeniedException("You may view only your own or routed subordinate's Individual KPI plan");
+            requireImmediateSuperior(plan,actor);
+        }
         return details(plan);
     }
     @Override @PreAuthorize("hasAuthority('ROLE_USER')")
@@ -363,6 +371,11 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private void touch(KpiPlan plan,UUID actor) { plan.setUpdatedBy(actor); plan.setUpdatedAt(OffsetDateTime.now(clock)); }
     private KpiPlanDto details(KpiPlan plan) {
         var dto=mapper.toDto(plan); dto.setTotalWeightage(validator.validate(dto.getItems(),false));
+        if(plan.getLevel()==KpiLevel.INDIVIDUAL && plan.getOwnerParticipant()!=null) {
+            var participant=plan.getOwnerParticipant();
+            dto.setDepartmentName(participant.getDepartmentName());
+            dto.setDepartmentId(participant.getDepartment()==null?null:participant.getDepartment().getId());
+        }
         dto.setOverdue(plan.getReviewPeriod().getKpiSetupDeadline()!=null && LocalDate.now(clock).isAfter(plan.getReviewPeriod().getKpiSetupDeadline())
                 && plan.getStatus()!=KpiPlanStatus.PUBLISHED && plan.getStatus()!=KpiPlanStatus.APPROVED);
         return dto;

@@ -119,6 +119,16 @@ class IndividualKpiPlanServiceTest {
         assertThrows(AccessDeniedException.class,()->service.approveIndividual(10L,superiorId));
         assertThrows(AccessDeniedException.class,()->service.returnIndividual(10L,reason("Revise"),superiorId));
         assertEquals(KpiPlanStatus.PENDING_APPROVAL,plan.getStatus());
+        reviewerContext();
+        assertThrows(AccessDeniedException.class,()->service.individualPlan(10L,superiorId));
+    }
+    @Test void reviewHistoryUsesRoutedSuperiorScopeAndSnapshotDepartment() {
+        pending();participant.setDepartmentName("Retail Sales");
+        when(plans.findIndividualReviewPlans(eq(KpiLevel.INDIVIDUAL),anyCollection(),eq(superiorId))).thenReturn(List.of(plan));
+        var queue=service.individualReviewPlans(superiorId);
+        assertEquals(1,queue.size());assertEquals("Retail Sales",queue.get(0).getDepartmentName());
+        verify(plans).findIndividualReviewPlans(KpiLevel.INDIVIDUAL,
+                List.of(KpiPlanStatus.PENDING_APPROVAL,KpiPlanStatus.APPROVED,KpiPlanStatus.RETURNED),superiorId);
     }
     @Test void returnRequiresReasonAndOwnerCanReviseThenResubmit() {
         pending();

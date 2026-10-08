@@ -52,3 +52,12 @@ textarea { min-height: 64px; resize: vertical; }
 .review-drawer-footer textarea { width: 100%; border: 1px solid var(--tbm-border); border-radius: 8px; padding: 10px 12px; resize: vertical; }
 .review-drawer-footer textarea[aria-invalid='true'] { border-color: var(--tbm-danger); }
 @media (max-width: 700px) { .review-detail-summary { grid-template-columns: 1fr; } .review-status-tab { flex: 1 1 150px; } }
+.plan-context { min-width: 220px; }
+.individual-submit { justify-content: flex-end; padding: 0 0 24px; }
+.assigned-plan-heading { margin: 12px 0 16px; }
+.assigned-plan-heading h3, .review-queue-heading h3 { margin: 0 0 6px; font-size: 16px; }
+.assigned-plan .card-head h3 { margin: 0; font-size: 16px; }
+.review-queue-filters { display: flex; gap: 20px; flex-wrap: wrap; align-items: end; }
+.review-queue-filters > .field:first-child { flex: 1; min-width: 220px; }
+.review-queue-filters input { width: 100%; border: 1px solid var(--tbm-border); border-radius: 8px; padding: 8px 12px; }
+.individual-kpi-action.ant-btn-primary:disabled { background: var(--tbm-surface-subtle) !important; border-color: var(--tbm-border) !important; color: var(--tbm-muted); text-shadow: none; box-shadow: none; cursor: not-allowed; }

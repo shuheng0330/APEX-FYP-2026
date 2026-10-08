@@ -26,7 +26,7 @@
                 }
               </div>
               <input nz-input [id]="field.key + '-' + index" required [maxlength]="field.key === 'target' ? 10000 : 255"
-                [placeholder]="(scope === 'DEPARTMENT' && field.key === 'name' ? 'DEPARTMENT_KPI.NAME_PLACEHOLDER' : 'KPI_PLAN.PLACEHOLDER.' + field.key) | translate" [(ngModel)]="item[field.key]" (ngModelChange)="clearError(field.key)"
+                [placeholder]="placeholder(field.key) | translate" [(ngModel)]="item[field.key]" (ngModelChange)="clearError(field.key)"
                 [attr.aria-invalid]="!!errors[field.key]" [attr.aria-describedby]="errors[field.key] ? field.key + '-error-' + index : null">
               @if (errors[field.key]) { <span class="field-error" [id]="field.key + '-error-' + index">{{ errors[field.key] | translate }}</span> }
             </div>
@@ -37,7 +37,7 @@
               [placeholder]="'KPI_PLAN.PLACEHOLDER.weightage' | translate" [(ngModel)]="item.weightage"
               (keydown)="preventNonNumeric($event)" (ngModelChange)="clearError('weightage')"
               [attr.aria-invalid]="!!errors['weightage']" [attr.aria-describedby]="'weightage-help-' + index">
-            <span class="help" [id]="'weightage-help-' + index">{{ (scope === 'DEPARTMENT' ? 'DEPARTMENT_KPI.WEIGHT_FIELD_HELP' : 'KPI_PLAN.WEIGHT_FIELD_HELP') | translate }}</span>
+            <span class="help" [id]="'weightage-help-' + index">{{ weightHelp | translate }}</span>
             @if (errors['weightage']) { <span class="field-error">{{ errors['weightage'] | translate }}</span> }
           </div>
         </div>

@@ -22,6 +22,7 @@ public interface KpiPlanService {
     List<KpiPlanDto> myIndividualPlans(UUID actor);
     List<KpiPlanDto> myAssignedPlans(Long reviewPeriodId,UUID actor);
     List<KpiPlanDto> pendingIndividualPlans(UUID superior);
+    List<KpiPlanDto> individualReviewPlans(UUID superior);
     KpiPlanDto individualPlan(Long id,UUID actor);
     KpiPlanDto createIndividual(KpiPlanRequest request,UUID actor);
     KpiPlanDto updateIndividual(Long id,KpiPlanRequest request,UUID actor);

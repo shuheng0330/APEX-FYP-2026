@@ -18,6 +18,9 @@ public interface KpiPlanRepository extends JpaRepository<KpiPlan,Long> {
     List<KpiPlan> findAllByLevelAndOwnerStaffId(KpiLevel level, UUID staffId);
     List<KpiPlan> findAllByLevelAndStatusAndSubmittedToSuperiorIdOrderBySubmittedAtAscIdAsc(
             KpiLevel level, KpiPlanStatus status, UUID superiorId);
+    @Query("select p from KpiPlan p where p.level=:level and p.status in :statuses "
+            + "and p.submittedToSuperiorId=:superiorId and p.ownerParticipant.staff.manager.id=:superiorId order by p.updatedAt desc, p.id desc")
+    List<KpiPlan> findIndividualReviewPlans(KpiLevel level, Collection<KpiPlanStatus> statuses, UUID superiorId);
     @Query(value="select distinct p.* from kpi_plan p join kpi k on k.plan_id=p.id "
             + "join employee_kpi_assignment a on a.kpi_id=k.id "
             + "where a.participant_id=:participantId and a.review_period_id=:periodId order by p.level", nativeQuery=true)

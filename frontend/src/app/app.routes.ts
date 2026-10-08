@@ -40,6 +40,16 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'my-performance/my-kpi-plan', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
+        loadComponent: () => import('./pages/kpi-plan/my-kpi-plan.component').then(m => m.MyKpiPlanComponent)
+      },
+      {
+        path: 'team-performance/team-reviews', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI'] },
+        loadComponent: () => import('./pages/kpi-plan/team-reviews.component').then(m => m.TeamReviewsComponent)
+      },
+      {
         path: 'kpi-management/company-kpis', canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] },
         loadComponent: () => import('./pages/kpi-plan/company-kpi-plan.component').then(m => m.CompanyKpiPlanComponent)

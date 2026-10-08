@@ -115,6 +115,19 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
   a verified nullable UUID routing column created by development Hibernate, then adds the foreign key and checks.
   Existing Company and Department plan data and permissions are preserved.
 
+## Slice 4 Frontend
+
+- My Performance > My KPI Plan lets an enrolled employee save Individual items using Apply to Plan,
+  submit the complete plan, and view assigned Company/Department plans separately. Each level retains
+  its own internal 100% total; Employee Level allocations are not mixed into that progress indicator.
+- Team Performance > Team Reviews supports Individual KPI approval only. Its status filters include
+  Pending Approval, Approved and Returned; the full read-only plan drawer uses the shared KPI editor.
+- `GET /api/individual-kpi-plans/reviews` provides this review listing. It requires the Individual review
+  permission, the stored submission route and the existing current Staff manager relationship.
+  Individual plan detail access applies the same reviewer scope, and the response shows the participant's
+  snapshotted Department label. No migration or new approval workflow is required for these integration changes.
+- Assessment, attitude and assisted-creation interfaces remain deferred. Slice 4 stops before Slice 5.
+
 ## Deliberate boundaries
 
 - Review Period management and Company plan Draft/publication REST/UI workflows are implemented.

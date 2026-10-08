@@ -151,6 +151,7 @@ class KpiPlanPostgresTest {
                     var individualPending=service.submitIndividual(individualDraft.getId(),owner.getId());
                     assertEquals(hod.getId(),individualPending.getSubmittedToSuperiorId());
                     assertEquals(1,service.pendingIndividualPlans(hod.getId()).size());
+                    assertEquals(1,service.individualReviewPlans(hod.getId()).size());
                     var individualReturn=new KpiPlanReturnRequest();individualReturn.setReason("Clarify the sales target");
                     assertEquals(KpiPlanStatus.RETURNED,service.returnIndividual(individualDraft.getId(),individualReturn,hod.getId()).getStatus());
                     assertEquals("Clarify the sales target",service.individualPlan(individualDraft.getId(),owner.getId()).getReturnReason());
@@ -161,6 +162,9 @@ class KpiPlanPostgresTest {
                         +"WHERE k.plan_id="+individualDraft.getId()+" AND a.participant_id="
                         +participants.findByReviewPeriodIdAndStaffId(savedPeriod.getId(),owner.getId()).orElseThrow().getId()));
                     assertEquals(3,service.myAssignedPlans(savedPeriod.getId(),owner.getId()).size());
+                    assertEquals(KpiPlanStatus.APPROVED,service.individualReviewPlans(hod.getId()).get(0).getStatus());
+                    owner.setManager(null);session.flush();
+                    assertTrue(service.individualReviewPlans(hod.getId()).isEmpty());
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
                         ()->service.updateIndividual(individualDraft.getId(),individualRequest,owner.getId()));
                     session.getTransaction().rollback();
