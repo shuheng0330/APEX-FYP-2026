@@ -162,4 +162,31 @@ class IndividualKpiPlanServiceTest {
         assertEquals(1,service.myAssignedPlans(1L,employeeId).size());
         assertThrows(AccessDeniedException.class,()->service.myAssignedPlans(1L,outsiderId));
     }
+    @Test void employeePeriodsExposeRecordedLevelAllocationNotCurrentRole() {
+        var level=new EmployeeLevel();level.setId(4L);level.setName("Executive");level.setCode("EXECUTIVE");
+        var allocation=new ReviewPeriodEmployeeLevelConfiguration();allocation.setId(40L);allocation.setEmployeeLevel(level);
+        allocation.setReviewPeriod(period);allocation.setCompanyKpiWeight(new java.math.BigDecimal("15.00"));
+        allocation.setDepartmentKpiWeight(new java.math.BigDecimal("25.00"));
+        allocation.setIndividualKpiWeight(new java.math.BigDecimal("60.00"));
+        participant.setEmployeeLevelConfiguration(allocation);
+        var newLevel=new EmployeeLevel();newLevel.setId(6L);newLevel.setName("General");
+        var currentRole=new Role();currentRole.setEmployeeLevel(newLevel);employee.setRole(currentRole);
+        var earlierPeriod=new AnnualKpiReviewPeriod();earlierPeriod.setId(2L);
+        var earlierParticipant=new ReviewPeriodParticipant();earlierParticipant.setReviewPeriod(earlierPeriod);
+        var earlierAllocation=new ReviewPeriodEmployeeLevelConfiguration();earlierAllocation.setEmployeeLevel(level);
+        earlierAllocation.setIndividualKpiWeight(new java.math.BigDecimal("55.50"));
+        earlierParticipant.setEmployeeLevelConfiguration(earlierAllocation);
+        when(participants.findAllByStaffIdOrderByReviewPeriodStartDateDesc(employeeId)).thenReturn(List.of(participant,earlierParticipant));
+        var contexts=service.individualPeriods(employeeId);
+        assertEquals(1L,contexts.get(0).getId());
+        assertEquals("Executive",contexts.get(0).getKpiAllocation().getEmployeeLevelName());
+        assertEquals(new java.math.BigDecimal("15.00"),contexts.get(0).getKpiAllocation().getCompanyKpiWeight());
+        assertEquals(new java.math.BigDecimal("25.00"),contexts.get(0).getKpiAllocation().getDepartmentKpiWeight());
+        assertEquals(new java.math.BigDecimal("60.00"),contexts.get(0).getKpiAllocation().getIndividualKpiWeight());
+        assertEquals(new java.math.BigDecimal("55.50"),contexts.get(1).getKpiAllocation().getIndividualKpiWeight());
+    }
+    @Test void missingHistoricalAllocationDoesNotInventDefaults() {
+        when(participants.findAllByStaffIdOrderByReviewPeriodStartDateDesc(employeeId)).thenReturn(List.of(participant));
+        assertNull(service.individualPeriods(employeeId).get(0).getKpiAllocation());
+    }
 }

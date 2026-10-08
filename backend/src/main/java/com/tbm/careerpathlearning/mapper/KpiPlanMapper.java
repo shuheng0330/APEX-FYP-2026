@@ -22,5 +22,10 @@ public interface KpiPlanMapper {
     @Mapping(target="target",source="target") @Mapping(target="measurementUnit",source="measurementUnit")
     @Mapping(target="weightage",source="weightage") @Mapping(target="scoringDefinitions",source="scoringDefinitions")
     void update(KpiItemDto request,@MappingTarget Kpi item);
+    @Mapping(target="kpiAllocation",ignore=true)
     KpiPeriodContextDto toContext(AnnualKpiReviewPeriod period);
+    @Mapping(target="employeeLevelId",source="employeeLevel.id")
+    @Mapping(target="employeeLevelName",source="employeeLevel.name")
+    @Mapping(target="employeeLevelCode",source="employeeLevel.code")
+    ReviewPeriodEmployeeLevelConfigurationDto toDto(ReviewPeriodEmployeeLevelConfiguration configuration);
 }

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { EventEmitter } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
@@ -54,6 +54,36 @@ describe('My KPI Plan', () => {
     expect(fixture.nativeElement.querySelector('.weight-total').textContent).toContain('100%');
     component.viewAssigned(component.assignedPlans[0].items[0], 'COMPANY');
     expect(component.drawerReadonly).toBeTrue(); component.applyItem(); expect(api.update).not.toHaveBeenCalled();
+  });
+  it('shows the selected period allocation read-only without scaling editable KPI weights', () => {
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { INDIVIDUAL_KPI: {
+      ALLOCATION_EXPLANATION: 'Your Individual KPI Plan must total 100%. It contributes {{amount}}% to your overall KPI performance score.'
+    } });
+    translate.use('en');
+    component.periods = [{ ...period(), kpiAllocation: { employeeLevelId: 4, employeeLevelName: 'Executive',
+      companyKpiWeight: 15, departmentKpiWeight: 25, individualKpiWeight: 60 } },
+      { ...period(2), kpiAllocation: { employeeLevelId: 5, employeeLevelName: 'Admin',
+        companyKpiWeight: 10, departmentKpiWeight: 10, individualKpiWeight: 80 } }];
+    component.plan = plan(); component.plans = [plan()]; component.items = [item()]; fixture.detectChanges();
+    const allocation = () => fixture.nativeElement.querySelector('.kpi-allocation');
+    expect(allocation().textContent).toContain('Executive');
+    expect([...allocation().querySelectorAll('dd')].map((node: unknown) => (node as HTMLElement).textContent?.trim())).toEqual(['15%', '25%', '60%']);
+    expect(allocation().textContent).toContain('It contributes 60% to your overall KPI performance score.');
+    expect(allocation().querySelectorAll('input, button, nz-select').length).toBe(0);
+    component.openItem(0); expect(component.editorItems[0].weightage).toBe(100); component.applyItem();
+    expect(api.update.calls.mostRecent().args[1].items[0].weightage).toBe(100); expect(component.total).toBe(100);
+    component.changePeriod(2); fixture.detectChanges();
+    expect(allocation().textContent).toContain('Admin'); expect(allocation().textContent).toContain('It contributes 80%');
+  });
+  it('does not assume an allocation when unavailable and displays a recorded zero', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.kpi-allocation').textContent).toContain('INDIVIDUAL_KPI.ALLOCATION_UNAVAILABLE');
+    component.periods = [{ ...period(), kpiAllocation: { employeeLevelId: 4, employeeLevelName: 'Executive',
+      companyKpiWeight: 50, departmentKpiWeight: 50, individualKpiWeight: 0 } }]; fixture.detectChanges();
+    const values = fixture.nativeElement.querySelectorAll('.allocation-values dd');
+    expect(values[2].textContent).toBe('0%');
+    expect(fixture.nativeElement.querySelector('.allocation-explanation').textContent).not.toContain('ALLOCATION_UNAVAILABLE');
   });
   it('validates required fields before Apply to Plan saves an item', () => {
     component.openItem(null); component.applyItem();

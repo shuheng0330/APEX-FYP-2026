@@ -61,3 +61,10 @@ textarea { min-height: 64px; resize: vertical; }
 .review-queue-filters > .field:first-child { flex: 1; min-width: 220px; }
 .review-queue-filters input { width: 100%; border: 1px solid var(--tbm-border); border-radius: 8px; padding: 8px 12px; }
 .individual-kpi-action.ant-btn-primary:disabled { background: var(--tbm-surface-subtle) !important; border-color: var(--tbm-border) !important; color: var(--tbm-muted); text-shadow: none; box-shadow: none; cursor: not-allowed; }
+.allocation-heading { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.allocation-heading h3 { margin: 0; font-size: 16px; }
+.allocation-values { display: flex; flex-wrap: wrap; gap: 16px 48px; margin: 14px 0; }
+.allocation-values > div { display: flex; gap: 12px; align-items: baseline; }
+.allocation-values dt { color: var(--tbm-muted); }
+.allocation-values dd { margin: 0; font-size: 18px; font-weight: 600; color: var(--tbm-text); }
+.allocation-explanation { margin: 0; }

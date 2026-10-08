@@ -43,6 +43,23 @@
       <p class="notice">{{ (period.status === 'CLOSED' ? 'INDIVIDUAL_KPI.CLOSED_HELP' : plan?.status === 'PENDING_APPROVAL'
         ? 'INDIVIDUAL_KPI.PENDING_HELP' : plan?.status === 'APPROVED' ? 'INDIVIDUAL_KPI.APPROVED_HELP' : 'INDIVIDUAL_KPI.PERIOD_UNAVAILABLE') | translate }}</p>
     }
+    <section class="card kpi-allocation" aria-labelledby="kpi-allocation-title">
+      <div class="card-body">
+        <div class="allocation-heading"><h3 id="kpi-allocation-title">{{ 'INDIVIDUAL_KPI.ALLOCATION_TITLE' | translate }}</h3>
+          @if (period.kpiAllocation?.employeeLevelName) { <span class="help">{{ period.kpiAllocation?.employeeLevelName }}</span> }
+        </div>
+        @if (period.kpiAllocation; as allocation) {
+          <dl class="allocation-values">
+            <div><dt>{{ 'INDIVIDUAL_KPI.ALLOCATION_COMPANY' | translate }}</dt><dd>{{ allocation.companyKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.companyKpiWeight | number:'1.0-2') + '%' }}</dd></div>
+            <div><dt>{{ 'INDIVIDUAL_KPI.ALLOCATION_DEPARTMENT' | translate }}</dt><dd>{{ allocation.departmentKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.departmentKpiWeight | number:'1.0-2') + '%' }}</dd></div>
+            <div><dt>{{ 'INDIVIDUAL_KPI.ALLOCATION_INDIVIDUAL' | translate }}</dt><dd>{{ allocation.individualKpiWeight === null ? ('REVIEW_PERIOD.NOT_SET' | translate) : (allocation.individualKpiWeight | number:'1.0-2') + '%' }}</dd></div>
+          </dl>
+          @if (allocation.individualKpiWeight !== null) {
+            <p class="help allocation-explanation">{{ 'INDIVIDUAL_KPI.ALLOCATION_EXPLANATION' | translate:{ amount: (allocation.individualKpiWeight | number:'1.0-2') } }}</p>
+          }
+        } @else { <p class="help allocation-explanation">{{ 'INDIVIDUAL_KPI.ALLOCATION_UNAVAILABLE' | translate }}</p> }
+      </div>
+    </section>
     <section class="card">
       <div class="card-head plan-summary">
         <div><h3>{{ 'INDIVIDUAL_KPI.PLAN' | translate }}</h3><p class="help">{{ period.name }}</p></div>

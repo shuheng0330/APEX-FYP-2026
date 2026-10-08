@@ -182,7 +182,11 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     public List<KpiPeriodContextDto> individualPeriods(UUID actor) {
         requireActiveStaff(actor);
         return participants.findAllByStaffIdOrderByReviewPeriodStartDateDesc(actor).stream()
-                .map(participant->mapper.toContext(participant.getReviewPeriod())).toList();
+                .map(participant->{
+                    var context=mapper.toContext(participant.getReviewPeriod());
+                    context.setKpiAllocation(mapper.toDto(participant.getEmployeeLevelConfiguration()));
+                    return context;
+                }).toList();
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
     public List<KpiPlanDto> myIndividualPlans(UUID actor) {

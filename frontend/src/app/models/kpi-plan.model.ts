@@ -15,6 +15,10 @@ export interface KpiPeriodContext {
   id: number; name: string | null; status: 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
   startDate: string | null; endDate: string | null; kpiSetupDeadline: string | null;
   participantsSnapshottedAt?: string | null;
+  kpiAllocation?: {
+    employeeLevelId: number; employeeLevelName: string | null;
+    companyKpiWeight: number | null; departmentKpiWeight: number | null; individualKpiWeight: number | null;
+  } | null;
 }
 export interface KpiPlanRequest {
   reviewPeriodId: number; departmentId?: number; ownerParticipantId?: number; items: KpiItem[];
