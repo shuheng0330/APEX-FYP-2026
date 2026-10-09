@@ -24,6 +24,17 @@ public class KpiAssessmentController {
     @PostMapping public ResponseEntity<KpiAssessmentDto> create(@RequestBody KpiAssessmentRequest request,Authentication auth){return ResponseEntity.status(201).body(service.create(request,actor(auth)));}
     @PutMapping("/{id}") public KpiAssessmentDto update(@PathVariable Long id,@RequestBody KpiAssessmentRequest request,Authentication auth){return service.update(id,request,actor(auth));}
     @PostMapping("/{id}/submit") public KpiAssessmentDto submit(@PathVariable Long id,Authentication auth){return service.submit(id,actor(auth));}
+    @GetMapping("/reviews") @PreAuthorize("hasAuthority('CAN_REVIEW_KPI_ASSESSMENT')")
+    public List<KpiAssessmentReviewDto> reviews(@RequestParam(required=false) Long reviewPeriodId,
+            @RequestParam(required=false) com.tbm.careerpathlearning.enums.KpiAssessmentStatus status,Authentication auth) {
+        return service.reviews(reviewPeriodId,status,actor(auth));
+    }
+    @PutMapping("/{id}/superior-draft") @PreAuthorize("hasAuthority('CAN_REVIEW_KPI_ASSESSMENT')")
+    public KpiAssessmentDto saveSuperiorDraft(@PathVariable Long id,@RequestBody KpiSuperiorAssessmentRequest request,Authentication auth) {
+        return service.saveSuperiorDraft(id,request,actor(auth));
+    }
+    @PostMapping("/{id}/complete-review") @PreAuthorize("hasAuthority('CAN_REVIEW_KPI_ASSESSMENT')")
+    public KpiAssessmentDto completeReview(@PathVariable Long id,Authentication auth) {return service.completeReview(id,actor(auth));}
     @PostMapping(value="/items/{itemId}/evidence",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<KpiAssessmentEvidenceDto> upload(@PathVariable Long itemId,@RequestParam MultipartFile file,Authentication auth){return ResponseEntity.status(201).body(service.upload(itemId,file,actor(auth)));}
     @GetMapping("/items/{itemId}/evidence") @PreAuthorize("hasAnyAuthority('ROLE_USER','CAN_REVIEW_KPI_ASSESSMENT')")

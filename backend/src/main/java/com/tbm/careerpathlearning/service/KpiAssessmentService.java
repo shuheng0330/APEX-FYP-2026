@@ -11,6 +11,9 @@ public interface KpiAssessmentService {
     KpiAssessmentDto create(KpiAssessmentRequest request,UUID actor);
     KpiAssessmentDto update(Long id,KpiAssessmentRequest request,UUID actor);
     KpiAssessmentDto submit(Long id,UUID actor);
+    List<KpiAssessmentReviewDto> reviews(Long reviewPeriodId,com.tbm.careerpathlearning.enums.KpiAssessmentStatus status,UUID actor);
+    KpiAssessmentDto saveSuperiorDraft(Long id,KpiSuperiorAssessmentRequest request,UUID actor);
+    KpiAssessmentDto completeReview(Long id,UUID actor);
     KpiAssessmentEvidenceDto upload(Long itemId,MultipartFile file,UUID actor);
     List<KpiAssessmentEvidenceDto> evidence(Long itemId,UUID actor);
     record Download(Resource resource,KpiAssessmentEvidenceDto metadata) {}

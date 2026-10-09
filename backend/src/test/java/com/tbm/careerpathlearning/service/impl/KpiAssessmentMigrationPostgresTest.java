@@ -48,6 +48,19 @@ class KpiAssessmentMigrationPostgresTest {
                 reject(c,"23514","UPDATE kpi_assessment SET status='PENDING_REVIEW'");
                 reject(c,"23514","UPDATE kpi_assessment SET checkpoint_score=100");
                 reject(c,"23514","INSERT INTO kpi_assessment_evidence(item_id,storage_key,original_filename,content_type,size_bytes,uploaded_by,uploaded_at) VALUES(1,'key','bad.svg','image/svg+xml',5,'00000000-0000-0000-0000-000000000001',now())");
+                sql(c,"UPDATE kpi_assessment SET status='PENDING_REVIEW',submitted_at=now(),"
+                        +"submitted_by='00000000-0000-0000-0000-000000000001',"
+                        +"submitted_to_superior_id='00000000-0000-0000-0000-000000000001',submitted_late=false");
+                sql(c,"UPDATE kpi_assessment_item SET superior_point=4,superior_comment='Evidence checked'");
+                reject(c,"23514","UPDATE kpi_assessment_item SET superior_point=0");
+                reject(c,"23514","UPDATE kpi_assessment_item SET superior_point=6");
+                reject(c,"23514","UPDATE kpi_assessment SET status='REVIEWED'");
+                sql(c,"UPDATE kpi_assessment SET status='REVIEWED',reviewed_at=now(),"
+                        +"reviewed_by='00000000-0000-0000-0000-000000000001',reviewed_late=false,checkpoint_score=80.0000");
+                reject(c,"23514","UPDATE kpi_assessment SET checkpoint_score=100.0001");
+                reject(c,"23514","UPDATE kpi_assessment SET checkpoint_score=NULL");
+                reject(c,"23514","UPDATE kpi_assessment SET reviewed_by=NULL");
+                assertEquals(1,count(c,"kpi_assessment"));assertEquals(1,count(c,"kpi_assessment_item"));
             } finally {c.rollback();}
         }
     }

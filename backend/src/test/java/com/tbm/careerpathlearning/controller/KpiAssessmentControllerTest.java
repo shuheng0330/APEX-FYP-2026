@@ -84,4 +84,33 @@ class KpiAssessmentControllerTest {
                 .andExpect(status().isForbidden());
         verifyNoInteractions(service);
     }
+    @Test void assessmentReviewerCanListSaveProgressAndCompleteWithoutRoleNameChecks() throws Exception {
+        var auth=authentication(user("CAN_REVIEW_KPI_ASSESSMENT"));
+        mvc.perform(get("/api/kpi-assessments/reviews").param("reviewPeriodId","1").param("status","PENDING_REVIEW").with(auth))
+                .andExpect(status().isOk());
+        verify(service).reviews(1L,com.tbm.careerpathlearning.enums.KpiAssessmentStatus.PENDING_REVIEW,actor);
+        mvc.perform(put("/api/kpi-assessments/5/superior-draft").with(auth).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"itemId\":8,\"superiorPoint\":4,\"superiorComment\":\"Evidence checked\"}]}"))
+                .andExpect(status().isOk());
+        verify(service).saveSuperiorDraft(eq(5L),argThat(r->r.getItems().get(0).getItemId()==8L && r.getItems().get(0).getSuperiorPoint()==4),eq(actor));
+        mvc.perform(post("/api/kpi-assessments/5/complete-review").with(auth)).andExpect(status().isOk());
+        verify(service).completeReview(5L,actor);
+    }
+    @Test void employeeAndOtherReviewAuthoritiesCannotInvokeSuperiorActions() throws Exception {
+        messages();for(var permission:List.of("ROLE_USER","CAN_REVIEW_INDIVIDUAL_KPI","CAN_APPROVE_DEPARTMENT_KPI","CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD")) {
+            var auth=authentication(user(permission));
+            mvc.perform(get("/api/kpi-assessments/reviews").with(auth)).andExpect(status().isForbidden());
+            mvc.perform(put("/api/kpi-assessments/5/superior-draft").with(auth).contentType(MediaType.APPLICATION_JSON).content("{\"items\":[]}"))
+                    .andExpect(status().isForbidden());
+            mvc.perform(post("/api/kpi-assessments/5/complete-review").with(auth)).andExpect(status().isForbidden());
+        }
+        verifyNoInteractions(service);
+    }
+    @Test void superiorPointsRejectFractionalTextAndBooleanJson() throws Exception {
+        for(var value:List.of("1.5","\"4\"","true")) mvc.perform(put("/api/kpi-assessments/5/superior-draft")
+                .with(authentication(user("CAN_REVIEW_KPI_ASSESSMENT"))).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"itemId\":8,\"superiorPoint\":"+value+"}]}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
 }

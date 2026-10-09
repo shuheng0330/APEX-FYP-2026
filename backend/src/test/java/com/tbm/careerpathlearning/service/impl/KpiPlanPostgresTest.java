@@ -204,7 +204,7 @@ class KpiPlanPostgresTest {
                         periods,factory.getRepository(StaffRepository.class),Mappers.getMapper(KpiPlanMapper.class),
                         Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssessmentMapper.class),
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.class),
-                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),assessmentClock);
+                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),new com.tbm.careerpathlearning.service.KpiCheckpointScoreCalculator(),assessmentClock);
                     assertNull(assessmentService.mine(checkpoint.getId(),owner.getId()).getId());
                     assertEquals(0L,scalar(c,"SELECT count(*) FROM kpi_assessment"));
                     var assessmentRequest=new KpiAssessmentRequest();assessmentRequest.setCheckpointId(checkpoint.getId());
@@ -230,6 +230,38 @@ class KpiPlanPostgresTest {
                         ()->assessmentService.update(assessmentDraft.getId(),assessmentRequest,owner.getId()));
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
                         ()->assessmentService.submit(assessmentDraft.getId(),owner.getId()));
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                        new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(hod.getId(),null,
+                            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CAN_REVIEW_KPI_ASSESSMENT"))));
+                    try {
+                        var queue=assessmentService.reviews(savedPeriod.getId(),KpiAssessmentStatus.PENDING_REVIEW,hod.getId());
+                        assertEquals(1,queue.size());assertEquals(submittedAssessment.getId(),queue.get(0).getId());
+                        assertTrue(queue.get(0).isCanReview());
+                        var superiorRequest=new KpiSuperiorAssessmentRequest();
+                        superiorRequest.setItems(reloadedAssessment.getItems().stream().map(i->{
+                            var answer=new KpiSuperiorAssessmentRequest.Answer();answer.setItemId(i.getId());
+                            answer.setSuperiorPoint(4);answer.setSuperiorComment("Reviewed evidence");return answer;
+                        }).toList());
+                        assessmentService.saveSuperiorDraft(submittedAssessment.getId(),superiorRequest,hod.getId());session.clear();
+                        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,assessmentService.get(submittedAssessment.getId(),hod.getId()).getStatus());
+                        assertTrue(assessmentService.get(submittedAssessment.getId(),hod.getId()).getItems().stream().allMatch(i->i.getSuperiorPoint()==4));
+                        assertTrue(assessmentService.get(submittedAssessment.getId(),owner.getId()).getItems().stream().allMatch(i->i.getSuperiorPoint()==null));
+                        var reviewSavepoint=c.setSavepoint();
+                        assessmentService.completeReview(submittedAssessment.getId(),hod.getId());session.flush();
+                        c.rollback(reviewSavepoint);c.releaseSavepoint(reviewSavepoint);session.clear();
+                        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,assessmentService.get(submittedAssessment.getId(),hod.getId()).getStatus());
+                        assertNull(assessmentService.get(submittedAssessment.getId(),hod.getId()).getCheckpointScore());
+                        assessmentService.completeReview(submittedAssessment.getId(),hod.getId());session.clear();
+                        var official=assessmentService.get(submittedAssessment.getId(),owner.getId());
+                        assertEquals(KpiAssessmentStatus.REVIEWED,official.getStatus());
+                        assertEquals(new java.math.BigDecimal("80.0000"),official.getCheckpointScore());
+                        assertEquals(hod.getId(),official.getReviewedBy());assertFalse(official.getReviewedLate());
+                        assertTrue(official.getItems().stream().allMatch(i->i.getSuperiorPoint()==4 && i.getSelfPoint()==4));
+                        assertEquals(1,assessmentService.reviews(savedPeriod.getId(),KpiAssessmentStatus.REVIEWED,hod.getId()).size());
+                        assertTrue(assessmentService.reviews(savedPeriod.getId(),KpiAssessmentStatus.PENDING_REVIEW,hod.getId()).isEmpty());
+                        assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,
+                            ()->assessmentService.completeReview(submittedAssessment.getId(),hod.getId()));
+                    } finally {org.springframework.security.core.context.SecurityContextHolder.clearContext();}
                     session.find(Staff.class,owner.getId()).setManager(null);session.flush();
                     assertTrue(service.individualReviewPlans(hod.getId()).isEmpty());
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,

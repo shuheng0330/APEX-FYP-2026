@@ -36,17 +36,18 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     private final KpiAssessmentMapper mapper;
     private final KpiAssessmentEvidenceStorage storage;
     private final EmailService email;
+    private final KpiCheckpointScoreCalculator scores;
     private final Clock clock;
 
     public KpiAssessmentServiceImpl(KpiAssessmentRepository assessments,KpiAssessmentItemRepository items,
             KpiAssessmentEvidenceRepository files,ReviewPeriodParticipantRepository participants,
             ReviewCheckpointRepository checkpoints,EmployeeKpiAssignmentRepository assignments,
             AnnualKpiReviewPeriodRepository periods,StaffRepository staff,KpiPlanMapper kpis,
-            KpiAssessmentMapper mapper,KpiAssessmentEvidenceStorage storage,EmailService email,
+            KpiAssessmentMapper mapper,KpiAssessmentEvidenceStorage storage,EmailService email,KpiCheckpointScoreCalculator scores,
             @Qualifier("annualKpiReviewClock") Clock clock) {
         this.assessments=assessments;this.items=items;this.files=files;this.participants=participants;
         this.checkpoints=checkpoints;this.assignments=assignments;this.periods=periods;this.staff=staff;
-        this.kpis=kpis;this.mapper=mapper;this.storage=storage;this.email=email;this.clock=clock;
+        this.kpis=kpis;this.mapper=mapper;this.storage=storage;this.email=email;this.scores=scores;this.clock=clock;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
     public List<KpiPeriodContextDto> periods(UUID actor) {
@@ -107,6 +108,60 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         String recipient=superior.getEmail(),employee=a.getParticipant().getStaffName();
         String period=a.getParticipant().getReviewPeriod().getName(),checkpoint=a.getCheckpoint().getEndDate().toString();
         afterCommit(()->email.sendKpiSelfAssessmentSubmittedEmail(recipient,employee,period,checkpoint,Locale.ENGLISH));
+        return details(a,actor);
+    }
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_KPI_ASSESSMENT')")
+    public List<KpiAssessmentReviewDto> reviews(Long reviewPeriodId,KpiAssessmentStatus status,UUID actor) {
+        active(actor);requireReviewPermission();
+        if(status==KpiAssessmentStatus.DRAFT) throw new BadRequestException("Only submitted or reviewed assessments appear in Team Reviews");
+        var statuses=status==null?List.of(KpiAssessmentStatus.PENDING_REVIEW,KpiAssessmentStatus.REVIEWED):List.of(status);
+        return assessments.findReviewAssessments(actor,statuses,reviewPeriodId).stream()
+                .filter(a->mayReview(a,actor)).map(a->{
+                    var dto=new KpiAssessmentReviewDto();var p=a.getParticipant();var period=p.getReviewPeriod();
+                    dto.setId(a.getId());dto.setEmployeeId(p.getStaff().getId());dto.setEmployeeName(p.getStaffName());
+                    dto.setRoleName(p.getRoleName());dto.setDepartmentName(p.getDepartmentName());
+                    dto.setReviewPeriodId(period.getId());dto.setReviewPeriodName(period.getName());dto.setReviewPeriodStatus(period.getStatus());
+                    dto.setCheckpoint(checkpointDto(a.getCheckpoint(),a));dto.setStatus(a.getStatus());
+                    dto.setSubmittedAt(a.getSubmittedAt());dto.setSubmittedLate(a.getSubmittedLate());
+                    dto.setReviewedAt(a.getReviewedAt());dto.setReviewedLate(a.getReviewedLate());dto.setCheckpointScore(a.getCheckpointScore());
+                    dto.setCanReview(a.getStatus()==KpiAssessmentStatus.PENDING_REVIEW && period.getStatus()==AnnualKpiReviewPeriodStatus.OPEN);
+                    dto.setSuperiorOverdue(superiorOverdue(a));return dto;
+                }).toList();
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_KPI_ASSESSMENT')")
+    public KpiAssessmentDto saveSuperiorDraft(Long id,KpiSuperiorAssessmentRequest request,UUID actor) {
+        periods.lockConfiguration();var a=assessment(id,true);reviewWritable(a,actor);
+        if(request==null || request.getItems()==null) throw new BadRequestException("Provide the Superior answers, or an empty list for an incomplete Draft");
+        var byId=a.getItems().stream().collect(Collectors.toMap(KpiAssessmentItem::getId,x->x));
+        Set<Long> supplied=new HashSet<>();
+        // Validate the complete request before changing any stored answers.
+        for(var answer:request.getItems()) {
+            if(answer==null || answer.getItemId()==null || !supplied.add(answer.getItemId()))
+                throw new BadRequestException("Each Superior answer must identify a different assessment KPI");
+            if(!byId.containsKey(answer.getItemId())) throw new AccessDeniedException("This KPI does not belong to the submitted assessment");
+            if(answer.getSuperiorPoint()!=null && (answer.getSuperiorPoint()<1 || answer.getSuperiorPoint()>5))
+                throw new BadRequestException("Select a Superior Assessment Point from 1 to 5");
+            if(answer.getSuperiorComment()!=null && answer.getSuperiorComment().length()>10000)
+                throw new BadRequestException("Keep each comment within 10000 characters");
+        }
+        for(var answer:request.getItems()) {
+            var item=byId.get(answer.getItemId());item.setSuperiorPoint(answer.getSuperiorPoint());
+            item.setSuperiorComment(answer.getSuperiorComment()==null?null:answer.getSuperiorComment().strip());
+        }
+        touch(a,actor);assessments.saveAndFlush(a);return details(a,actor);
+    }
+    @Override @PreAuthorize("hasAuthority('CAN_REVIEW_KPI_ASSESSMENT')")
+    public KpiAssessmentDto completeReview(Long id,UUID actor) {
+        periods.lockConfiguration();var a=assessment(id,true);reviewWritable(a,actor);
+        var blockers=reviewBlockers(a);
+        if(!blockers.isEmpty()) throw new BadRequestException(String.join("; ",blockers));
+        var score=scores.calculate(a);
+        a.setCheckpointScore(score);a.setReviewedAt(OffsetDateTime.now(clock));a.setReviewedBy(actor);
+        a.setReviewedLate(today().isAfter(a.getCheckpoint().getSuperiorAssessmentDeadline()));
+        a.setStatus(KpiAssessmentStatus.REVIEWED);touch(a,actor);assessments.saveAndFlush(a);
+        String recipient=a.getParticipant().getStaff().getEmail(),employee=a.getParticipant().getStaffName();
+        String period=a.getParticipant().getReviewPeriod().getName(),checkpoint=a.getCheckpoint().getEndDate().toString();
+        afterCommit(()->email.sendKpiAssessmentReviewedEmail(recipient,employee,period,checkpoint,Locale.ENGLISH));
         return details(a,actor);
     }
     @Override @PreAuthorize("hasAuthority('ROLE_USER')")
@@ -215,6 +270,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         if(a.getId()==null) {dto.setCreatedAt(null);dto.setUpdatedAt(null);}
         dto.setParticipantId(participant.getId());dto.setEmployeeName(participant.getStaffName());dto.setReviewPeriodId(period.getId());
         dto.setRoleName(participant.getRoleName());
+        dto.setDepartmentName(participant.getDepartmentName());
         dto.setReviewPeriodName(period.getName());dto.setReviewPeriodStatus(period.getStatus());
         dto.setCheckpoint(checkpointDto(a.getCheckpoint(),a.getId()==null?null:a));
         dto.setKpiAllocation(kpis.toDto(participant.getEmployeeLevelConfiguration()));
@@ -228,7 +284,9 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             var row=new KpiAssessmentItemDto();row.setId(i.getId());row.setAssignmentId(i.getAssignment().getId());
             row.setLevel(i.getAssignment().getKpi().getPlan().getLevel());row.setKpi(kpis.toDto(i.getAssignment().getKpi()));
             row.setSelfPoint(i.getSelfPoint());row.setSelfComment(i.getSelfComment());
-            if(a.getStatus()==KpiAssessmentStatus.REVIEWED) {row.setSuperiorPoint(i.getSuperiorPoint());row.setSuperiorComment(i.getSuperiorComment());}
+            if(a.getStatus()==KpiAssessmentStatus.REVIEWED || mayReview(a,actor)) {
+                row.setSuperiorPoint(i.getSuperiorPoint());row.setSuperiorComment(i.getSuperiorComment());
+            }
             row.setEvidence(i.getEvidence().stream().map(mapper::toDto).toList());return row;
         }).toList());
         dto.setMissingLevels(missingLevels(a,included));dto.setSubmissionBlockers(blockers(a,included));
@@ -236,6 +294,11 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         dto.setCanSaveDraft(owner && a.getStatus()==KpiAssessmentStatus.DRAFT && dto.getCheckpoint().isAvailable());
         dto.setCanSubmit(owner && dto.getSubmissionBlockers().isEmpty());
         dto.setOverdue(a.getStatus()==KpiAssessmentStatus.DRAFT && today().isAfter(a.getCheckpoint().getSelfAssessmentDeadline()));
+        boolean reviewer=mayReview(a,actor);
+        dto.setCanSaveSuperiorDraft(reviewer && a.getStatus()==KpiAssessmentStatus.PENDING_REVIEW && period.getStatus()==AnnualKpiReviewPeriodStatus.OPEN);
+        dto.setReviewBlockers(reviewer?reviewBlockers(a):List.of());
+        dto.setCanCompleteReview(reviewer && dto.getReviewBlockers().isEmpty());
+        dto.setSuperiorOverdue(superiorOverdue(a));
         return dto;
     }
     private KpiAssessmentCheckpointDto checkpointDto(ReviewCheckpoint c,KpiAssessment a) {
@@ -262,11 +325,40 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     private void readAccess(KpiAssessment a,UUID actor) {
         active(actor);var employee=a.getParticipant().getStaff();
         if(employee.getId().equals(actor)) return;
-        var auth=SecurityContextHolder.getContext().getAuthentication();
-        boolean permitted=auth!=null && auth.getAuthorities().stream().anyMatch(x->x.getAuthority().equals("CAN_REVIEW_KPI_ASSESSMENT"));
-        if(!permitted || a.getStatus()==KpiAssessmentStatus.DRAFT || !actor.equals(a.getSubmittedToSuperiorId())
-                || !validSuperior(employee) || !actor.equals(employee.getManager().getId()))
+        if(!mayReview(a,actor))
             throw new AccessDeniedException("You may view only assessments routed from your assigned employees");
+    }
+    private boolean reviewPermission() {
+        var auth=SecurityContextHolder.getContext().getAuthentication();
+        return auth!=null && auth.getAuthorities().stream().anyMatch(x->x.getAuthority().equals("CAN_REVIEW_KPI_ASSESSMENT"));
+    }
+    private void requireReviewPermission() {
+        if(!reviewPermission()) throw new AccessDeniedException("KPI assessment review permission is required");
+    }
+    private boolean mayReview(KpiAssessment a,UUID actor) {
+        var employee=a.getParticipant().getStaff();
+        return reviewPermission() && a.getStatus()!=KpiAssessmentStatus.DRAFT && !employee.getId().equals(actor)
+                && actor.equals(a.getSubmittedToSuperiorId()) && validSuperior(employee) && actor.equals(employee.getManager().getId());
+    }
+    private void reviewWritable(KpiAssessment a,UUID actor) {
+        active(actor);requireReviewPermission();
+        if(!mayReview(a,actor)) throw new AccessDeniedException("Only the routed immediate Superior may review this assessment");
+        if(a.getStatus()!=KpiAssessmentStatus.PENDING_REVIEW) throw new BadRequestException("Only Pending Review assessments can be reviewed");
+        if(a.getParticipant().getReviewPeriod().getStatus()!=AnnualKpiReviewPeriodStatus.OPEN)
+            throw new BadRequestException("Superior Assessment is available only while the Annual Review Period is Open");
+    }
+    private List<String> reviewBlockers(KpiAssessment a) {
+        List<String> reasons=new ArrayList<>();
+        if(a.getStatus()!=KpiAssessmentStatus.PENDING_REVIEW) {reasons.add("This assessment is not awaiting Superior review");return reasons;}
+        if(a.getParticipant().getReviewPeriod().getStatus()!=AnnualKpiReviewPeriodStatus.OPEN)
+            reasons.add("Superior Assessment is available only while the Annual Review Period is Open");
+        if(a.getItems().isEmpty()) reasons.add("This assessment has no KPI items to review");
+        for(var item:a.getItems()) if(item.getSuperiorPoint()==null)
+            reasons.add("Select a Superior Assessment Point for "+item.getAssignment().getKpi().getName());
+        return reasons;
+    }
+    private boolean superiorOverdue(KpiAssessment a) {
+        return a.getStatus()==KpiAssessmentStatus.PENDING_REVIEW && today().isAfter(a.getCheckpoint().getSuperiorAssessmentDeadline());
     }
     private boolean validSuperior(Staff employee) {
         var superior=employee.getManager();return superior!=null && !superior.getId().equals(employee.getId())

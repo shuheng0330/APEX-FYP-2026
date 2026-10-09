@@ -42,7 +42,7 @@ class KpiAssessmentServiceTest {
 
     void date(String day) {
         service=new KpiAssessmentServiceImpl(assessments,items,files,participants,checkpoints,assignments,periods,staff,
-                Mappers.getMapper(KpiPlanMapper.class),Mappers.getMapper(KpiAssessmentMapper.class),storage,email,
+                Mappers.getMapper(KpiPlanMapper.class),Mappers.getMapper(KpiAssessmentMapper.class),storage,email,new KpiCheckpointScoreCalculator(),
                 Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC));
     }
     @BeforeEach void setup() {
@@ -239,5 +239,144 @@ class KpiAssessmentServiceTest {
         assertThrows(AccessDeniedException.class,()->service.get(20L,owner));
         assertThrows(AccessDeniedException.class,()->service.update(20L,request(),owner));
         assertThrows(AccessDeniedException.class,()->service.submit(20L,owner));
+    }
+
+    void pendingReview() {
+        complete();service.submit(20L,owner);
+        long id=30;for(var item:assessment.getItems()) item.setId(id++);
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");clearInvocations(email);
+    }
+    KpiSuperiorAssessmentRequest superiorRequest(Integer... points) {
+        var request=new KpiSuperiorAssessmentRequest();var answers=new ArrayList<KpiSuperiorAssessmentRequest.Answer>();
+        for(int i=0;i<points.length;i++) {
+            var answer=new KpiSuperiorAssessmentRequest.Answer();answer.setItemId(30L+i);
+            answer.setSuperiorPoint(points[i]);answer.setSuperiorComment("  Supported by evidence  ");answers.add(answer);
+        }
+        request.setItems(answers);return request;
+    }
+    @Test void superiorDraftIsIncompletePendingAndVisibleOnlyToReviewer() {
+        pendingReview();var draft=service.saveSuperiorDraft(20L,superiorRequest(4),superiorId);
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,draft.getStatus());assertEquals(4,draft.getItems().get(0).getSuperiorPoint());
+        assertEquals("Supported by evidence",draft.getItems().get(0).getSuperiorComment());
+        assertTrue(draft.isCanSaveSuperiorDraft());assertFalse(draft.isCanCompleteReview());assertNull(draft.getCheckpointScore());
+        assertNull(draft.getReviewedAt());assertEquals(2,draft.getReviewBlockers().size());
+        var ownerView=service.get(20L,owner);assertNull(ownerView.getItems().get(0).getSuperiorPoint());
+        assertNull(ownerView.getItems().get(0).getSuperiorComment());assertFalse(ownerView.isCanSaveSuperiorDraft());
+        assertDoesNotThrow(()->service.saveSuperiorDraft(20L,new KpiSuperiorAssessmentRequest(),superiorId));
+        assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));verifyNoInteractions(email);
+        assertEquals(1,assessment.getItems().get(0).getSelfPoint());assertEquals("Evidence reviewed",assessment.getItems().get(0).getSelfComment());
+    }
+    @Test void completionUsesOnlySuperiorPointsAndRevealsOfficialResultToEmployee() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        assertTrue(service.get(20L,superiorId).isCanCompleteReview());
+        var reviewed=service.completeReview(20L,superiorId);
+        assertEquals(KpiAssessmentStatus.REVIEWED,reviewed.getStatus());assertEquals(new BigDecimal("87.0000"),reviewed.getCheckpointScore());
+        assertEquals(superiorId,reviewed.getReviewedBy());assertNotNull(reviewed.getReviewedAt());assertFalse(reviewed.getReviewedLate());
+        assertFalse(reviewed.isCanSaveSuperiorDraft());assertFalse(reviewed.isCanCompleteReview());
+        assertEquals(4,service.get(20L,owner).getItems().get(0).getSuperiorPoint());
+        assertEquals(1,assessment.getItems().get(0).getSelfPoint());
+        assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,superiorRequest(1),superiorId));
+        assertThrows(BadRequestException.class,()->service.update(20L,request(),owner));
+    }
+    @Test void superiorDeadlineDayIsOnTimeAndLateReviewIsAllowedAfterAnnualEnd() {
+        pendingReview();period.setEndDate(LocalDate.of(2027,1,31));service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        date("2027-02-10");assertFalse(service.get(20L,superiorId).isSuperiorOverdue());
+        assertFalse(service.completeReview(20L,superiorId).getReviewedLate());
+        assessment.setStatus(KpiAssessmentStatus.PENDING_REVIEW);date("2027-02-11");
+        assertTrue(service.get(20L,superiorId).isSuperiorOverdue());
+        assertTrue(service.completeReview(20L,superiorId).getReviewedLate());assertFalse(service.get(20L,owner).isSuperiorOverdue());
+    }
+    @Test void permissionAndBothReportingRelationshipsAreRequiredForWrites() {
+        pendingReview();reviewer(superiorId,"ROLE_USER");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+        assertThrows(AccessDeniedException.class,()->service.completeReview(20L,superiorId));
+        reviewer(owner,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),owner));
+        reviewer(outsider,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),outsider));
+        employee.setManager(staff.findById(outsider).orElseThrow());
+        assertThrows(AccessDeniedException.class,()->service.completeReview(20L,outsider));
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+        employee.setManager(superior);superior.setAccountStatus(StaffAccountStatus.INACTIVE);
+        assertThrows(AccessDeniedException.class,()->service.completeReview(20L,superiorId));
+    }
+    @Test void employeeDraftAndNonOpenPeriodsCannotReceiveSuperiorAnswers() {
+        pendingReview();assessment.setStatus(KpiAssessmentStatus.DRAFT);
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+        assessment.setStatus(KpiAssessmentStatus.PENDING_REVIEW);
+        for(var status:List.of(AnnualKpiReviewPeriodStatus.CLOSED,AnnualKpiReviewPeriodStatus.UPCOMING)) {
+            period.setStatus(status);var dto=service.get(20L,superiorId);
+            assertFalse(dto.isCanSaveSuperiorDraft());assertFalse(dto.isCanCompleteReview());
+            assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+            assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));
+        }
+    }
+    @Test void invalidSuperiorAnswersCannotChangeAnyItem() {
+        pendingReview();
+        for(var point:List.of(0,6)) assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,superiorRequest(point),superiorId));
+        var duplicate=superiorRequest(4,3);duplicate.getItems().get(1).setItemId(30L);
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,duplicate,superiorId));
+        var foreign=superiorRequest(4,3);foreign.getItems().get(1).setItemId(999L);
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,foreign,superiorId));
+        var longComment=superiorRequest(4);longComment.getItems().get(0).setSuperiorComment("x".repeat(10001));
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,longComment,superiorId));
+        var missingId=superiorRequest(4);missingId.getItems().get(0).setItemId(null);
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,missingId,superiorId));
+        var nullItems=new KpiSuperiorAssessmentRequest();nullItems.setItems(null);
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,nullItems,superiorId));
+        assertTrue(assessment.getItems().stream().allMatch(i->i.getSuperiorPoint()==null));
+        service.saveSuperiorDraft(20L,superiorRequest(4),superiorId);
+        service.saveSuperiorDraft(20L,superiorRequest((Integer)null),superiorId);
+        assertNull(assessment.getItems().get(0).getSuperiorPoint());
+    }
+    @Test void reviewUsesFrozenSubmissionEvenWhenMoreKpisAreLaterAssigned() {
+        pendingReview();assign(KpiLevel.COMPANY,9);
+        service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        assertEquals(3,service.completeReview(20L,superiorId).getItems().size());
+        assertEquals(new BigDecimal("87.0000"),assessment.getCheckpointScore());
+    }
+    @Test void invalidRecordedWeightsPreventCompletionWithoutTransitionOrNotification() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        assigned.get(0).getKpi().setWeightage(new BigDecimal("60"));
+        assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,assessment.getStatus());assertNull(assessment.getReviewedAt());
+        assertNull(assessment.getCheckpointScore());verifyNoInteractions(email);
+    }
+    @Test void superiorQueueIsScopedFilteredAndIncludesRecordedContext() {
+        pendingReview();participant.setDepartmentName("Recorded Sales");participant.setRoleName("Recorded Executive");
+        when(assessments.findReviewAssessments(superiorId,List.of(KpiAssessmentStatus.PENDING_REVIEW),1L)).thenReturn(List.of(assessment));
+        var queue=service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId);
+        assertEquals(1,queue.size());assertEquals("Recorded Sales",queue.get(0).getDepartmentName());assertEquals("Recorded Executive",queue.get(0).getRoleName());
+        assertTrue(queue.get(0).isCanReview());assertEquals(owner,queue.get(0).getEmployeeId());
+        employee.setManager(null);assertTrue(service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId).isEmpty());
+        assertThrows(BadRequestException.class,()->service.reviews(null,KpiAssessmentStatus.DRAFT,superiorId));
+        reviewer(superiorId,"ROLE_USER");assertThrows(AccessDeniedException.class,()->service.reviews(null,null,superiorId));
+    }
+    @Test void reviewedNotificationWaitsForCommitAndFailureDoesNotUndoResult() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        employee.setEmail("employee@example.test");TransactionSynchronizationManager.initSynchronization();
+        service.completeReview(20L,superiorId);verifyNoInteractions(email);
+        doThrow(new IllegalStateException("Mail unavailable")).when(email).sendKpiAssessmentReviewedEmail(any(),any(),any(),any(),any());
+        assertDoesNotThrow(()->TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit));
+        verify(email).sendKpiAssessmentReviewedEmail(eq("employee@example.test"),eq("Amir"),eq("Annual Review"),eq("2027-01-31"),any());
+        assertEquals(KpiAssessmentStatus.REVIEWED,assessment.getStatus());
+    }
+    @Test void failedReviewPersistenceDoesNotSendEmail() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        doThrow(new IllegalStateException("Persistence failed")).when(assessments).saveAndFlush(any());
+        assertThrows(IllegalStateException.class,()->service.completeReview(20L,superiorId));verifyNoInteractions(email);
+    }
+    @Test void routedReviewerCanReadEvidenceButCannotUploadOrDeleteEmployeeFiles() {
+        pendingReview();var item=assessment.getItems().get(0);
+        var evidence=new KpiAssessmentEvidence();evidence.setId(40L);evidence.setItem(item);evidence.setStorageKey(UUID.randomUUID().toString());
+        item.getEvidence().add(evidence);when(items.findById(30L)).thenReturn(Optional.of(item));
+        when(files.findById(40L)).thenReturn(Optional.of(evidence));
+        assertEquals(1,service.evidence(30L,superiorId).size());assertDoesNotThrow(()->service.download(40L,superiorId));
+        assertThrows(AccessDeniedException.class,()->service.upload(30L,mock(org.springframework.web.multipart.MultipartFile.class),superiorId));
+        assertThrows(AccessDeniedException.class,()->service.deleteEvidence(40L,superiorId));
+        employee.setManager(null);assertThrows(AccessDeniedException.class,()->service.download(40L,superiorId));
+        assertDoesNotThrow(()->service.download(40L,owner));verify(files,never()).delete(any());
     }
 }

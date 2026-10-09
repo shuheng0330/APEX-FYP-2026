@@ -15,7 +15,7 @@ public class KpiAssessmentRequest {
         @Override public Integer deserialize(com.fasterxml.jackson.core.JsonParser parser,
                 com.fasterxml.jackson.databind.DeserializationContext context) throws java.io.IOException {
             if(parser.currentToken()!=com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT)
-                return context.reportInputMismatch(Integer.class,"Self-Assessment Point must be an integer from 1 to 5");
+                return context.reportInputMismatch(Integer.class,"Assessment Point must be an integer from 1 to 5");
             return parser.getIntValue();
         }
     }

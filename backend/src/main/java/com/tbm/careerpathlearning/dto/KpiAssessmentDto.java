@@ -10,6 +10,7 @@ public class KpiAssessmentDto {
     private Long participantId;
     private String employeeName;
     private String roleName;
+    private String departmentName;
     private Long reviewPeriodId;
     private String reviewPeriodName;
     private AnnualKpiReviewPeriodStatus reviewPeriodStatus;
@@ -22,6 +23,10 @@ public class KpiAssessmentDto {
     private boolean canSaveDraft;
     private boolean canSubmit;
     private boolean overdue;
+    private boolean canSaveSuperiorDraft;
+    private boolean canCompleteReview;
+    private boolean superiorOverdue;
+    private List<String> reviewBlockers=new ArrayList<>();
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private OffsetDateTime submittedAt;

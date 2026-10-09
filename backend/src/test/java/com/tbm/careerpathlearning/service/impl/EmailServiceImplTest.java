@@ -80,6 +80,22 @@ class EmailServiceImplTest {
     }
 
     @Test
+    void kpiAssessmentReviewNotifiesTheEmployeeWithAssessmentLink() {
+        emailService.sendKpiAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE);
+        verify(messageSource).getMessage(eq("email.kpi.assessment.reviewed.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.kpi.assessment.reviewed.body"),
+                argThat(args->args.length==4 && args[3].equals("http://localhost:3000/my-performance/my-assessments")),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void notificationFailureDoesNotUndoAssessmentReview() {
+        doThrow(new MailSendException("Server down")).when(mailSender).send(any(MimeMessage.class));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendKpiAssessmentReviewedEmail(
+                RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE));
+    }
+
+    @Test
     void notificationFailureDoesNotUndoAssessmentSubmission() {
         doThrow(new MailSendException("Server down")).when(mailSender).send(any(MimeMessage.class));
         org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendKpiSelfAssessmentSubmittedEmail(
