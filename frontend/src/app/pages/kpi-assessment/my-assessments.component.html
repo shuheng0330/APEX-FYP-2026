@@ -70,7 +70,7 @@
             </div>
           }
           @if (current.status === 'REVIEWED') {
-            <p class="notice checkpoint-score">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ current.checkpointScore | number:'1.0-4' }} / 100
+            <p class="notice checkpoint-score">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ current.checkpointScore | number:'1.2-2' }}%
               <span class="help">{{ current.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
               @if (current.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
             </p>

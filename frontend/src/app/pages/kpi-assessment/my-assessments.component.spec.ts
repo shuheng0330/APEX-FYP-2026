@@ -62,13 +62,19 @@ describe('My Assessments - KPI Self-Assessment', () => {
     api.mine.and.returnValue(of(assessment({ id: 20, status: 'REVIEWED', canSaveDraft: false, canSubmit: false,
       checkpointScore: 87.125, reviewedAt: '2028-02-10T10:00:00Z', items: [item] })));
     page.load(); fixture.detectChanges();
-    expect(page.readonly).toBeTrue(); expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('87.125');
+    expect(page.readonly).toBeTrue(); expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('87.13%');
     const result = fixture.nativeElement.querySelector('.superior-result');
     expect(result.textContent).toContain('3'); expect(result.textContent).toContain('Evidence verified');
     expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(0);
     page.saveDraft(); expect(api.update).not.toHaveBeenCalled();
     api.mine.and.returnValue(of(assessment({ status: 'PENDING_REVIEW', canSaveDraft: false, items: [item] })));
     page.load(); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.superior-result')).toBeNull();
+  });
+  it('formats whole-number checkpoint scores with two decimals without changing their value', () => {
+    api.mine.and.returnValue(of(assessment({ id: 20, status: 'REVIEWED', canSaveDraft: false, canSubmit: false, checkpointScore: 73 })));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('73.00%');
+    expect(page.assessment?.checkpointScore).toBe(73);
   });
   it('shows recorded employee context below the tab and above the checkpoint controls', () => {
     page.assessment!.roleName = 'Sales Executive';
