@@ -49,9 +49,9 @@
         <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="reviewProgress(assessment)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(assessment) | translate }}</span></div>
       </div>
       @if (assessment.status === 'REVIEWED') {
-        <p class="notice checkpoint-score">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ assessment.checkpointScore | number:'1.2-2' }}%
-          <span class="help">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
+        <p class="notice checkpoint-score"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ assessment.checkpointScore | number:'1.2-2' }}%</span>
           @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+          <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
         </p>
         <p class="help">{{ 'KPI_ASSESSMENT_REVIEW.READ_ONLY' | translate }}</p>
       } @else if (assessment.reviewPeriodStatus !== 'OPEN') {

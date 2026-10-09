@@ -42,7 +42,8 @@
 .evidence-name, .saved-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
 .saved-comment { margin: 0 0 6px; }
 .superior-result { min-width: 200px; max-width: 300px; }
-.checkpoint-score { font-weight: 600; }
+.checkpoint-score { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-weight: 600; }
+.checkpoint-score .score-reviewed-at { margin: 0 0 0 auto; font-weight: 400; white-space: nowrap; }
 .evidence-name { display: block; max-width: 360px; font-size: 12px; }
 .evidence-guidance { padding: 0 20px 16px; }
 @media (max-width: 900px) {

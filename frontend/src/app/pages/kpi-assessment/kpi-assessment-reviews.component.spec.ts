@@ -156,7 +156,13 @@ describe('Team KPI assessment reviews', () => {
     expect(api.saveSuperiorDraft).toHaveBeenCalledBefore(api.completeReview);
     expect(page.selected?.checkpointScore).toBe(87.125); expect(page.readonly).toBeTrue(); expect(page.count('PENDING_REVIEW')).toBe(0);
     fixture.detectChanges(); expect(drawer().querySelectorAll('.point-option').length).toBe(0);
-    expect(drawer().querySelector('.checkpoint-score')?.textContent).toContain('87.13%'); page.complete(); expect(api.completeReview).toHaveBeenCalledTimes(1);
+    const score = drawer().querySelector('.checkpoint-score')!;
+    expect(score.textContent).toContain('87.13%');
+    expect(score.lastElementChild?.classList.contains('score-reviewed-at')).toBeTrue();
+    expect(score.lastElementChild?.textContent).toContain('11 Feb 2028');
+    expect(getComputedStyle(score).display).toBe('flex');
+    expect(getComputedStyle(score).flexWrap).toBe('wrap');
+    page.complete(); expect(api.completeReview).toHaveBeenCalledTimes(1);
   });
   it('formats whole-number checkpoint scores as percentages with two decimals', () => {
     api.get.and.returnValue(of(assessment({ status: 'REVIEWED', canSaveSuperiorDraft: false, checkpointScore: 73 })));

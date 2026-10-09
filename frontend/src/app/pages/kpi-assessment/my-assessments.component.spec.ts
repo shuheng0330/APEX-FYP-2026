@@ -63,6 +63,11 @@ describe('My Assessments - KPI Self-Assessment', () => {
       checkpointScore: 87.125, reviewedAt: '2028-02-10T10:00:00Z', items: [item] })));
     page.load(); fixture.detectChanges();
     expect(page.readonly).toBeTrue(); expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('87.13%');
+    const score: HTMLElement = fixture.nativeElement.querySelector('.checkpoint-score');
+    expect(score.lastElementChild?.classList.contains('score-reviewed-at')).toBeTrue();
+    expect(score.lastElementChild?.textContent).toContain('10 Feb 2028');
+    expect(getComputedStyle(score).display).toBe('flex');
+    expect(getComputedStyle(score).flexWrap).toBe('wrap');
     const result = fixture.nativeElement.querySelector('.superior-result');
     expect(result.textContent).toContain('3'); expect(result.textContent).toContain('Evidence verified');
     expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(0);
