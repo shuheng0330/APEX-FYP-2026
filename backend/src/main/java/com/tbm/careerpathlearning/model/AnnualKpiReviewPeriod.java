@@ -90,6 +90,10 @@ public class AnnualKpiReviewPeriod {
     @Column(name="participants_snapshotted_at")
     private OffsetDateTime participantsSnapshottedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attitude_configuration_id")
+    private AttitudeConfiguration attitudeConfiguration;
+
     @PrePersist
     void initialiseTimestamps() {
         OffsetDateTime now = OffsetDateTime.now();

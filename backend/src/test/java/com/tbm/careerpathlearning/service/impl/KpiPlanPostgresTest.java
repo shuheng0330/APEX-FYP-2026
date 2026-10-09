@@ -55,6 +55,9 @@ class KpiPlanPostgresTest {
                 sql(c,"INSERT INTO org_chart SELECT * FROM public.org_chart");
                 sql(c,"INSERT INTO role SELECT * FROM public.role");sql(c,"INSERT INTO staff SELECT * FROM public.staff");
                 sql(c,"INSERT INTO employee_level SELECT * FROM public.employee_level");
+                sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS attitude_configuration_id");
+                sql(c,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 for(var table:List.of("org_chart","role"))
                     sql(c,"ALTER TABLE "+schema+"."+table+" ALTER COLUMN id RESTART WITH "+(scalar(c,"SELECT coalesce(max(id),0) FROM "+table)+1));
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);

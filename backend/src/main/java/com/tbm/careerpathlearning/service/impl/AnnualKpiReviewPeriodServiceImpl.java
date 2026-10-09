@@ -36,6 +36,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     private final Clock clock;
     private final ReviewPeriodEnrolmentService enrolment;
     private final KpiPlanRepository kpiPlans;
+    private final AttitudeConfigurationBinding attitudeBinding;
 
     public AnnualKpiReviewPeriodServiceImpl(AnnualKpiReviewPeriodRepository periods,
             ReviewPeriodRoleConfigurationRepository configurations, ReviewCheckpointRepository checkpoints,
@@ -43,7 +44,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             AnnualReviewPeriodConfigurationValidator validator, ReviewCheckpointGenerator generator,
             @Qualifier("annualKpiReviewClock") Clock clock, EmployeeLevelRepository levels,
             ReviewPeriodEmployeeLevelConfigurationRepository levelConfigurations,
-            ReviewPeriodEnrolmentService enrolment, KpiPlanRepository kpiPlans) {
+            ReviewPeriodEnrolmentService enrolment, KpiPlanRepository kpiPlans, AttitudeConfigurationBinding attitudeBinding) {
         this.periods = periods;
         this.configurations = configurations;
         this.checkpoints = checkpoints;
@@ -57,6 +58,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         this.levelConfigurations = levelConfigurations;
         this.enrolment = enrolment;
         this.kpiPlans = kpiPlans;
+        this.attitudeBinding = attitudeBinding;
     }
 
     @Override
@@ -187,7 +189,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
                 excludedPeriodId == null ? previousRoles(period) : old);
         bindLevels(period, selected, weights, period.getStatus() == AnnualKpiReviewPeriodStatus.UPCOMING);
         validate(period, selected, weights, true);
-        markPublished(period);
+        markPublished(period, false);
         AnnualKpiReviewPeriodDto dto = mapper.toDto(period);
         // A preview is not a saved period and must not claim a persisted identifier/reference.
         dto.setId(null);
@@ -326,11 +328,16 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     }
 
     private void markPublished(AnnualKpiReviewPeriod period) {
+        markPublished(period, true);
+    }
+
+    private void markPublished(AnnualKpiReviewPeriod period, boolean bindAttitude) {
         if (period.getStartDate().isAfter(LocalDate.now(clock))) {
             period.setStatus(AnnualKpiReviewPeriodStatus.UPCOMING);
         } else {
             period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);
             period.setOpenedAt(OffsetDateTime.now(clock));
+            if (bindAttitude) attitudeBinding.bindOnOpening(period);
         }
     }
 

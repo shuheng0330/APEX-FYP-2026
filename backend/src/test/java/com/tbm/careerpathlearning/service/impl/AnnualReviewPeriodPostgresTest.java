@@ -67,6 +67,8 @@ class AnnualReviewPeriodPostgresTest {
                         .getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V31__kpi_plan_foundation.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V32__review_participant_snapshot_and_company_publication.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                execute(connection,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
+                execute(connection, new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
 
                 var configuration = new Configuration();
                 configuration.setProperty("hibernate.connection.url", url);
@@ -242,7 +244,8 @@ class AnnualReviewPeriodPostgresTest {
                 new com.tbm.careerpathlearning.service.ReviewPeriodEnrolmentService(factory.getRepository(StaffRepository.class), participants,
                         new ReviewPeriodParticipantFactory(), new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(
                                 factory.getRepository(OrgChartRepository.class),org.mockito.Mockito.mock(ParentChildNodeRepository.class)),clock),
-                factory.getRepository(KpiPlanRepository.class));
+                factory.getRepository(KpiPlanRepository.class),new com.tbm.careerpathlearning.service.AttitudeConfigurationBinding(
+                        factory.getRepository(AttitudeConfigurationRepository.class)));
         var request = AnnualKpiReviewPeriodServiceImplTest.validRequest();
         request.setName("Application workflow 2028");
         request.setStartDate(LocalDate.of(2028, 1, 1));

@@ -1,5 +1,11 @@
 # Annual KPI Foundation And KPI Plans
 
+V40 adds reusable Attitude Evaluation configuration editions, criteria, configurable 1-5 rating definitions,
+and Role-to-format mappings. Annual periods reference immutable published editions at opening; already-Open
+periods are not backfilled. `CAN_MANAGE_ATTITUDE_CONFIGURATION` is granted only to the verified Super Admin
+setup Role. See `backend/docs/attitude-configuration-api.md`. Use the isolated runner through V40, with
+the backend stopped before compilation; do not change applied migrations or global schema settings.
+
 V27 adds only the four annual-review foundation tables and nullable role review-frequency default.
 V28 adds the dedicated annual KPI review period authority and grants it to the active `superadmin` role.
 It retains legacy authority records/grants and extends the inherited authority enum CHECK constraint.

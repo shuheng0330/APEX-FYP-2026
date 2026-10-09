@@ -39,6 +39,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"));
     private final ReviewPeriodEnrolmentService enrolment = mock(ReviewPeriodEnrolmentService.class);
     private final KpiPlanRepository kpiPlans = mock(KpiPlanRepository.class);
+    private final AttitudeConfigurationRepository attitudeConfigurations = mock(AttitudeConfigurationRepository.class);
     private AnnualKpiReviewPeriodServiceImpl service;
     private Role sales;
     private Role manager;
@@ -47,7 +48,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
     void setup() {
         service = new AnnualKpiReviewPeriodServiceImpl(periods, configurations, checkpoints, participants, roles,
                 Mappers.getMapper(AnnualKpiReviewPeriodMapper.class), new AnnualReviewPeriodConfigurationValidator(),
-                new ReviewCheckpointGenerator(), clock, levels, weights, enrolment, kpiPlans);
+                new ReviewCheckpointGenerator(), clock, levels, weights, enrolment, kpiPlans, new AttitudeConfigurationBinding(attitudeConfigurations));
         doAnswer(i -> { ((AnnualKpiReviewPeriod)i.getArgument(0)).setParticipantsSnapshottedAt(OffsetDateTime.now(clock)); return null; }).when(enrolment).enrol(any(), any());
         when(levels.findAllByOrderByDisplayOrderAsc()).thenReturn(EmployeeLevelFixtures.levels());
         when(weights.saveAllAndFlush(any())).thenAnswer(i -> {
@@ -631,6 +632,28 @@ class AnnualKpiReviewPeriodServiceImplTest {
         var draft = service.create(validRequest(), false, actor);
         sales.setPerformanceReviewEligible(false);
         assertThatThrownBy(() -> service.publish(draft.getId(), actor)).hasMessageContaining("do not participate");
+    }
+
+    @Test void immediateAndDraftPublicationBindAttitudeOnlyOnActualOpening() {
+        var attitude=new AttitudeConfiguration();attitude.setId(90L);
+        when(attitudeConfigurations.findFirstByStatusOrderByPublishedAtDescIdDesc(AttitudeConfigurationStatus.PUBLISHED)).thenReturn(Optional.of(attitude));
+        var request=validRequest();request.setStartDate(LocalDate.of(2025,1,1));request.setEndDate(LocalDate.of(2025,12,31));setSetup(request,request.getStartDate());
+        assertThat(service.preview(request,null).getAttitudeConfigurationId()).isNull();verifyNoInteractions(attitudeConfigurations);
+        var draft=service.create(request,false,actor);verifyNoInteractions(attitudeConfigurations);
+        assertThat(service.publish(draft.getId(),actor).getAttitudeConfigurationId()).isEqualTo(90L);
+        request.setName("Other opening");assertThat(service.create(request,true,actor).getAttitudeConfigurationId()).isEqualTo(90L);
+    }
+
+    @Test void scheduledOpeningBindsOnceAndDoesNotReplaceAnExistingBinding() {
+        var first=new AttitudeConfiguration();first.setId(90L);
+        when(attitudeConfigurations.findFirstByStatusOrderByPublishedAtDescIdDesc(AttitudeConfigurationStatus.PUBLISHED)).thenReturn(Optional.of(first));
+        var dto=service.create(validRequest(),true,actor);assertThat(dto.getAttitudeConfigurationId()).isNull();verifyNoInteractions(attitudeConfigurations);
+        var period=stored.get(dto.getId());period.setStartDate(LocalDate.now(clock));
+        when(periods.findAllByStatusAndStartDateLessThanEqual(any(),any())).thenReturn(List.of(period));
+        service.openDuePeriods();assertThat(period.getAttitudeConfiguration()).isSameAs(first);
+        var next=new AttitudeConfiguration();next.setId(91L);
+        when(attitudeConfigurations.findFirstByStatusOrderByPublishedAtDescIdDesc(AttitudeConfigurationStatus.PUBLISHED)).thenReturn(Optional.of(next));
+        service.openDuePeriods();assertThat(period.getAttitudeConfiguration()).isSameAs(first);
     }
 
     static AnnualKpiReviewPeriodRequest validRequest() {
