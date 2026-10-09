@@ -1,0 +1,176 @@
+<div class="review-page attitude-page" [attr.aria-busy]="busy">
+  <header class="page-heading">
+    <div><h2>{{ 'ATTITUDE_SETUP.TITLE' | translate }}</h2><p class="muted">{{ 'ATTITUDE_SETUP.HELP' | translate }}</p></div>
+    <div class="actions">
+      <button nz-button [disabled]="!loaded || busy" (click)="previewVisible = true">{{ 'ATTITUDE_SETUP.PREVIEW' | translate }}</button>
+      @if (readonly) {
+        <button nz-button nzType="primary" [disabled]="busy" (click)="copyPublished()">{{ 'ATTITUDE_SETUP.COPY' | translate }}</button>
+      } @else {
+        <button nz-button [disabled]="!loaded || busy" (click)="saveDraft()">{{ 'ATTITUDE_SETUP.SAVE' | translate }}</button>
+        <button nz-button nzType="primary" [disabled]="!loaded || busy" (click)="confirmPublish()">{{ 'ATTITUDE_SETUP.PUBLISH' | translate }}</button>
+      }
+    </div>
+  </header>
+  @if (error) { <div class="error-box" role="alert">{{ error }} @if (!loaded) { <button nz-button (click)="ngOnInit()" [disabled]="busy">{{ 'ATTITUDE_SETUP.RETRY' | translate }}</button> }</div> }
+  @if (success) { <p class="notice" role="status">{{ success }}</p> }
+  @if (loaded) {
+    @if (showValidation && issues.length && !readonly) {
+      <div class="error-box" role="alert"><strong>{{ 'ATTITUDE_SETUP.BEFORE_PUBLISH' | translate }}</strong>
+        <ul>@for (issue of issues; track issue.key) { <li><button class="text-action" (click)="focusSection(issue.section)">{{ 'ATTITUDE_SETUP.' + issue.key | translate }}</button></li> }</ul>
+      </div>
+    }
+    <section class="card" id="attitude-details" tabindex="-1">
+      <div class="card-body">
+        <div class="configuration-details">
+          @if (editions.length) {
+            <div class="field"><label for="configuration-history">{{ 'ATTITUDE_SETUP.HISTORY' | translate }}</label>
+              <nz-select nzId="configuration-history" [(ngModel)]="selectionId" (ngModelChange)="selectEdition($event)" [nzDisabled]="busy" nzShowSearch>
+                @for (edition of editions; track edition.id) {
+                  <nz-option [nzValue]="edition.id" [nzLabel]="(edition.name || ('ATTITUDE_SETUP.UNTITLED' | translate)) + ' · ' + ('ATTITUDE_SETUP.STATUS.' + edition.status | translate) + ' · ' + (edition.createdAt | date:'dd MMM yyyy, HH:mm')"></nz-option>
+                }
+              </nz-select>
+            </div>
+          }
+          <div class="field"><label for="configuration-name">{{ 'ATTITUDE_SETUP.NAME' | translate }}</label>
+            <input nz-input id="configuration-name" [(ngModel)]="form.name" [disabled]="readonly || busy" maxlength="255"
+              [placeholder]="'ATTITUDE_SETUP.NAME_PLACEHOLDER' | translate" [attr.aria-invalid]="showValidation && !form.name?.trim()">
+            @if (showValidation && !form.name?.trim()) { <span class="field-error">{{ 'ATTITUDE_SETUP.NAME_REQUIRED' | translate }}</span> }
+          </div>
+        </div>
+        <div class="edition-meta">
+          <span class="status" [attr.data-status]="selected?.status || 'DRAFT'">{{ 'ATTITUDE_SETUP.STATUS.' + (selected?.status || 'DRAFT') | translate }}</span>
+          @if (selected) { <span class="help">{{ 'ATTITUDE_SETUP.UPDATED' | translate }}: {{ selected.updatedAt | date:'dd MMM yyyy, HH:mm' }}</span> }
+          @if (selected?.publishedAt) { <span class="help">{{ 'ATTITUDE_SETUP.PUBLISHED_ON' | translate }}: {{ selected!.publishedAt | date:'dd MMM yyyy, HH:mm' }}</span> }
+          @if (dirty) { <span class="help warning">{{ 'ATTITUDE_SETUP.UNSAVED' | translate }}</span> }
+        </div>
+        <p class="help preservation-note">{{ (readonly ? 'ATTITUDE_SETUP.IMMUTABLE_HELP' : 'ATTITUDE_SETUP.HISTORY_HELP') | translate }}</p>
+      </div>
+    </section>
+
+    <section class="card" id="attitude-ratings" tabindex="-1">
+      <div class="card-head"><h3>{{ 'ATTITUDE_SETUP.RATINGS' | translate }}</h3><p class="help">{{ 'ATTITUDE_SETUP.RATINGS_HELP' | translate }}</p></div>
+      <div class="table-scroll"><table class="data-table rating-table">
+        <thead><tr><th>{{ 'ATTITUDE_SETUP.POINT' | translate }}</th><th>{{ 'ATTITUDE_SETUP.LABEL' | translate }}</th><th>{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</th><th>{{ 'ATTITUDE_SETUP.ACTION' | translate }}</th></tr></thead>
+        <tbody>@for (rating of form.ratingDefinitions; track rating.point) {
+          <tr><td><span class="point-badge">{{ rating.point }}</span></td><td class="rating-label">{{ rating.label || '-' }}</td><td class="description-cell">{{ rating.description || '-' }}
+            @if (showValidation && (!rating.label?.trim() || !rating.description?.trim())) { <span class="field-error">{{ 'ATTITUDE_SETUP.RATING_REQUIRED' | translate }}</span> }
+          </td><td><button nz-button nzSize="small" [disabled]="busy" (click)="openRating(rating)">{{ (readonly ? 'ATTITUDE_SETUP.VIEW' : 'ATTITUDE_SETUP.EDIT') | translate }}</button></td></tr>
+        }</tbody>
+      </table></div>
+    </section>
+
+    <section class="card" id="attitude-criteria" tabindex="-1">
+      <div class="card-head"><h3>{{ 'ATTITUDE_SETUP.FORMATS' | translate }}</h3><p class="help">{{ 'ATTITUDE_SETUP.FORMATS_HELP' | translate }}</p></div>
+      <div class="format-tabs" role="tablist" [attr.aria-label]="'ATTITUDE_SETUP.FORMATS' | translate">
+        @for (format of options.formats; track format) {
+          <button role="tab" [attr.aria-selected]="selectedFormat === format" [class.active]="selectedFormat === format" (click)="selectedFormat = format">
+            {{ 'ATTITUDE_SETUP.FORMAT.' + format | translate }} <span class="count">{{ applicableCriteria(format).length }}</span>
+          </button>
+        }
+      </div>
+      <div class="criteria-section">
+        <div class="section-heading"><div><h4>{{ 'ATTITUDE_SETUP.CORE_VALUES' | translate }}</h4><p class="help">{{ 'ATTITUDE_SETUP.CORE_HELP' | translate }}</p></div>
+          @if (!readonly) { <button nz-button nzSize="small" [disabled]="busy" (click)="openCriterion(null, null)">{{ 'ATTITUDE_SETUP.ADD_CORE' | translate }}</button> }
+        </div>
+        <ng-container [ngTemplateOutlet]="criteriaTable" [ngTemplateOutletContext]="{ $implicit: criteriaFor(null) }" />
+      </div>
+      <div class="criteria-section">
+        <div class="section-heading"><div><h4>{{ 'ATTITUDE_SETUP.ADDITIONAL' | translate:{ format: ('ATTITUDE_SETUP.FORMAT.' + selectedFormat | translate) } }}</h4>
+          <p class="help">{{ 'ATTITUDE_SETUP.ADDITIONAL_HELP' | translate:{ format: ('ATTITUDE_SETUP.FORMAT.' + selectedFormat | translate) } }}</p></div>
+          @if (!readonly) { <button nz-button nzSize="small" [disabled]="busy" (click)="openCriterion(null, selectedFormat)">{{ 'ATTITUDE_SETUP.ADD_CRITERION' | translate }}</button> }
+        </div>
+        <ng-container [ngTemplateOutlet]="criteriaTable" [ngTemplateOutletContext]="{ $implicit: criteriaFor(selectedFormat) }" />
+      </div>
+    </section>
+
+    <section class="card" id="attitude-roles" tabindex="-1">
+      <div class="card-head"><h3>{{ 'ATTITUDE_SETUP.ROLE_MAPPING' | translate }}</h3><p class="help">{{ 'ATTITUDE_SETUP.ROLE_HELP' | translate }}</p></div>
+      <div class="filter-bar"><input nz-input [(ngModel)]="roleSearch" [placeholder]="'ATTITUDE_SETUP.SEARCH_ROLES' | translate" [attr.aria-label]="'ATTITUDE_SETUP.SEARCH_ROLES' | translate"></div>
+      @if (!readonly && unmappedCount) { <p class="help mapping-note">{{ 'ATTITUDE_SETUP.UNMAPPED_HELP' | translate:{ count: unmappedCount } }}</p> }
+      <div class="table-scroll"><table class="data-table role-table"><thead><tr><th>{{ 'ATTITUDE_SETUP.JOB_ROLE' | translate }}</th><th>{{ 'ATTITUDE_SETUP.ASSIGNED_FORMAT' | translate }}</th></tr></thead>
+        <tbody>@for (role of roleOptions; track role.roleId) {
+          <tr><td>{{ role.roleName }} @if (!isEligible(role.roleId)) { <span class="field-error">{{ 'ATTITUDE_SETUP.ROLE_UNAVAILABLE' | translate }}</span> }</td><td>
+            @if (readonly) { {{ formatForRole(role.roleId) ? ('ATTITUDE_SETUP.FORMAT.' + formatForRole(role.roleId) | translate) : '-' }} }
+            @else {
+              <nz-select [ngModel]="formatForRole(role.roleId)" (ngModelChange)="setRoleFormat(role, $event)" [nzDisabled]="busy" nzAllowClear
+                [nzPlaceHolder]="'ATTITUDE_SETUP.CHOOSE_FORMAT' | translate" [attr.aria-label]="('ATTITUDE_SETUP.ASSIGNED_FORMAT' | translate) + ': ' + role.roleName">
+                @for (format of options.formats; track format) { <nz-option [nzValue]="format" [nzLabel]="'ATTITUDE_SETUP.FORMAT.' + format | translate"></nz-option> }
+              </nz-select>
+            }
+          </td></tr>
+        } @empty { <tr><td colspan="2" class="empty">{{ 'ATTITUDE_SETUP.NO_ROLES' | translate }}</td></tr> }</tbody>
+      </table></div>
+    </section>
+  } @else if (busy) { <p class="empty" role="status">{{ 'ATTITUDE_SETUP.LOADING' | translate }}</p> }
+</div>
+
+<ng-template #criteriaTable let-criteria>
+  <div class="table-scroll"><table class="data-table criteria-table"><thead><tr><th>#</th><th>{{ 'ATTITUDE_SETUP.CRITERION' | translate }}</th><th>{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</th><th>{{ 'ATTITUDE_SETUP.STATUS_LABEL' | translate }}</th><th>{{ 'ATTITUDE_SETUP.ACTION' | translate }}</th></tr></thead>
+    <tbody>@for (criterion of criteria; track criterion; let index = $index) {
+      <tr><td>{{ index + 1 }}</td><td class="criterion-name">{{ criterion.name || '-' }}</td><td class="description-cell">{{ criterion.description || '-' }}
+        @if (invalidCriterion(criterion)) { <span class="field-error">{{ 'ATTITUDE_SETUP.CRITERION_REQUIRED' | translate }}</span> }
+      </td><td><span class="status" [attr.data-status]="criterion.active ? 'ACTIVE' : 'INACTIVE'">{{ (criterion.active ? 'ATTITUDE_SETUP.ACTIVE' : 'ATTITUDE_SETUP.INACTIVE') | translate }}</span></td><td>
+        <div class="actions criterion-actions">
+          <button nz-button nzSize="small" [disabled]="busy" (click)="openCriterion(criterion, criterion.evaluationFormat, true)">{{ 'ATTITUDE_SETUP.VIEW' | translate }}</button>
+          @if (!readonly) {
+            <button nz-button nzSize="small" [disabled]="busy" (click)="openCriterion(criterion, criterion.evaluationFormat)">{{ 'ATTITUDE_SETUP.EDIT' | translate }}</button>
+            <button nz-button nzSize="small" [disabled]="busy || index === 0" (click)="moveCriterion(criterion, -1)" [attr.aria-label]="'ATTITUDE_SETUP.MOVE_UP' | translate">↑</button>
+            <button nz-button nzSize="small" [disabled]="busy || index === criteria.length - 1" (click)="moveCriterion(criterion, 1)" [attr.aria-label]="'ATTITUDE_SETUP.MOVE_DOWN' | translate">↓</button>
+            <button nz-button nzSize="small" [disabled]="busy" (click)="toggleActive(criterion)">{{ (criterion.active ? 'ATTITUDE_SETUP.DEACTIVATE' : 'ATTITUDE_SETUP.ACTIVATE') | translate }}</button>
+          }
+        </div>
+      </td></tr>
+    } @empty { <tr><td colspan="5" class="empty">{{ 'ATTITUDE_SETUP.NO_CRITERIA' | translate }}</td></tr> }</tbody>
+  </table></div>
+</ng-template>
+
+<nz-drawer [nzVisible]="!!editorMode" [nzTitle]="(editorMode === 'rating' ? 'ATTITUDE_SETUP.RATING_EDITOR' : 'ATTITUDE_SETUP.CRITERION_EDITOR') | translate"
+  nzWidth="min(560px, 100vw)" [nzMaskClosable]="false" [nzFooter]="editorFooter" (nzOnClose)="editorMode = null">
+  <ng-container *nzDrawerContent>
+    @if (editorError) { <p class="error-box" role="alert">{{ 'ATTITUDE_SETUP.' + editorError | translate }}</p> }
+    @if (rating) {
+      <p class="rating-point"><span class="point-badge">{{ rating.point }}</span> {{ 'ATTITUDE_SETUP.POINT' | translate }} {{ rating.point }}</p>
+      <div class="editor-fields"><div class="field"><label for="rating-label">{{ 'ATTITUDE_SETUP.LABEL' | translate }}</label>
+        <input nz-input id="rating-label" [(ngModel)]="rating.label" [disabled]="editorReadonly" maxlength="255" [placeholder]="'ATTITUDE_SETUP.LABEL_PLACEHOLDER' | translate"></div>
+        <div class="field"><label for="rating-description">{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</label>
+          <textarea nz-input id="rating-description" [(ngModel)]="rating.description" [disabled]="editorReadonly" maxlength="10000" rows="5" [placeholder]="'ATTITUDE_SETUP.RATING_PLACEHOLDER' | translate"></textarea></div>
+      </div>
+    }
+    @if (criterion) {
+      <p class="help editor-scope">{{ (criterion.criterionType === 'SHARED_CORE_VALUE' ? 'ATTITUDE_SETUP.CORE_VALUES' : 'ATTITUDE_SETUP.FORMAT.' + criterion.evaluationFormat) | translate }}</p>
+      <div class="editor-fields"><div class="field"><label for="criterion-name">{{ 'ATTITUDE_SETUP.CRITERION' | translate }}</label>
+        <input nz-input id="criterion-name" [(ngModel)]="criterion.name" [disabled]="editorReadonly" maxlength="255" [placeholder]="'ATTITUDE_SETUP.CRITERION_PLACEHOLDER' | translate"></div>
+        <div class="field"><label for="criterion-description">{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</label>
+          <textarea nz-input id="criterion-description" [(ngModel)]="criterion.description" [disabled]="editorReadonly" maxlength="10000" rows="6" [placeholder]="'ATTITUDE_SETUP.CRITERION_DESCRIPTION_PLACEHOLDER' | translate"></textarea></div>
+      </div>
+    }
+    @if (!editorReadonly) { <p class="help editor-note">{{ 'ATTITUDE_SETUP.DRAFT_HELP' | translate }}</p> }
+  </ng-container>
+</nz-drawer>
+<ng-template #editorFooter><div class="actions drawer-footer">
+  <button nz-button (click)="editorMode = null">{{ (editorReadonly ? 'ATTITUDE_SETUP.CLOSE' : 'ATTITUDE_SETUP.CANCEL') | translate }}</button>
+  @if (!editorReadonly) { <button nz-button nzType="primary" (click)="applyEditor()">{{ 'ATTITUDE_SETUP.APPLY' | translate }}</button> }
+</div></ng-template>
+
+<nz-drawer [nzVisible]="previewVisible" [nzTitle]="'ATTITUDE_SETUP.PREVIEW_TITLE' | translate" nzWidth="min(900px, 100vw)"
+  [nzFooter]="previewFooter" (nzOnClose)="previewVisible = false">
+  <ng-container *nzDrawerContent>
+    <div class="preview-content">
+      <h3>{{ form.name || ('ATTITUDE_SETUP.UNTITLED' | translate) }}</h3><p class="help">{{ 'ATTITUDE_SETUP.PREVIEW_HELP' | translate }}</p>
+      @if (!readonly && issues.length) { <div class="notice"><strong>{{ 'ATTITUDE_SETUP.PREVIEW_INCOMPLETE' | translate }}</strong><ul>@for (issue of issues; track issue.key) { <li>{{ 'ATTITUDE_SETUP.' + issue.key | translate }}</li> }</ul></div> }
+      <h4>{{ 'ATTITUDE_SETUP.RATINGS' | translate }}</h4>
+      @for (rating of form.ratingDefinitions; track rating.point) { <div class="preview-rating"><span class="point-badge">{{ rating.point }}</span><div><strong>{{ rating.label || '-' }}</strong><p>{{ rating.description || '-' }}</p></div></div> }
+      @for (format of options.formats; track format) {
+        <section class="preview-format"><h4>{{ 'ATTITUDE_SETUP.FORMAT.' + format | translate }}</h4>
+          <ol>@for (criterion of applicableCriteria(format); track criterion) { <li><strong>{{ criterion.name || '-' }}</strong><p>{{ criterion.description || '-' }}</p></li> } @empty { <li>{{ 'ATTITUDE_SETUP.NO_ACTIVE_CRITERIA' | translate }}</li> }</ol>
+        </section>
+      }
+      <h4>{{ 'ATTITUDE_SETUP.ROLE_MAPPING' | translate }}</h4>
+      <table class="data-table"><thead><tr><th>{{ 'ATTITUDE_SETUP.JOB_ROLE' | translate }}</th><th>{{ 'ATTITUDE_SETUP.ASSIGNED_FORMAT' | translate }}</th></tr></thead><tbody>
+        @for (mapping of form.roleMappings; track mapping.roleId) { <tr><td>{{ mapping.roleName || mapping.roleId }}</td><td>{{ 'ATTITUDE_SETUP.FORMAT.' + mapping.evaluationFormat | translate }}</td></tr> }
+        @empty { <tr><td colspan="2">{{ 'ATTITUDE_SETUP.NO_MAPPINGS' | translate }}</td></tr> }
+      </tbody></table>
+    </div>
+  </ng-container>
+</nz-drawer>
+<ng-template #previewFooter><div class="actions drawer-footer"><button nz-button (click)="previewVisible = false">{{ 'ATTITUDE_SETUP.CLOSE' | translate }}</button></div></ng-template>

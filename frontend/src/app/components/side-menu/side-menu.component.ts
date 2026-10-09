@@ -52,9 +52,10 @@ export class SideMenuComponent {
     {
       key: 'NAV.KPI_ADMINISTRATION', icon: 'calendar',
       children: [
-        { key: 'NAV.ANNUAL_REVIEW_PERIOD', route: '/kpi-administration/review-periods', requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] }
+        { key: 'NAV.ANNUAL_REVIEW_PERIOD', route: '/kpi-administration/review-periods', requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] },
+        { key: 'ATTITUDE_SETUP.TITLE', route: '/kpi-administration/attitude-evaluation-setup', requiredRoles: ['CAN_MANAGE_ATTITUDE_CONFIGURATION'] }
       ],
-      requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD']
+      requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD', 'CAN_MANAGE_ATTITUDE_CONFIGURATION']
     },
     {
       key: 'NAV.KPI_MANAGEMENT', icon: 'fund',

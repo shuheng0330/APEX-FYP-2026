@@ -42,6 +42,7 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
     { prefix: '/kpi-management/department-kpis', page: { title: 'DEPARTMENT_KPI.TITLE', group: 'NAV.KPI_MANAGEMENT' } },
     { prefix: '/kpi-management/kpi-review', page: { title: 'KPI_ASSISTANCE.REVIEW_TITLE', group: 'NAV.KPI_MANAGEMENT' } },
     { prefix: '/kpi-administration/review-periods', page: { title: 'REVIEW_PERIOD.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
+    { prefix: '/kpi-administration/attitude-evaluation-setup', page: { title: 'ATTITUDE_SETUP.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
     { prefix: '/evaluation/org-overview', page: { title: 'Organisation-Wide Performance', group: 'Performance and Appraisal' } },
     { prefix: '/evaluation/overview', page: { title: 'Team Performance', group: 'Performance and Appraisal' } },
     { prefix: '/evaluation/my-evaluation', page: { title: 'My Performance', group: 'Performance and Appraisal' } },

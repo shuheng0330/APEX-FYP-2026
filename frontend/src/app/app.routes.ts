@@ -73,6 +73,12 @@ export const routes: Routes = [
       },
       { path: 'kpi-administration/company-kpis', pathMatch: 'full', redirectTo: 'kpi-management/company-kpis' },
       {
+        path: 'kpi-administration/attitude-evaluation-setup', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['CAN_MANAGE_ATTITUDE_CONFIGURATION'] },
+        loadComponent: () => import('./pages/attitude-configuration/attitude-configuration.component').then(m => m.AttitudeConfigurationComponent)
+      },
+      {
         path: 'kpi-administration/review-periods',
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD'] },
