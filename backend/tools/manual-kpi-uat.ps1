@@ -132,13 +132,21 @@ try {
         'Start' { Start-Mail; Start-Backend 8082 $true }
         'UseUat' {
             Invoke-Fixture 'check-source'
+            Invoke-Fixture 'check-uat'
             Start-Mail
-            # Recheck the marked target and its seeded accounts before stopping development.
-            Invoke-Fixture 'verify'
-            Stop-ExpectedBackend 8081 $false
+            $listener = Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($listener) {
+                $process = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
+                if ($process.CommandLine -like '*--spring.datasource.url=*apex_manual_uat*' -and
+                    $process.CommandLine.Contains($backend) -and
+                    $process.CommandLine -like '*com.tbm.careerpathlearning.CareerPathLearningBackendApplication*') {
+                    Write-Host 'The isolated UAT backend is already connected on port 8081.'
+                    return
+                }
+                Stop-ExpectedBackend 8081 $false
+            }
             Stop-ExpectedBackend 8082 $true
             Start-Backend 8081 $true
-            Invoke-Fixture 'verify' 8081
             Write-Host 'Angular localhost:4200 now uses apex_manual_uat. Log out and use a disposable UAT account.'
         }
         'UseDevelopment' {

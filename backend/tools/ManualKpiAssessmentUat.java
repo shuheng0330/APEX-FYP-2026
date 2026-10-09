@@ -43,7 +43,7 @@ public class ManualKpiAssessmentUat {
         this.api = api;
     }
     public static void main(String[] args) throws Exception {
-        if (args.length == 0) throw new IllegalArgumentException("clone|bootstrap|seed|verify|smoke|negative|check-source|close|mail [local backend origin]");
+        if (args.length == 0) throw new IllegalArgumentException("clone|bootstrap|seed|verify|smoke|negative|check-source|check-uat|close|mail [local backend origin]");
         Files.createDirectories(STATE);
         if (args[0].equals("mail")) { captureMail(); return; }
         var uat = new ManualKpiAssessmentUat(args.length > 1 ? args[1] : "http://localhost:8082");
@@ -55,6 +55,7 @@ public class ManualKpiAssessmentUat {
             case "smoke" -> uat.smoke();
             case "negative" -> uat.negativeChecks();
             case "check-source" -> uat.checkSource();
+            case "check-uat" -> uat.checkUat();
             case "close" -> uat.closeFixture();
             default -> throw new IllegalArgumentException("Unknown UAT action");
         }
@@ -85,6 +86,17 @@ public class ManualKpiAssessmentUat {
                 throw new IllegalStateException("Source data differs from the baseline; investigate, do not overwrite it");
         }
         System.out.println("PASS: original review periods, KPI data, assessments and actor configuration are unchanged");
+    }
+    void checkUat() throws Exception {
+        if (!Files.isRegularFile(STATE.resolve("fixtures.json")))
+            throw new IllegalStateException("Complete the initial UAT setup before connecting");
+        try (var c=target()) {
+            c.setReadOnly(true);
+            if (!"1".equals(scalar(c,"SELECT count(*) FROM staff WHERE email='uat.monthly@example.test'")))
+                throw new IllegalStateException("The prepared UAT account is missing");
+        }
+        // Restart safety must not depend on assessments remaining in their initial Draft state.
+        System.out.println("PASS: marked UAT database and prepared account verified; existing assessment progress is preserved");
     }
     void cloneDatabase() throws Exception {
         Path pg = Path.of(System.getenv().getOrDefault("APEX_UAT_PG_BIN", "C:/Program Files/PostgreSQL/18/bin"));

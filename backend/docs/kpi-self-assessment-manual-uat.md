@@ -36,7 +36,7 @@ Run these commands from the backend directory:
 # Connect the existing Angular localhost:4200 UI to the prepared UAT backend on 8081.
 .\tools\manual-kpi-uat.ps1 -Action UseUat
 
-# Context/readiness checks without creating or changing assessment answers.
+# Initial fixture/readiness checks (may fail after manual assessments are submitted).
 .\tools\manual-kpi-uat.ps1 -Action Verify
 
 # Stop UAT on 8081 and restore the original development connection.
@@ -48,11 +48,13 @@ Run these commands from the backend directory:
 
 Setup refuses an existing target instead of overwriting it. It first runs a separate
 UAT backend on 8082, leaving the original 8081 backend running. `UseUat` verifies the
-fixture and expected processes before switching. It does not modify Angular environment
+marked database, prepared account and expected processes before switching. It does not modify Angular environment
 files. Log out/reload after switching because JWTs and refresh cookies differ.
 
-If restarting after closing the test backend, use `-Action Start` to start UAT on 8082,
-then `-Action UseUat`. To reconnect after `UseDevelopment`, likewise use Start then UseUat.
+To restart after closing the test backend or reconnect after `UseDevelopment`, run
+`-Action UseUat` directly. It starts UAT on 8081 when needed or keeps the existing UAT
+backend running. It does not reset records or require manual assessments to remain Draft.
+`-Action Verify` checks the original fixture expectations; it is not a restart prerequisite.
 The script refuses to stop an unrecognised process or use an unrelated SMTP listener.
 
 ## Disposable accounts
