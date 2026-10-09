@@ -27,4 +27,15 @@ describe('SideMenuComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('exposes Team Reviews with either review authority, but not ROLE_USER alone', () => {
+    const item = component.navItems.find(item => item.key === 'NAV.TEAM_PERFORMANCE')!;
+    const auth = TestBed.inject(AuthService);
+    const hasRole = spyOn(auth, 'hasRole');
+    for (const permission of ['CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_INDIVIDUAL_KPI']) {
+      hasRole.and.callFake(role => role === permission);
+      expect(component.hasAccess(item)).toBeTrue(); expect(component.hasVisibleChildren(item)).toBeTrue();
+    }
+    hasRole.and.callFake(role => role === 'ROLE_USER');
+    expect(component.hasAccess(item)).toBeFalse(); expect(component.hasVisibleChildren(item)).toBeFalse();
+  });
 });

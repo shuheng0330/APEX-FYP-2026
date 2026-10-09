@@ -69,6 +69,12 @@
               <ul>@for (reason of submissionReasons; track reason) { <li>{{ reason }}</li> }</ul>
             </div>
           }
+          @if (current.status === 'REVIEWED') {
+            <p class="notice checkpoint-score">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ current.checkpointScore | number:'1.0-4' }} / 100
+              <span class="help">{{ current.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
+              @if (current.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+            </p>
+          }
           <section class="card">
             <div class="card-head assessment-heading"><div>
               <h3>{{ 'MY_ASSESSMENTS.KPI_TAB' | translate }} - {{ checkpointLabel(current.checkpoint) }}</h3>
@@ -77,7 +83,9 @@
             <div class="table-scroll"><table class="data-table assessment-table">
               <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_PLAN.NAME' | translate }}</th>
                 <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }}</th>
-                <th>{{ 'MY_ASSESSMENTS.COMMENT_EVIDENCE' | translate }}</th></tr></thead>
+                <th>{{ 'MY_ASSESSMENTS.COMMENT_EVIDENCE' | translate }}</th>
+                @if (current.status === 'REVIEWED') { <th>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate }}</th> }
+              </tr></thead>
               <tbody>
                 @for (item of items; track item.assignmentId) {
                   <tr>
@@ -124,8 +132,14 @@
                       }
                       @if (readonly && !item.selfComment && !item.evidence.length) { <span class="help">{{ 'MY_ASSESSMENTS.NO_SUPPORTING' | translate }}</span> }
                     </td>
+                    @if (current.status === 'REVIEWED') {
+                      <td class="superior-result"><strong class="saved-point">{{ item.superiorPoint ?? '-' }}</strong>
+                        @if (item.superiorPoint) { <span class="selected-point-label">{{ 'KPI_SCORING_GUIDE.RATING.' + item.superiorPoint + '.LABEL' | translate }}</span> }
+                        @if (item.superiorComment) { <p class="saved-comment">{{ item.superiorComment }}</p> }
+                      </td>
+                    }
                   </tr>
-                } @empty { <tr><td colspan="5" class="empty">{{ 'MY_ASSESSMENTS.NO_KPIS' | translate }}</td></tr> }
+                } @empty { <tr><td [attr.colspan]="current.status === 'REVIEWED' ? 6 : 5" class="empty">{{ 'MY_ASSESSMENTS.NO_KPIS' | translate }}</td></tr> }
               </tbody>
             </table></div>
             @if (!readonly && items.length) { <p class="help evidence-guidance">{{ 'MY_ASSESSMENTS.EVIDENCE_GUIDANCE' | translate }}</p> }

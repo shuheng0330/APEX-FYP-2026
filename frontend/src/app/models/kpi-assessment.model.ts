@@ -20,10 +20,12 @@ export interface KpiAssessmentItem {
 export interface KpiAssessment {
   id: number | null; participantId: number; employeeName: string;
   roleName?: string | null;
+  departmentName?: string | null;
   reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
   checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentStatus; items: KpiAssessmentItem[];
   kpiAllocation: KpiPeriodContext['kpiAllocation']; missingLevels: KpiLevel[]; submissionBlockers: string[];
   canSaveDraft: boolean; canSubmit: boolean; overdue: boolean;
+  canSaveSuperiorDraft?: boolean; canCompleteReview?: boolean; superiorOverdue?: boolean; reviewBlockers?: string[];
   createdAt: string | null; updatedAt: string | null; submittedAt: string | null; submittedBy: string | null;
   submittedToSuperiorId: string | null; submittedLate: boolean | null;
   reviewedAt: string | null; reviewedBy: string | null; reviewedLate: boolean | null; checkpointScore: number | null;
@@ -31,6 +33,20 @@ export interface KpiAssessment {
 export interface KpiAssessmentRequest {
   checkpointId: number;
   items: { assignmentId: number; selfPoint: number | null; selfComment: string | null }[];
+}
+export type KpiAssessmentReviewStatus = Exclude<KpiAssessmentStatus, 'DRAFT'>;
+export interface KpiAssessmentReview {
+  id: number; employeeId: string; employeeName: string; roleName: string | null; departmentName: string | null;
+  reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
+  checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentReviewStatus;
+  submittedAt: string; submittedLate: boolean; reviewedAt: string | null; reviewedLate: boolean | null;
+  checkpointScore: number | null; canReview: boolean; superiorOverdue: boolean;
+}
+export interface KpiSuperiorAssessmentRequest {
+  items: { itemId: number; superiorPoint: number | null; superiorComment: string | null }[];
+}
+export function superiorAssessmentItemError(item: KpiAssessmentItem, completing = false): string | null {
+  return assessmentItemError({ ...item, selfPoint: item.superiorPoint, selfComment: item.superiorComment }, completing);
 }
 export function assessmentItemError(item: KpiAssessmentItem, submitting = false): string | null {
   if (item.selfPoint === null || item.selfPoint === undefined) {

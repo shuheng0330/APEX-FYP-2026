@@ -1,10 +1,16 @@
 <main class="review-page">
   <div class="page-heading"><div><h2>{{ 'TEAM_REVIEWS.TITLE' | translate }}</h2><p class="help">{{ 'TEAM_REVIEWS.HELP' | translate }}</p></div><app-kpi-scoring-guide /></div>
   <nav class="workflow-tabs" [attr.aria-label]="'TEAM_REVIEWS.TITLE' | translate">
+    @if (canReviewPlans) {
     <button type="button" [class.active]="tab === 'reviews'" [attr.aria-pressed]="tab === 'reviews'" [disabled]="busy || drawerVisible" (click)="selectTab('reviews')">{{ 'TEAM_REVIEWS.TYPE' | translate }}</button>
     <button type="button" [class.active]="tab === 'assistance'" [attr.aria-pressed]="tab === 'assistance'" [disabled]="busy || drawerVisible" (click)="selectTab('assistance')">{{ 'KPI_ASSISTANCE.TITLE' | translate }}</button>
+    }
+    @if (canReviewAssessments) {
+      <button type="button" [class.active]="tab === 'assessments'" [attr.aria-pressed]="tab === 'assessments'" [disabled]="busy || drawerVisible" (click)="selectTab('assessments')">{{ 'KPI_ASSESSMENT_REVIEW.TITLE' | translate }}</button>
+    }
   </nav>
-  @if (tab === 'assistance') { <app-kpi-assistance /> } @else {
+  @if (tab === 'assessments' && canReviewAssessments) { <app-kpi-assessment-reviews /> }
+  @else if (tab === 'assistance' && canReviewPlans) { <app-kpi-assistance /> } @else if (canReviewPlans) {
   @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div><button nz-button [disabled]="loading" (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
   @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
   @if (loading) { <p role="status">{{ 'TEAM_REVIEWS.LOADING' | translate }}</p> }

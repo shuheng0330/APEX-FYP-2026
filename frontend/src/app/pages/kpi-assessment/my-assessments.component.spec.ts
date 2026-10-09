@@ -57,6 +57,19 @@ describe('My Assessments - KPI Self-Assessment', () => {
     expect(api.create).not.toHaveBeenCalled(); expect(page.readonly).toBeFalse(); expect(page.canSubmit).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(5);
   });
+  it('shows final Superior points, comments and the server-calculated score only after review', () => {
+    const item = { ...row(), selfPoint: 5, superiorPoint: 3, superiorComment: 'Evidence verified' };
+    api.mine.and.returnValue(of(assessment({ id: 20, status: 'REVIEWED', canSaveDraft: false, canSubmit: false,
+      checkpointScore: 87.125, reviewedAt: '2028-02-10T10:00:00Z', items: [item] })));
+    page.load(); fixture.detectChanges();
+    expect(page.readonly).toBeTrue(); expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('87.125');
+    const result = fixture.nativeElement.querySelector('.superior-result');
+    expect(result.textContent).toContain('3'); expect(result.textContent).toContain('Evidence verified');
+    expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(0);
+    page.saveDraft(); expect(api.update).not.toHaveBeenCalled();
+    api.mine.and.returnValue(of(assessment({ status: 'PENDING_REVIEW', canSaveDraft: false, items: [item] })));
+    page.load(); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.superior-result')).toBeNull();
+  });
   it('shows recorded employee context below the tab and above the checkpoint controls', () => {
     page.assessment!.roleName = 'Sales Executive';
     page.assessment!.kpiAllocation = { employeeLevelId: 4, employeeLevelName: 'Executive', companyKpiWeight: 15, departmentKpiWeight: 25, individualKpiWeight: 60 };

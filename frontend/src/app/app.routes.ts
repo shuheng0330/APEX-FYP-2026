@@ -52,7 +52,8 @@ export const routes: Routes = [
       },
       {
         path: 'team-performance/team-reviews', canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI'] },
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT'] },
         loadComponent: () => import('./pages/kpi-plan/team-reviews.component').then(m => m.TeamReviewsComponent)
       },
       {

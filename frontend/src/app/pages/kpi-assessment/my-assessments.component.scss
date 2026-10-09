@@ -41,6 +41,8 @@
 .evidence-file { border-top: 1px solid var(--tbm-border); padding-top: 6px; margin-top: 6px; }
 .evidence-name, .saved-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
 .saved-comment { margin: 0 0 6px; }
+.superior-result { min-width: 200px; max-width: 300px; }
+.checkpoint-score { font-weight: 600; }
 .evidence-name { display: block; max-width: 360px; font-size: 12px; }
 .evidence-guidance { padding: 0 20px 16px; }
 @media (max-width: 900px) {

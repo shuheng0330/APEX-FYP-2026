@@ -43,4 +43,18 @@ describe('KPI Self-Assessment API', () => {
     api.removeEvidence(9).subscribe(); const remove = http.expectOne(`${base}/evidence/9`);
     expect(remove.request.method).toBe('DELETE'); remove.flush(null);
   });
+  it('retrieves the scoped Superior queue and detail with optional period/status filters', () => {
+    api.reviews().subscribe(); const all = http.expectOne(`${base}/reviews`); expect(all.request.method).toBe('GET'); all.flush([]);
+    api.reviews(2, 'PENDING_REVIEW').subscribe(); const queue = http.expectOne(`${base}/reviews?reviewPeriodId=2&status=PENDING_REVIEW`);
+    expect(queue.request.withCredentials).toBeTrue(); queue.flush([]);
+    api.get(10).subscribe(); const detail = http.expectOne(`${base}/10`); expect(detail.request.method).toBe('GET'); detail.flush({});
+  });
+  it('saves Superior answers by assessment-item ID and completes the saved review', () => {
+    const body = { items: [{ itemId: 40, superiorPoint: 4, superiorComment: 'Evidence reviewed' }] };
+    api.saveSuperiorDraft(10, body).subscribe(); const save = http.expectOne(`${base}/10/superior-draft`);
+    expect(save.request.method).toBe('PUT'); expect(save.request.body).toEqual(body); expect(save.request.withCredentials).toBeTrue(); save.flush({});
+    api.completeReview(10).subscribe(); const complete = http.expectOne(`${base}/10/complete-review`);
+    expect(complete.request.method).toBe('POST'); expect(complete.request.body).toEqual({});
+    expect(complete.request.headers.get('X-Skip-Error-Handler')).toBe('true'); complete.flush({});
+  });
 });
