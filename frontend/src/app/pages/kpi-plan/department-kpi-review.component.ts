@@ -10,13 +10,14 @@ import { finalize } from 'rxjs';
 import { KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
 import { DepartmentKpiPlanService } from '../../services/department-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 
 @Component({
   selector: 'app-department-kpi-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './department-kpi-review.component.html'
 })

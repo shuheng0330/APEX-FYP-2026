@@ -11,11 +11,12 @@ import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { KpiItem, KpiItemErrors, KpiLevel, KpiPeriodContext, KpiPlan, emptyKpiItem, kpiItemErrors, kpiPlanComplete } from '../../models/kpi-plan.model';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { canResubmit } from '../../models/submission-revision.model';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './my-kpi-plan.component.html'
 })

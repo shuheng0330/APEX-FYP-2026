@@ -11,10 +11,11 @@ import { KpiItem, KpiItemErrors, KpiPlan, emptyKpiItem, kpiItemErrors, kpiPlanCo
 import { KpiAssistanceService } from '../../services/kpi-assistance.service';
 import { AuthService } from '../../services/auth.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 
 @Component({
   selector: 'app-assisted-kpi-plan', standalone: true,
-  imports: [CommonModule, TranslateModule, NzButtonModule, NzDrawerModule, KpiItemEditorComponent],
+  imports: [CommonModule, TranslateModule, NzButtonModule, NzDrawerModule, KpiItemEditorComponent, KpiScoringGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './assisted-kpi-plan.component.html'
 })

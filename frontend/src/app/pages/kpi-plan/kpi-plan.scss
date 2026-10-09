@@ -19,6 +19,7 @@ textarea { min-height: 64px; resize: vertical; }
 .kpi-editor [aria-invalid='true'] { border-color: var(--tbm-danger); }
 .scoring-guide { background: var(--tbm-surface-subtle); border: 1px solid var(--tbm-border); border-radius: 8px; padding: 14px 16px; margin: 18px 0; font-size: 13px; }
 .point-label { color: var(--tbm-primary); font-size: 13px; font-weight: 600; padding-top: 10px; }
+.criterion-rating { display: block; margin-top: 5px; font-size: 11px; font-weight: 400; line-height: 1.5; }
 .kpi-details { display: grid; gap: 18px; }
 .kpi-details dt { color: var(--tbm-muted); font-size: 13px; margin-bottom: 6px; }
 .kpi-details dd, .criterion-value { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -76,6 +76,30 @@ describe('My Assessments - KPI Self-Assessment', () => {
     const points: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.saved-point'));
     expect(points.map(point => point.textContent?.trim())).toEqual(['-', '4']);
   });
+  it('shows the matching rating for each selected point without changing KPI criteria', () => {
+    const labels = ['Unsatisfactory', 'Below expectation', 'Partially meets expectation', 'Meets expectation', 'Exceeds expectation'];
+    const ratings = Object.fromEntries(labels.map((LABEL, index) => [index + 1, { LABEL }]));
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { KPI_SCORING_GUIDE: { RATING: ratings } }); translate.use('en');
+    expect(fixture.nativeElement.querySelector('.selected-point-label')).toBeNull();
+    const criteria = { ...page.items[0].kpi.scoringDefinitions };
+    for (let point = 1; point <= 5; point++) {
+      const radio: HTMLInputElement = fixture.nativeElement.querySelectorAll('.point-option input')[point - 1];
+      radio.click(); fixture.detectChanges();
+      expect(page.items[0].selfPoint).toBe(point);
+      expect(fixture.nativeElement.querySelector('.selected-point-label').textContent.trim()).toBe(labels[point - 1]);
+    }
+    expect(page.items[0].kpi.scoringDefinitions).toEqual(criteria);
+    expect(api.create).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+  });
+  it('keeps rating labels visible on submitted assessments and omits unanswered labels', () => {
+    page.assessment = assessment({ status: 'PENDING_REVIEW', canSaveDraft: false });
+    page.items = [row(), { ...row(5), selfPoint: 3 }]; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.selected-point-label').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.selected-point-label').textContent).toContain('KPI_SCORING_GUIDE.RATING.3.LABEL');
+    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(0);
+  });
   it('labels the checkpoint dropdown using the recorded review frequency', () => {
     const labels = { MONTHLY: 'Monthly Review Checkpoint', QUARTERLY: 'Quarterly Review Checkpoint', ANNUALLY: 'Annual Review Checkpoint' };
     const translate = TestBed.inject(TranslateService);

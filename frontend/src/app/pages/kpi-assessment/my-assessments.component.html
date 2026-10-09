@@ -72,7 +72,7 @@
             <div class="card-head assessment-heading"><div>
               <h3>{{ 'MY_ASSESSMENTS.KPI_TAB' | translate }} - {{ checkpointLabel(current.checkpoint) }}</h3>
               <p class="help">{{ 'MY_ASSESSMENTS.INSTRUCTIONS' | translate }}</p>
-            </div>@if (current.employeeName) { <span class="help">{{ current.employeeName }}</span> }</div>
+            </div><div class="actions">@if (current.employeeName) { <span class="help">{{ current.employeeName }}</span> }<app-kpi-scoring-guide /></div></div>
             <div class="table-scroll"><table class="data-table assessment-table">
               <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_PLAN.NAME' | translate }}</th>
                 <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }}</th>
@@ -97,6 +97,9 @@
                             </label>
                           }
                         </fieldset>
+                      }
+                      @if (item.selfPoint) {
+                        <span class="selected-point-label" role="status">{{ 'KPI_SCORING_GUIDE.RATING.' + item.selfPoint + '.LABEL' | translate }}</span>
                       }
                       @if (itemError(item); as validation) { <span class="field-error" [id]="'answer-error-' + item.assignmentId">{{ validation | translate }}</span> }
                     </td>

@@ -14,11 +14,12 @@ import { KpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
 import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem, assessmentItemError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
+import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule,
-    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent],
+    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
   templateUrl: './my-assessments.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss']
 })

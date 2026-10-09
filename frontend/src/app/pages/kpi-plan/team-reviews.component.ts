@@ -11,12 +11,13 @@ import { finalize } from 'rxjs';
 import { KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { KpiAssistanceComponent } from './kpi-assistance.component';
 
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })

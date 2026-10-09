@@ -21,7 +21,9 @@
   @if (assistance.reviewPeriodStatus === 'CLOSED') { <p class="notice">{{ 'INDIVIDUAL_KPI.CLOSED_HELP' | translate }}</p> }
   @if (plan?.overdue && !readonly) { <p class="warning">{{ 'KPI_PLAN.LATE_HELP' | translate }}</p> }
   <section class="card"><div class="card-head plan-summary"><h3>{{ 'KPI_ASSISTANCE.ASSISTED_PLAN' | translate }}</h3>
-    @if (!readonly) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'INDIVIDUAL_KPI.ADD_ITEM' | translate }}</button> }
+    <div class="actions"><app-kpi-scoring-guide />
+      @if (!readonly) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'INDIVIDUAL_KPI.ADD_ITEM' | translate }}</button> }
+    </div>
   </div><div class="table-scroll"><table class="data-table"><thead><tr>
     <th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'KPI_PLAN.WEIGHT' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
   </tr></thead><tbody>

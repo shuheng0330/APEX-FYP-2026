@@ -48,7 +48,7 @@
       <p class="help">{{ 'KPI_PLAN.SCORING_HELP' | translate }}</p>
       @if (!readonly) {
         <aside class="scoring-guide">
-          <strong>{{ 'KPI_PLAN.SCORING_GUIDE' | translate }}</strong>
+          <app-kpi-scoring-guide />
           <p class="help">{{ 'KPI_PLAN.SCORING_GUIDE_HELP' | translate }}</p>
         </aside>
       }
@@ -56,6 +56,7 @@
         <div class="criterion">
           <label [for]="'point-' + point + '-' + index" class="point-label">{{ 'KPI_PLAN.POINT' | translate }} {{ point }}
             @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }
+            <small class="criterion-rating">{{ 'KPI_SCORING_GUIDE.RATING.' + point + '.LABEL' | translate }}</small>
           </label>
           @if (readonly) {
             <p class="criterion-value">{{ item.scoringDefinitions[point] || ('REVIEW_PERIOD.NOT_SET' | translate) }}</p>

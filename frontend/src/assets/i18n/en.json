@@ -1,4 +1,16 @@
 {
+    "KPI_SCORING_GUIDE": {
+        "VIEW": "View Scoring Guide",
+        "TITLE": "KPI Scoring Guide",
+        "RATING": {
+            "5": { "LABEL": "Exceeds expectation", "DESCRIPTION": "Performance exceeded the expected achievement for this KPI." },
+            "4": { "LABEL": "Meets expectation", "DESCRIPTION": "Performance met the expected achievement for this KPI." },
+            "3": { "LABEL": "Partially meets expectation", "DESCRIPTION": "Performance partially met the expected achievement; improvement is needed." },
+            "2": { "LABEL": "Below expectation", "DESCRIPTION": "Performance was below the expected achievement for this KPI." },
+            "1": { "LABEL": "Unsatisfactory", "DESCRIPTION": "Performance fell significantly short of the expected achievement for this KPI." }
+        },
+        "NOTE": "Actual achievement thresholds are defined separately for each KPI. These ratings are not linked to fixed percentage thresholds. Use the KPI-specific scoring definitions to select your point."
+    },
     "MY_ASSESSMENTS": {
         "TITLE": "My Assessments", "HELP": "Assess your KPI performance for each review checkpoint and send it to your Superior.",
         "KPI_TAB": "KPI Self-Assessment", "CHECKPOINT": "Review Checkpoint", "PERIOD_END": "Checkpoint End Date", "DEADLINE": "Self-Assessment Deadline",

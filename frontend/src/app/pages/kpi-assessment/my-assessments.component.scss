@@ -32,6 +32,7 @@
 .point-option input:focus-visible + span { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
 .point-option input:disabled { cursor: not-allowed; }
 .saved-point { font-size: 18px; color: var(--tbm-primary); }
+.selected-point-label { display: block; margin-top: 7px; font-size: 12px; color: var(--tbm-primary); }
 .evidence-cell { min-width: 260px; width: 32%; }
 .evidence-cell textarea { min-height: 62px; resize: vertical; border-radius: 7px; }
 .evidence-cell textarea[aria-invalid='true'] { border-color: var(--tbm-danger); }

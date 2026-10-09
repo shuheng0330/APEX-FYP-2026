@@ -123,8 +123,11 @@ describe('Company KPI plan workspace', () => {
     expect(drawer.querySelector('input[id^="kra-"]')).toBeTruthy();
     expect(drawer.querySelector('input[id^="perspective-"]')).toBeTruthy();
     expect(drawer.querySelectorAll('.field-error').length).toBe(10);
-    expect([...drawer.querySelectorAll('.point-label')].map(el => el.textContent?.trim())).toEqual([
-      'KPI_PLAN.POINT 5 *', 'KPI_PLAN.POINT 4 *', 'KPI_PLAN.POINT 3 *', 'KPI_PLAN.POINT 2 *', 'KPI_PLAN.POINT 1 *'
+    const pointLabels = [...drawer.querySelectorAll('.point-label')];
+    expect(pointLabels.map(el => el.getAttribute('for'))).toEqual(['point-5-0', 'point-4-0', 'point-3-0', 'point-2-0', 'point-1-0']);
+    expect(pointLabels.map(el => el.querySelector('.criterion-rating')?.textContent?.trim())).toEqual([
+      'KPI_SCORING_GUIDE.RATING.5.LABEL', 'KPI_SCORING_GUIDE.RATING.4.LABEL', 'KPI_SCORING_GUIDE.RATING.3.LABEL',
+      'KPI_SCORING_GUIDE.RATING.2.LABEL', 'KPI_SCORING_GUIDE.RATING.1.LABEL'
     ]);
     expect(drawer.textContent).not.toContain('Measurement Unit');
     expect(drawer.textContent).not.toContain('Description');

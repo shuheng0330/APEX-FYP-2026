@@ -52,7 +52,9 @@
     <section class="card">
       <div class="card-head plan-summary">
         <div><h3>{{ 'DEPARTMENT_KPI.PLAN' | translate }}</h3><p class="help">{{ selectedPeriod.name }} · {{ selectedDepartment.name }}</p></div>
-        @if (!readonly) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
+        <div class="actions"><app-kpi-scoring-guide />
+          @if (!readonly) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
+        </div>
       </div>
       <div class="table-scroll"><table class="data-table">
         <thead><tr><th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'KPI_PLAN.WEIGHT' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th></tr></thead>

@@ -1,6 +1,7 @@
 <main class="review-page">
   <div class="page-heading">
     <div><h2>{{ 'DEPARTMENT_REVIEW.TITLE' | translate }}</h2><p class="help">{{ 'DEPARTMENT_REVIEW.HELP' | translate }}</p></div>
+    <app-kpi-scoring-guide />
   </div>
   @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div> }
   @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }

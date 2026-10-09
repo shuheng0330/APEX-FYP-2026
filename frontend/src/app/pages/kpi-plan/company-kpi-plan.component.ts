@@ -11,8 +11,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { KpiPlan, KpiItem, KpiItemErrors, KpiPeriodContext, emptyKpiItem, kpiItemErrors, kpiPlanComplete } from '../../models/kpi-plan.model';
 import { KpiPlanService } from '../../services/kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 @Component({
-  standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzModalModule, NzDrawerModule, KpiItemEditorComponent],
+  standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzModalModule, NzDrawerModule, KpiItemEditorComponent, KpiScoringGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './company-kpi-plan.component.html'
 })

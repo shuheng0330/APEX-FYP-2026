@@ -7,9 +7,10 @@ import { NzIconModule, NzIconService } from 'ng-zorro-antd/icon';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { InfoCircleOutline } from '@ant-design/icons-angular/icons';
 import { KpiItem, KpiItemErrors, emptyKpiItem } from '../../models/kpi-plan.model';
+import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 @Component({
   selector: 'app-kpi-item-editor', standalone: true,
-  imports: [FormsModule, TranslateModule, NzButtonModule, NzInputModule, NzIconModule, NzToolTipModule],
+  imports: [FormsModule, TranslateModule, NzButtonModule, NzInputModule, NzIconModule, NzToolTipModule, KpiScoringGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './kpi-item-editor.component.html'
 })
