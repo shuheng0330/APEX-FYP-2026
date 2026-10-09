@@ -50,8 +50,13 @@ public class AttitudeConfigurationServiceImpl implements AttitudeConfigurationSe
         active(actor);var dto=new AttitudeConfigurationOptionsDto();dto.setFormats(List.of(AttitudeEvaluationFormat.values()));
         dto.setRoles(roles.findAllByIsDeletedIsFalse().stream().filter(Role::isPerformanceReviewEligible)
                 .sorted(Comparator.comparing(Role::getName).thenComparing(Role::getId)).map(role->{
-                    var option=new AttitudeConfigurationDto.RoleMapping();option.setRoleId(role.getId());option.setRoleName(role.getName());return option;
-                }).toList());return dto;
+                    var option=new AttitudeConfigurationDto.RoleMapping();option.setRoleId(role.getId());option.setRoleName(role.getName());
+                    option.setDepartmentName(role.getOrgChart()==null?null:role.getOrgChart().getName());return option;
+                }).toList());
+        dto.setReviewPeriods(periods.findAllByStatus(AnnualKpiReviewPeriodStatus.OPEN).stream()
+                .sorted(Comparator.comparing(AnnualKpiReviewPeriod::getId).reversed())
+                .map(period->new AttitudeConfigurationOptionsDto.ReviewPeriodOption(period.getId(),period.getName(),period.getStatus())).toList());
+        return dto;
     }
     @Override public AttitudeConfigurationDto create(AttitudeConfigurationRequest request,UUID actor) {
         periods.lockConfiguration();active(actor);var configuration=new AttitudeConfiguration();

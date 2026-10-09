@@ -9,7 +9,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { AttitudeConfigurationComponent } from './attitude-configuration.component';
 import { AttitudeConfigurationService } from '../../services/attitude-configuration.service';
 import { AttitudeConfiguration, AttitudeConfigurationOptions, AttitudeConfigurationRequest,
-  AttitudeCriterion, attitudePublicationIssues, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
+  AttitudeCriterion, AttitudePeriodConfiguration, attitudePublicationIssues, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
 
 describe('Attitude Evaluation Setup', () => {
   let fixture: ComponentFixture<AttitudeConfigurationComponent>;
@@ -17,7 +17,10 @@ describe('Attitude Evaluation Setup', () => {
   let api: jasmine.SpyObj<AttitudeConfigurationService>;
   let modal: jasmine.SpyObj<NzModalService>;
   const options: AttitudeConfigurationOptions = { formats: ['MANAGER', 'SALES', 'OTHERS'],
-    roles: [{ roleId: 2, roleName: 'Sales Executive', evaluationFormat: null }, { roleId: 3, roleName: 'Manager', evaluationFormat: null }] };
+    roles: [{ roleId: 2, roleName: 'Sales Executive', departmentName: 'Sales', evaluationFormat: null }, { roleId: 3, roleName: 'Manager', departmentName: 'Operations', evaluationFormat: null }], reviewPeriods: [] };
+  const period = (configuration: AttitudeConfiguration | null = null): AttitudePeriodConfiguration => ({
+    reviewPeriodId: 4, reviewPeriodName: 'Annual Review 2026', reviewPeriodStatus: 'OPEN', configuration,
+    unmappedRoleNames: [], canBindInitially: configuration === null });
   const criterion = (name = 'Integrity'): AttitudeCriterion => ({ id: 10, name, description: 'Acts honestly.',
     criterionType: 'SHARED_CORE_VALUE', evaluationFormat: null, active: true, displayOrder: 0 });
   const complete = (): AttitudeConfigurationRequest => ({ name: '2027 Attitude Configuration', criteria: [criterion()],
@@ -26,11 +29,12 @@ describe('Attitude Evaluation Setup', () => {
     ...structuredClone(request), id, status, createdAt: '2026-10-10T10:00:00Z', updatedAt: '2026-10-10T10:00:00Z',
     createdBy: 'actor-id', updatedBy: 'actor-id', publishedAt: status === 'PUBLISHED' ? '2026-10-10T11:00:00Z' : null, publishedBy: null });
   beforeEach(async () => {
-    api = jasmine.createSpyObj<AttitudeConfigurationService>('api', ['list', 'optionsList', 'create', 'update', 'copy', 'publish']);
+    api = jasmine.createSpyObj<AttitudeConfigurationService>('api', ['list', 'optionsList', 'create', 'update', 'copy', 'publish', 'period', 'bindInitially']);
     api.list.and.returnValue(of([])); api.optionsList.and.returnValue(of(structuredClone(options)));
     api.create.and.callFake(request => of(edition('DRAFT', 1, request)));
     api.update.and.callFake((id, request) => of(edition('DRAFT', id, request)));
     api.copy.and.returnValue(of(edition('DRAFT', 2))); api.publish.and.returnValue(of(edition('PUBLISHED')));
+    api.period.and.returnValue(of(period())); api.bindInitially.and.returnValue(of(period(edition('PUBLISHED'))));
     modal = jasmine.createSpyObj<NzModalService>('modal', ['confirm']);
     TestBed.configureTestingModule({ imports: [AttitudeConfigurationComponent, TranslateModule.forRoot()], providers: [
       provideNoopAnimations(), { provide: AttitudeConfigurationService, useValue: api }, { provide: NzModalService, useValue: modal },
@@ -171,5 +175,59 @@ describe('Attitude Evaluation Setup', () => {
     expect(attitudePublicationIssues(request, options)).toEqual([]); request.ratingDefinitions[0].label = 'x'.repeat(256);
     expect(attitudePublicationIssues(request, options).map(i => i.key)).toContain('TEXT_LIMIT');
     component.openCriterion(null, null); component.criterion!.name = 'x'.repeat(256); component.applyEditor(); expect(component.editorError).toBe('TEXT_LIMIT');
+  });
+  it('distinguishes identical Job Role names by department and keeps mapping keyed by Role ID', () => {
+    component.options.roles = [{ ...options.roles[0], roleName: 'Executive' }, { ...options.roles[1], roleName: 'Executive' }];
+    component.setRoleFormat(component.options.roles[0], 'SALES'); component.setRoleFormat(component.options.roles[1], 'OTHERS'); fixture.detectChanges();
+    const rows = [...fixture.nativeElement.querySelectorAll('.role-table tbody tr')] as HTMLElement[];
+    expect(rows[0].textContent).toContain('Sales'); expect(rows[1].textContent).toContain('Operations');
+    expect(component.formatForRole(2)).toBe('SALES'); expect(component.formatForRole(3)).toBe('OTHERS');
+    component.roleSearch = 'operations'; expect(component.roleOptions.map(r => r.roleId)).toEqual([3]);
+    component.roleSearch = ''; component.saveDraft();
+    expect(api.create.calls.mostRecent().args[0].roleMappings).toEqual([{ roleId: 2, evaluationFormat: 'SALES' }, { roleId: 3, evaluationFormat: 'OTHERS' }]);
+  });
+  it('shows the actionable administrator message when an Open period has no binding or published configuration', () => {
+    component.options.reviewPeriods = [{ id: 4, name: 'Annual Review 2026', status: 'OPEN' }]; component.loadPeriod(4); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#attitude-period-binding').textContent).toContain('ATTITUDE_SETUP.NO_PUBLISHED');
+    expect(component.canBind).toBeFalse(); component.confirmBinding(); expect(api.bindInitially).not.toHaveBeenCalled();
+  });
+  it('requires explicit initial binding and does not change an existing Open period just by publishing', () => {
+    component.loadPeriod(4); component.form = complete(); component.saveDraft(true); fixture.detectChanges();
+    expect(component.periodContext?.configuration).toBeNull(); expect(api.bindInitially).not.toHaveBeenCalled();
+    expect(component.bindingConfigurationId).toBe(1); expect(component.canBind).toBeTrue();
+    component.confirmBinding(); expect(api.bindInitially).not.toHaveBeenCalled(); decide();
+    expect(api.bindInitially).toHaveBeenCalledOnceWith(4, 1); expect(component.periodContext?.configuration?.id).toBe(1);
+    expect(component.canBind).toBeFalse(); component.confirmBinding(); expect(api.bindInitially).toHaveBeenCalledTimes(1);
+  });
+  it('does not replace a bound configuration when a newer one is published', () => {
+    const bound = edition('PUBLISHED'); api.period.and.returnValue(of(period(bound))); component.loadPeriod(4);
+    component.form = complete(); api.publish.and.returnValue(of(edition('PUBLISHED', 2))); component.saveDraft(true);
+    expect(component.periodContext?.configuration?.id).toBe(1); expect(component.canBind).toBeFalse();
+    expect(api.bindInitially).not.toHaveBeenCalled();
+  });
+  it('offers only Published editions, defaults to the most recently published and preserves unsaved configuration edits', () => {
+    const older = edition('PUBLISHED', 1), latest = { ...edition('PUBLISHED', 2), publishedAt: '2026-10-11T11:00:00Z' };
+    api.list.and.returnValue(of([edition('DRAFT', 3), older, latest]));
+    api.optionsList.and.returnValue(of({ ...options, reviewPeriods: [{ id: 4, name: 'Open', status: 'OPEN' }] })); component.ngOnInit();
+    expect(component.publishedEditions.map(c => c.id)).toEqual([2, 1]); expect(component.bindingConfigurationId).toBe(2);
+    component.form.name = 'Unsaved working copy'; component.confirmBinding(); decide();
+    expect(component.form.name).toBe('Unsaved working copy'); expect(component.dirty).toBeTrue();
+    expect(api.bindInitially).toHaveBeenCalledOnceWith(4, 2);
+  });
+  it('does not bind non-Open periods or allow unavailable/stale context to authorise a binding', () => {
+    component.editions = [edition('PUBLISHED')]; component.bindingConfigurationId = 1; component.loadPeriod(4);
+    component.periodContext!.reviewPeriodStatus = 'CLOSED'; component.confirmBinding(); expect(api.bindInitially).not.toHaveBeenCalled();
+    api.period.and.returnValue(throwError(() => ({ error: { message: 'Permission changed' } })));
+    component.loadPeriod(4); expect(component.periodContext).toBeNull(); expect(component.bindingError).toBe('Permission changed'); expect(component.canBind).toBeFalse();
+  });
+  it('cancels a stale period lookup and blocks duplicate binding clicks while preserving failure details', () => {
+    const oldRequest = new Subject<AttitudePeriodConfiguration>(); api.period.and.returnValue(oldRequest);
+    component.loadPeriod(4); api.period.and.returnValue(of({ ...period(), reviewPeriodId: 5 })); component.loadPeriod(5);
+    oldRequest.next(period()); expect(component.periodContext?.reviewPeriodId).toBe(5); expect(component.bindingBusy).toBeFalse();
+    component.editions = [edition('PUBLISHED')]; component.bindingConfigurationId = 1;
+    const pending = new Subject<AttitudePeriodConfiguration>(); api.bindInitially.and.returnValue(pending);
+    component.confirmBinding(); decide(); component.confirmBinding(); expect(api.bindInitially).toHaveBeenCalledTimes(1);
+    expect(component.canLeave()).toBeFalse(); pending.error({ error: { message: 'Another administrator already bound this period' } });
+    expect(component.bindingError).toContain('already bound'); expect(component.bindingBusy).toBeFalse();
   });
 });

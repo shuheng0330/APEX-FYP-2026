@@ -10,7 +10,7 @@ export interface AttitudeCriterion {
   displayOrder?: number;
 }
 export interface AttitudeRating { point: number; label: string | null; description: string | null; }
-export interface AttitudeRoleMapping { roleId: number; roleName?: string; evaluationFormat: AttitudeFormat; }
+export interface AttitudeRoleMapping { roleId: number; roleName?: string; departmentName?: string | null; evaluationFormat: AttitudeFormat; }
 export interface AttitudeConfigurationRequest {
   name: string | null;
   criteria: AttitudeCriterion[];
@@ -27,8 +27,17 @@ export interface AttitudeConfiguration extends AttitudeConfigurationRequest {
   publishedAt: string | null;
   publishedBy: string | null;
 }
-export interface AttitudeRoleOption { roleId: number; roleName: string; evaluationFormat: AttitudeFormat | null; }
-export interface AttitudeConfigurationOptions { formats: AttitudeFormat[]; roles: AttitudeRoleOption[]; }
+export interface AttitudeRoleOption { roleId: number; roleName: string; departmentName?: string | null; evaluationFormat: AttitudeFormat | null; }
+export interface AttitudeReviewPeriodOption { id: number; name: string; status: 'OPEN'; }
+export interface AttitudeConfigurationOptions { formats: AttitudeFormat[]; roles: AttitudeRoleOption[]; reviewPeriods: AttitudeReviewPeriodOption[]; }
+export interface AttitudePeriodConfiguration {
+  reviewPeriodId: number;
+  reviewPeriodName: string;
+  reviewPeriodStatus: 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
+  configuration: AttitudeConfiguration | null;
+  unmappedRoleNames: string[];
+  canBindInitially: boolean;
+}
 export interface AttitudeValidationIssue { section: 'details' | 'ratings' | 'criteria' | 'roles'; key: string; }
 
 export function emptyAttitudeConfiguration(): AttitudeConfigurationRequest {

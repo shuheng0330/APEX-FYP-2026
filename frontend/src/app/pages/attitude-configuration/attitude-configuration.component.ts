@@ -8,9 +8,9 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { finalize, forkJoin, of, switchMap, tap } from 'rxjs';
+import { catchError, finalize, forkJoin, of, Subject, switchMap, tap } from 'rxjs';
 import { AttitudeConfiguration, AttitudeConfigurationOptions, AttitudeConfigurationRequest, AttitudeCriterion,
-  AttitudeFormat, AttitudeRating, AttitudeRoleOption, attitudePublicationIssues, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
+  AttitudeFormat, AttitudePeriodConfiguration, AttitudeRating, AttitudeRoleOption, attitudePublicationIssues, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
 import { AttitudeConfigurationService } from '../../services/attitude-configuration.service';
 
 @Component({
@@ -23,7 +23,7 @@ export class AttitudeConfigurationComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
   editions: AttitudeConfiguration[] = [];
-  options: AttitudeConfigurationOptions = { formats: [], roles: [] };
+  options: AttitudeConfigurationOptions = { formats: [], roles: [], reviewPeriods: [] };
   selected: AttitudeConfiguration | null = null;
   selectionId: number | null = null;
   form = emptyAttitudeConfiguration();
@@ -42,8 +42,22 @@ export class AttitudeConfigurationComponent implements OnInit {
   criterion: AttitudeCriterion | null = null;
   rating: AttitudeRating | null = null;
   editorError = '';
+  periodId: number | null = null;
+  periodContext: AttitudePeriodConfiguration | null = null;
+  bindingConfigurationId: number | null = null;
+  bindingBusy = false;
+  bindingError = '';
+  bindingSuccess = '';
+  private readonly periodSelection = new Subject<number | null>();
 
-  constructor(private api: AttitudeConfigurationService, private translate: TranslateService, private modal: NzModalService) {}
+  constructor(private api: AttitudeConfigurationService, private translate: TranslateService, private modal: NzModalService) {
+    this.periodSelection.pipe(switchMap(id => {
+      this.periodContext = null; this.bindingError = ''; this.bindingSuccess = ''; this.bindingBusy = id !== null;
+      return id === null ? of(null) : this.api.period(id).pipe(
+        catchError(e => { this.bindingError = this.errorMessage(e); return of(null); }),
+        finalize(() => this.bindingBusy = false));
+    }), takeUntilDestroyed(this.destroyRef)).subscribe(context => this.periodContext = context);
+  }
 
   ngOnInit() {
     this.busy = true;
@@ -53,6 +67,8 @@ export class AttitudeConfigurationComponent implements OnInit {
           this.editions = result.editions; this.options = result.options;
           this.selectedFormat = this.options.formats[0] ?? 'MANAGER';
           this.accept(result.editions[0] ?? null); this.loaded = true;
+          this.bindingConfigurationId = this.publishedEditions[0]?.id ?? null;
+          this.loadPeriod(this.options.reviewPeriods[0]?.id ?? null);
         }, error: e => this.fail(e)
       });
   }
@@ -63,10 +79,10 @@ export class AttitudeConfigurationComponent implements OnInit {
     const roles = [...this.options.roles];
     for (const mapping of this.form.roleMappings) {
       if (!roles.some(r => r.roleId === mapping.roleId)) {
-        roles.push({ roleId: mapping.roleId, roleName: mapping.roleName ?? String(mapping.roleId), evaluationFormat: mapping.evaluationFormat });
+        roles.push({ roleId: mapping.roleId, roleName: mapping.roleName ?? String(mapping.roleId), departmentName: mapping.departmentName, evaluationFormat: mapping.evaluationFormat });
       }
     }
-    return roles.filter(r => r.roleName.toLowerCase().includes(this.roleSearch.trim().toLowerCase()));
+    return roles.filter(r => `${r.roleName} ${r.departmentName ?? ''}`.toLowerCase().includes(this.roleSearch.trim().toLowerCase()));
   }
   get unmappedCount() { return this.options.roles.filter(r => !this.formatForRole(r.roleId)).length; }
   criteriaFor(format: AttitudeFormat | null) {
@@ -80,7 +96,7 @@ export class AttitudeConfigurationComponent implements OnInit {
   setRoleFormat(role: AttitudeRoleOption, evaluationFormat: AttitudeFormat | null) {
     if (this.readonly || this.busy) return;
     this.form.roleMappings = this.form.roleMappings.filter(m => m.roleId !== role.roleId);
-    if (evaluationFormat) this.form.roleMappings.push({ roleId: role.roleId, roleName: role.roleName, evaluationFormat });
+    if (evaluationFormat) this.form.roleMappings.push({ roleId: role.roleId, roleName: role.roleName, departmentName: role.departmentName, evaluationFormat });
   }
   isEligible(roleId: number) { return this.options.roles.some(r => r.roleId === roleId); }
   async selectEdition(id: number) {
@@ -89,7 +105,7 @@ export class AttitudeConfigurationComponent implements OnInit {
     this.accept(this.editions.find(c => c.id === id) ?? null); this.error = ''; this.success = '';
   }
   canLeave(): boolean | Promise<boolean> {
-    if (this.busy) return false;
+    if (this.busy || this.bindingBusy) return false;
     if (!this.loaded) return true;
     if (!this.dirty) return true;
     return new Promise(resolve => this.modal.confirm({
@@ -119,6 +135,7 @@ export class AttitudeConfigurationComponent implements OnInit {
   private remember(edition: AttitudeConfiguration) {
     this.editions = [edition, ...this.editions.filter(c => c.id !== edition.id)];
     this.accept(edition);
+    if (!this.publishedEditions.some(c => c.id === this.bindingConfigurationId)) this.bindingConfigurationId = this.publishedEditions[0]?.id ?? null;
   }
   saveDraft(publish = false) {
     if (this.readonly || this.busy || !this.loaded || this.editorMode) return;
@@ -192,7 +209,34 @@ export class AttitudeConfigurationComponent implements OnInit {
     const element = this.document.getElementById(`attitude-${section}`);
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' }); element?.focus({ preventScroll: true });
   }
+  get publishedEditions() {
+    return this.editions.filter(c => c.status === 'PUBLISHED').sort((a, b) =>
+      Date.parse(b.publishedAt ?? b.createdAt) - Date.parse(a.publishedAt ?? a.createdAt) || b.id - a.id);
+  }
+  get canBind() {
+    return !this.busy && !this.bindingBusy && this.periodContext?.reviewPeriodId === this.periodId &&
+      this.periodContext?.reviewPeriodStatus === 'OPEN' && this.periodContext.canBindInitially && !this.periodContext.configuration &&
+      this.publishedEditions.some(c => c.id === this.bindingConfigurationId);
+  }
+  loadPeriod(id: number | null) { this.periodId = id; this.periodSelection.next(id); }
+  confirmBinding() {
+    if (!this.canBind) return;
+    const periodId = this.periodId, configurationId = this.bindingConfigurationId;
+    this.modal.confirm({ nzTitle: this.translate.instant('ATTITUDE_SETUP.BIND'),
+      nzContent: this.translate.instant('ATTITUDE_SETUP.BIND_CONFIRM'),
+      nzOnOk: () => { if (this.periodId === periodId && this.bindingConfigurationId === configurationId) this.bindPeriod(); } });
+  }
+  private bindPeriod() {
+    if (!this.canBind || this.periodId === null || this.bindingConfigurationId === null) return;
+    this.bindingBusy = true; this.bindingError = ''; this.bindingSuccess = '';
+    this.api.bindInitially(this.periodId, this.bindingConfigurationId)
+      .pipe(finalize(() => this.bindingBusy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: context => { this.periodContext = context; this.bindingSuccess = this.translate.instant('ATTITUDE_SETUP.BOUND_SUCCESS'); },
+        error: e => this.bindingError = this.errorMessage(e)
+      });
+  }
+  private errorMessage(error: { error?: { message?: string } }) { return error.error?.message || this.translate.instant('ATTITUDE_SETUP.ERROR'); }
   private fail(error: { error?: { message?: string } }) {
-    this.error = error.error?.message || this.translate.instant('ATTITUDE_SETUP.ERROR');
+    this.error = this.errorMessage(error);
   }
 }

@@ -145,6 +145,26 @@ class AttitudeConfigurationServiceTest {
         role.setPerformanceReviewEligible(false);assertThat(service.options(actor).getRoles()).isEmpty();
         verify(configurations,never()).saveAndFlush(any());verify(periods,never()).saveAndFlush(any());
     }
+    @Test void optionsDistinguishSameNamedRolesByDepartmentWithoutGrantingPeriodAdministration() {
+        var sales=new OrgChart();sales.setName("Sales");role.setOrgChart(sales);
+        var operations=new OrgChart();operations.setName("Operations");
+        var other=new Role();other.setId(2L);other.setName(role.getName());other.setOrgChart(operations);
+        when(roles.findAllByIsDeletedIsFalse()).thenReturn(List.of(other,role));
+        var open=period(4L);open.setName("Open review");when(periods.findAllByStatus(AnnualKpiReviewPeriodStatus.OPEN)).thenReturn(List.of(open));
+        var options=service.options(actor);
+        assertThat(options.getRoles()).extracting(AttitudeConfigurationDto.RoleMapping::getDepartmentName).containsExactly("Sales","Operations");
+        assertThat(options.getReviewPeriods()).extracting(AttitudeConfigurationOptionsDto.ReviewPeriodOption::id).containsExactly(4L);
+        assertThat(service.options(actor).getRoles().get(0).getRoleId()).isEqualTo(1L);
+        verify(periods,never()).saveAndFlush(any());
+    }
+    @Test void configurationResponsesRetainDepartmentContextAndHandleRolesWithoutDepartment() {
+        var sales=new OrgChart();sales.setName("Sales");role.setOrgChart(sales);
+        var draft=service.create(complete(),actor);
+        assertThat(draft.getRoleMappings().get(0).getDepartmentName()).isEqualTo("Sales");
+        role.setOrgChart(null);
+        assertThat(service.get(draft.getId(),actor).getRoleMappings().get(0).getDepartmentName()).isNull();
+        assertThat(service.options(actor).getRoles().get(0).getDepartmentName()).isNull();
+    }
     @Test void inactiveAndDeletedActorsDeniedRegardlessOfRoleName() {
         account.setAccountStatus(StaffAccountStatus.INACTIVE);assertThatThrownBy(()->service.create(complete(),actor)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
         account.setAccountStatus(StaffAccountStatus.ACTIVE);account.setDeleted(true);assertThatThrownBy(()->service.list(actor)).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);

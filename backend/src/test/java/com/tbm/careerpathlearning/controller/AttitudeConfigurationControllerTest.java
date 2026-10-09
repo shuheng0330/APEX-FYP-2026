@@ -1,6 +1,8 @@
 package com.tbm.careerpathlearning.controller;
 
 import com.tbm.careerpathlearning.config.SecurityConfig;
+import com.tbm.careerpathlearning.dto.*;
+import com.tbm.careerpathlearning.enums.AnnualKpiReviewPeriodStatus;
 import com.tbm.careerpathlearning.service.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +47,15 @@ class AttitudeConfigurationControllerTest {
     }
     @Test void noPublishedConfigurationReturnsNoContentRatherThanInventedDefaults() throws Exception {
         mvc.perform(get("/api/attitude-configurations/current").with(authentication(user("CAN_MANAGE_ATTITUDE_CONFIGURATION")))).andExpect(status().isNoContent());
+    }
+    @Test void scopedOptionsExposeDepartmentAndOpenPeriodContextWithConfigurationPermissionAlone() throws Exception {
+        var options=new AttitudeConfigurationOptionsDto();var role=new AttitudeConfigurationDto.RoleMapping();
+        role.setRoleId(7L);role.setRoleName("Executive");role.setDepartmentName("Sales");options.setRoles(List.of(role));
+        options.setReviewPeriods(List.of(new AttitudeConfigurationOptionsDto.ReviewPeriodOption(4L,"Annual Review",AnnualKpiReviewPeriodStatus.OPEN)));
+        when(service.options(actor)).thenReturn(options);
+        mvc.perform(get("/api/attitude-configurations/options").with(authentication(user("CAN_MANAGE_ATTITUDE_CONFIGURATION"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.roles[0].departmentName").value("Sales"))
+                .andExpect(jsonPath("$.reviewPeriods[0].id").value(4)).andExpect(jsonPath("$.reviewPeriods[0].status").value("OPEN"));
     }
     @Test void employeeReviewAndPeriodPermissionsDoNotGrantConfigurationAccess() throws Exception {
         when(messageSource.getMessage(anyString(),any(),any(Locale.class))).thenReturn("Forbidden");

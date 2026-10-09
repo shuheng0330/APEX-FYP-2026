@@ -18,7 +18,7 @@ describe('Attitude configuration API', () => {
     api.list().subscribe(); const list = http.expectOne(base);
     expect(list.request.method).toBe('GET'); expect(list.request.withCredentials).toBeTrue();
     expect(list.request.headers.get('X-Skip-Error-Handler')).toBe('true'); list.flush([]);
-    api.optionsList().subscribe(); http.expectOne(`${base}/options`).flush({ formats: [], roles: [] });
+    api.optionsList().subscribe(); http.expectOne(`${base}/options`).flush({ formats: [], roles: [], reviewPeriods: [] });
   });
   it('saves incomplete Drafts as full collections without changing a review-period binding', () => {
     const request = emptyAttitudeConfiguration();
@@ -32,5 +32,12 @@ describe('Attitude configuration API', () => {
     expect(copy.request.method).toBe('POST'); expect(copy.request.body).toEqual({}); copy.flush({});
     api.publish(8).subscribe(); const publish = http.expectOne(`${base}/8/publish`);
     expect(publish.request.method).toBe('POST'); expect(publish.request.withCredentials).toBeTrue(); publish.flush({});
+  });
+  it('reads and initially binds period configuration without using period-administration APIs', () => {
+    api.period(4).subscribe(); const period = http.expectOne(`${base}/periods/4`);
+    expect(period.request.method).toBe('GET'); period.flush({});
+    api.bindInitially(4, 7).subscribe(); const binding = http.expectOne(`${base}/periods/4/bind`);
+    expect(binding.request.method).toBe('POST'); expect(binding.request.body).toEqual({ configurationId: 7 });
+    expect(binding.request.withCredentials).toBeTrue(); expect(binding.request.headers.get('X-Skip-Error-Handler')).toBe('true'); binding.flush({});
   });
 });

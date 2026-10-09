@@ -11,5 +11,6 @@ public interface AttitudeConfigurationMapper {
     AttitudeConfigurationRequest.Rating toDto(AttitudeRatingDefinition rating);
     @Mapping(target="roleId",source="role.id")
     @Mapping(target="roleName",source="role.name")
+    @Mapping(target="departmentName",source="role.orgChart.name")
     AttitudeConfigurationDto.RoleMapping toDto(AttitudeRoleFormatMapping mapping);
 }

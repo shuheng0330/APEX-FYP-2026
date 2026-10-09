@@ -22,7 +22,7 @@ Base: `/api/attitude-configurations`.
 | --- | --- | --- |
 | GET | `/` | Saved editions, newest created first. |
 | GET | `/current` | Latest published edition; publication date/ID tie-break. 204 when absent. |
-| GET | `/options` | Fixed formats and eligible non-deleted Job Roles. |
+| GET | `/options` | Fixed formats, eligible non-deleted Job Roles (with department names), and a scoped list of Open Review Periods for initial binding. Does not grant Review Period administration. |
 | GET | `/{id}` | Complete edition, including inactive criteria and metadata. |
 | POST | `/` | Save an incomplete Draft (201). |
 | PUT | `/{id}` | Replace a Draft's complete collections; criterion IDs must belong to it. |
@@ -53,6 +53,14 @@ Publication requires a name, all five complete ratings, complete active criterio
 Technical limits: names/labels 255 characters, descriptions 10,000. These are implementation limits, not claimed TBM policies. No criterion weighting, mandatory comments or file policy is introduced.
 
 Published editions/children are read-only. There is no delete or replace-bound-edition action. Copies contain independent children; publishing affects future openings only. Annual period responses expose binding ID/name read-only; UC-01/UC-02 requests cannot set them.
+
+Role mappings remain keyed by Role ID, not name. Responses include `departmentName` from the inherited `Role.orgChart` relationship, also used by Review Period Role options. Same-named Roles in separate departments remain independently configurable. Department names are display context, not a new historical snapshot or a change to configuration ownership.
+
+Setup displays: "The latest published configuration is automatically reused for future Review Periods. Republish only when changes are needed. Existing periods remain unaffected." Automatic binding occurs at opening, not when a Draft is created or a configuration is published.
+
+The setup page exposes the existing initial-binding action for Open, unbound periods. If no published edition exists, show: "No published Attitude Evaluation Configuration is available. Publish a configuration to enable Attitude Evaluations for this review period." Publishing alone does not retrospectively bind an already-Open period; the administrator must explicitly bind it. Bound periods cannot be rebound.
+
+Employee attitude-assessment availability remains part of the later UC-10 slice. Missing binding must show "Attitude Evaluation Not Yet Available" and "The Attitude Evaluation criteria have not been configured for this Annual Review Period. Please check again later." Do not expose administrator configuration endpoints to employees, treat a globally published edition as an existing period binding, or disable KPI activities. A binding is necessary but not sufficient: the later assessment service must also validate participant Role mapping and its normal availability rules.
 
 Actual Open transitions bind the latest published edition atomically: direct publication, Draft publication, rescheduled Upcoming opening and scheduler opening. Draft saves, previews, GETs and subsequent configuration publication do not bind existing periods. Opening is allowed without a configuration; missing configuration blocks future attitude assessments only, not KPI assessments. V40 leaves existing Open periods unbound for explicit initial binding. Upcoming/Closed periods cannot use that action, and existing bindings cannot be replaced.
 

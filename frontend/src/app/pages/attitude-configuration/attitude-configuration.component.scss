@@ -24,7 +24,11 @@ h4 { margin: 0; font-size: 14px; font-weight: 600; }
 .criterion-actions { gap: 6px; }
 .mapping-note { margin: 0 22px 18px; }
 .role-table nz-select { width: 260px; max-width: 100%; }
-.role-table td { width: 50%; }
+.role-table td { width: 33.333%; }
+.binding-period { max-width: 440px; }
+.binding-actions { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-top: 18px; }
+.binding-actions .field { width: 440px; max-width: 100%; }
+.binding-feedback { margin-top: 18px; }
 .text-action { border: 0; background: transparent; color: var(--tbm-primary); padding: 3px 0; text-align: left; text-decoration: underline; cursor: pointer; }
 .error-box ul { margin: 8px 0 0; padding-left: 20px; }
 .editor-fields { display: grid; gap: 24px; }

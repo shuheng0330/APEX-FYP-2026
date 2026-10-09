@@ -31,6 +31,7 @@ public class AttitudeConfigurationDto {
     @Data public static class RoleMapping {
         private Long roleId;
         private String roleName;
+        private String departmentName;
         private AttitudeEvaluationFormat evaluationFormat;
     }
 }
