@@ -57,6 +57,22 @@ describe('My Assessments - KPI Self-Assessment', () => {
     expect(api.create).not.toHaveBeenCalled(); expect(page.readonly).toBeFalse(); expect(page.canSubmit).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(5);
   });
+  it('shows recorded employee context below the tab and above the checkpoint controls', () => {
+    page.assessment!.roleName = 'Sales Executive';
+    page.assessment!.kpiAllocation = { employeeLevelId: 4, employeeLevelName: 'Executive', companyKpiWeight: 15, departmentKpiWeight: 25, individualKpiWeight: 60 };
+    fixture.detectChanges();
+    const context: HTMLElement = fixture.nativeElement.querySelector('.assessment-employee');
+    expect(context.textContent?.trim()).toBe('Amir · Sales Executive · Executive');
+    expect(context.nextElementSibling?.classList.contains('assessment-toolbar')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.assessment-heading').textContent).not.toContain('Amir');
+    expect(api.create).not.toHaveBeenCalled();
+  });
+  it('omits missing context without placeholder text or dangling separators', () => {
+    page.assessment!.roleName = null; page.assessment!.kpiAllocation = null; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assessment-employee').textContent.trim()).toBe('Amir');
+    page.assessment!.employeeName = ''; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assessment-employee')).toBeNull();
+  });
   it('opens the checkpoint dropdown when clicking its visible selected value', async () => {
     await fixture.whenStable(); fixture.detectChanges();
     const select = fixture.debugElement.query(By.css('.checkpoint-picker'));

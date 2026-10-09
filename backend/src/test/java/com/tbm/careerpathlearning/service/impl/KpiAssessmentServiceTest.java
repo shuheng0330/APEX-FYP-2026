@@ -90,6 +90,16 @@ class KpiAssessmentServiceTest {
         assertTrue(dto.isCanSaveDraft());assertFalse(dto.isCanSubmit());assertEquals(3,dto.getMissingLevels().size());
         assertTrue(dto.getItems().isEmpty());verify(assessments,never()).saveAndFlush(any());
     }
+    @Test void employeeDetailsUseRecordedParticipantContext() {
+        participant.setRoleName("Sales Executive");
+        var currentRole=new Role();currentRole.setName("Current Role");participant.setRole(currentRole);
+        var level=new EmployeeLevel();level.setId(4L);level.setName("Executive");
+        participant.getEmployeeLevelConfiguration().setEmployeeLevel(level);
+        var dto=service.mine(11L,owner);
+        assertEquals("Amir",dto.getEmployeeName());assertEquals("Sales Executive",dto.getRoleName());
+        assertEquals("Executive",dto.getKpiAllocation().getEmployeeLevelName());
+        verify(assessments,never()).saveAndFlush(any());
+    }
     @Test void emptyDraftSavesEvenWithoutAssignmentsOrSuperior() {
         employee.setManager(null);var dto=service.create(request(),owner);
         assertEquals(KpiAssessmentStatus.DRAFT,dto.getStatus());assertTrue(dto.getItems().isEmpty());

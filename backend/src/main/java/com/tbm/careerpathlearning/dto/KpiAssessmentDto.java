@@ -9,6 +9,7 @@ public class KpiAssessmentDto {
     private Long id;
     private Long participantId;
     private String employeeName;
+    private String roleName;
     private Long reviewPeriodId;
     private String reviewPeriodName;
     private AnnualKpiReviewPeriodStatus reviewPeriodStatus;

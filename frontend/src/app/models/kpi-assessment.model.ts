@@ -19,6 +19,7 @@ export interface KpiAssessmentItem {
 }
 export interface KpiAssessment {
   id: number | null; participantId: number; employeeName: string;
+  roleName?: string | null;
   reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
   checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentStatus; items: KpiAssessmentItem[];
   kpiAllocation: KpiPeriodContext['kpiAllocation']; missingLevels: KpiLevel[]; submissionBlockers: string[];

@@ -214,6 +214,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         var dto=mapper.toDto(a);var participant=a.getParticipant();var period=participant.getReviewPeriod();
         if(a.getId()==null) {dto.setCreatedAt(null);dto.setUpdatedAt(null);}
         dto.setParticipantId(participant.getId());dto.setEmployeeName(participant.getStaffName());dto.setReviewPeriodId(period.getId());
+        dto.setRoleName(participant.getRoleName());
         dto.setReviewPeriodName(period.getName());dto.setReviewPeriodStatus(period.getStatus());
         dto.setCheckpoint(checkpointDto(a.getCheckpoint(),a.getId()==null?null:a));
         dto.setKpiAllocation(kpis.toDto(participant.getEmployeeLevelConfiguration()));

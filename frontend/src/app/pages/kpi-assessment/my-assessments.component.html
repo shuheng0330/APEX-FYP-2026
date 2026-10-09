@@ -23,6 +23,7 @@
       <nz-tab [nzTitle]="'MY_ASSESSMENTS.KPI_TAB' | translate">
         @if (!checkpoints.length) { <section class="card"><p class="empty">{{ 'MY_ASSESSMENTS.NO_CHECKPOINTS' | translate }}</p></section> }
         @if (assessment; as current) {
+          @if (employeeContext; as context) { <p class="help assessment-employee">{{ context }}</p> }
           <div class="assessment-toolbar">
             <div class="checkpoint-context">
               <div class="field checkpoint-field">
@@ -72,7 +73,7 @@
             <div class="card-head assessment-heading"><div>
               <h3>{{ 'MY_ASSESSMENTS.KPI_TAB' | translate }} - {{ checkpointLabel(current.checkpoint) }}</h3>
               <p class="help">{{ 'MY_ASSESSMENTS.INSTRUCTIONS' | translate }}</p>
-            </div><div class="actions">@if (current.employeeName) { <span class="help">{{ current.employeeName }}</span> }<app-kpi-scoring-guide /></div></div>
+            </div><app-kpi-scoring-guide /></div>
             <div class="table-scroll"><table class="data-table assessment-table">
               <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_PLAN.NAME' | translate }}</th>
                 <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }}</th>

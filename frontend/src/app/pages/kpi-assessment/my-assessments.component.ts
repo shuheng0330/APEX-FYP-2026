@@ -45,6 +45,10 @@ export class MyAssessmentsComponent implements OnInit {
 
   constructor(private api: KpiAssessmentService, private translate: TranslateService, private modal: NzModalService) {}
   ngOnInit() { this.load(); }
+  get employeeContext() {
+    return [this.assessment?.employeeName, this.assessment?.roleName, this.assessment?.kpiAllocation?.employeeLevelName]
+      .map(value => value?.trim()).filter(Boolean).join(' · ');
+  }
   get readonly() { return !this.ready || !this.assessment?.canSaveDraft || this.assessment.status !== 'DRAFT'; }
   get dirty() { return !!this.assessment && !this.readonly && this.answerSignature() !== this.savedAnswers; }
   get canSubmit() { return !this.readonly && !this.busy && this.submissionReasons.length === 0; }
