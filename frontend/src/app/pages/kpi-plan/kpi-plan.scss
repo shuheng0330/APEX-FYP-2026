@@ -72,6 +72,8 @@ textarea { min-height: 64px; resize: vertical; }
 .individual-submit { justify-content: flex-end; padding: 0 0 24px; }
 .assigned-plan-heading { margin: 12px 0 16px; }
 .assigned-plan-heading h3, .review-queue-heading h3 { margin: 0 0 6px; font-size: 16px; }
+.review-queue-heading.team-review-intro { margin-bottom: 20px; }
+.team-review-intro .help { margin-bottom: 0; }
 .assigned-plan .card-head h3 { margin: 0; font-size: 16px; }
 .review-queue-filters { display: flex; gap: 20px; flex-wrap: wrap; align-items: end; }
 .review-queue-filters > .field:first-child { flex: 1; min-width: 220px; }

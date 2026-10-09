@@ -66,6 +66,13 @@ describe('Team KPI assessment reviews', () => {
     page.search = 'retail'; expect(page.count('REVIEWED')).toBe(1); page.search = 'other'; expect(page.visibleReviews).toEqual([]);
     page.search = ''; page.periodId = 2; expect(page.visibleReviews).toEqual([]);
   });
+  it('separates the assessment guidance from its two review-status buttons', () => {
+    const intro: HTMLElement = fixture.nativeElement.querySelector('.team-review-intro');
+    expect(intro.querySelector('.help')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.HELP');
+    expect(getComputedStyle(intro).marginBottom).toBe('20px');
+    expect(page.statuses).toEqual(['PENDING_REVIEW', 'REVIEWED']);
+    expect(fixture.nativeElement.querySelectorAll('.review-status-tab').length).toBe(2);
+  });
   it('shows the employee answers read-only and a separate five-point Superior input', () => {
     page.open(20); fixture.detectChanges();
     expect(drawer().querySelector('.self-answers')!.textContent).toContain('Employee evidence');

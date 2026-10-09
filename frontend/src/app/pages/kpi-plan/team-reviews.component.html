@@ -14,7 +14,7 @@
   @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div><button nz-button [disabled]="loading" (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
   @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
   @if (loading) { <p role="status">{{ 'TEAM_REVIEWS.LOADING' | translate }}</p> }
-  <div class="review-queue-heading"><h3>{{ 'TEAM_REVIEWS.TYPE' | translate }}</h3></div>
+  <div class="review-queue-heading team-review-intro"><h3>{{ 'TEAM_REVIEWS.TYPE' | translate }}</h3><p class="help">{{ 'TEAM_REVIEWS.APPROVAL_HELP' | translate }}</p></div>
   <section class="review-status-tabs" [attr.aria-label]="'TEAM_REVIEWS.FILTER' | translate">
     @for (status of statuses; track status) {
       <button type="button" class="review-status-tab" [class.active]="filter === status" [attr.aria-pressed]="filter === status" (click)="filter = status">

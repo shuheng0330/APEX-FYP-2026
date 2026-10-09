@@ -127,6 +127,7 @@
     },
     "TEAM_REVIEWS": {
         "TITLE": "Team Reviews", "TYPE": "Individual KPI Approval",
+        "APPROVAL_HELP": "Review your team's submitted Individual KPI Plans. Approve a plan or return it with a reason for revision.",
         "HELP": "Approve Individual KPI Plans, arrange KPI assistance and review your team's KPI assessments.",
         "LOADING": "Loading your team's KPI plans...", "FILTER": "Filter Individual KPI Plans by status",
         "EMPLOYEE": "Employee", "SUBMITTED": "Submitted", "SEARCH": "Find an employee",

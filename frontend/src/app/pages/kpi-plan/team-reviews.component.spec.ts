@@ -56,6 +56,12 @@ describe('Team Reviews', () => {
     component.periodId = 2; expect(component.visiblePlans).toEqual([]);
     expect(fixture.nativeElement.textContent).not.toContain('KPI Assessment');
   });
+  it('places brief approval guidance above the status buttons with breathing room', () => {
+    const intro: HTMLElement = fixture.nativeElement.querySelector('.team-review-intro');
+    expect(intro.querySelector('.help')?.textContent).toContain('TEAM_REVIEWS.APPROVAL_HELP');
+    expect(getComputedStyle(intro).marginBottom).toBe('20px');
+    expect(intro.nextElementSibling?.classList.contains('review-status-tabs')).toBeTrue();
+  });
   it('opens the full plan read-only with five criteria', () => {
     component.open(10); fixture.detectChanges();
     const body = document.querySelector('.ant-drawer-open .ant-drawer-body')!;
