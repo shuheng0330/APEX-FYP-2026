@@ -24,6 +24,7 @@ public class KpiAssessmentDto {
     private boolean canSubmit;
     private boolean overdue;
     private boolean canSaveSuperiorDraft;
+    private boolean superiorDraftSaved;
     private boolean canCompleteReview;
     private boolean superiorOverdue;
     private List<String> reviewBlockers=new ArrayList<>();

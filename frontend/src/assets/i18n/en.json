@@ -15,7 +15,7 @@
         "TITLE": "KPI Assessments", "DETAIL_TITLE": "Superior KPI Assessment",
         "HELP": "Review your team's submitted Self-Assessments and record the final Superior points.",
         "FILTER": "Filter KPI assessments by status", "DEADLINE": "Superior Assessment Deadline",
-        "SELF_ANSWERS": "Employee Self-Assessment", "SUPERIOR_POINT": "Superior Assessment Point",
+        "SELF_ANSWERS": "Employee Self-Assessment", "SUPERIOR_ANSWERS": "Superior Assessment", "SUPERIOR_POINT": "Superior Assessment Point",
         "SUPERIOR_COMMENT": "Superior Comment", "COMMENT_PLACEHOLDER": "Add your review comments (optional)...", "NO_COMMENT": "No comment provided.",
         "COMPLETE": "Complete Review", "COMPLETE_CONFIRM": "Finalise this assessment using your Superior points? The official KPI score will be calculated and your answers will become read-only. Self points do not contribute to the score.",
         "SAVED": "Your Superior Assessment Draft has been saved.", "COMPLETED": "Review completed. The employee can now view your final assessment.",
@@ -27,7 +27,7 @@
         "READINESS_CHANGED": "The assessment or review period has changed. Reopen the assessment to check its latest status.",
         "ACCESS_CHANGED": "You no longer have access to this assessment. Your review permission or the employee's assigned Superior may have changed. Your unsaved answers are kept.",
         "NO_MATCHES": "No assessments match these filters. Try another employee, review period or status.",
-        "EMPTY": { "PENDING_REVIEW": "No KPI Self-Assessments are waiting for your review.", "REVIEWED": "No completed KPI assessments for your team yet." }
+        "EMPTY": { "PENDING_REVIEW": "No KPI Self-Assessments are waiting for your review.", "DRAFT": "No saved Superior Assessment Drafts yet.", "REVIEWED": "No completed KPI assessments for your team yet." }
     },
     "MY_ASSESSMENTS": {
         "TITLE": "My Assessments", "HELP": "Assess your KPI performance for each review checkpoint and send it to your Superior.",

@@ -26,6 +26,7 @@ export interface KpiAssessment {
   kpiAllocation: KpiPeriodContext['kpiAllocation']; missingLevels: KpiLevel[]; submissionBlockers: string[];
   canSaveDraft: boolean; canSubmit: boolean; overdue: boolean;
   canSaveSuperiorDraft?: boolean; canCompleteReview?: boolean; superiorOverdue?: boolean; reviewBlockers?: string[];
+  superiorDraftSaved?: boolean;
   createdAt: string | null; updatedAt: string | null; submittedAt: string | null; submittedBy: string | null;
   submittedToSuperiorId: string | null; submittedLate: boolean | null;
   reviewedAt: string | null; reviewedBy: string | null; reviewedLate: boolean | null; checkpointScore: number | null;
@@ -35,12 +36,18 @@ export interface KpiAssessmentRequest {
   items: { assignmentId: number; selfPoint: number | null; selfComment: string | null }[];
 }
 export type KpiAssessmentReviewStatus = Exclude<KpiAssessmentStatus, 'DRAFT'>;
+export type KpiSuperiorReviewProgress = 'PENDING_REVIEW' | 'DRAFT' | 'REVIEWED';
+export function superiorReviewProgress(assessment: { status: KpiAssessmentStatus; superiorDraftSaved?: boolean }): KpiSuperiorReviewProgress {
+  if (assessment.status === 'REVIEWED') return 'REVIEWED';
+  return assessment.superiorDraftSaved ? 'DRAFT' : 'PENDING_REVIEW';
+}
 export interface KpiAssessmentReview {
   id: number; employeeId: string; employeeName: string; roleName: string | null; departmentName: string | null;
   reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
   checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentReviewStatus;
   submittedAt: string; submittedLate: boolean; reviewedAt: string | null; reviewedLate: boolean | null;
   checkpointScore: number | null; canReview: boolean; superiorOverdue: boolean;
+  superiorDraftSaved?: boolean;
 }
 export interface KpiSuperiorAssessmentRequest {
   items: { itemId: number; superiorPoint: number | null; superiorComment: string | null }[];

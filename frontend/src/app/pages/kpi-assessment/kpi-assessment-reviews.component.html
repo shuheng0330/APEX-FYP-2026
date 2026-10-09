@@ -29,7 +29,7 @@
       <tr><td><strong>{{ row.employeeName }}</strong><p class="help">{{ row.roleName || '-' }}</p></td>
         <td>{{ row.departmentName || '-' }}</td><td>{{ row.reviewPeriodName }}</td><td>{{ checkpointLabel(row.checkpoint) }}</td>
         <td>{{ row.checkpoint.superiorAssessmentDeadline | date:'dd MMM yyyy' }}</td>
-        <td><span class="status" [attr.data-status]="row.status">{{ 'MY_ASSESSMENTS.STATUS.' + row.status | translate }}</span>
+        <td><span class="status" [attr.data-status]="reviewProgress(row)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(row) | translate }}</span>
           @if (row.superiorOverdue && row.canReview) { <span class="status overdue">{{ 'MY_ASSESSMENTS.OVERDUE' | translate }}</span> }
           @if (row.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
         </td><td><button nz-button [disabled]="locked" (click)="open(row.id)">{{ (row.canReview ? 'DEPARTMENT_REVIEW.REVIEW' : 'REVIEW_PERIOD.VIEW') | translate }}</button></td></tr>
@@ -42,13 +42,12 @@
     @if (selected; as assessment) {
       @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
       @if (success) { <div class="notice" role="status">{{ success }}</div> }
-      <div class="review-detail-summary">
+      <div class="review-detail-summary assessment-review-summary">
         <div><span class="help">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</span><strong>{{ assessment.employeeName }}</strong><span class="help">{{ assessment.roleName }} @if (assessment.departmentName) { / {{ assessment.departmentName }} }</span></div>
         <div><span class="help">{{ 'MY_ASSESSMENTS.CHECKPOINT' | translate }}</span><strong>{{ checkpointLabel(assessment.checkpoint) }}</strong></div>
         <div><span class="help">{{ 'KPI_ASSESSMENT_REVIEW.DEADLINE' | translate }}</span><strong>{{ assessment.checkpoint.superiorAssessmentDeadline | date:'dd MMM yyyy' }}</strong></div>
-        <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="assessment.status">{{ 'MY_ASSESSMENTS.STATUS.' + assessment.status | translate }}</span></div>
+        <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="reviewProgress(assessment)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(assessment) | translate }}</span></div>
       </div>
-      <div class="actions"><app-kpi-scoring-guide /></div>
       @if (assessment.status === 'REVIEWED') {
         <p class="notice checkpoint-score">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ assessment.checkpointScore | number:'1.0-4' }} / 100
           <span class="help">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
@@ -65,23 +64,23 @@
           <ul>@for (reason of completionReasons; track reason) { <li>{{ reason }}</li> }</ul>
         </div>
       }
-      @for (item of items; track item.id; let index = $index) {
+      @for (item of items; track item.id) {
         <section class="card review-assessment-card">
-          <div class="card-head"><div><span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span>
-            <h3>{{ index + 1 }}. {{ item.kpi.name }}</h3><p class="help target-cell">{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target }}</p>
-          </div><button nz-button (click)="viewCriteria(item)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button></div>
+          <div class="card-head"><div class="review-kpi-heading"><span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span>
+            <h3>{{ item.kpi.name }}</h3><p class="help target-cell">{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target }}</p>
+          </div><button nz-button nzType="link" class="review-criteria-action" (click)="viewCriteria(item)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button></div>
           <div class="card-body">
             <div class="answer-column self-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SELF_ANSWERS' | translate }}</h4>
               <strong class="saved-point">{{ item.selfPoint ?? '-' }}</strong>
               @if (item.selfPoint) { <span class="selected-point-label">{{ 'KPI_SCORING_GUIDE.RATING.' + item.selfPoint + '.LABEL' | translate }}</span> }
               <p class="saved-comment">{{ item.selfComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p>
               @for (file of item.evidence; track file.id) {
-                <div class="evidence-file"><span class="evidence-name">{{ file.originalFilename }}</span>
+                <div class="evidence-file review-evidence-row"><span class="evidence-name" [title]="file.originalFilename">{{ file.originalFilename }}</span>
                   <button nz-button nzType="link" [disabled]="busy" (click)="downloadEvidence(file)" [attr.aria-label]="('MY_ASSESSMENTS.DOWNLOAD' | translate) + ': ' + file.originalFilename">{{ 'MY_ASSESSMENTS.DOWNLOAD' | translate }}</button>
                 </div>
               }
             </div>
-            <div class="answer-column superior-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate }}</h4>
+            <div class="answer-column superior-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_ANSWERS' | translate }}</h4>
               @if (readonly) { <strong class="saved-point">{{ item.superiorPoint ?? '-' }}</strong> }
               @else {
                 <fieldset class="point-selector" [disabled]="busy" [attr.aria-label]="('KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate) + ': ' + item.kpi.name"

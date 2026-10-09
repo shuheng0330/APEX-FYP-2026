@@ -42,7 +42,7 @@ describe('Team KPI assessment reviews', () => {
     api.saveSuperiorDraft.and.callFake((_id, request) => {
       const items = request.items.map(answer => ({ ...item(), superiorPoint: answer.superiorPoint, superiorComment: answer.superiorComment }));
       const complete = items.length > 0 && items.every(answer => answer.superiorPoint != null);
-      return of(assessment({ items, canCompleteReview: complete, reviewBlockers: complete ? [] : ['Select a Superior Assessment Point for Sales'] }));
+      return of(assessment({ items, superiorDraftSaved: true, canCompleteReview: complete, reviewBlockers: complete ? [] : ['Select a Superior Assessment Point for Sales'] }));
     });
     api.completeReview.and.returnValue(of(assessment({ status: 'REVIEWED', items: [{ ...item(), superiorPoint: 4, superiorComment: 'Verified' }],
       canSaveSuperiorDraft: false, canCompleteReview: false, reviewBlockers: [], checkpointScore: 87.125,
@@ -66,12 +66,12 @@ describe('Team KPI assessment reviews', () => {
     page.search = 'retail'; expect(page.count('REVIEWED')).toBe(1); page.search = 'other'; expect(page.visibleReviews).toEqual([]);
     page.search = ''; page.periodId = 2; expect(page.visibleReviews).toEqual([]);
   });
-  it('separates the assessment guidance from its two review-status buttons', () => {
+  it('separates the assessment guidance from its three review-progress buttons', () => {
     const intro: HTMLElement = fixture.nativeElement.querySelector('.team-review-intro');
     expect(intro.querySelector('.help')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.HELP');
     expect(getComputedStyle(intro).marginBottom).toBe('20px');
-    expect(page.statuses).toEqual(['PENDING_REVIEW', 'REVIEWED']);
-    expect(fixture.nativeElement.querySelectorAll('.review-status-tab').length).toBe(2);
+    expect(page.statuses).toEqual(['PENDING_REVIEW', 'DRAFT', 'REVIEWED']);
+    expect(fixture.nativeElement.querySelectorAll('.review-status-tab').length).toBe(3);
   });
   it('shows the employee answers read-only and a separate five-point Superior input', () => {
     page.open(20); fixture.detectChanges();
@@ -80,6 +80,23 @@ describe('Team KPI assessment reviews', () => {
     expect(drawer().querySelectorAll('.superior-answers input[type=radio]').length).toBe(5);
     expect(drawer().querySelector('input[type=file]')).toBeNull();
     expect(drawer().textContent).not.toContain('DEPARTMENT_REVIEW.RETURN');
+  });
+  it('uses spacious, separated answers, larger ratings and compact attachment rows without a global guide', () => {
+    page.open(20); fixture.detectChanges();
+    const body = drawer();
+    expect(body.querySelector('app-kpi-scoring-guide')).toBeNull();
+    expect(body.querySelector('.review-criteria-action')?.classList.contains('ant-btn-link')).toBeTrue();
+    expect(body.querySelector('.review-kpi-heading h3')?.textContent?.trim()).toBe('Sales');
+    expect(getComputedStyle(body.querySelector('.review-assessment-card')!).marginBottom).toBe('28px');
+    expect(getComputedStyle(body.querySelector('.card-body')!).paddingTop).toBe('24px');
+    expect(getComputedStyle(body.querySelector('.point-option span')!).width).toBe('40px');
+    expect(getComputedStyle(body.querySelector('.point-option span')!).height).toBe('40px');
+    expect(getComputedStyle(body.querySelector('.superior-answers')!).borderLeftWidth).toBe('1px');
+    const attachment = body.querySelector('.review-evidence-row')!;
+    expect(getComputedStyle(attachment).display).toBe('flex');
+    expect(attachment.querySelector('.evidence-name')?.textContent).toBe('proof.pdf');
+    expect(attachment.querySelectorAll('button').length).toBe(1);
+    expect(getComputedStyle(body.querySelector('.assessment-review-summary')!).paddingTop).toBe('12px');
   });
   it('edits only Superior answers through the rendered controls', async () => {
     page.open(20); fixture.detectChanges(); await fixture.whenStable();
@@ -98,6 +115,26 @@ describe('Team KPI assessment reviews', () => {
     expect(api.saveSuperiorDraft).toHaveBeenCalledOnceWith(20, { items: [{ itemId: 44, superiorPoint: null, superiorComment: 'Review in progress' }] });
     expect(page.selected?.status).toBe('PENDING_REVIEW'); expect(page.items[0].selfComment).toBe('Employee evidence');
     expect(page.selected?.checkpointScore).toBeNull(); expect(page.dirty).toBeFalse(); expect(api.completeReview).not.toHaveBeenCalled();
+    expect(page.reviewProgress(page.selected!)).toBe('DRAFT');
+    expect(page.count('PENDING_REVIEW')).toBe(0); expect(page.count('DRAFT')).toBe(1);
+  });
+  it('keeps opening and unsaved edits Pending Review until a successful save, even if answers are empty', () => {
+    page.open(20); expect(page.reviewProgress(page.selected!)).toBe('PENDING_REVIEW');
+    page.items[0].superiorPoint = 4; expect(page.reviewProgress(page.selected!)).toBe('PENDING_REVIEW');
+    page.items[0].superiorPoint = null; page.saveDraft();
+    expect(page.reviewProgress(page.selected!)).toBe('DRAFT'); expect(page.canComplete).toBeFalse();
+    expect(page.selected?.status).toBe('PENDING_REVIEW'); expect(page.readonly).toBeFalse();
+    fixture.detectChanges(); expect(drawer().querySelector('.assessment-review-summary .status')?.textContent).toContain('MY_ASSESSMENTS.STATUS.DRAFT');
+  });
+  it('restores saved Draft progress from the API after reload and filters it separately from untouched submissions', () => {
+    api.reviews.and.returnValue(of([{ ...row(), superiorDraftSaved: true }, row(22), row(21, 'REVIEWED')]));
+    page.load(); expect(page.count('DRAFT')).toBe(1); expect(page.count('PENDING_REVIEW')).toBe(1);
+    page.filter = 'DRAFT'; expect(page.visibleReviews[0].id).toBe(20);
+    api.get.and.returnValue(of(assessment({ superiorDraftSaved: true }))); page.open(20);
+    expect(page.reviewProgress(page.selected!)).toBe('DRAFT'); expect(page.readonly).toBeFalse();
+    page.close(); page.load(); expect(page.count('DRAFT')).toBe(1);
+    page.filter = 'REVIEWED'; expect(page.visibleReviews[0].id).toBe(21);
+    expect(page.reviewProgress(assessment({ status: 'REVIEWED', superiorDraftSaved: true }))).toBe('REVIEWED');
   });
   it('blocks completion until all current Superior points are complete', () => {
     page.open(20); expect(page.canComplete).toBeFalse(); page.confirmComplete(); expect(modal.confirm).not.toHaveBeenCalled();
@@ -143,6 +180,7 @@ describe('Team KPI assessment reviews', () => {
     page.open(20); page.items[0].superiorPoint = 4;
     api.saveSuperiorDraft.and.returnValue(throwError(() => ({ error: { message: 'Please retry' } }))); page.saveDraft();
     expect(page.items[0].superiorPoint).toBe(4); expect(page.dirty).toBeTrue(); expect(page.error).toBe('Please retry');
+    expect(page.reviewProgress(page.selected!)).toBe('PENDING_REVIEW'); expect(page.count('DRAFT')).toBe(0);
     api.saveSuperiorDraft.and.returnValue(throwError(() => ({ status: 403 }))); page.saveDraft();
     expect(page.readonly).toBeTrue(); expect(page.dirty).toBeTrue(); expect(page.error).toBe('KPI_ASSESSMENT_REVIEW.ACCESS_CHANGED');
     page.complete(); expect(api.completeReview).not.toHaveBeenCalled();

@@ -96,6 +96,19 @@ class KpiAssessmentControllerTest {
         mvc.perform(post("/api/kpi-assessments/5/complete-review").with(auth)).andExpect(status().isOk());
         verify(service).completeReview(5L,actor);
     }
+    @Test void responsesExposeSuperiorDraftProgressWithoutChangingSubmittedLifecycle() throws Exception {
+        var auth=authentication(user("CAN_REVIEW_KPI_ASSESSMENT"));
+        var row=new KpiAssessmentReviewDto();row.setId(5L);row.setSuperiorDraftSaved(true);
+        row.setStatus(com.tbm.careerpathlearning.enums.KpiAssessmentStatus.PENDING_REVIEW);
+        when(service.reviews(null,null,actor)).thenReturn(List.of(row));
+        mvc.perform(get("/api/kpi-assessments/reviews").with(auth)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].superiorDraftSaved").value(true)).andExpect(jsonPath("$[0].status").value("PENDING_REVIEW"));
+        var detail=new KpiAssessmentDto();detail.setId(5L);detail.setSuperiorDraftSaved(true);
+        detail.setStatus(com.tbm.careerpathlearning.enums.KpiAssessmentStatus.PENDING_REVIEW);
+        when(service.get(5L,actor)).thenReturn(detail);
+        mvc.perform(get("/api/kpi-assessments/5").with(auth)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.superiorDraftSaved").value(true)).andExpect(jsonPath("$.status").value("PENDING_REVIEW"));
+    }
     @Test void employeeAndOtherReviewAuthoritiesCannotInvokeSuperiorActions() throws Exception {
         messages();for(var permission:List.of("ROLE_USER","CAN_REVIEW_INDIVIDUAL_KPI","CAN_APPROVE_DEPARTMENT_KPI","CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD")) {
             var auth=authentication(user(permission));

@@ -24,5 +24,6 @@ public class KpiAssessmentReviewDto {
     private Boolean reviewedLate;
     private BigDecimal checkpointScore;
     private boolean canReview;
+    private boolean superiorDraftSaved;
     private boolean superiorOverdue;
 }

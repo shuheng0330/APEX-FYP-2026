@@ -259,12 +259,40 @@ class KpiAssessmentServiceTest {
         assertEquals(KpiAssessmentStatus.PENDING_REVIEW,draft.getStatus());assertEquals(4,draft.getItems().get(0).getSuperiorPoint());
         assertEquals("Supported by evidence",draft.getItems().get(0).getSuperiorComment());
         assertTrue(draft.isCanSaveSuperiorDraft());assertFalse(draft.isCanCompleteReview());assertNull(draft.getCheckpointScore());
+        assertTrue(draft.isSuperiorDraftSaved());
         assertNull(draft.getReviewedAt());assertEquals(2,draft.getReviewBlockers().size());
         var ownerView=service.get(20L,owner);assertNull(ownerView.getItems().get(0).getSuperiorPoint());
         assertNull(ownerView.getItems().get(0).getSuperiorComment());assertFalse(ownerView.isCanSaveSuperiorDraft());
+        assertFalse(ownerView.isSuperiorDraftSaved());assertEquals(KpiAssessmentStatus.PENDING_REVIEW,ownerView.getStatus());
         assertDoesNotThrow(()->service.saveSuperiorDraft(20L,new KpiSuperiorAssessmentRequest(),superiorId));
         assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));verifyNoInteractions(email);
         assertEquals(1,assessment.getItems().get(0).getSelfPoint());assertEquals("Evidence reviewed",assessment.getItems().get(0).getSelfComment());
+    }
+    @Test void openingDoesNotStartSuperiorDraftButEvenAnEmptySavePersistsProgress() {
+        pendingReview();var updatedAt=assessment.getUpdatedAt();
+        assertFalse(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertFalse(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertEquals(owner,assessment.getUpdatedBy());assertEquals(updatedAt,assessment.getUpdatedAt());
+        clearInvocations(assessments);
+        service.get(20L,superiorId);verify(assessments,never()).saveAndFlush(any());
+        var saved=service.saveSuperiorDraft(20L,new KpiSuperiorAssessmentRequest(),superiorId);
+        assertTrue(saved.isSuperiorDraftSaved());assertEquals(KpiAssessmentStatus.PENDING_REVIEW,saved.getStatus());
+        assertTrue(saved.getItems().stream().allMatch(i->i.getSuperiorPoint()==null));
+        assertTrue(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertThrows(BadRequestException.class,()->service.update(20L,request(),owner));
+    }
+    @Test void savedSuperiorProgressAppearsInQueueAndSurvivesClearingAnswers() {
+        pendingReview();
+        when(assessments.findReviewAssessments(superiorId,List.of(KpiAssessmentStatus.PENDING_REVIEW),1L)).thenReturn(List.of(assessment));
+        assertFalse(service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId).get(0).isSuperiorDraftSaved());
+        service.saveSuperiorDraft(20L,superiorRequest(4),superiorId);
+        var cleared=superiorRequest((Integer)null);cleared.getItems().get(0).setSuperiorComment(null);
+        service.saveSuperiorDraft(20L,cleared,superiorId);
+        var row=service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId).get(0);
+        assertTrue(row.isSuperiorDraftSaved());assertTrue(row.isCanReview());
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,row.getStatus());
+        assertTrue(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertNull(assessment.getItems().get(0).getSuperiorPoint());assertNull(assessment.getItems().get(0).getSuperiorComment());
     }
     @Test void completionUsesOnlySuperiorPointsAndRevealsOfficialResultToEmployee() {
         pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
@@ -273,6 +301,7 @@ class KpiAssessmentServiceTest {
         assertEquals(KpiAssessmentStatus.REVIEWED,reviewed.getStatus());assertEquals(new BigDecimal("87.0000"),reviewed.getCheckpointScore());
         assertEquals(superiorId,reviewed.getReviewedBy());assertNotNull(reviewed.getReviewedAt());assertFalse(reviewed.getReviewedLate());
         assertFalse(reviewed.isCanSaveSuperiorDraft());assertFalse(reviewed.isCanCompleteReview());
+        assertFalse(reviewed.isSuperiorDraftSaved());
         assertEquals(4,service.get(20L,owner).getItems().get(0).getSuperiorPoint());
         assertEquals(1,assessment.getItems().get(0).getSelfPoint());
         assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));

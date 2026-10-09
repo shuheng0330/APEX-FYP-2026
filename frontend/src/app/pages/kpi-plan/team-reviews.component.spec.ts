@@ -98,6 +98,7 @@ describe('Team Reviews', () => {
     api.reviews.calls.reset(); auth.hasRole.and.callFake(permission => permission === 'CAN_REVIEW_KPI_ASSESSMENT');
     component.ngOnInit(); fixture.detectChanges();
     expect(component.tab).toBe('assessments'); expect(api.reviews).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
     expect(assessments.reviews).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(1);
     component.selectTab('assistance'); expect(component.tab).toBe('assessments');
@@ -107,8 +108,10 @@ describe('Team Reviews', () => {
     auth.hasRole.and.returnValue(true); fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(3);
     component.selectTab('assessments'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
     component.assessmentWorkspace!.drawerVisible = true; component.selectTab('reviews');
     expect(component.tab).toBe('assessments'); expect(modal.confirm).toHaveBeenCalled();
-    component.assessmentWorkspace!.drawerVisible = false; component.selectTab('reviews'); expect(component.tab).toBe('reviews');
+    component.assessmentWorkspace!.drawerVisible = false; component.selectTab('reviews'); fixture.detectChanges(); expect(component.tab).toBe('reviews');
+    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).not.toBeNull();
   });
 });

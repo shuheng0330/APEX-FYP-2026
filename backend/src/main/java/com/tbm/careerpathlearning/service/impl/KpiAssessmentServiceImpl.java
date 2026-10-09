@@ -125,6 +125,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
                     dto.setSubmittedAt(a.getSubmittedAt());dto.setSubmittedLate(a.getSubmittedLate());
                     dto.setReviewedAt(a.getReviewedAt());dto.setReviewedLate(a.getReviewedLate());dto.setCheckpointScore(a.getCheckpointScore());
                     dto.setCanReview(a.getStatus()==KpiAssessmentStatus.PENDING_REVIEW && period.getStatus()==AnnualKpiReviewPeriodStatus.OPEN);
+                    dto.setSuperiorDraftSaved(superiorDraftSaved(a));
                     dto.setSuperiorOverdue(superiorOverdue(a));return dto;
                 }).toList();
     }
@@ -295,11 +296,17 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         dto.setCanSubmit(owner && dto.getSubmissionBlockers().isEmpty());
         dto.setOverdue(a.getStatus()==KpiAssessmentStatus.DRAFT && today().isAfter(a.getCheckpoint().getSelfAssessmentDeadline()));
         boolean reviewer=mayReview(a,actor);
+        dto.setSuperiorDraftSaved(reviewer && superiorDraftSaved(a));
         dto.setCanSaveSuperiorDraft(reviewer && a.getStatus()==KpiAssessmentStatus.PENDING_REVIEW && period.getStatus()==AnnualKpiReviewPeriodStatus.OPEN);
         dto.setReviewBlockers(reviewer?reviewBlockers(a):List.of());
         dto.setCanCompleteReview(reviewer && dto.getReviewBlockers().isEmpty());
         dto.setSuperiorOverdue(superiorOverdue(a));
         return dto;
+    }
+    private boolean superiorDraftSaved(KpiAssessment a) {
+        // Only the routed Superior can save changes after Self-Assessment submission, including an empty Draft.
+        return a.getStatus()==KpiAssessmentStatus.PENDING_REVIEW && a.getSubmittedToSuperiorId()!=null
+                && a.getSubmittedToSuperiorId().equals(a.getUpdatedBy());
     }
     private KpiAssessmentCheckpointDto checkpointDto(ReviewCheckpoint c,KpiAssessment a) {
         var dto=new KpiAssessmentCheckpointDto();dto.setId(c.getId());dto.setReviewFrequency(c.getReviewFrequency());

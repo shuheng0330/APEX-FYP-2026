@@ -10,14 +10,14 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { finalize, of, switchMap, throwError } from 'rxjs';
 import { KpiItem, KpiLevel } from '../../models/kpi-plan.model';
 import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem,
-  KpiAssessmentReview, KpiAssessmentReviewStatus, superiorAssessmentItemError } from '../../models/kpi-assessment.model';
+  KpiAssessmentReview, KpiAssessmentReviewStatus, KpiSuperiorReviewProgress, superiorReviewProgress,
+  superiorAssessmentItemError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
-import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 
 @Component({
   selector: 'app-kpi-assessment-reviews', standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent],
   templateUrl: './kpi-assessment-reviews.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss']
 })
@@ -25,9 +25,10 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dates = new DatePipe('en');
   private savedAnswers = '';
-  readonly statuses: KpiAssessmentReviewStatus[] = ['PENDING_REVIEW', 'REVIEWED'];
+  readonly statuses: KpiSuperiorReviewProgress[] = ['PENDING_REVIEW', 'DRAFT', 'REVIEWED'];
+  readonly reviewProgress = superiorReviewProgress;
   readonly points = [1, 2, 3, 4, 5];
-  filter: KpiAssessmentReviewStatus = 'PENDING_REVIEW';
+  filter: KpiSuperiorReviewProgress = 'PENDING_REVIEW';
   periodId: number | null = null;
   search = '';
   reviews: KpiAssessmentReview[] = [];
@@ -60,8 +61,8 @@ export class KpiAssessmentReviewsComponent implements OnInit {
     return this.reviews.filter(row => (this.periodId === null || row.reviewPeriodId === this.periodId)
       && (!search || `${row.employeeName} ${row.departmentName ?? ''}`.toLowerCase().includes(search)));
   }
-  get visibleReviews() { return this.filteredReviews.filter(row => row.status === this.filter); }
-  count(status: KpiAssessmentReviewStatus) { return this.filteredReviews.filter(row => row.status === status).length; }
+  get visibleReviews() { return this.filteredReviews.filter(row => this.reviewProgress(row) === this.filter); }
+  count(status: KpiSuperiorReviewProgress) { return this.filteredReviews.filter(row => this.reviewProgress(row) === status).length; }
   get completionReasons() {
     if (!this.selected || this.selected.status !== 'PENDING_REVIEW') return [];
     // Saved missing-point messages must not block newly entered, not-yet-saved answers.
@@ -98,6 +99,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
     this.selected = assessment; this.items = structuredClone(assessment.items); this.savedAnswers = this.answerSignature(); this.showValidation = false;
     this.reviews = this.reviews.map(row => row.id === assessment.id ? { ...row, status: assessment.status as KpiAssessmentReviewStatus,
       canReview: assessment.canSaveSuperiorDraft === true, superiorOverdue: assessment.superiorOverdue === true,
+      superiorDraftSaved: assessment.superiorDraftSaved,
       reviewedAt: assessment.reviewedAt, reviewedLate: assessment.reviewedLate, checkpointScore: assessment.checkpointScore } : row);
   }
   close() {
