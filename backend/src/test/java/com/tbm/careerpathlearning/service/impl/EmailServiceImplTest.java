@@ -89,6 +89,21 @@ class EmailServiceImplTest {
     }
 
     @Test
+    void attitudeEvaluationCompletionNotifiesEmployeeWithMyAssessmentsLink() {
+        emailService.sendAttitudeAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review",LOCALE);
+        verify(messageSource).getMessage(eq("email.attitude.assessment.reviewed.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.attitude.assessment.reviewed.body"),
+                eq(new Object[]{"Amir","Annual Review","http://localhost:3000/my-performance/my-assessments"}),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void attitudeEvaluationMailFailureIsNonFatal() {
+        doThrow(new MailSendException("Mail unavailable")).when(mailSender).send(any(MimeMessage.class));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendAttitudeAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review",LOCALE));
+    }
+
+    @Test
     void kpiAssessmentReviewNotifiesTheEmployeeWithAssessmentLink() {
         emailService.sendKpiAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE);
         verify(messageSource).getMessage(eq("email.kpi.assessment.reviewed.title"),any(),eq(LOCALE));

@@ -16,6 +16,10 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.data.jpa.repository.support.JpaRepositoryFactory;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
@@ -27,6 +31,33 @@ import static com.tbm.careerpathlearning.service.impl.AttitudeConfigurationPostg
 
 @EnabledIfEnvironmentVariable(named="APEX_PHASE3_POSTGRES_TEST",matches="true")
 class AttitudeAssessmentPostgresTest {
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void reviewMigrationPreservesExistingDataAndAddsNoRoleGrants(boolean populated) throws Exception {
+        try(var c=connection()) {
+            try {
+                var schema="attitude_review_sql_"+UUID.randomUUID().toString().replace("-","");
+                sql(c,"CREATE SCHEMA "+schema);sql(c,"SET LOCAL search_path TO "+schema);
+                sql(c,"CREATE TABLE authority (LIKE public.authority INCLUDING ALL)");
+                sql(c,"CREATE TABLE role_authority (LIKE public.role_authority INCLUDING ALL)");
+                if(populated) {
+                    sql(c,"INSERT INTO authority SELECT * FROM public.authority WHERE name<>'CAN_REVIEW_ATTITUDE_EVALUATION'");
+                    sql(c,"INSERT INTO role_authority SELECT r.* FROM public.role_authority r JOIN authority a ON a.id=r.authority_id");
+                }
+                sql(c,"ALTER TABLE authority ALTER COLUMN id RESTART WITH "+scalar(c,"SELECT coalesce(max(id),0)+1 FROM authority"));
+                String grants=text(c,"SELECT md5(coalesce(string_agg(to_jsonb(r)::text,',' ORDER BY role_id,authority_id),'')) FROM role_authority r");
+                String authorities=text(c,"SELECT md5(coalesce(string_agg(to_jsonb(a)::text,',' ORDER BY id),'')) FROM authority a");
+                String periods=text(c,"SELECT md5(coalesce(string_agg(to_jsonb(p)::text,',' ORDER BY id),'')) FROM public.annual_kpi_review_period p");
+                String assessments=text(c,"SELECT md5(coalesce(string_agg(to_jsonb(a)::text,',' ORDER BY id),'')) FROM public.attitude_assessment a");
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V42__superior_attitude_evaluation_permission.sql").getContentAsString(StandardCharsets.UTF_8));
+                assertEquals(1,scalar(c,"SELECT count(*) FROM authority WHERE name='CAN_REVIEW_ATTITUDE_EVALUATION'"));
+                assertEquals(authorities,text(c,"SELECT md5(coalesce(string_agg(to_jsonb(a)::text,',' ORDER BY id),'')) FROM authority a WHERE name<>'CAN_REVIEW_ATTITUDE_EVALUATION'"));
+                assertEquals(grants,text(c,"SELECT md5(coalesce(string_agg(to_jsonb(r)::text,',' ORDER BY role_id,authority_id),'')) FROM role_authority r"));
+                assertEquals(periods,text(c,"SELECT md5(coalesce(string_agg(to_jsonb(p)::text,',' ORDER BY id),'')) FROM public.annual_kpi_review_period p"));
+                assertEquals(assessments,text(c,"SELECT md5(coalesce(string_agg(to_jsonb(a)::text,',' ORDER BY id),'')) FROM public.attitude_assessment a"));
+                reject(c,"23514","INSERT INTO authority(name,description_key,label_key) VALUES('UNKNOWN_PERMISSION','unknown','unknown')");
+            } finally {c.rollback();}
+        }
+    }
     String migration() throws Exception {
         return new ClassPathResource("db/migration/annual-kpi/V41__attitude_self_assessment.sql").getContentAsString(StandardCharsets.UTF_8);
     }
@@ -144,9 +175,29 @@ class AttitudeAssessmentPostgresTest {
                     var submitted=service.submit(saved.getId(),actor);session.clear();
                     assertEquals(superior.getId(),submitted.getSubmittedToSuperiorId());assertFalse(submitted.isCanSaveDraft());
                     assertEquals(5,service.get(saved.getId(),actor).getItems().get(0).getSelfPoint());
+                    SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(superior.getId(),null,
+                            List.of(new SimpleGrantedAuthority("CAN_REVIEW_ATTITUDE_EVALUATION"))));
+                    var queue=service.reviews(period.getId(),AttitudeAssessmentStatus.PENDING_REVIEW,superior.getId());
+                    assertEquals(1,queue.size());assertFalse(queue.get(0).isSuperiorDraftSaved());
+                    var superiorRequest=new AttitudeSuperiorAssessmentRequest();
+                    service.saveSuperiorDraft(saved.getId(),superiorRequest,superior.getId());session.clear();
+                    assertTrue(service.get(saved.getId(),superior.getId()).isSuperiorDraftSaved());
+                    var superiorAnswer=new AttitudeSuperiorAssessmentRequest.Answer();superiorAnswer.setItemId(loaded.getItems().get(0).getId());
+                    superiorAnswer.setSuperiorPoint(3);superiorAnswer.setSuperiorComment("Observed behaviour");superiorRequest.setItems(List.of(superiorAnswer));
+                    service.saveSuperiorDraft(saved.getId(),superiorRequest,superior.getId());session.clear();
+                    assertNull(service.get(saved.getId(),actor).getItems().get(0).getSuperiorPoint());
+                    var reviewRollback=c.setSavepoint();var reviewed=service.completeReview(saved.getId(),superior.getId());session.clear();
+                    assertEquals(new BigDecimal("60.0000"),reviewed.getAttitudeScore());
+                    assertEquals(3,service.get(saved.getId(),actor).getItems().get(0).getSuperiorPoint());
+                    assertEquals(5,service.get(saved.getId(),actor).getItems().get(0).getSelfPoint());
+                    assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.completeReview(saved.getId(),superior.getId()));
+                    c.rollback(reviewRollback);session.clear();
+                    assertEquals(AttitudeAssessmentStatus.PENDING_REVIEW,service.get(saved.getId(),superior.getId()).getStatus());
+                    assertNull(service.get(saved.getId(),superior.getId()).getAttitudeScore());
+                    assertEquals(AttitudeAssessmentStatus.REVIEWED,service.completeReview(saved.getId(),superior.getId()).getStatus());
                     session.getTransaction().rollback();
                 }
-            } finally {c.rollback();}
+            } finally {SecurityContextHolder.clearContext();c.rollback();}
         }
     }
 }

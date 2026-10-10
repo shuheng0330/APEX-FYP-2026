@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 41;
+    private static final int LATEST_VERSION = 42;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -155,6 +155,10 @@ public class ApplyAnnualReviewPeriodFoundation {
                     + "AND table_name IN ('attitude_assessment','attitude_assessment_item')");
             if(attitudeAssessments!=(extraApplied>=11?2:0))
                 throw new IllegalStateException("Partial/untracked V41 attitude assessment schema; reconcile before migration");
+            long attitudeReviewPermission=scalar(connection,"SELECT count(*) FROM public.authority "
+                    + "WHERE name='CAN_REVIEW_ATTITUDE_EVALUATION'");
+            if(attitudeReviewPermission!=(extraApplied>=12?1:0))
+                throw new IllegalStateException("Partial/untracked V42 attitude review permission; reconcile before migration");
             connection.rollback();
         }
 

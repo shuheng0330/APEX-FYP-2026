@@ -73,4 +73,43 @@ class AttitudeAssessmentControllerTest {
                 .andExpect(jsonPath("$.availabilityTitle").value(dto.getAvailabilityTitle()))
                 .andExpect(jsonPath("$.items").isEmpty());
     }
+    @Test void dedicatedReviewPermissionAllowsReviewEndpointsWithoutEmployeeOrSetupAuthority() throws Exception {
+        var auth=authentication(user("CAN_REVIEW_ATTITUDE_EVALUATION"));
+        mvc.perform(get("/api/attitude-assessments/reviews?reviewPeriodId=1&status=PENDING_REVIEW").with(auth)).andExpect(status().isOk());
+        mvc.perform(get("/api/attitude-assessments/2").with(auth)).andExpect(status().isOk());
+        mvc.perform(put("/api/attitude-assessments/2/superior-draft").with(auth).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"itemId\":11,\"superiorPoint\":4,\"superiorComment\":\"Observed\"}]}")).andExpect(status().isOk());
+        mvc.perform(post("/api/attitude-assessments/2/complete-review").with(auth)).andExpect(status().isOk());
+        verify(service).reviews(1L,com.tbm.careerpathlearning.enums.AttitudeAssessmentStatus.PENDING_REVIEW,actor);
+        verify(service).completeReview(2L,actor);
+    }
+    @Test void employeeSetupAndOtherReviewPermissionsDoNotGrantSuperiorAttitudeReview() throws Exception {
+        when(messageSource.getMessage(anyString(),any(),any(Locale.class))).thenReturn("Forbidden");
+        for(var authority:List.of("ROLE_USER","CAN_MANAGE_ATTITUDE_CONFIGURATION","CAN_REVIEW_KPI_ASSESSMENT","CAN_REVIEW_INDIVIDUAL_KPI")) {
+            var auth=authentication(user(authority));
+            mvc.perform(get("/api/attitude-assessments/reviews").with(auth)).andExpect(status().isForbidden());
+            mvc.perform(put("/api/attitude-assessments/2/superior-draft").with(auth).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"items\":[]}")).andExpect(status().isForbidden());
+            mvc.perform(post("/api/attitude-assessments/2/complete-review").with(auth)).andExpect(status().isForbidden());
+        }
+        verifyNoInteractions(service);
+    }
+    @Test void reviewerPermissionDoesNotAllowEmployeeDraftCreationOrSelfSubmission() throws Exception {
+        when(messageSource.getMessage(anyString(),any(),any(Locale.class))).thenReturn("Forbidden");
+        var auth=authentication(user("CAN_REVIEW_ATTITUDE_EVALUATION"));
+        mvc.perform(get("/api/attitude-assessments/periods").with(auth)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/attitude-assessments").with(auth).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reviewPeriodId\":1,\"items\":[]}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/attitude-assessments/2/submit").with(auth)).andExpect(status().isForbidden());verifyNoInteractions(service);
+    }
+    @Test void superiorPointsUseStrictIntegerDeserialisationAndNullableDraftAnswers() throws Exception {
+        var auth=authentication(user("CAN_REVIEW_ATTITUDE_EVALUATION"));
+        for(var point:List.of("1.5","\"3\"","true")) {
+            mvc.perform(put("/api/attitude-assessments/2/superior-draft").with(auth).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"items\":[{\"itemId\":11,\"superiorPoint\":"+point+"}]}")).andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(service);
+        mvc.perform(put("/api/attitude-assessments/2/superior-draft").with(auth).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"itemId\":11,\"superiorPoint\":null}]}")).andExpect(status().isOk());
+    }
 }

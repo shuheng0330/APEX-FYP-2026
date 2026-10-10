@@ -4,6 +4,7 @@ import com.tbm.careerpathlearning.enums.*;
 import lombok.Data;
 import java.time.*;
 import java.util.*;
+import java.math.BigDecimal;
 
 @Data
 public class AttitudeAssessmentDto {
@@ -25,6 +26,15 @@ public class AttitudeAssessmentDto {
     private UUID submittedBy;
     private UUID submittedToSuperiorId;
     private Boolean submittedLate;
+    private OffsetDateTime reviewedAt;
+    private UUID reviewedBy;
+    private Boolean reviewedLate;
+    private BigDecimal attitudeScore;
+    private boolean superiorDraftSaved;
+    private boolean canSaveSuperiorDraft;
+    private boolean canCompleteReview;
+    private boolean superiorOverdue;
+    private List<String> reviewBlockers=new ArrayList<>();
     private LocalDate selfAssessmentDeadline;
     private LocalDate superiorEvaluationDeadline;
     private boolean available;
@@ -45,5 +55,7 @@ public class AttitudeAssessmentDto {
         private int displayOrder;
         private Integer selfPoint;
         private String selfComment;
+        private Integer superiorPoint;
+        private String superiorComment;
     }
 }

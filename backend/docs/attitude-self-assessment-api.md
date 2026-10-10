@@ -73,7 +73,7 @@ After successful commit, the existing asynchronous mail service notifies the rou
 `attitude_assessment_item` holds criterion references and nullable Self answers. Composite FKs enforce
 matching participant/period, period/configuration binding and item/criterion configuration. Immutable
 configuration criteria/ratings are reused rather than copied. Nullable Superior fields reserve the
-approved next slice; no official score is calculated from Self points.
+UC-11 reviewer flow; no official score is calculated from Self points.
 
 V41 makes no participant/configuration backfills or RBAC grants. Apply using the backed-up isolated runner
 with the backend stopped before compilation. Leave applied migrations/global Flyway/Hibernate settings
@@ -81,7 +81,8 @@ unchanged. PostgreSQL tests use `APEX_PHASE3_POSTGRES_TEST=true` and rollback-on
 
 ## Deliberate boundaries
 
-- UC-11 reviewer queue, permission provisioning, Superior Draft/complete and official scoring are deferred.
+- UC-11 reviewer queue, Superior Draft/completion and official scoring are now documented in
+  `superior-attitude-evaluation-api.md`; V42 provisions its permission without Role grants.
 - No evidence upload: UC-10 specifies points/comments, unlike UC-08's optional supporting evidence.
 - No return/reopening, participant refresh, reporting-change rerouting, closure prerequisites or KPI Revision.
 - The existing manual KPI UAT clone/baseline is unchanged; verify its migration baseline before attitude UAT.

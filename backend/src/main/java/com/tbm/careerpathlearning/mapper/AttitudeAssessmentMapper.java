@@ -14,10 +14,13 @@ public interface AttitudeAssessmentMapper {
     @Mapping(target="createdAt",source="createdAt") @Mapping(target="updatedAt",source="updatedAt")
     @Mapping(target="submittedAt",source="submittedAt") @Mapping(target="submittedBy",source="submittedBy")
     @Mapping(target="submittedToSuperiorId",source="submittedToSuperiorId") @Mapping(target="submittedLate",source="submittedLate")
+    @Mapping(target="reviewedAt",source="reviewedAt") @Mapping(target="reviewedBy",source="reviewedBy")
+    @Mapping(target="reviewedLate",source="reviewedLate") @Mapping(target="attitudeScore",source="attitudeScore")
     AttitudeAssessmentDto toDto(AttitudeAssessment assessment);
 
     @Mapping(target="criterionId",source="criterion.id")
     @Mapping(target="name",source="criterion.name") @Mapping(target="description",source="criterion.description")
     @Mapping(target="criterionType",source="criterion.criterionType") @Mapping(target="displayOrder",source="criterion.displayOrder")
+    @Mapping(target="superiorPoint",ignore=true) @Mapping(target="superiorComment",ignore=true)
     AttitudeAssessmentDto.Item toDto(AttitudeAssessmentItem item);
 }
