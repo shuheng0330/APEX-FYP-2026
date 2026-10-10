@@ -3,25 +3,27 @@
     <div><h2>{{ 'MY_ASSESSMENTS.TITLE' | translate }}</h2><p class="help">{{ 'MY_ASSESSMENTS.HELP' | translate }}</p></div>
     <div class="field">
       <label for="assessment-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
-      <nz-select nzId="assessment-review-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible">
+      <nz-select nzId="assessment-review-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="working || drawerVisible">
         @for (period of periods; track period.id) {
           <nz-option [nzValue]="period.id" [nzLabel]="(period.name || ('REVIEW_PERIOD.UNTITLED' | translate)) + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
         }
       </nz-select>
     </div>
   </div>
-  @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
-  @if (ready && error) { <button class="refresh-assessment" nz-button [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button> }
-  @if (success) { <div class="notice" role="status">{{ success }}</div> }
-  @if (busy) { <p class="help" role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
-  @if (!ready && !busy && error) { <button nz-button (click)="retry()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
+  @if (selectedTab === 0 || !periods.length) {
+    @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+    @if (ready && error) { <button class="refresh-assessment" nz-button [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button> }
+    @if (success) { <div class="notice" role="status">{{ success }}</div> }
+    @if (busy) { <p class="help" role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
+    @if (!ready && !busy && error) { <button nz-button (click)="retry()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
+  }
   @if (ready && !periods.length) {
     <section class="card"><p class="empty">{{ 'INDIVIDUAL_KPI.NO_PERIODS' | translate }}</p></section>
   }
-  @if (ready && periods.length) {
-    <nz-tabset>
+  @if (periods.length) {
+    <nz-tabset [nzSelectedIndex]="selectedTab" (nzSelectedIndexChange)="selectTab($event)" [nzCanDeactivate]="canChangeTab" [nzDestroyInactiveTabPane]="false">
       <nz-tab [nzTitle]="'MY_ASSESSMENTS.KPI_TAB' | translate">
-        @if (!checkpoints.length) { <section class="card"><p class="empty">{{ 'MY_ASSESSMENTS.NO_CHECKPOINTS' | translate }}</p></section> }
+        @if (ready && !checkpoints.length) { <section class="card"><p class="empty">{{ 'MY_ASSESSMENTS.NO_CHECKPOINTS' | translate }}</p></section> }
         @if (assessment; as current) {
           @if (employeeContext; as context) { <p class="help assessment-employee">{{ context }}</p> }
           <div class="assessment-toolbar">
@@ -146,6 +148,9 @@
             @if (!readonly && items.length) { <p class="help evidence-guidance">{{ 'MY_ASSESSMENTS.EVIDENCE_GUIDANCE' | translate }}</p> }
           </section>
         }
+      </nz-tab>
+      <nz-tab [nzTitle]="'ATTITUDE_ASSESSMENT.TITLE' | translate">
+        @if (attitudeVisited && periodId !== null) { <app-attitude-self-assessment [reviewPeriodId]="periodId" /> }
       </nz-tab>
     </nz-tabset>
   }

@@ -1,17 +1,25 @@
 <button nz-button type="button" (click)="visible = true">{{ 'KPI_SCORING_GUIDE.VIEW' | translate }}</button>
-<nz-modal [nzVisible]="visible" [nzTitle]="'KPI_SCORING_GUIDE.TITLE' | translate"
+<nz-modal [nzVisible]="visible" [nzTitle]="titleKey | translate"
   nzWidth="min(760px, calc(100vw - 32px))" [nzFooter]="guideFooter" (nzOnCancel)="visible = false">
   <ng-container *nzModalContent>
     <ol class="rating-list" reversed start="5">
-      @for (point of points; track point) {
-        <li class="rating-row">
-          <span class="rating-point">{{ point }}</span>
-          <div><strong>{{ 'KPI_SCORING_GUIDE.RATING.' + point + '.LABEL' | translate }}</strong>
-            <p>{{ 'KPI_SCORING_GUIDE.RATING.' + point + '.DESCRIPTION' | translate }}</p></div>
-        </li>
+      @if (ratings !== null) {
+        @for (rating of orderedRatings; track rating.point) {
+          <li class="rating-row"><span class="rating-point">{{ rating.point }}</span>
+            <div><strong>{{ rating.label }}</strong><p>{{ rating.description }}</p></div>
+          </li>
+        }
+      } @else {
+        @for (point of points; track point) {
+          <li class="rating-row">
+            <span class="rating-point">{{ point }}</span>
+            <div><strong>{{ 'KPI_SCORING_GUIDE.RATING.' + point + '.LABEL' | translate }}</strong>
+              <p>{{ 'KPI_SCORING_GUIDE.RATING.' + point + '.DESCRIPTION' | translate }}</p></div>
+          </li>
+        }
       }
     </ol>
-    <p class="rating-note">{{ 'KPI_SCORING_GUIDE.NOTE' | translate }}</p>
+    @if (ratings === null) { <p class="rating-note">{{ 'KPI_SCORING_GUIDE.NOTE' | translate }}</p> }
   </ng-container>
 </nz-modal>
 <ng-template #guideFooter>

@@ -12,12 +12,22 @@ import { MyAssessmentsComponent } from './my-assessments.component';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentItem, assessmentItemError } from '../../models/kpi-assessment.model';
 import { emptyKpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
+import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
+import { AttitudeAssessment } from '../../models/attitude-assessment.model';
 
 describe('My Assessments - KPI Self-Assessment', () => {
   let fixture: ComponentFixture<MyAssessmentsComponent>;
   let page: MyAssessmentsComponent;
   let api: jasmine.SpyObj<KpiAssessmentService>;
   let modal: jasmine.SpyObj<NzModalService>;
+  let attitudeApi: jasmine.SpyObj<AttitudeAssessmentService>;
+  const attitude: AttitudeAssessment = { id: null, participantId: 7, employeeName: 'Amir', roleName: 'Executive', departmentName: 'Sales',
+    reviewPeriodId: 1, reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', configurationId: 4, configurationName: '2028 criteria',
+    evaluationFormat: 'SALES', status: 'DRAFT', createdAt: null, updatedAt: null, submittedAt: null, submittedBy: null, submittedToSuperiorId: null,
+    submittedLate: null, selfAssessmentDeadline: '2028-12-20', superiorEvaluationDeadline: '2028-12-27', available: true,
+    availabilityTitle: null, availabilityMessage: null, canSaveDraft: true, canSubmit: false, overdue: false,
+    submissionBlockers: ['Select a Self-Assessment Point for Respect'], ratingDefinitions: [], items: [{ id: null, criterionId: 6, name: 'Respect',
+      description: 'Treat others with respect', criterionType: 'SHARED_CORE_VALUE', displayOrder: 1, selfPoint: null, selfComment: null }] };
   const period: KpiPeriodContext = { id: 1, name: '2028 Annual Review', status: 'OPEN', startDate: '2028-01-01', endDate: '2028-12-31', kpiSetupDeadline: '2028-01-31' };
   const checkpoint = (id = 11): KpiAssessmentCheckpoint => ({ id, reviewFrequency: 'MONTHLY', sequenceNumber: 1,
     startDate: '2028-01-01', endDate: '2028-01-31', availableFrom: '2028-02-01', selfAssessmentDeadline: '2028-02-05',
@@ -42,8 +52,11 @@ describe('My Assessments - KPI Self-Assessment', () => {
     api.submit.and.returnValue(of(assessment({ id: 20, status: 'PENDING_REVIEW', items: [{ ...row(), selfPoint: 4 }],
       canSaveDraft: false, canSubmit: false, submittedAt: '2028-02-01T12:00:00Z', submissionBlockers: ['This assessment has already been submitted'] })));
     modal = jasmine.createSpyObj<NzModalService>('modal', ['confirm']);
+    attitudeApi = jasmine.createSpyObj<AttitudeAssessmentService>('attitudeApi', ['mine']);
+    attitudeApi.mine.and.callFake(() => of(structuredClone(attitude)));
     TestBed.configureTestingModule({ imports: [MyAssessmentsComponent, TranslateModule.forRoot()], providers: [provideNoopAnimations(),
       { provide: KpiAssessmentService, useValue: api }, { provide: NzModalService, useValue: modal },
+      { provide: AttitudeAssessmentService, useValue: attitudeApi },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }] });
     TestBed.overrideProvider(NzModalService, { useValue: modal }); await TestBed.compileComponents();
     fixture = TestBed.createComponent(MyAssessmentsComponent); page = fixture.componentInstance; fixture.detectChanges();
@@ -300,5 +313,50 @@ describe('My Assessments - KPI Self-Assessment', () => {
       items: [{ ...row(), selfPoint: 3, selfComment: 'Submitted answer' }] })));
     page.refresh(); expect(page.readonly).toBeTrue(); expect(page.dirty).toBeFalse();
     expect(page.items[0].selfPoint).toBe(3); expect(page.items[0].selfComment).toBe('Submitted answer');
+  });
+  async function selectAttitude() {
+    page.selectTab(1); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+  }
+  it('adds the annual tab and only loads attitude when selected', async () => {
+    expect(fixture.nativeElement.textContent).toContain('ATTITUDE_ASSESSMENT.TITLE');
+    expect(attitudeApi.mine).not.toHaveBeenCalled(); await selectAttitude();
+    expect(attitudeApi.mine).toHaveBeenCalledOnceWith(1); expect(page.attitude?.assessment?.evaluationFormat).toBe('SALES');
+  });
+  it('opens attitude through the visible tab while its HTTP request is still loading', async () => {
+    const pending = new Subject<AttitudeAssessment>(); attitudeApi.mine.and.returnValue(pending);
+    await fixture.whenStable(); fixture.detectChanges();
+    const tabs: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.ant-tabs-tab'));
+    tabs[1].click(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(attitudeApi.mine).toHaveBeenCalledOnceWith(1);
+    expect(page.selectedTab).toBe(1); expect(page.attitude?.busy).toBeTrue(); expect(page.canLeave()).toBeFalse();
+    pending.next(structuredClone(attitude)); pending.complete(); fixture.detectChanges(); expect(page.attitude?.busy).toBeFalse();
+  });
+  it('retains unsaved answers in both tabs and guards period changes and navigation', async () => {
+    page.items[0].selfPoint = 3; await selectAttitude(); page.attitude!.items[0].selfPoint = 4;
+    page.selectTab(0); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(page.items[0].selfPoint).toBe(3); expect(page.attitude!.items[0].selfPoint).toBe(4);
+    expect(page.unsavedChanges).toBeTrue(); const leave = page.canLeave(); confirm(); expect(await leave).toBeTrue();
+    page.periods.push({ ...period, id: 2 }); page.changePeriod(2); expect(page.periodId).toBe(1);
+    confirm(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(page.periodId).toBe(2); expect(attitudeApi.mine).toHaveBeenCalledWith(2);
+  });
+  it('blocks period/tab changes and navigation while attitude is saving', async () => {
+    await selectAttitude(); page.attitude!.busy = true; page.periods.push({ ...period, id: 2 });
+    page.changePeriod(2); expect(page.periodId).toBe(1); expect(page.canChangeTab()).toBeFalse(); expect(page.canLeave()).toBeFalse();
+    const event = new Event('beforeunload', { cancelable: true }); page.warnUnsaved(event as BeforeUnloadEvent);
+    expect(event.defaultPrevented).toBeTrue();
+  });
+  it('keeps KPI assessment usable when attitude configuration is unavailable', async () => {
+    attitudeApi.mine.and.returnValue(of({ ...attitude, available: false, canSaveDraft: false, status: null, items: [],
+      availabilityTitle: 'Attitude Evaluation Not Yet Available', availabilityMessage: 'Please check again later.' }));
+    await selectAttitude(); expect(page.attitude?.readonly).toBeTrue();
+    page.selectTab(0); fixture.detectChanges(); expect(page.readonly).toBeFalse();
+    page.items[0].selfPoint = 4; expect(page.canSubmit).toBeTrue(); page.saveDraft(); expect(api.create).toHaveBeenCalled();
+  });
+  it('can load attitude even when KPI checkpoint lookup fails', async () => {
+    api.checkpoints.and.returnValue(throwError(() => ({ error: { message: 'Checkpoint unavailable' } })));
+    page.load(); fixture.detectChanges(); expect(page.ready).toBeFalse(); await selectAttitude();
+    expect(attitudeApi.mine).toHaveBeenCalledOnceWith(1); expect(page.attitude?.items.length).toBe(1);
   });
 });

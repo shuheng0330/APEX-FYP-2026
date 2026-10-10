@@ -10,6 +10,20 @@
         "REASON_REQUIRED": "Enter a reason for this decision.",
         "MANAGER_COMMENT": "Enter a Manager Comment of at least 10 characters before submitting to HR."
     },
+    "ATTITUDE_ASSESSMENT": {
+        "TITLE": "Annual Attitude Self-Assessment",
+        "GUIDE_TITLE": "Attitude Evaluation Scoring Guide",
+        "INSTRUCTIONS": "Rate your attitude and behaviour for each criterion using the scoring guide. Add a comment if helpful.",
+        "PROGRESS": "{{completed}} / {{total}} criteria completed",
+        "PROGRESS_LABEL": "Assessment progress",
+        "REMAINING": "Criteria still needing a rating: {{count}}.",
+        "COMMENT_PLACEHOLDER": "Add your reflection or an example (optional)...",
+        "SUBMIT_CONFIRM": "Submit your annual Attitude Self-Assessment to your Superior? You will no longer be able to change your ratings or comments.",
+        "SUBMITTED_HELP": "Your Attitude Self-Assessment has been submitted. Your ratings and comments are now read-only.",
+        "UNAVAILABLE": "Attitude Evaluation Not Yet Available",
+        "READINESS_CHANGED": "Your assessment availability or submission requirements have changed. Check the latest assessment before submitting.",
+        "ERROR": "Unable to load or save your Attitude Self-Assessment. Please try again."
+    },
     "ATTITUDE_SETUP": {
         "TITLE": "Attitude Evaluation Setup",
         "HELP": "Set the rating scale, evaluation criteria and Job Role formats used for staff attitude evaluations.",
@@ -95,7 +109,7 @@
         "EMPTY": { "PENDING_REVIEW": "No KPI Self-Assessments are waiting for your review.", "DRAFT": "No saved Superior Assessment Drafts yet.", "REVIEWED": "No completed KPI assessments for your team yet." }
     },
     "MY_ASSESSMENTS": {
-        "TITLE": "My Assessments", "HELP": "Assess your KPI performance for each review checkpoint and send it to your Superior.",
+        "TITLE": "My Assessments", "HELP": "Complete your KPI and annual Attitude Self-Assessments, then send them to your Superior for review.",
         "KPI_TAB": "KPI Self-Assessment", "CHECKPOINT": "Review Checkpoint", "PERIOD_END": "Checkpoint End Date", "DEADLINE": "Self-Assessment Deadline",
         "CHECKPOINT_LABEL": { "MONTHLY": "Monthly Review Checkpoint", "QUARTERLY": "Quarterly Review Checkpoint", "ANNUALLY": "Annual Review Checkpoint" },
         "STATUS": { "DRAFT": "Draft", "PENDING_REVIEW": "Pending Review", "REVIEWED": "Reviewed" },

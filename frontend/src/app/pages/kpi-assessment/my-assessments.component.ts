@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, DestroyRef, HostListener, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -15,15 +15,23 @@ import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAsses
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
+import { AttitudeSelfAssessmentComponent } from './attitude-self-assessment.component';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule,
-    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
+    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent],
   templateUrl: './my-assessments.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss']
 })
 export class MyAssessmentsComponent implements OnInit {
+  @ViewChild(AttitudeSelfAssessmentComponent) attitude?: AttitudeSelfAssessmentComponent;
+  selectedTab = 0;
+  attitudeVisited = false;
+  readonly canChangeTab = () => !this.busy && !this.attitude?.busy && !this.drawerVisible;
+  selectTab(index: number) { this.selectedTab = index; if (index === 1) this.attitudeVisited = true; }
+  get working() { return this.busy || !!this.attitude?.busy; }
+  get unsavedChanges() { return this.dirty || !!this.attitude?.dirty; }
   private readonly destroyRef = inject(DestroyRef);
   private readonly dates = new DatePipe('en');
   private savedAnswers = '';
@@ -103,7 +111,7 @@ export class MyAssessmentsComponent implements OnInit {
     });
   }
   changePeriod(id: number) {
-    if (this.busy || id === this.periodId || !this.periods.some(period => period.id === id)) return;
+    if (this.working || id === this.periodId || !this.periods.some(period => period.id === id)) return;
     this.confirmDiscard(() => {
       this.periodId = id; this.assessment = null; this.items = []; this.checkpoints = []; this.checkpointId = null;
       this.fetch(this.periodAssessment(id));
@@ -111,13 +119,13 @@ export class MyAssessmentsComponent implements OnInit {
   }
   changeCheckpoint(id: number) {
     if (this.busy || id === this.checkpointId || !this.checkpoints.some(checkpoint => checkpoint.id === id)) return;
-    this.confirmDiscard(() => { this.checkpointId = id; this.assessment = null; this.items = []; this.fetch(this.api.mine(id)); });
+    this.confirmDiscard(() => { this.checkpointId = id; this.assessment = null; this.items = []; this.fetch(this.api.mine(id)); }, false);
   }
-  private confirmDiscard(action: () => void) {
-    if (!this.dirty) { action(); return; }
+  private confirmDiscard(action: () => void, includeAttitude = true) {
+    if (!(includeAttitude ? this.unsavedChanges : this.dirty)) { action(); return; }
     this.modal.confirm({ nzTitle: this.translate.instant('MY_ASSESSMENTS.DISCARD_TITLE'),
       nzContent: this.translate.instant('MY_ASSESSMENTS.DISCARD_HELP'),
-      nzOnOk: () => { if (!this.busy) action(); } });
+      nzOnOk: () => { if (!this.working) action(); } });
   }
   private fetch(operation: Observable<KpiAssessment | null>) {
     this.busy = true; this.ready = false; this.error = ''; this.success = '';
@@ -145,8 +153,8 @@ export class MyAssessmentsComponent implements OnInit {
     });
   }
   canLeave(): boolean | Promise<boolean> {
-    if (this.busy) return false;
-    if (!this.dirty) return true;
+    if (this.working) return false;
+    if (!this.unsavedChanges) return true;
     return new Promise(resolve => this.modal.confirm({ nzTitle: this.translate.instant('MY_ASSESSMENTS.DISCARD_TITLE'),
       nzContent: this.translate.instant('MY_ASSESSMENTS.DISCARD_HELP'),
       nzOnOk: () => resolve(true), nzOnCancel: () => resolve(false) }));
@@ -234,7 +242,7 @@ export class MyAssessmentsComponent implements OnInit {
     });
   }
   @HostListener('window:beforeunload', ['$event']) warnUnsaved(event: BeforeUnloadEvent) {
-    if (this.dirty || this.busy) { event.preventDefault(); event.returnValue = ''; }
+    if (this.unsavedChanges || this.working) { event.preventDefault(); event.returnValue = ''; }
   }
   private fail(error: { error?: { message?: string }; status?: number }) {
     this.error = error.status === 403 ? this.translate.instant('MY_ASSESSMENTS.ACCESS_CHANGED')

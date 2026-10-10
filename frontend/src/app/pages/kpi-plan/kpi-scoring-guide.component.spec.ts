@@ -46,4 +46,14 @@ describe('Shared KPI Scoring Guide', () => {
     cancel.click(); fixture.detectChanges(); await fixture.whenStable();
     expect(fixture.componentInstance.visible).toBeFalse();
   });
+  it('renders period-bound attitude ratings instead of the fixed KPI guide or threshold note', async () => {
+    const ratings = [1, 2, 3, 4, 5].map(point => ({ point, label: `Attitude ${point}`, description: `Behaviour ${point}` }));
+    fixture.componentRef.setInput('ratings', ratings);
+    fixture.componentRef.setInput('titleKey', 'ATTITUDE_ASSESSMENT.GUIDE_TITLE');
+    await open();
+    const rows = Array.from(document.querySelectorAll('.rating-row'));
+    expect(rows.map(row => row.querySelector('strong')?.textContent?.trim())).toEqual(['Attitude 5', 'Attitude 4', 'Attitude 3', 'Attitude 2', 'Attitude 1']);
+    expect(rows[0].textContent).toContain('Behaviour 5'); expect(document.querySelector('.rating-note')).toBeNull();
+    expect(ratings.map(rating => rating.point)).toEqual([1, 2, 3, 4, 5]);
+  });
 });

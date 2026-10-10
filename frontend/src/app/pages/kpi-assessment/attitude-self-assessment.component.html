@@ -1,0 +1,89 @@
+@if (error) {
+  <div class="error-box" role="alert">{{ error }}</div>
+  <button nz-button class="refresh-assessment" [disabled]="busy" (click)="refresh()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button>
+}
+@if (success) { <div class="notice" role="status">{{ success }}</div> }
+@if (busy) { <p class="help" role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
+@if (assessment; as current) {
+  <p class="help assessment-employee">{{ employeeContext }}</p>
+  <div class="assessment-toolbar attitude-toolbar">
+    <div class="attitude-context">
+      <strong>{{ current.reviewPeriodName }}</strong>
+      @if (current.evaluationFormat) { <span class="level-pill">{{ 'ATTITUDE_SETUP.FORMAT.' + current.evaluationFormat | translate }}</span> }
+      @if (current.status) { <span class="status" [attr.data-status]="current.status">{{ 'MY_ASSESSMENTS.STATUS.' + current.status | translate }}</span> }
+      @if (current.selfAssessmentDeadline) { <span class="help">{{ 'MY_ASSESSMENTS.DEADLINE' | translate }}: {{ current.selfAssessmentDeadline | date:'dd MMM yyyy' }}</span> }
+      @if (current.overdue) { <span class="status overdue">{{ 'MY_ASSESSMENTS.OVERDUE' | translate }}</span> }
+      @if (current.submittedLate) { <span class="status overdue">{{ 'MY_ASSESSMENTS.SUBMITTED_LATE' | translate }}</span> }
+    </div>
+    @if (!readonly) {
+      <div class="actions assessment-actions">
+        @if (dirty) { <span class="help" role="status">{{ 'MY_ASSESSMENTS.UNSAVED' | translate }}</span> }
+        <button nz-button [disabled]="busy" (click)="saveDraft()">{{ 'MY_ASSESSMENTS.SAVE_DRAFT' | translate }}</button>
+        <button nz-button nzType="primary" [disabled]="!canSubmit" (click)="confirmSubmit()">{{ 'MY_ASSESSMENTS.SUBMIT' | translate }}</button>
+      </div>
+    }
+  </div>
+  @if (!current.available && current.availabilityMessage) {
+    <section class="card unavailable-assessment" role="status">
+      <h3>{{ current.availabilityTitle || ('ATTITUDE_ASSESSMENT.UNAVAILABLE' | translate) }}</h3>
+      <p class="help">{{ current.availabilityMessage }}</p>
+    </section>
+  } @else if (current.reviewPeriodStatus === 'CLOSED') {
+    <p class="notice">{{ 'MY_ASSESSMENTS.CLOSED_HELP' | translate }}</p>
+  }
+  @if (current.status === 'PENDING_REVIEW' || current.status === 'REVIEWED') {
+    <p class="notice" role="status">{{ 'ATTITUDE_ASSESSMENT.SUBMITTED_HELP' | translate }}
+      @if (current.submittedAt) { <span>{{ 'MY_ASSESSMENTS.SUBMITTED_ON' | translate }} {{ current.submittedAt | date:'dd MMM yyyy, h:mm a' }}.</span> }
+    </p>
+  } @else if (current.overdue && !readonly) { <p class="help warning overdue-help">{{ 'MY_ASSESSMENTS.LATE_HELP' | translate }}</p> }
+  @if (!readonly && submissionReasons.length) {
+    <div class="submission-readiness" role="status"><strong>{{ 'MY_ASSESSMENTS.BEFORE_SUBMIT' | translate }}</strong>
+      <ul>@for (reason of submissionReasons; track reason) { <li>{{ reason }}</li> }</ul>
+    </div>
+  }
+  @if (items.length) {
+    <section class="card attitude-criteria">
+      <div class="card-head assessment-heading">
+        <div><h3>{{ 'ATTITUDE_ASSESSMENT.TITLE' | translate }}</h3><p class="help">{{ 'ATTITUDE_ASSESSMENT.INSTRUCTIONS' | translate }}</p></div>
+        @if (current.ratingDefinitions.length) { <app-kpi-scoring-guide [ratings]="current.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" /> }
+        <div class="assessment-progress">
+          <span>{{ 'ATTITUDE_ASSESSMENT.PROGRESS' | translate:{ completed, total: items.length } }}</span>
+          <div class="progress-track" role="progressbar" [attr.aria-label]="'ATTITUDE_ASSESSMENT.PROGRESS_LABEL' | translate"
+            aria-valuemin="0" [attr.aria-valuemax]="items.length" [attr.aria-valuenow]="completed"><span [style.width.%]="progress"></span></div>
+        </div>
+      </div>
+      @for (item of items; track item.criterionId) {
+        <article class="attitude-criterion">
+          <div class="criterion-heading"><div><h4>{{ item.name }}</h4><p class="help criterion-description">{{ item.description }}</p></div>
+            <div class="criterion-rating">
+              <span class="rating-label">{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</span>
+              @if (readonly) { <strong class="saved-point">{{ item.selfPoint ?? '-' }}</strong> }
+              @else {
+                <fieldset class="point-selector" [attr.aria-label]="('MY_ASSESSMENTS.SELF_POINT' | translate) + ': ' + item.name" aria-required="true"
+                  [attr.aria-invalid]="!!pointError(item)" [attr.aria-describedby]="pointError(item) ? 'attitude-point-error-' + item.criterionId : null" [disabled]="busy">
+                  @for (point of points; track point) {
+                    <label class="point-option" [class.selected]="item.selfPoint === point" [title]="rating(point)?.label || ''">
+                      <input type="radio" [name]="'attitude-self-point-' + item.criterionId" [value]="point" [(ngModel)]="item.selfPoint"><span>{{ point }}</span>
+                    </label>
+                  }
+                </fieldset>
+              }
+              @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'attitude-point-error-' + item.criterionId">{{ validation | translate }}</span> }
+            </div>
+          </div>
+          @if (rating(item.selfPoint); as selected) {
+            <div class="selected-rating" role="status"><strong>{{ selected.label }}</strong><p>{{ selected.description }}</p></div>
+          }
+          @if (readonly) { @if (item.selfComment) { <p class="saved-comment">{{ item.selfComment }}</p> } }
+          @else {
+            <label class="comment-label" [for]="'attitude-comment-' + item.criterionId">{{ 'MY_ASSESSMENTS.COMMENT' | translate }}</label>
+            <textarea nz-input rows="2" maxlength="10000" [id]="'attitude-comment-' + item.criterionId" [(ngModel)]="item.selfComment" [disabled]="busy"
+              [attr.aria-invalid]="!!commentError(item.selfComment)" [attr.aria-describedby]="commentError(item.selfComment) ? 'attitude-comment-error-' + item.criterionId : null"
+              [placeholder]="'ATTITUDE_ASSESSMENT.COMMENT_PLACEHOLDER' | translate"></textarea>
+            @if (commentError(item.selfComment); as validation) { <span class="field-error" [id]="'attitude-comment-error-' + item.criterionId">{{ validation | translate }}</span> }
+          }
+        </article>
+      }
+    </section>
+  }
+}
