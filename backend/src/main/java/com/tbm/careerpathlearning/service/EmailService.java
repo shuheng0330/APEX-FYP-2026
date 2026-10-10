@@ -11,6 +11,9 @@ import java.util.UUID;
 public interface EmailService {
 
     @Async
+    void sendAttitudeSelfAssessmentSubmittedEmail(String to, String employee, String period, Locale locale);
+
+    @Async
     void sendKpiSelfAssessmentSubmittedEmail(String to, String employee, String period, String checkpoint, Locale locale);
 
     @Async

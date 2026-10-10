@@ -167,6 +167,19 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override @Async
+    public void sendAttitudeSelfAssessmentSubmittedEmail(String to, String employee, String period, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.attitude.assessment.submitted.title",null,locale));
+            helper.setText(messageSource.getMessage("email.attitude.assessment.submitted.body",
+                    new Object[]{employee,period,FRONTEND_ORIGIN+"/team-performance/team-reviews"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send Attitude Self-Assessment submission notification",e);}
+    }
+
+    @Override @Async
     public void sendKpiSelfAssessmentSubmittedEmail(String to, String employee, String period, String checkpoint, Locale locale) {
         try {
             var message=mailSender.createMimeMessage();

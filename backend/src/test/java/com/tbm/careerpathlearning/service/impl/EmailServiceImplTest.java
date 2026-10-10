@@ -80,6 +80,15 @@ class EmailServiceImplTest {
     }
 
     @Test
+    void attitudeAssessmentSubmissionNotifiesTheSuperior() {
+        emailService.sendAttitudeSelfAssessmentSubmittedEmail(RECIPIENT,"Amir","Annual Review",LOCALE);
+        verify(messageSource).getMessage(eq("email.attitude.assessment.submitted.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.attitude.assessment.submitted.body"),
+                argThat(args->args.length==3 && args[2].equals("http://localhost:3000/team-performance/team-reviews")),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
     void kpiAssessmentReviewNotifiesTheEmployeeWithAssessmentLink() {
         emailService.sendKpiAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE);
         verify(messageSource).getMessage(eq("email.kpi.assessment.reviewed.title"),any(),eq(LOCALE));

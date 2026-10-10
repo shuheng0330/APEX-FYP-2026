@@ -1,5 +1,12 @@
 # Annual KPI Foundation And KPI Plans
 
+V41 adds Annual Attitude Self-Assessment and criterion answers (Phase 3 Slice 4 backend only).
+It reuses the period-bound Published configuration and recorded participant Role-to-format mapping.
+One assessment per participant supports incomplete Drafts and read-only Pending Review submission;
+no Self-derived official score, UC-11 actions, frontend, backfill or new Role grant is included.
+Use the backed-up isolated runner through V41; stop the backend before compiling new entities.
+See `backend/docs/attitude-self-assessment-api.md`. Opt-in PostgreSQL tests use rollback-only schemas.
+
 V40 adds reusable Attitude Evaluation configuration editions, criteria, configurable 1-5 rating definitions,
 and Role-to-format mappings. Annual periods reference immutable published editions at opening; already-Open
 periods are not backfilled. `CAN_MANAGE_ATTITUDE_CONFIGURATION` is granted only to the verified Super Admin
