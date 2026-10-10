@@ -17,7 +17,7 @@ import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.componen
   selector: 'app-attitude-assessment-reviews', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiScoringGuideComponent],
   templateUrl: './attitude-assessment-reviews.component.html',
-  styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss']
+  styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss', './attitude-assessment-reviews.component.scss']
 })
 export class AttitudeAssessmentReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

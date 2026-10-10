@@ -86,10 +86,17 @@ describe('Superior Attitude Evaluations', () => {
   it('uses the preserved configured ratings in both answers and the reusable guide, not fixed KPI labels', () => {
     page.open(20); page.items[0].superiorPoint = 3; fixture.detectChanges();
     expect(drawer().querySelector('.superior-answers')?.textContent).toContain('Configured rating 3');
-    expect(drawer().querySelector('.superior-answers')?.textContent).toContain('Expected behaviour 3');
+    expect(drawer().querySelector('.superior-answers')?.textContent).not.toContain('Expected behaviour 3');
+    expect(drawer().querySelector('.self-answers')?.textContent).toContain('Configured rating 5');
+    expect(drawer().querySelector('.self-answers')?.textContent).not.toContain('Expected behaviour 5');
+    expect(drawer().textContent).toContain('Treat others with dignity');
     const guide = fixture.debugElement.query(By.directive(KpiScoringGuideComponent)).componentInstance as KpiScoringGuideComponent;
     expect(guide.ratings).toEqual(page.selected!.ratingDefinitions); expect(guide.titleKey).toBe('ATTITUDE_ASSESSMENT.GUIDE_TITLE');
     expect(drawer().textContent).not.toContain('KPI_SCORING_GUIDE.RATING');
+    expect(drawer().querySelector('app-kpi-scoring-guide')).toBeNull();
+    const heading = document.querySelector('.ant-drawer-open .attitude-review-heading')!;
+    expect(heading.querySelector('app-kpi-scoring-guide')).not.toBeNull();
+    expect(getComputedStyle(heading).justifyContent).toBe('space-between');
   });
   it('binds larger Superior rating controls and comments without changing Self answers', async () => {
     page.open(20); fixture.detectChanges();

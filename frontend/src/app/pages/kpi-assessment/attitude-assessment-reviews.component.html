@@ -58,7 +58,6 @@
       } @else if (!readonly && assessment.superiorOverdue) {
         <p class="help warning overdue-help">{{ 'ATTITUDE_REVIEW.LATE_HELP' | translate }}</p>
       }
-      <div class="team-review-intro"><app-kpi-scoring-guide [ratings]="assessment.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" /></div>
       @if (!readonly && completionReasons.length) {
         <div class="submission-readiness" role="status"><strong>{{ 'KPI_ASSESSMENT_REVIEW.BEFORE_COMPLETE' | translate }}</strong>
           <ul>@for (reason of completionReasons; track reason) { <li>{{ reason }}</li> }</ul>
@@ -70,7 +69,7 @@
           <div class="card-body">
             <div class="answer-column self-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SELF_ANSWERS' | translate }}</h4>
               <strong class="saved-point">{{ item.selfPoint ?? '-' }}</strong>
-              @if (rating(item.selfPoint); as scale) { <span class="selected-point-label">{{ scale.label }}</span><p class="help">{{ scale.description }}</p> }
+              @if (rating(item.selfPoint); as scale) { <span class="selected-point-label">{{ scale.label }}</span> }
               <p class="saved-comment">{{ item.selfComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p>
             </div>
             <div class="answer-column superior-answers"><h4>{{ 'ATTITUDE_REVIEW.SUPERIOR_ANSWERS' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</h4>
@@ -83,7 +82,7 @@
                   }
                 </fieldset>
               }
-              @if (rating(item.superiorPoint); as scale) { <span class="selected-point-label" role="status">{{ scale.label }}</span><p class="help">{{ scale.description }}</p> }
+              @if (rating(item.superiorPoint); as scale) { <span class="selected-point-label" role="status">{{ scale.label }}</span> }
               @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'attitude-superior-error-' + item.id">{{ validation | translate }}</span> }
               <div class="field"><label [for]="'attitude-superior-comment-' + item.id">{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_COMMENT' | translate }}</label>
                 @if (readonly) { <p class="saved-comment">{{ item.superiorComment || '-' }}</p> }
@@ -98,7 +97,10 @@
     }
   </ng-container>
 </nz-drawer>
-<ng-template #drawerTitle><div class="drawer-title"><strong>{{ 'ATTITUDE_REVIEW.DETAIL_TITLE' | translate }}</strong><span>{{ selected?.employeeName }} / {{ selected?.reviewPeriodName }}</span></div></ng-template>
+<ng-template #drawerTitle><div class="attitude-review-heading">
+  <div class="drawer-title"><strong>{{ 'ATTITUDE_REVIEW.DETAIL_TITLE' | translate }}</strong><span>{{ selected?.employeeName }} / {{ selected?.reviewPeriodName }}</span></div>
+  @if (selected; as assessment) { <app-kpi-scoring-guide [ratings]="assessment.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" /> }
+</div></ng-template>
 <ng-template #reviewFooter><div class="review-assessment-footer">
   @if (dirty) { <span class="help" role="status">{{ 'MY_ASSESSMENTS.UNSAVED' | translate }}</span> }
   <button nz-button [disabled]="busy" (click)="close()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
