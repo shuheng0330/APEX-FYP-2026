@@ -1,4 +1,15 @@
 {
+    "FORM_VALIDATION": {
+        "REQUIRED_HELP": "Fields marked * are required before final submission or publication. Drafts may be incomplete.",
+        "DRAFT_READINESS": "This Draft is not ready to submit or publish. Complete the following:",
+        "FIX_FIELDS": "Check the highlighted fields before continuing.",
+        "REASON_LIMIT": "Keep the reason within 10,000 characters.",
+        "SELECT_PERIOD": "Select a Review Period.",
+        "CATEGORY_REQUIRED": "Select an override category.",
+        "CATEGORY_DIFFERENT": "Select a category different from the current recommendation.",
+        "REASON_REQUIRED": "Enter a reason for this decision.",
+        "MANAGER_COMMENT": "Enter a Manager Comment of at least 10 characters before submitting to HR."
+    },
     "ATTITUDE_SETUP": {
         "TITLE": "Attitude Evaluation Setup",
         "HELP": "Set the rating scale, evaluation criteria and Job Role formats used for staff attitude evaluations.",
@@ -43,6 +54,7 @@
         "PREVIEW_HELP": "Check the rating scale, active criteria for each format and Role assignments. Preview does not publish or change any Review Period.",
         "PREVIEW_INCOMPLETE": "This Draft is not ready to publish:", "NO_ACTIVE_CRITERIA": "No active criteria configured.", "NO_MAPPINGS": "No Role assignments configured.",
         "BEFORE_PUBLISH": "Before publishing, check the following:", "NAME_REQUIRED": "Enter a configuration name.", "NAME_LIMIT": "Use no more than 255 characters for the name.",
+        "REQUIRED_FIELD": "Enter {{field}}.", "FIELD_LIMIT": "Keep {{field}} within {{limit}} characters.",
         "RATINGS_REQUIRED": "Complete the label and description for all five rating points.", "RATING_REQUIRED": "Add a label and description for this point.",
         "CRITERIA_REQUIRED": "Complete the name and description for every active criterion.", "CRITERION_REQUIRED": "Add a name and description for this active criterion.",
         "FORMATS_REQUIRED": "Each format needs at least one active criterion, including shared core values.", "INELIGIBLE_ROLE": "Clear assignments for Roles that are no longer eligible.",
@@ -258,7 +270,7 @@
         "VIEW_HELP": "View the KPI information and scoring definitions for this Company KPI Plan.",
         "INFORMATION": "KPI Information", "PLAN_STATUS": "Plan status",
         "FIX_ITEM": "Please complete or correct the highlighted fields before applying this KPI to the plan.",
-        "REQUIRED": "Complete this field.", "REQUIRED_CRITERION": "Describe the achievement required for this point.",
+        "REQUIRED": "Enter {{field}}.", "REQUIRED_CRITERION": "Describe the achievement required for Point {{point}}.",
         "TOO_LONG": "Shorten this entry to the field's maximum length.",
         "PERSPECTIVE_HELP": "The area of performance this KPI supports, such as Financial or Customer.",
         "KRA_HELP": "The key result area this KPI measures, such as Revenue Growth or Customer Experience.",

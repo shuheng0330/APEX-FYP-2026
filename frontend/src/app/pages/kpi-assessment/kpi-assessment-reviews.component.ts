@@ -11,7 +11,7 @@ import { finalize, of, switchMap, throwError } from 'rxjs';
 import { KpiItem, KpiLevel } from '../../models/kpi-plan.model';
 import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem,
   KpiAssessmentReview, KpiAssessmentReviewStatus, KpiSuperiorReviewProgress, superiorReviewProgress,
-  superiorAssessmentItemError } from '../../models/kpi-assessment.model';
+  superiorAssessmentItemError, assessmentPointError, assessmentCommentError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
 
@@ -42,6 +42,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   detailScope: KpiLevel = 'INDIVIDUAL';
   accessChanged = false;
   showValidation = false;
+  draftWarnings = false;
   error = '';
   success = '';
 
@@ -75,6 +76,8 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   }
   get canComplete() { return !this.readonly && !this.busy && !this.criteriaVisible && !this.completionReasons.length; }
   itemError(item: KpiAssessmentItem) { return superiorAssessmentItemError(item, this.showValidation); }
+  pointError(item: KpiAssessmentItem) { return assessmentPointError(item.superiorPoint, this.showValidation || this.draftWarnings); }
+  readonly commentError = assessmentCommentError;
   checkpointLabel(checkpoint: KpiAssessmentCheckpoint) {
     if (checkpoint.reviewFrequency === 'MONTHLY') return this.dates.transform(checkpoint.endDate, 'MMMM yyyy') ?? '';
     return this.translate.instant(checkpoint.reviewFrequency === 'QUARTERLY' ? 'MY_ASSESSMENTS.QUARTER' : 'MY_ASSESSMENTS.ANNUAL',
@@ -96,7 +99,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   }
   private answerSignature() { return JSON.stringify(this.items.map(item => [item.id, item.superiorPoint, item.superiorComment ?? null])); }
   private accept(assessment: KpiAssessment) {
-    this.selected = assessment; this.items = structuredClone(assessment.items); this.savedAnswers = this.answerSignature(); this.showValidation = false;
+    this.selected = assessment; this.items = structuredClone(assessment.items); this.savedAnswers = this.answerSignature(); this.showValidation = false; this.draftWarnings = false;
     this.reviews = this.reviews.map(row => row.id === assessment.id ? { ...row, status: assessment.status as KpiAssessmentReviewStatus,
       canReview: assessment.canSaveSuperiorDraft === true, superiorOverdue: assessment.superiorOverdue === true,
       superiorDraftSaved: assessment.superiorDraftSaved,
@@ -131,7 +134,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
     if (this.readonly || this.busy || !this.validDraft()) return;
     this.busy = true; this.error = ''; this.success = '';
     this.persist().pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => this.success = this.translate.instant('KPI_ASSESSMENT_REVIEW.SAVED'), error: error => this.fail(error)
+      next: () => { this.draftWarnings = true; this.success = this.translate.instant('KPI_ASSESSMENT_REVIEW.SAVED'); }, error: error => this.fail(error)
     });
   }
   confirmComplete() {

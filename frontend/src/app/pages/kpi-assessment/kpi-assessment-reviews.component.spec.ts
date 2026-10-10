@@ -118,6 +118,21 @@ describe('Team KPI assessment reviews', () => {
     expect(page.reviewProgress(page.selected!)).toBe('DRAFT');
     expect(page.count('PENDING_REVIEW')).toBe(0); expect(page.count('DRAFT')).toBe(1);
   });
+  it('shows nonblocking missing-point feedback after a Superior Draft save', () => {
+    page.open(20); fixture.detectChanges();
+    expect(drawer().querySelector('#superior-error-44')).toBeNull();
+    page.saveDraft(); fixture.detectChanges();
+    expect(api.saveSuperiorDraft).toHaveBeenCalled(); expect(api.completeReview).not.toHaveBeenCalled();
+    expect(drawer().querySelector('#superior-error-44')?.textContent).toContain('MY_ASSESSMENTS.POINT_REQUIRED');
+    page.items[0].superiorPoint = 4; fixture.detectChanges();
+    expect(drawer().querySelector('#superior-error-44')).toBeNull(); expect(page.canComplete).toBeTrue();
+  });
+  it('highlights oversized Superior comments separately from required points', () => {
+    page.open(20); page.items[0].superiorComment = 'x'.repeat(10001); page.saveDraft(); fixture.detectChanges();
+    expect(api.saveSuperiorDraft).not.toHaveBeenCalled(); expect(page.pointError(page.items[0])).toBeNull();
+    expect(drawer().querySelector('textarea[aria-invalid="true"]')).not.toBeNull();
+    expect(drawer().textContent).toContain('MY_ASSESSMENTS.COMMENT_TOO_LONG');
+  });
   it('keeps opening and unsaved edits Pending Review until a successful save, even if answers are empty', () => {
     page.open(20); expect(page.reviewProgress(page.selected!)).toBe('PENDING_REVIEW');
     page.items[0].superiorPoint = 4; expect(page.reviewProgress(page.selected!)).toBe('PENDING_REVIEW');

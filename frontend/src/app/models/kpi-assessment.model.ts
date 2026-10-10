@@ -56,10 +56,16 @@ export function superiorAssessmentItemError(item: KpiAssessmentItem, completing 
   return assessmentItemError({ ...item, selfPoint: item.superiorPoint, selfComment: item.superiorComment }, completing);
 }
 export function assessmentItemError(item: KpiAssessmentItem, submitting = false): string | null {
-  if (item.selfPoint === null || item.selfPoint === undefined) {
-    if (submitting) return 'MY_ASSESSMENTS.POINT_REQUIRED';
-  } else if (!Number.isInteger(item.selfPoint) || item.selfPoint < 1 || item.selfPoint > 5) {
+  return assessmentPointError(item.selfPoint, submitting) ?? assessmentCommentError(item.selfComment);
+}
+export function assessmentPointError(point: number | null | undefined, required = false): string | null {
+  if (point === null || point === undefined) {
+    if (required) return 'MY_ASSESSMENTS.POINT_REQUIRED';
+  } else if (!Number.isInteger(point) || point < 1 || point > 5) {
     return 'MY_ASSESSMENTS.INVALID_POINT';
   }
-  return (item.selfComment?.length ?? 0) > 10000 ? 'MY_ASSESSMENTS.COMMENT_TOO_LONG' : null;
+  return null;
+}
+export function assessmentCommentError(comment: string | null | undefined): string | null {
+  return (comment?.length ?? 0) > 10000 ? 'MY_ASSESSMENTS.COMMENT_TOO_LONG' : null;
 }

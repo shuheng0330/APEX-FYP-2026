@@ -75,9 +75,9 @@
   <ng-template #reviewFooter><div class="review-drawer-footer">
     @if (returnMode) {
       <label class="field" for="individual-return-reason">{{ 'DEPARTMENT_REVIEW.REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
-      <textarea id="individual-return-reason" rows="3" maxlength="10000" [placeholder]="'TEAM_REVIEWS.REASON_PLACEHOLDER' | translate"
-        [(ngModel)]="returnReason" (ngModelChange)="reasonError = false" [attr.aria-invalid]="reasonError"></textarea>
-      @if (reasonError) { <span class="field-error" role="alert">{{ 'TEAM_REVIEWS.REASON_REQUIRED' | translate }}</span> }
+      <textarea id="individual-return-reason" rows="3" maxlength="10000" required [placeholder]="'TEAM_REVIEWS.REASON_PLACEHOLDER' | translate"
+        [(ngModel)]="returnReason" (ngModelChange)="reasonError = false" [attr.aria-invalid]="reasonError" [attr.aria-describedby]="reasonError ? 'individual-return-error' : null"></textarea>
+      @if (reasonError) { <span id="individual-return-error" class="field-error" role="alert">{{ (returnReason.trim().length > 10000 ? 'FORM_VALIDATION.REASON_LIMIT' : 'TEAM_REVIEWS.REASON_REQUIRED') | translate }}</span> }
     }
     <div class="actions drawer-actions">
       @if (returnMode) {

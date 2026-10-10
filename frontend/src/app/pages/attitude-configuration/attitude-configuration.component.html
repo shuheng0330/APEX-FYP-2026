@@ -66,13 +66,18 @@
         <ul>@for (issue of issues; track issue.key) { <li><button class="text-action" (click)="focusSection(issue.section)">{{ 'ATTITUDE_SETUP.' + issue.key | translate }}</button></li> }</ul>
       </div>
     }
+    @if (draftValidation && !showValidation && issues.length && !readonly) {
+      <div class="draft-readiness" role="status"><strong>{{ 'FORM_VALIDATION.DRAFT_READINESS' | translate }}</strong>
+        <ul>@for (issue of issues; track issue.key) { <li><button class="text-action" (click)="focusSection(issue.section)">{{ 'ATTITUDE_SETUP.' + issue.key | translate }}</button></li> }</ul>
+      </div>
+    }
     <section class="card" id="attitude-details" tabindex="-1">
       <div class="card-body">
         <div class="configuration-details">
-          <div class="field"><label for="configuration-name">{{ 'ATTITUDE_SETUP.NAME' | translate }}</label>
+          <div class="field"><label for="configuration-name">{{ 'ATTITUDE_SETUP.NAME' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</label>
             <input nz-input id="configuration-name" [(ngModel)]="form.name" [disabled]="readonly || busy" maxlength="255"
-              [placeholder]="'ATTITUDE_SETUP.NAME_PLACEHOLDER' | translate" [attr.aria-invalid]="showValidation && !form.name?.trim()">
-            @if (showValidation && !form.name?.trim()) { <span class="field-error">{{ 'ATTITUDE_SETUP.NAME_REQUIRED' | translate }}</span> }
+              [placeholder]="'ATTITUDE_SETUP.NAME_PLACEHOLDER' | translate" [attr.aria-invalid]="validationVisible && !!textError(form.name, true, 255)">
+            @if (validationVisible && textError(form.name, true, 255); as validation) { <span class="field-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.NAME' | translate), limit: 255 } }}</span> }
           </div>
         </div>
         <div class="edition-meta">
@@ -82,16 +87,19 @@
           @if (dirty) { <span class="help warning">{{ 'ATTITUDE_SETUP.UNSAVED' | translate }}</span> }
         </div>
         <p class="help preservation-note">{{ 'ATTITUDE_SETUP.HISTORY_HELP' | translate }}</p>
+        @if (!readonly) { <p class="help">{{ 'FORM_VALIDATION.REQUIRED_HELP' | translate }}</p> }
       </div>
     </section>
 
     <section class="card" id="attitude-ratings" tabindex="-1">
       <div class="card-head"><h3>{{ 'ATTITUDE_SETUP.RATINGS' | translate }}</h3><p class="help">{{ 'ATTITUDE_SETUP.RATINGS_HELP' | translate }}</p></div>
       <div class="table-scroll"><table class="data-table rating-table">
-        <thead><tr><th>{{ 'ATTITUDE_SETUP.POINT' | translate }}</th><th>{{ 'ATTITUDE_SETUP.LABEL' | translate }}</th><th>{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</th><th>{{ 'ATTITUDE_SETUP.ACTION' | translate }}</th></tr></thead>
+        <thead><tr><th>{{ 'ATTITUDE_SETUP.POINT' | translate }}</th><th>{{ 'ATTITUDE_SETUP.LABEL' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</th><th>{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</th><th>{{ 'ATTITUDE_SETUP.ACTION' | translate }}</th></tr></thead>
         <tbody>@for (rating of form.ratingDefinitions; track rating.point) {
-          <tr><td><span class="point-badge">{{ rating.point }}</span></td><td class="rating-label">{{ rating.label || '-' }}</td><td class="description-cell">{{ rating.description || '-' }}
-            @if (showValidation && (!rating.label?.trim() || !rating.description?.trim())) { <span class="field-error">{{ 'ATTITUDE_SETUP.RATING_REQUIRED' | translate }}</span> }
+          <tr><td><span class="point-badge">{{ rating.point }}</span></td><td class="rating-label">{{ rating.label || '-' }}
+            @if (validationVisible && textError(rating.label, true, 255); as validation) { <span class="field-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.LABEL' | translate), limit: 255 } }}</span> }
+          </td><td class="description-cell">{{ rating.description || '-' }}
+            @if (validationVisible && textError(rating.description, true, 10000); as validation) { <span class="field-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.DESCRIPTION' | translate), limit: 10000 } }}</span> }
           </td><td><button nz-button nzSize="small" [disabled]="busy" (click)="openRating(rating)">{{ (readonly ? 'ATTITUDE_SETUP.VIEW' : 'ATTITUDE_SETUP.EDIT') | translate }}</button></td></tr>
         }</tbody>
       </table></div>
@@ -158,8 +166,10 @@
 <ng-template #criteriaTable let-criteria>
   <div class="table-scroll"><table class="data-table criteria-table"><thead><tr><th>#</th><th>{{ 'ATTITUDE_SETUP.CRITERION' | translate }}</th><th>{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</th><th>{{ 'ATTITUDE_SETUP.STATUS_LABEL' | translate }}</th><th>{{ 'ATTITUDE_SETUP.ACTION' | translate }}</th></tr></thead>
     <tbody>@for (criterion of criteria; track criterion; let index = $index) {
-      <tr><td>{{ index + 1 }}</td><td class="criterion-name">{{ criterion.name || '-' }}</td><td class="description-cell">{{ criterion.description || '-' }}
-        @if (invalidCriterion(criterion)) { <span class="field-error">{{ 'ATTITUDE_SETUP.CRITERION_REQUIRED' | translate }}</span> }
+      <tr><td>{{ index + 1 }}</td><td class="criterion-name">{{ criterion.name || '-' }} @if (!readonly && criterion.active) { <span class="required-mark" aria-hidden="true">*</span> }
+        @if (validationVisible && textError(criterion.name, criterion.active, 255); as validation) { <span class="field-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.CRITERION' | translate), limit: 255 } }}</span> }
+      </td><td class="description-cell">{{ criterion.description || '-' }}
+        @if (validationVisible && textError(criterion.description, criterion.active, 10000); as validation) { <span class="field-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.DESCRIPTION' | translate), limit: 10000 } }}</span> }
       </td><td><span class="status" [attr.data-status]="criterion.active ? 'ACTIVE' : 'INACTIVE'">{{ (criterion.active ? 'ATTITUDE_SETUP.ACTIVE' : 'ATTITUDE_SETUP.INACTIVE') | translate }}</span></td><td>
         <div class="actions criterion-actions">
           <button nz-button nzSize="small" [disabled]="busy" (click)="openCriterion(criterion, criterion.evaluationFormat, true)">{{ 'ATTITUDE_SETUP.VIEW' | translate }}</button>
@@ -181,18 +191,26 @@
     @if (editorError) { <p class="error-box" role="alert">{{ 'ATTITUDE_SETUP.' + editorError | translate }}</p> }
     @if (rating) {
       <p class="rating-point"><span class="point-badge">{{ rating.point }}</span> {{ 'ATTITUDE_SETUP.POINT' | translate }} {{ rating.point }}</p>
-      <div class="editor-fields"><div class="field"><label for="rating-label">{{ 'ATTITUDE_SETUP.LABEL' | translate }}</label>
-        <input nz-input id="rating-label" [(ngModel)]="rating.label" [disabled]="editorReadonly" maxlength="255" [placeholder]="'ATTITUDE_SETUP.LABEL_PLACEHOLDER' | translate"></div>
-        <div class="field"><label for="rating-description">{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</label>
-          <textarea nz-input id="rating-description" [(ngModel)]="rating.description" [disabled]="editorReadonly" maxlength="10000" rows="5" [placeholder]="'ATTITUDE_SETUP.RATING_PLACEHOLDER' | translate"></textarea></div>
+      <div class="editor-fields"><div class="field"><label for="rating-label">{{ 'ATTITUDE_SETUP.LABEL' | translate }} @if (!editorReadonly) { <span class="required-mark" aria-hidden="true">*</span> }</label>
+        <input nz-input id="rating-label" [(ngModel)]="rating.label" (blur)="editorTouched.add('label')" [attr.aria-invalid]="!!editorFieldError('label')" [attr.aria-describedby]="editorFieldError('label') ? 'rating-label-error' : null" [disabled]="editorReadonly" maxlength="255" [placeholder]="'ATTITUDE_SETUP.LABEL_PLACEHOLDER' | translate">
+        @if (editorFieldError('label'); as validation) { <span class="field-error" id="rating-label-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.LABEL' | translate), limit: 255 } }}</span> }
+      </div>
+        <div class="field"><label for="rating-description">{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }} @if (!editorReadonly) { <span class="required-mark" aria-hidden="true">*</span> }</label>
+          <textarea nz-input id="rating-description" [(ngModel)]="rating.description" (blur)="editorTouched.add('description')" [attr.aria-invalid]="!!editorFieldError('description')" [attr.aria-describedby]="editorFieldError('description') ? 'rating-description-error' : null" [disabled]="editorReadonly" maxlength="10000" rows="5" [placeholder]="'ATTITUDE_SETUP.RATING_PLACEHOLDER' | translate"></textarea>
+          @if (editorFieldError('description'); as validation) { <span class="field-error" id="rating-description-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.DESCRIPTION' | translate), limit: 10000 } }}</span> }
+        </div>
       </div>
     }
     @if (criterion) {
       <p class="help editor-scope">{{ (criterion.criterionType === 'SHARED_CORE_VALUE' ? 'ATTITUDE_SETUP.CORE_VALUES' : 'ATTITUDE_SETUP.FORMAT.' + criterion.evaluationFormat) | translate }}</p>
-      <div class="editor-fields"><div class="field"><label for="criterion-name">{{ 'ATTITUDE_SETUP.CRITERION' | translate }}</label>
-        <input nz-input id="criterion-name" [(ngModel)]="criterion.name" [disabled]="editorReadonly" maxlength="255" [placeholder]="'ATTITUDE_SETUP.CRITERION_PLACEHOLDER' | translate"></div>
-        <div class="field"><label for="criterion-description">{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }}</label>
-          <textarea nz-input id="criterion-description" [(ngModel)]="criterion.description" [disabled]="editorReadonly" maxlength="10000" rows="6" [placeholder]="'ATTITUDE_SETUP.CRITERION_DESCRIPTION_PLACEHOLDER' | translate"></textarea></div>
+      <div class="editor-fields"><div class="field"><label for="criterion-name">{{ 'ATTITUDE_SETUP.CRITERION' | translate }} @if (!editorReadonly && criterion.active) { <span class="required-mark" aria-hidden="true">*</span> }</label>
+        <input nz-input id="criterion-name" [(ngModel)]="criterion.name" (blur)="editorTouched.add('name')" [attr.aria-invalid]="!!editorFieldError('name')" [attr.aria-describedby]="editorFieldError('name') ? 'criterion-name-error' : null" [disabled]="editorReadonly" maxlength="255" [placeholder]="'ATTITUDE_SETUP.CRITERION_PLACEHOLDER' | translate">
+        @if (editorFieldError('name'); as validation) { <span class="field-error" id="criterion-name-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.CRITERION' | translate), limit: 255 } }}</span> }
+      </div>
+        <div class="field"><label for="criterion-description">{{ 'ATTITUDE_SETUP.DESCRIPTION' | translate }} @if (!editorReadonly && criterion.active) { <span class="required-mark" aria-hidden="true">*</span> }</label>
+          <textarea nz-input id="criterion-description" [(ngModel)]="criterion.description" (blur)="editorTouched.add('description')" [attr.aria-invalid]="!!editorFieldError('description')" [attr.aria-describedby]="editorFieldError('description') ? 'criterion-description-error' : null" [disabled]="editorReadonly" maxlength="10000" rows="6" [placeholder]="'ATTITUDE_SETUP.CRITERION_DESCRIPTION_PLACEHOLDER' | translate"></textarea>
+          @if (editorFieldError('description'); as validation) { <span class="field-error" id="criterion-description-error">{{ validation | translate:{ field: ('ATTITUDE_SETUP.DESCRIPTION' | translate), limit: 10000 } }}</span> }
+        </div>
       </div>
     }
     @if (!editorReadonly) { <p class="help editor-note">{{ 'ATTITUDE_SETUP.DRAFT_HELP' | translate }}</p> }

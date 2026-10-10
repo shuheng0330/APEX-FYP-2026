@@ -162,6 +162,22 @@ describe('My Assessments - KPI Self-Assessment', () => {
     page.items[0].selfPoint = null; page.items[0].selfComment = 'x'.repeat(10001); page.saveDraft();
     expect(api.create).not.toHaveBeenCalled(); expect(assessmentItemError(row(), true)).toBe('MY_ASSESSMENTS.POINT_REQUIRED');
   });
+  it('shows missing points after Draft save without blocking it or requiring optional comments/evidence', () => {
+    expect(fixture.nativeElement.querySelector('#answer-error-4')).toBeNull();
+    page.saveDraft(); fixture.detectChanges();
+    expect(api.create).toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#answer-error-4').textContent).toContain('MY_ASSESSMENTS.POINT_REQUIRED');
+    expect(fixture.nativeElement.querySelector('.point-selector').getAttribute('aria-invalid')).toBe('true');
+    page.items[0].selfPoint = 3; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#answer-error-4')).toBeNull();
+    expect(page.commentError(null)).toBeNull(); expect(page.canSubmit).toBeTrue();
+  });
+  it('places comment length errors beside comments rather than the point selector', () => {
+    page.items[0].selfComment = 'x'.repeat(10001); page.saveDraft(); fixture.detectChanges();
+    expect(api.create).not.toHaveBeenCalled(); expect(page.pointError(page.items[0])).toBeNull();
+    expect(fixture.nativeElement.querySelector('textarea[aria-invalid="true"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('MY_ASSESSMENTS.COMMENT_TOO_LONG');
+  });
   it('uses current points, confirms, saves first, then submits and freezes answers', () => {
     page.items[0].selfPoint = 4; expect(page.canSubmit).toBeTrue(); page.confirmSubmit(); expect(api.submit).not.toHaveBeenCalled();
     confirm(); expect(api.create).toHaveBeenCalled(); expect(api.submit).toHaveBeenCalledOnceWith(20);

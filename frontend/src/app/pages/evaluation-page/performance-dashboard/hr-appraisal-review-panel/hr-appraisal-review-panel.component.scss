@@ -278,3 +278,11 @@ button.override-button.ant-btn-primary {
     grid-template-columns: 1fr;
   }
 }
+.field-error {
+  color: #ff4d4f;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+textarea[aria-invalid="true"] { border-color: #ff4d4f; }
+nz-select[aria-invalid="true"] { outline: 1px solid #ff4d4f; border-radius: 6px; }

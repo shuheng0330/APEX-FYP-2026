@@ -32,6 +32,9 @@ export class KpiAssistanceComponent implements OnInit {
   drawerVisible = false; rejectMode = false; reason = ''; reasonError = false;
   requestVisible = false; requestPeriodId: number | null = null; participantId: number | null = null; requestError = '';
   requestReason = ''; requestReasonError = false;
+  requestValidation = false;
+  get requestPeriodError() { return this.requestValidation && !this.requestPeriods.some(period => period.id === this.requestPeriodId); }
+  get requestEmployeeError() { return this.requestValidation && !this.requestEmployees.some(employee => employee.ownerParticipantId === this.participantId); }
   constructor(private api: KpiAssistanceService, private auth: AuthService, private translate: TranslateService, private modal: NzModalService) {}
   ngOnInit() { this.load(); }
   get locked() { return this.loading || this.busy || this.drawerVisible || this.requestVisible || !!this.planWorkspace?.busy || !!this.planWorkspace?.drawerVisible; }
@@ -78,17 +81,18 @@ export class KpiAssistanceComponent implements OnInit {
         const target = again ? this.eligible.find(value => value.ownerParticipantId === again.ownerParticipantId) : undefined;
         if (again && !target) { this.error = this.translate.instant('KPI_ASSISTANCE.NOT_ELIGIBLE'); return; }
         this.requestPeriodId = target?.reviewPeriodId ?? this.requestPeriods[0]?.id ?? null;
-        this.participantId = target?.ownerParticipantId ?? null; this.requestError = ''; this.requestReason = ''; this.requestReasonError = false;
+        this.participantId = target?.ownerParticipantId ?? null; this.requestError = ''; this.requestReason = ''; this.requestReasonError = false; this.requestValidation = false;
         this.drawerVisible = false; this.requestVisible = true;
       }, error: error => this.fail(error)
     });
   }
   sendRequest() {
     if (!this.allowed || this.hr || this.busy || this.loading) return;
+    this.requestValidation = true;
     const employee = this.requestEmployees.find(value => value.ownerParticipantId === this.participantId);
-    if (!employee) { this.requestError = this.translate.instant('KPI_ASSISTANCE.SELECT_EMPLOYEE'); return; }
     const reason = this.requestReason.trim();
-    if (!reason || this.requestReason.length > 10000) { this.requestReasonError = true; return; }
+    this.requestReasonError = !reason || this.requestReason.length > 10000;
+    if (!employee || this.requestPeriodError || this.requestReasonError) { this.requestError = this.translate.instant('FORM_VALIDATION.FIX_FIELDS'); return; }
     this.busy = true; this.requestError = '';
     this.api.request(employee.ownerParticipantId, reason).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => { this.replace(value); this.requestVisible = false; this.filter = 'REQUESTED'; this.periodId = value.reviewPeriodId; this.search = ''; this.success = this.translate.instant('KPI_ASSISTANCE.REQUEST_SENT'); },

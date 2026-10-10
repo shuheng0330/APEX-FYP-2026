@@ -53,4 +53,25 @@ describe('Manager appraisal revision validation', () => {
     component.decisionType = 'PROMOTION'; component.managerComment = 'First recommendation';
     expect(component.canSubmit).toBeTrue();
   });
+  it('keeps incomplete Manager comments saveable as Drafts but shows the submission requirement inline', () => {
+    component.activeRecord = { ...record, status: 'DRAFT', revisionRequired: false };
+    component.managerComment = '';
+    expect(component.managerCommentError).toBeFalse();
+    api.saveDraft.and.callFake(request => of({ ...request, id: 'record', status: 'DRAFT' }));
+    component.saveDraft(); expect(api.saveDraft).toHaveBeenCalled(); expect(component.managerCommentError).toBeTrue();
+    api.saveDraft.calls.reset(); component.submitToHr();
+    expect(api.saveDraft).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    component.managerComment = 'A complete recommendation'; expect(component.managerCommentError).toBeFalse();
+  });
+  it('shows existing override category and reason requirements when Save is attempted', () => {
+    component.promotionCard.overrideEnabled = true; component.promotionCard.managerCategory = null;
+    expect(component.categoryError(component.promotionCard)).toBeNull();
+    component.saveDraft(); expect(api.saveDraft).not.toHaveBeenCalled();
+    expect(component.categoryError(component.promotionCard)).toBe('FORM_VALIDATION.CATEGORY_REQUIRED');
+    expect(component.reasonError(component.promotionCard)).toBeTrue();
+    component.promotionCard.managerCategory = 'READY';
+    expect(component.categoryError(component.promotionCard)).toBe('FORM_VALIDATION.CATEGORY_DIFFERENT');
+    component.promotionCard.managerCategory = 'BORDERLINE'; component.promotionCard.overrideReason = 'New evidence';
+    expect(component.categoryError(component.promotionCard)).toBeNull(); expect(component.reasonError(component.promotionCard)).toBeFalse();
+  });
 });

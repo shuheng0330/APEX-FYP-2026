@@ -18,6 +18,14 @@
     @if (viewOnly && period) { <app-review-period-summary [period]="period"></app-review-period-summary> }
     @else if (employeeLevels.length) {
       @if (limitedEdit) { <p class="notice">{{ 'KPI_PLAN.LIMITED_PERIOD_EDIT' | translate }}</p> }
+      <p class="help">{{ 'FORM_VALIDATION.REQUIRED_HELP' | translate }}</p>
+      @if (draftReadiness.length && !issues.length) {
+        <div class="draft-readiness" role="status"><strong>{{ 'FORM_VALIDATION.DRAFT_READINESS' | translate }}</strong>
+          <div class="actions">@for (section of sections; track section) {
+            @if (draftSectionIssues(section).length) { <button nz-button nzType="link" (click)="focusSection(section)">{{ ('REVIEW_PERIOD.SECTION.' + section) | translate }} ({{ draftSectionIssues(section).length }})</button> }
+          }</div>
+        </div>
+      }
       @if (issues.length) {
         <div class="error-box" role="alert"><strong>{{ 'REVIEW_PERIOD.FIX_ERRORS' | translate }}</strong>
           <div class="actions">@for (section of sections; track section) {
@@ -34,13 +42,13 @@
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.basic' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.BASIC_HELP' | translate }}</p></div>
             <div class="card-body grid">
               <div class="field" style="grid-column: 1 / -1;">
-                <label for="period-name">{{ 'REVIEW_PERIOD.FIELD.name' | translate }}</label>
+                <label for="period-name">{{ 'REVIEW_PERIOD.FIELD.name' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
                 <input nz-input id="period-name" formControlName="name" maxlength="255" [placeholder]="'REVIEW_PERIOD.NAME_PLACEHOLDER' | translate" [attr.aria-invalid]="!!fieldIssue('name')">
                 @if (fieldIssue('name'); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
               </div>
               @for (field of ['startDate', 'endDate']; track field) {
-                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
-                  <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" nzFormat="dd MMM yyyy"></nz-date-picker>
+                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+                  <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" [attr.aria-invalid]="!!fieldIssue(field)" nzFormat="dd MMM yyyy"></nz-date-picker>
                   @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
                 </div>
               }
@@ -55,8 +63,9 @@
             </div>
           </section>
           <section class="card" id="review-roles" tabindex="-1">
-            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.roles' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.ROLES_HELP' | translate }}</p>
-              @if (sectionIssues('roles').length) { <p class="field-error">{{ 'REVIEW_PERIOD.ERROR.ROLES_HELP' | translate }}</p> }
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.roles' | translate }} <span class="required-mark" aria-hidden="true">*</span></h3><p class="help">{{ 'REVIEW_PERIOD.ROLES_HELP' | translate }}</p>
+              @if (fieldIssue('roles'); as issue) { <p class="field-error">{{ issue.key | translate }}</p> }
+              @else if (sectionIssues('roles').length || draftSectionIssues('roles').length) { <p class="field-error">{{ 'REVIEW_PERIOD.ERROR.ROLES_HELP' | translate }}</p> }
             </div>
             <div class="filter-bar">
               <input nz-input [ngModel]="roleSearch" (ngModelChange)="roleSearch = $event" [ngModelOptions]="{standalone: true}" [placeholder]="'REVIEW_PERIOD.SEARCH_ROLES' | translate" [attr.aria-label]="'REVIEW_PERIOD.SEARCH_ROLES' | translate">
@@ -68,7 +77,7 @@
               <button nz-button type="button" [disabled]="busy || limitedEdit" [nzLoading]="loadingRoles" (click)="refreshRoles()">{{ 'REVIEW_PERIOD.REFRESH_ROLES' | translate }}</button>
             </div>
             <div class="table-scroll" formArrayName="roleConfigurations"><table class="data-table">
-              <thead><tr><th>{{ 'REVIEW_PERIOD.INCLUDE' | translate }}</th><th>{{ 'REVIEW_PERIOD.ROLE' | translate }}</th><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.FREQUENCY_LABEL' | translate }}</th></tr></thead>
+              <thead><tr><th>{{ 'REVIEW_PERIOD.INCLUDE' | translate }}</th><th>{{ 'REVIEW_PERIOD.ROLE' | translate }}</th><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.FREQUENCY_LABEL' | translate }} <span class="required-mark" aria-hidden="true">*</span></th></tr></thead>
               <tbody>@for (row of roleRows.controls; track row.controls.roleId.value; let index = $index) {
                 @if (roleVisible(index)) {
                   <tr [formGroupName]="index">
@@ -93,14 +102,17 @@
           <section class="card" id="review-levels" tabindex="-1">
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.levels' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.LEVELS_HELP' | translate }}</p></div>
             <div class="table-scroll" formArrayName="employeeLevelConfigurations"><table class="data-table">
-              <thead><tr><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.COMPANY' | translate }} (%)</th><th>{{ 'REVIEW_PERIOD.DEPARTMENT' | translate }} (%)</th><th>{{ 'REVIEW_PERIOD.INDIVIDUAL' | translate }} (%)</th><th>{{ 'REVIEW_PERIOD.TOTAL' | translate }}</th></tr></thead>
+              <thead><tr><th>{{ 'REVIEW_PERIOD.LEVEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.COMPANY' | translate }} (%) <span class="required-mark" aria-hidden="true">*</span></th><th>{{ 'REVIEW_PERIOD.DEPARTMENT' | translate }} (%) <span class="required-mark" aria-hidden="true">*</span></th><th>{{ 'REVIEW_PERIOD.INDIVIDUAL' | translate }} (%) <span class="required-mark" aria-hidden="true">*</span></th><th>{{ 'REVIEW_PERIOD.TOTAL' | translate }}</th></tr></thead>
               <tbody>@for (row of levelRows.controls; track row.controls.employeeLevelId.value; let index = $index) {
                 <tr [formGroupName]="index"><td><strong>{{ employeeLevels[index].name }}</strong></td>
                   @for (field of ['companyKpiWeight', 'departmentKpiWeight', 'individualKpiWeight']; track field) {
-                    <td><nz-input-number [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzStep]="1" [nzDisabled]="limitedEdit || busy || loadingDefaults" style="width: 100px;" [attr.aria-label]="employeeLevels[index].name + ' ' + (('REVIEW_PERIOD.FIELD.' + field) | translate)"></nz-input-number></td>
+                    <td><nz-input-number [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzStep]="1" [nzDisabled]="limitedEdit || busy || loadingDefaults" style="width: 100px;" [attr.aria-invalid]="!!fieldIssue(levelField(field, row.controls.employeeLevelId.value))" [attr.aria-label]="employeeLevels[index].name + ' ' + (('REVIEW_PERIOD.FIELD.' + field) | translate)"></nz-input-number>
+                      @if (fieldIssue(levelField(field, row.controls.employeeLevelId.value)); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+                    </td>
                   }
                   <td class="total" [class.valid]="total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) === 100" [class.invalid]="total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) !== 100">
                     {{ total(row.value.companyKpiWeight ?? null, row.value.departmentKpiWeight ?? null, row.value.individualKpiWeight ?? null) ?? '-' }} / 100%
+                    @if (fieldIssue('total-' + row.controls.employeeLevelId.value); as issue) { <small class="field-error">{{ issue.key | translate }}</small> }
                   </td>
                 </tr>
               }</tbody>
@@ -111,8 +123,8 @@
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.composition' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.COMPOSITION_HELP' | translate }}</p></div>
             <div class="card-body grid">
               @for (field of ['kpiPerformanceWeight', 'attitudeEvaluationWeight']; track field) {
-                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} (%)</label>
-                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzDisabled]="busy || limitedEdit"></nz-input-number>
+                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} (%) <span class="required-mark" aria-hidden="true">*</span></label>
+                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="0" [nzMax]="100" [nzDisabled]="busy || limitedEdit" [attr.aria-invalid]="!!fieldIssue(field)"></nz-input-number>
                   @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
                 </div>
               }
@@ -123,8 +135,8 @@
             </div>
           </section>
           <section class="card" id="review-consolidation" tabindex="-1">
-            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.consolidation' | translate }}</h3></div>
-            <div class="card-body"><nz-radio-group formControlName="annualKpiConsolidationMethod" [nzDisabled]="busy || limitedEdit">
+            <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.consolidation' | translate }} <span class="required-mark" aria-hidden="true">*</span></h3></div>
+            <div class="card-body"><nz-radio-group formControlName="annualKpiConsolidationMethod" [nzDisabled]="busy || limitedEdit" [attr.aria-invalid]="!!fieldIssue('annualKpiConsolidationMethod')">
               <label nz-radio nzValue="FINAL_CHECKPOINT">{{ 'REVIEW_PERIOD.CONSOLIDATION.FINAL_CHECKPOINT' | translate }}</label>
               <label nz-radio nzValue="AVERAGE">{{ 'REVIEW_PERIOD.CONSOLIDATION.AVERAGE' | translate }}</label>
             </nz-radio-group>
@@ -135,8 +147,8 @@
           <section class="card" id="review-setup" tabindex="-1">
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.setup' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.SETUP_HELP' | translate }}</p></div>
             <div class="card-body grid">@for (field of setupDeadlines; track field) {
-              <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
-                <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" nzFormat="dd MMM yyyy"></nz-date-picker>
+              <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+                <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" [attr.aria-invalid]="!!fieldIssue(field)" nzFormat="dd MMM yyyy"></nz-date-picker>
                 @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
               </div>
             }</div>
@@ -145,8 +157,8 @@
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.assessment' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.ASSESSMENT_HELP' | translate }}</p></div>
             <div class="card-body grid">
               @for (field of ['selfAssessmentDaysAfterCheckpoint', 'superiorAssessmentDaysAfterSelfDeadline']; track field) {
-                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
-                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="1" [nzStep]="1" [nzDisabled]="busy"></nz-input-number>
+                <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+                  <nz-input-number [nzId]="field" [formControlName]="field" [nzMin]="1" [nzStep]="1" [nzDisabled]="busy" [attr.aria-invalid]="!!fieldIssue(field)"></nz-input-number>
                   <p class="help">{{ (field === 'selfAssessmentDaysAfterCheckpoint' ? 'REVIEW_PERIOD.DAYS_AFTER_CHECKPOINT' : 'REVIEW_PERIOD.DAYS_AFTER_SELF') | translate }}</p>
                   @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
                 </div>
@@ -156,8 +168,8 @@
           <section class="card" id="review-attitude" tabindex="-1">
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.attitude' | translate }}</h3><p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_HELP' | translate }}</p></div>
             <div class="card-body grid">@for (field of finalDeadlines; track field) {
-              <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }}</label>
-                <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" nzFormat="dd MMM yyyy"></nz-date-picker>
+              <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+                <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" [attr.aria-invalid]="!!fieldIssue(field)" nzFormat="dd MMM yyyy"></nz-date-picker>
                 @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
               </div>
             }</div>

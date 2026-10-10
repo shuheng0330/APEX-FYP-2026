@@ -12,7 +12,7 @@ import { NzIconModule, NzIconService } from 'ng-zorro-antd/icon';
 import { CheckCircleOutline, WarningOutline } from '@ant-design/icons-angular/icons';
 import { catchError, finalize, forkJoin, of, Subject, switchMap, tap } from 'rxjs';
 import { AttitudeConfiguration, AttitudeConfigurationOptions, AttitudeConfigurationRequest, AttitudeCriterion,
-  AttitudeFormat, AttitudePeriodConfiguration, AttitudeRating, AttitudeRoleOption, attitudePublicationIssues, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
+  AttitudeFormat, AttitudePeriodConfiguration, AttitudeRating, AttitudeRoleOption, attitudePublicationIssues, attitudeTextError, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
 import { AttitudeConfigurationService } from '../../services/attitude-configuration.service';
 
 @Component({
@@ -35,6 +35,17 @@ export class AttitudeConfigurationComponent implements OnInit {
   error = '';
   success = '';
   showValidation = false;
+  draftValidation = false;
+  editorTouched = new Set<string>();
+  editorValidation = false;
+  readonly textError = attitudeTextError;
+  get validationVisible() { return this.showValidation || this.draftValidation; }
+  editorFieldError(field: 'name' | 'label' | 'description') {
+    if (this.editorReadonly || (!this.editorValidation && !this.editorTouched.has(field))) return null;
+    if (field === 'name' && this.editorError === 'DUPLICATE_CRITERION') return 'ATTITUDE_SETUP.DUPLICATE_CRITERION';
+    const value = field === 'name' ? this.criterion?.name : field === 'label' ? this.rating?.label : (this.criterion ?? this.rating)?.description;
+    return attitudeTextError(value, !!this.rating || this.criterion?.active === true, field === 'description' ? 10000 : 255);
+  }
   selectedFormat: AttitudeFormat = 'MANAGER';
   roleSearch = '';
   previewVisible = false;
@@ -124,7 +135,7 @@ export class AttitudeConfigurationComponent implements OnInit {
       name: edition.name, criteria: structuredClone(edition.criteria), roleMappings: structuredClone(edition.roleMappings),
       ratingDefinitions: [5, 4, 3, 2, 1].map(point => structuredClone(edition.ratingDefinitions.find(r => r.point === point) ?? { point, label: '', description: '' }))
     } : emptyAttitudeConfiguration();
-    this.saved = JSON.stringify(this.payload()); this.showValidation = false;
+    this.saved = JSON.stringify(this.payload()); this.showValidation = false; this.draftValidation = false;
   }
   private payload(): AttitudeConfigurationRequest {
     return {
@@ -143,13 +154,18 @@ export class AttitudeConfigurationComponent implements OnInit {
   saveDraft(publish = false) {
     if (this.readonly || this.busy || !this.loaded || this.editorMode) return;
     if (publish && this.issues.length) { this.showValidation = true; this.focusSection(this.issues[0].section); return; }
+    if (!publish) {
+      this.draftValidation = true;
+      const invalid = this.issues.find(issue => issue.key === 'NAME_LIMIT' || issue.key === 'TEXT_LIMIT' || issue.key === 'INELIGIBLE_ROLE');
+      if (invalid) { this.error = this.translate.instant('ATTITUDE_SETUP.' + invalid.key); this.focusSection(invalid.section); return; }
+    }
     const request = this.payload();
     this.busy = true; this.error = ''; this.success = '';
     const save = this.selected ? this.api.update(this.selected.id, request) : this.api.create(request);
     save.pipe(tap(edition => this.remember(edition)),
       switchMap(edition => publish ? this.api.publish(edition.id) : of(edition)),
       finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: edition => { this.remember(edition); this.success = this.translate.instant(`ATTITUDE_SETUP.${publish ? 'PUBLISHED_SUCCESS' : 'SAVED'}`); },
+        next: edition => { this.remember(edition); this.draftValidation = !publish; this.success = this.translate.instant(`ATTITUDE_SETUP.${publish ? 'PUBLISHED_SUCCESS' : 'SAVED'}`); },
         error: e => this.fail(e)
       });
   }
@@ -173,16 +189,19 @@ export class AttitudeConfigurationComponent implements OnInit {
     this.criterion = criterion ? structuredClone(criterion) : { name: '', description: '', active: true,
       criterionType: format === null ? 'SHARED_CORE_VALUE' : 'FORMAT_SPECIFIC', evaluationFormat: format };
     this.rating = null; this.editorMode = 'criterion'; this.editorReadonly = this.readonly || view; this.editorError = '';
+    this.editorValidation = this.validationVisible; this.editorTouched.clear();
   }
   openRating(rating: AttitudeRating) {
     if (this.busy) return;
     this.rating = structuredClone(rating); this.criterion = null; this.editorMode = 'rating';
     this.editorReadonly = this.readonly; this.editorError = '';
+    this.editorValidation = this.validationVisible; this.editorTouched.clear();
   }
   applyEditor() {
     if (this.editorReadonly || this.readonly || this.busy) return;
     const value = this.criterion ?? this.rating;
     if (!value) return;
+    this.editorValidation = true;
     const name = this.criterion?.name ?? this.rating?.label;
     if ((name?.length ?? 0) > 255 || (value.description?.length ?? 0) > 10000) { this.editorError = 'TEXT_LIMIT'; return; }
     if (this.criterion) {
@@ -196,7 +215,7 @@ export class AttitudeConfigurationComponent implements OnInit {
     } else if (this.rating) {
       this.form.ratingDefinitions = this.form.ratingDefinitions.map(r => r.point === this.rating!.point ? structuredClone(this.rating!) : r);
     }
-    this.editorMode = null;
+    this.editorMode = null; this.draftValidation = true;
   }
   toggleActive(criterion: AttitudeCriterion) { if (!this.readonly && !this.busy) criterion.active = !criterion.active; }
   moveCriterion(criterion: AttitudeCriterion, direction: -1 | 1) {
@@ -207,7 +226,7 @@ export class AttitudeConfigurationComponent implements OnInit {
     const a = this.form.criteria.indexOf(criterion), b = this.form.criteria.indexOf(other);
     [this.form.criteria[a], this.form.criteria[b]] = [this.form.criteria[b], this.form.criteria[a]];
   }
-  invalidCriterion(criterion: AttitudeCriterion) { return this.showValidation && criterion.active && (!criterion.name?.trim() || !criterion.description?.trim()); }
+  invalidCriterion(criterion: AttitudeCriterion) { return this.validationVisible && criterion.active && (!criterion.name?.trim() || !criterion.description?.trim()); }
   focusSection(section: string) {
     const element = this.document.getElementById(`attitude-${section}`);
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' }); element?.focus({ preventScroll: true });

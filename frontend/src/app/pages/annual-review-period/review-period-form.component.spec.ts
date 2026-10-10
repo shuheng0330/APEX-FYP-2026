@@ -62,6 +62,25 @@ describe('Annual review period form', () => {
     expect(api.create).toHaveBeenCalledWith(jasmine.objectContaining({ name: null, startDate: null, employeeLevelConfigurations: null }));
     expect(api.create.calls.mostRecent().args[0]).not.toEqual(jasmine.objectContaining({ companyKpiWeight: jasmine.anything() }));
   });
+  it('shows nonblocking required-field readiness after saving an incomplete Draft, including after reload', () => {
+    const incomplete = { ...savedReview(), status: 'DRAFT' as const, name: null, startDate: null, endDate: null, roleConfigurations: [] };
+    api.create.and.returnValue(of(incomplete)); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.draft-readiness')).toBeNull();
+    component.save(); fixture.detectChanges();
+    expect(api.create).toHaveBeenCalled(); expect(api.publish).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.draft-readiness')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('#period-name').getAttribute('aria-invalid')).toBe('true');
+    expect(component.fieldIssue('roles')?.key).toBe('REVIEW_PERIOD.ERROR.ROLES');
+    api.get.and.returnValue(of(incomplete)); params.next(convertToParamMap({ id: '29' })); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.draft-readiness')).not.toBeNull();
+  });
+  it('highlights supplied invalid weights on Draft save without calling the API', () => {
+    fixture.detectChanges(); component.levelRows.at(0).controls.companyKpiWeight.setValue(100.001);
+    component.save(); fixture.detectChanges();
+    expect(api.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#review-levels nz-input-number[aria-invalid="true"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('#review-levels .field-error')).not.toBeNull();
+  });
   it('loads both defaults on the first Start Date and keeps copied weights independent', () => {
     const values = defaults(); api.creationDefaults.and.returnValue(of(values)); fixture.detectChanges();
     component.dates.startDate.setValue(new Date(2028, 0, 1));

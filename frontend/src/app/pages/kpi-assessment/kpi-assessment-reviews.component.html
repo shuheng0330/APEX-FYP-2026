@@ -80,21 +80,23 @@
                 </div>
               }
             </div>
-            <div class="answer-column superior-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_ANSWERS' | translate }}</h4>
+            <div class="answer-column superior-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_ANSWERS' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</h4>
               @if (readonly) { <strong class="saved-point">{{ item.superiorPoint ?? '-' }}</strong> }
               @else {
                 <fieldset class="point-selector" [disabled]="busy" [attr.aria-label]="('KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate) + ': ' + item.kpi.name"
-                  [attr.aria-invalid]="!!itemError(item)" [attr.aria-describedby]="itemError(item) ? 'superior-error-' + item.id : null">
+                  aria-required="true" [attr.aria-invalid]="!!pointError(item)" [attr.aria-describedby]="pointError(item) ? 'superior-error-' + item.id : null">
                   @for (point of points; track point) {
                     <label class="point-option" [class.selected]="item.superiorPoint === point"><input type="radio" [name]="'superior-point-' + item.id" [value]="point" [(ngModel)]="item.superiorPoint"><span>{{ point }}</span></label>
                   }
                 </fieldset>
               }
               @if (item.superiorPoint) { <span class="selected-point-label" role="status">{{ 'KPI_SCORING_GUIDE.RATING.' + item.superiorPoint + '.LABEL' | translate }}</span> }
-              @if (itemError(item); as validation) { <span class="field-error" [id]="'superior-error-' + item.id">{{ validation | translate }}</span> }
+              @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'superior-error-' + item.id">{{ validation | translate }}</span> }
               <div class="field"><label [for]="'superior-comment-' + item.id">{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_COMMENT' | translate }}</label>
                 @if (readonly) { <p class="saved-comment">{{ item.superiorComment || '-' }}</p> }
-                @else { <textarea [id]="'superior-comment-' + item.id" rows="3" maxlength="10000" [disabled]="busy" [(ngModel)]="item.superiorComment" [placeholder]="'KPI_ASSESSMENT_REVIEW.COMMENT_PLACEHOLDER' | translate"></textarea> }
+                @else { <textarea [id]="'superior-comment-' + item.id" rows="3" maxlength="10000" [disabled]="busy" [(ngModel)]="item.superiorComment" [attr.aria-invalid]="!!commentError(item.superiorComment)" [attr.aria-describedby]="commentError(item.superiorComment) ? 'superior-comment-error-' + item.id : null" [placeholder]="'KPI_ASSESSMENT_REVIEW.COMMENT_PLACEHOLDER' | translate"></textarea>
+                  @if (commentError(item.superiorComment); as validation) { <span class="field-error" [id]="'superior-comment-error-' + item.id">{{ validation | translate }}</span> }
+                }
               </div>
             </div>
           </div>

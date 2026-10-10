@@ -130,18 +130,22 @@
           <h4>Promotion</h4>
         }
         @if (promotionOverrideSelected) {
-          <label>Promotion Override Category <span class="required">*</span></label>
-          <nz-select class="full-width" [(ngModel)]="promotionOverrideCategory" nzPlaceHolder="Select final category">
+          <label for="hr-promotion-category">Promotion Override Category <span class="required">*</span></label>
+          <nz-select nzId="hr-promotion-category" class="full-width" [(ngModel)]="promotionOverrideCategory" nzPlaceHolder="Select final category"
+            [attr.aria-invalid]="!!overrideCategoryError('promotion')" [attr.aria-describedby]="overrideCategoryError('promotion') ? 'hr-promotion-category-error' : null">
             @for (category of getPromotionOverrideOptions(); track category) {
               <nz-option [nzValue]="category" [nzLabel]="formatValue(category)"></nz-option>
             }
           </nz-select>
-          <label>Promotion Override Reason <span class="required">*</span></label>
+          @if (overrideCategoryError('promotion'); as error) { <p id="hr-promotion-category-error" class="field-error">{{ error | translate }}</p> }
+          <label for="hr-promotion-reason">Promotion Override Reason <span class="required">*</span></label>
           <textarea
             nz-input
             rows="3"
             [(ngModel)]="promotionOverrideReason"
+            id="hr-promotion-reason" [attr.aria-invalid]="overrideReasonError('promotion')" [attr.aria-describedby]="overrideReasonError('promotion') ? 'hr-promotion-reason-error' : null"
             placeholder="Explain the Promotion override decision..."></textarea>
+          @if (overrideReasonError('promotion')) { <p id="hr-promotion-reason-error" class="field-error">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
         }
       </section>
     }
@@ -154,18 +158,22 @@
           <h4>Salary Increment</h4>
         }
         @if (salaryOverrideSelected) {
-          <label>Salary Increment Override Category <span class="required">*</span></label>
-          <nz-select class="full-width" [(ngModel)]="salaryOverrideCategory" nzPlaceHolder="Select final category">
+          <label for="hr-salary-category">Salary Increment Override Category <span class="required">*</span></label>
+          <nz-select nzId="hr-salary-category" class="full-width" [(ngModel)]="salaryOverrideCategory" nzPlaceHolder="Select final category"
+            [attr.aria-invalid]="!!overrideCategoryError('salary')" [attr.aria-describedby]="overrideCategoryError('salary') ? 'hr-salary-category-error' : null">
             @for (category of getSalaryOverrideOptions(); track category) {
               <nz-option [nzValue]="category" [nzLabel]="formatValue(category)"></nz-option>
             }
           </nz-select>
-          <label>Salary Increment Override Reason <span class="required">*</span></label>
+          @if (overrideCategoryError('salary'); as error) { <p id="hr-salary-category-error" class="field-error">{{ error | translate }}</p> }
+          <label for="hr-salary-reason">Salary Increment Override Reason <span class="required">*</span></label>
           <textarea
             nz-input
             rows="3"
             [(ngModel)]="salaryOverrideReason"
+            id="hr-salary-reason" [attr.aria-invalid]="overrideReasonError('salary')" [attr.aria-describedby]="overrideReasonError('salary') ? 'hr-salary-reason-error' : null"
             placeholder="Explain the Salary Increment override decision..."></textarea>
+          @if (overrideReasonError('salary')) { <p id="hr-salary-reason-error" class="field-error">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
         }
       </section>
     }
@@ -188,8 +196,9 @@
 
 <ng-template #returnModalTemplate>
   <div class="modal-form">
-    <label>Return Reason <span class="required">*</span></label>
-    <textarea nz-input rows="4" [(ngModel)]="returnReason" placeholder="Explain what the manager must revise..."></textarea>
+    <label for="hr-return-reason">Return Reason <span class="required">*</span></label>
+    <textarea nz-input id="hr-return-reason" rows="4" [(ngModel)]="returnReason" [attr.aria-invalid]="validationVisible && !returnReason.trim()" [attr.aria-describedby]="validationVisible && !returnReason.trim() ? 'hr-return-error' : null" placeholder="Explain what the manager must revise..."></textarea>
+    @if (validationVisible && !returnReason.trim()) { <p id="hr-return-error" class="field-error" role="alert">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
     <div class="modal-actions">
       <button nz-button (click)="closeActionModal()">Cancel</button>
       <button nz-button nzDanger [nzLoading]="actionLoading" (click)="submitReturn()">Return for Revision</button>

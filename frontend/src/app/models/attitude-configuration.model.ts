@@ -40,6 +40,11 @@ export interface AttitudePeriodConfiguration {
 }
 export interface AttitudeValidationIssue { section: 'details' | 'ratings' | 'criteria' | 'roles'; key: string; }
 
+export function attitudeTextError(value: string | null | undefined, required: boolean, limit: number): string | null {
+  if (required && !value?.trim()) return 'ATTITUDE_SETUP.REQUIRED_FIELD';
+  return (value?.trim().length ?? 0) > limit ? 'ATTITUDE_SETUP.FIELD_LIMIT' : null;
+}
+
 export function emptyAttitudeConfiguration(): AttitudeConfigurationRequest {
   return { name: '', criteria: [], roleMappings: [],
     ratingDefinitions: [5, 4, 3, 2, 1].map(point => ({ point, label: '', description: '' })) };

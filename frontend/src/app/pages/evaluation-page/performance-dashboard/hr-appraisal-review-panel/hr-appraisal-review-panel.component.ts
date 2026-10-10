@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, SimpleChanges, TemplateRef, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -42,6 +43,7 @@ interface ReviewDecisionCard {
   imports: [
     CommonModule,
     FormsModule,
+    TranslateModule,
     NzAlertModule,
     NzButtonModule,
     NzCardModule,
@@ -72,6 +74,7 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   salaryOverrideCategory?: AppraisalCategory;
   salaryOverrideReason = '';
   returnReason = '';
+  validationVisible = false;
   private actionModal?: NzModalRef;
 
   readonly categoryOptions: AppraisalCategory[] = ['READY', 'BORDERLINE', 'NEEDS_IMPROVEMENT'];
@@ -157,6 +160,7 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   }
 
   openOverrideModal(): void {
+    this.validationVisible = false;
     this.promotionOverrideSelected = this.record?.decisionType === 'PROMOTION';
     this.promotionOverrideCategory = undefined;
     this.promotionOverrideReason = '';
@@ -172,6 +176,7 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   }
 
   openReturnModal(): void {
+    this.validationVisible = false;
     this.returnReason = '';
     this.actionModal = this.modal.create({
       nzTitle: 'Return for Revision',
@@ -182,6 +187,7 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   }
 
   submitOverride(): void {
+    this.validationVisible = true;
     if (!this.record?.id) {
       return;
     }
@@ -189,19 +195,19 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
       this.message.error('Select at least one decision to override.');
       return;
     }
-    if (this.promotionOverrideSelected && (!this.promotionOverrideCategory || !this.promotionOverrideReason.trim())) {
+    if (this.overrideCategoryError('promotion') === 'FORM_VALIDATION.CATEGORY_REQUIRED' || this.overrideReasonError('promotion')) {
       this.message.error('Promotion override category and reason are required.');
       return;
     }
-    if (this.promotionOverrideSelected && this.promotionOverrideCategory === this.record.promotionManagerCategory) {
+    if (this.overrideCategoryError('promotion') === 'FORM_VALIDATION.CATEGORY_DIFFERENT') {
       this.message.error('Promotion HR override category must be different from the Manager category.');
       return;
     }
-    if (this.salaryOverrideSelected && (!this.salaryOverrideCategory || !this.salaryOverrideReason.trim())) {
+    if (this.overrideCategoryError('salary') === 'FORM_VALIDATION.CATEGORY_REQUIRED' || this.overrideReasonError('salary')) {
       this.message.error('Salary increment override category and reason are required.');
       return;
     }
-    if (this.salaryOverrideSelected && this.salaryOverrideCategory === this.record.salaryManagerCategory) {
+    if (this.overrideCategoryError('salary') === 'FORM_VALIDATION.CATEGORY_DIFFERENT') {
       this.message.error('Salary increment HR override category must be different from the Manager category.');
       return;
     }
@@ -224,6 +230,7 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
   }
 
   submitReturn(): void {
+    this.validationVisible = true;
     if (!this.record?.id || !this.returnReason.trim()) {
       this.message.error('Return reason is required.');
       return;
@@ -245,6 +252,17 @@ export class HrAppraisalReviewPanelComponent implements OnChanges {
 
   closeActionModal(): void {
     this.actionModal?.destroy();
+  }
+
+  overrideCategoryError(kind: 'promotion' | 'salary'): string | null {
+    if (!this.validationVisible || !this[`${kind}OverrideSelected`]) return null;
+    const category = this[`${kind}OverrideCategory`];
+    if (!category) return 'FORM_VALIDATION.CATEGORY_REQUIRED';
+    return category === this.record?.[`${kind}ManagerCategory`] ? 'FORM_VALIDATION.CATEGORY_DIFFERENT' : null;
+  }
+
+  overrideReasonError(kind: 'promotion' | 'salary'): boolean {
+    return this.validationVisible && this[`${kind}OverrideSelected`] && !this[`${kind}OverrideReason`].trim();
   }
 
   getCategoryColor(category?: AppraisalCategory | null): string {

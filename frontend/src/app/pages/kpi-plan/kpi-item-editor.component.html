@@ -28,7 +28,7 @@
               <input nz-input [id]="field.key + '-' + index" required [maxlength]="field.key === 'target' ? 10000 : 255"
                 [placeholder]="placeholder(field.key) | translate" [(ngModel)]="item[field.key]" (ngModelChange)="clearError(field.key)"
                 [attr.aria-invalid]="!!errors[field.key]" [attr.aria-describedby]="errors[field.key] ? field.key + '-error-' + index : null">
-              @if (errors[field.key]) { <span class="field-error" [id]="field.key + '-error-' + index">{{ errors[field.key] | translate }}</span> }
+              @if (errors[field.key]) { <span class="field-error" [id]="field.key + '-error-' + index">{{ errors[field.key] | translate:{ field: ('KPI_PLAN.' + field.label | translate) } }}</span> }
             </div>
           }
           <div class="field">
@@ -36,9 +36,9 @@
             <input nz-input type="number" [id]="'weightage-' + index" required min="0" max="100" step="0.01"
               [placeholder]="'KPI_PLAN.PLACEHOLDER.weightage' | translate" [(ngModel)]="item.weightage"
               (keydown)="preventNonNumeric($event)" (ngModelChange)="clearError('weightage')"
-              [attr.aria-invalid]="!!errors['weightage']" [attr.aria-describedby]="'weightage-help-' + index">
+              [attr.aria-invalid]="!!errors['weightage']" [attr.aria-describedby]="'weightage-help-' + index + (errors['weightage'] ? ' weightage-error-' + index : '')">
             <span class="help" [id]="'weightage-help-' + index">{{ weightHelp | translate }}</span>
-            @if (errors['weightage']) { <span class="field-error">{{ errors['weightage'] | translate }}</span> }
+            @if (errors['weightage']) { <span class="field-error" [id]="'weightage-error-' + index">{{ errors['weightage'] | translate:{ field: ('KPI_PLAN.WEIGHT' | translate) } }}</span> }
           </div>
         </div>
       }
@@ -66,7 +66,7 @@
                 [placeholder]="'KPI_PLAN.PLACEHOLDER.point' | translate:{ point: point }"
                 [ngModel]="item.scoringDefinitions[point]" (ngModelChange)="setCriterion(item, point, $event)"
                 [attr.aria-invalid]="!!errors['point' + point]" [attr.aria-describedby]="errors['point' + point] ? 'point-error-' + point + '-' + index : null"></textarea>
-              @if (errors['point' + point]) { <span class="field-error" [id]="'point-error-' + point + '-' + index">{{ errors['point' + point] | translate }}</span> }
+              @if (errors['point' + point]) { <span class="field-error" [id]="'point-error-' + point + '-' + index">{{ errors['point' + point] | translate:{ point: point } }}</span> }
             </div>
           }
         </div>

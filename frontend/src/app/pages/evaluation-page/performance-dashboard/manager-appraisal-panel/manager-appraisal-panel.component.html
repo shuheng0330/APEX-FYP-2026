@@ -43,7 +43,7 @@
     </nz-alert>
 
     <div class="appraisal-form" [class.disabled-panel]="noClosedCycle">
-      <label class="field-label">Review Period</label>
+      <label class="field-label">Review Period <span class="required" aria-hidden="true">*</span></label>
       <nz-select
         class="full-width"
         [(ngModel)]="reviewPeriodYears"
@@ -52,7 +52,7 @@
         <nz-option *ngFor="let option of reviewPeriodOptions" [nzValue]="option.value" [nzLabel]="option.label"></nz-option>
       </nz-select>
 
-      <label class="field-label decision-label">Decision Type</label>
+      <label class="field-label decision-label">Decision Type <span class="required" aria-hidden="true">*</span></label>
       <nz-radio-group
         [(ngModel)]="decisionType"
         [nzDisabled]="noClosedCycle || isReadOnly"
@@ -86,19 +86,24 @@
             </label>
 
             <div *ngIf="card.overrideEnabled" class="override-fields">
-              <label class="field-label">Manager Category</label>
-              <nz-select class="full-width" [(ngModel)]="card.managerCategory" [nzDisabled]="noClosedCycle || isReadOnly">
+              <label class="field-label" [attr.for]="card.key + '-manager-category'">Manager Category <span class="required" aria-hidden="true">*</span></label>
+              <nz-select class="full-width" [nzId]="card.key + '-manager-category'" [(ngModel)]="card.managerCategory" [nzDisabled]="noClosedCycle || isReadOnly"
+                [attr.aria-invalid]="!!categoryError(card)" [attr.aria-describedby]="categoryError(card) ? card.key + '-category-error' : null">
                 <nz-option *ngFor="let category of getManagerCategoryOptions(card)" [nzValue]="category" [nzLabel]="formatCategory(category)"></nz-option>
               </nz-select>
+              @if (categoryError(card); as error) { <p class="field-error" [id]="card.key + '-category-error'">{{ error | translate }}</p> }
 
-              <label class="field-label">Override Reason <span class="required">*</span></label>
+              <label class="field-label" [attr.for]="card.key + '-override-reason'">Override Reason <span class="required">*</span></label>
               <textarea
                 nz-input
                 rows="3"
+                [id]="card.key + '-override-reason'"
+                [attr.aria-invalid]="reasonError(card)" [attr.aria-describedby]="reasonError(card) ? card.key + '-reason-error' : null"
                 [(ngModel)]="card.overrideReason"
                 [disabled]="noClosedCycle || isReadOnly"
                 placeholder="Explain why the system category is being overridden...">
               </textarea>
+              @if (reasonError(card)) { <p class="field-error" [id]="card.key + '-reason-error'">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
             </div>
           </nz-spin>
         </div>
@@ -118,14 +123,16 @@
         </textarea>
       </div>
 
-      <label class="field-label comment-label">Manager Comment <span class="required">*</span></label>
+      <label class="field-label comment-label" for="manager-comment">Manager Comment <span class="required">*</span></label>
       <textarea
         nz-input
         rows="5"
+        id="manager-comment" [attr.aria-invalid]="managerCommentError" [attr.aria-describedby]="managerCommentError ? 'manager-comment-error' : null"
         [(ngModel)]="managerComment"
         [disabled]="noClosedCycle || isReadOnly"
         placeholder="Provide your assessment and recommendations...">
       </textarea>
+      @if (managerCommentError) { <p id="manager-comment-error" class="field-error" role="status">{{ 'FORM_VALIDATION.MANAGER_COMMENT' | translate }}</p> }
 
       @if (canPersist && !canSubmit) {
         <p role="status">{{ 'APPROVAL_REVISION.CHANGE_REQUIRED' | translate }}</p>

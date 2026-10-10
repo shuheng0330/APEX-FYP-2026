@@ -78,6 +78,7 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
   reviewPeriodYears = 1;
   decisionType: AppraisalDecisionSelection = 'NONE';
   managerComment = '';
+  validationVisible = false;
   aiInsight = '';
   generatedInsightVisible = false;
 
@@ -169,6 +170,7 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
       return;
     }
 
+    this.validationVisible = true;
     if (!this.validateOverrides()) {
       return;
     }
@@ -193,7 +195,8 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
       return;
     }
 
-    if (!this.managerComment?.trim() || this.managerComment.trim().length < 10) {
+    this.validationVisible = true;
+    if (this.managerCommentError) {
       this.message.error('Manager comment must be at least 10 characters before submitting to HR.');
       return;
     }
@@ -242,6 +245,20 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
       return [this.promotionCard, this.salaryCard];
     }
     return [];
+  }
+
+  get managerCommentError(): boolean {
+    return this.validationVisible && !this.isReadOnly && this.managerComment.trim().length < 10;
+  }
+
+  categoryError(card: DecisionCardState): string | null {
+    if (!this.validationVisible || this.isReadOnly || !card.overrideEnabled) return null;
+    if (!card.managerCategory) return 'FORM_VALIDATION.CATEGORY_REQUIRED';
+    return card.managerCategory === card.systemCategory ? 'FORM_VALIDATION.CATEGORY_DIFFERENT' : null;
+  }
+
+  reasonError(card: DecisionCardState): boolean {
+    return this.validationVisible && !this.isReadOnly && card.overrideEnabled && !card.overrideReason.trim();
   }
 
   get canPersist(): boolean {
@@ -460,17 +477,17 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
 
   private validateOverrides(): boolean {
     for (const card of this.visibleCards) {
-      if (card.overrideEnabled && !card.managerCategory) {
+      if (this.categoryError(card) === 'FORM_VALIDATION.CATEGORY_REQUIRED') {
         this.message.error(`${card.title} override category is required.`);
         return false;
       }
 
-      if (card.overrideEnabled && card.managerCategory === card.systemCategory) {
+      if (this.categoryError(card) === 'FORM_VALIDATION.CATEGORY_DIFFERENT') {
         this.message.error('The Manager override category must be different from the System category.');
         return false;
       }
 
-      if (card.overrideEnabled && !card.overrideReason.trim()) {
+      if (this.reasonError(card)) {
         this.message.error(`${card.title} override reason is required.`);
         return false;
       }
@@ -495,6 +512,7 @@ export class ManagerAppraisalPanelComponent implements OnChanges {
   }
 
   private resetForm(): void {
+    this.validationVisible = false;
     this.reviewPeriodYears = 1;
     this.decisionType = 'NONE';
     this.managerComment = '';

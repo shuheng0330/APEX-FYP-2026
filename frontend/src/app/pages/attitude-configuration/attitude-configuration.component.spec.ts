@@ -65,7 +65,7 @@ describe('Attitude Evaluation Setup', () => {
   it('blocks incomplete publication and points to the relevant sections with inline feedback', () => {
     component.confirmPublish(); fixture.detectChanges();
     expect(component.showValidation).toBeTrue(); expect(component.issues.map(i => i.section)).toEqual(['details', 'ratings', 'criteria']);
-    expect(fixture.nativeElement.querySelectorAll('.rating-table .field-error').length).toBe(5);
+    expect(fixture.nativeElement.querySelectorAll('.rating-table .field-error').length).toBe(10);
     expect(api.publish).not.toHaveBeenCalled(); expect(modal.confirm).not.toHaveBeenCalled();
   });
   it('permits a complete shared criterion to cover all formats without demanding all Role mappings', () => {
@@ -85,6 +85,31 @@ describe('Attitude Evaluation Setup', () => {
     component.openRating(component.form.ratingDefinitions[0]); component.rating!.label = 'Excellent'; component.applyEditor();
     expect(component.form.ratingDefinitions[0]).toEqual({ point: 5, label: 'Excellent', description: '' });
     expect(component.issues.map(i => i.key)).toContain('RATINGS_REQUIRED');
+  });
+  it('shows required markers without initial errors, then nonblocking readiness after saving an incomplete Draft', () => {
+    expect(fixture.nativeElement.querySelectorAll('.required-mark').length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelector('.draft-readiness')).toBeNull();
+    component.saveDraft(); fixture.detectChanges();
+    expect(api.create).toHaveBeenCalled(); expect(api.publish).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.draft-readiness')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.rating-table .field-error').length).toBe(10);
+  });
+  it('validates editor fields on blur and Apply while allowing incomplete Draft definitions', () => {
+    component.openRating(component.form.ratingDefinitions[0]);
+    expect(component.editorFieldError('label')).toBeNull();
+    component.editorTouched.add('label'); expect(component.editorFieldError('label')).toBe('ATTITUDE_SETUP.REQUIRED_FIELD');
+    component.rating!.label = 'Meets expectation'; expect(component.editorFieldError('label')).toBeNull();
+    component.applyEditor(); expect(component.editorMode).toBeNull(); expect(component.draftValidation).toBeTrue();
+    component.openRating(component.form.ratingDefinitions[0]);
+    expect(component.editorFieldError('description')).toBe('ATTITUDE_SETUP.REQUIRED_FIELD');
+    component.rating!.description = 'x'.repeat(10001); component.applyEditor();
+    expect(component.editorMode).toBe('rating'); expect(component.editorFieldError('description')).toBe('ATTITUDE_SETUP.FIELD_LIMIT');
+  });
+  it('does not mark inactive criteria or optional Role mappings as required', () => {
+    component.openCriterion(null, null); component.criterion!.active = false; component.editorValidation = true;
+    expect(component.editorFieldError('name')).toBeNull(); expect(component.editorFieldError('description')).toBeNull();
+    component.applyEditor(); component.form = complete(); component.saveDraft();
+    expect(api.create).toHaveBeenCalled(); expect(component.issues).toEqual([]);
   });
   it('keeps cancelled criterion/rating edits out of the working configuration', () => {
     component.form = complete(); component.openCriterion(component.form.criteria[0], null); component.criterion!.name = 'Unsaved';

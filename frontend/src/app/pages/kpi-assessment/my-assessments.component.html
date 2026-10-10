@@ -82,7 +82,7 @@
             </div><app-kpi-scoring-guide /></div>
             <div class="table-scroll"><table class="data-table assessment-table">
               <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_PLAN.NAME' | translate }}</th>
-                <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }}</th>
+                <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</th>
                 <th>{{ 'MY_ASSESSMENTS.COMMENT_EVIDENCE' | translate }}</th>
                 @if (current.status === 'REVIEWED') { <th>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate }}</th> }
               </tr></thead>
@@ -98,7 +98,7 @@
                       @if (readonly) { <strong class="saved-point">{{ item.selfPoint ?? '-' }}</strong> }
                       @else {
                         <fieldset class="point-selector" [attr.aria-label]="('MY_ASSESSMENTS.SELF_POINT' | translate) + ': ' + item.kpi.name"
-                          [attr.aria-invalid]="!!itemError(item)" [attr.aria-describedby]="itemError(item) ? 'answer-error-' + item.assignmentId : null" [disabled]="busy">
+                          aria-required="true" [attr.aria-invalid]="!!pointError(item)" [attr.aria-describedby]="pointError(item) ? 'answer-error-' + item.assignmentId : null" [disabled]="busy">
                           @for (point of points; track point) {
                             <label class="point-option" [class.selected]="item.selfPoint === point">
                               <input type="radio" [name]="'self-point-' + item.assignmentId" [value]="point" [(ngModel)]="item.selfPoint">
@@ -110,15 +110,16 @@
                       @if (item.selfPoint) {
                         <span class="selected-point-label" role="status">{{ 'KPI_SCORING_GUIDE.RATING.' + item.selfPoint + '.LABEL' | translate }}</span>
                       }
-                      @if (itemError(item); as validation) { <span class="field-error" [id]="'answer-error-' + item.assignmentId">{{ validation | translate }}</span> }
+                      @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'answer-error-' + item.assignmentId">{{ validation | translate }}</span> }
                     </td>
                     <td class="evidence-cell">
                       @if (readonly) { @if (item.selfComment) { <p class="saved-comment">{{ item.selfComment }}</p> } }
                       @else {
                         <textarea nz-input rows="2" maxlength="10000" [(ngModel)]="item.selfComment" [disabled]="busy"
                           [attr.aria-label]="('MY_ASSESSMENTS.COMMENT' | translate) + ': ' + item.kpi.name"
-                          [attr.aria-invalid]="(item.selfComment?.length ?? 0) > 10000"
+                          [attr.aria-invalid]="!!commentError(item.selfComment)" [attr.aria-describedby]="commentError(item.selfComment) ? 'comment-error-' + item.assignmentId : null"
                           [placeholder]="'MY_ASSESSMENTS.COMMENT_PLACEHOLDER' | translate"></textarea>
+                        @if (commentError(item.selfComment); as validation) { <span class="field-error" [id]="'comment-error-' + item.assignmentId">{{ validation | translate }}</span> }
                         <input #evidenceInput type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="attachEvidence(item.assignmentId, $event)">
                         <button nz-button nzType="link" [disabled]="busy" (click)="evidenceInput.click()">{{ 'MY_ASSESSMENTS.ATTACH_EVIDENCE' | translate }}</button>
                       }

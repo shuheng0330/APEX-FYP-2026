@@ -11,7 +11,7 @@ import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { Observable, finalize, of, switchMap, throwError } from 'rxjs';
 import { KpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
-import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem, assessmentItemError } from '../../models/kpi-assessment.model';
+import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem, assessmentItemError, assessmentPointError, assessmentCommentError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
@@ -38,6 +38,7 @@ export class MyAssessmentsComponent implements OnInit {
   error = '';
   success = '';
   showValidation = false;
+  draftWarnings = false;
   drawerVisible = false;
   detailItem: KpiItem[] = [];
   detailScope: KpiAssessmentItem['level'] = 'INDIVIDUAL';
@@ -62,6 +63,8 @@ export class MyAssessmentsComponent implements OnInit {
     return [...new Set(reasons)];
   }
   itemError(item: KpiAssessmentItem) { return assessmentItemError(item, this.showValidation); }
+  pointError(item: KpiAssessmentItem) { return assessmentPointError(item.selfPoint, this.showValidation || this.draftWarnings); }
+  readonly commentError = assessmentCommentError;
   private answerSignature() {
     return JSON.stringify(this.items.map(item => [item.assignmentId, item.selfPoint, item.selfComment ?? null]));
   }
@@ -72,7 +75,7 @@ export class MyAssessmentsComponent implements OnInit {
   }
   private accept(assessment: KpiAssessment) {
     this.assessment = assessment; this.items = structuredClone(assessment.items); this.savedAnswers = this.answerSignature();
-    this.showValidation = false;
+    this.showValidation = false; this.draftWarnings = false;
     this.checkpoints = this.checkpoints.map(checkpoint => checkpoint.id === assessment.checkpoint.id ? assessment.checkpoint : checkpoint);
   }
   private preferredCheckpoint() {
@@ -169,7 +172,7 @@ export class MyAssessmentsComponent implements OnInit {
     if (this.readonly || this.busy || !this.validDraft()) return;
     this.busy = true; this.error = ''; this.success = '';
     this.persist().pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => this.success = this.translate.instant('MY_ASSESSMENTS.SAVED'), error: error => this.fail(error)
+      next: () => { this.draftWarnings = true; this.success = this.translate.instant('MY_ASSESSMENTS.SAVED'); }, error: error => this.fail(error)
     });
   }
   confirmSubmit() {

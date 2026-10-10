@@ -61,6 +61,7 @@ export class ReviewPeriodFormComponent implements OnInit {
   employeeLevels: EmployeeLevel[] = [];
   roleOptions: ReviewRoleConfiguration[] = [];
   issues: ReviewValidationIssue[] = [];
+  draftReadinessShown = false;
   loading = true;
   busy = false;
   loadingDefaults = false;
@@ -126,7 +127,7 @@ export class ReviewPeriodFormComponent implements OnInit {
 
   private populate(period: AnnualReviewPeriod | null, options: ReviewRoleConfiguration[]): void {
     this.form.enable({ emitEvent: false });
-    this.defaultsNotice = ''; this.defaultsNeedRefresh = false; this.issues = [];
+    this.defaultsNotice = ''; this.defaultsNeedRefresh = false; this.issues = []; this.draftReadinessShown = period?.status === 'DRAFT';
     this.form.reset({ kpiPerformanceWeight: 50, attitudeEvaluationWeight: 50 }, { emitEvent: false });
     this.roleRows.clear({ emitEvent: false }); this.levelRows.clear({ emitEvent: false });
     this.roleOptions = options.map(option => {
@@ -231,7 +232,13 @@ export class ReviewPeriodFormComponent implements OnInit {
     return !this.issues.length;
   }
   sectionIssues(section: ReviewSection): ReviewValidationIssue[] { return this.issues.filter(issue => issue.section === section); }
-  fieldIssue(field: string): ReviewValidationIssue | undefined { return this.issues.find(issue => issue.field === field); }
+  fieldIssue(field: string): ReviewValidationIssue | undefined { return this.issues.find(issue => issue.field === field) ?? this.draftReadiness.find(issue => issue.field === field); }
+  draftSectionIssues(section: ReviewSection) { return this.draftReadiness.filter(issue => issue.section === section); }
+  get draftReadiness() {
+    return this.draftReadinessShown && this.period?.status === 'DRAFT'
+      ? validateReviewConfiguration(this.request(), true, this.employeeLevels.map(l => l.id), this.roleOptions) : [];
+  }
+  levelField(field: string, levelId: number) { return `${field === 'companyKpiWeight' ? 'company' : field === 'departmentKpiWeight' ? 'department' : 'individual'}-${levelId}`; }
   focusSection(section: ReviewSection): void {
     const card = document.getElementById(`review-${section}`);
     card?.scrollIntoView({ behavior: 'smooth', block: 'start' }); card?.focus({ preventScroll: true });
@@ -252,6 +259,7 @@ export class ReviewPeriodFormComponent implements OnInit {
     operation.pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: period => {
         this.period = period; this.viewOnly = !editableReviewPeriod(period); this.populate(period, this.roleOptions);
+        this.draftReadinessShown = period.status === 'DRAFT';
         this.message.success(this.translate.instant('REVIEW_PERIOD.SAVED'));
         if (!id) this.router.navigate(['/kpi-administration/review-periods', period.id, 'edit']);
       }, error: error => this.setError(error)

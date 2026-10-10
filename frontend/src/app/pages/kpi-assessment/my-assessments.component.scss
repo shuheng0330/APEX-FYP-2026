@@ -26,6 +26,7 @@
 .level-pill[data-level='DEPARTMENT'] { background: #f3edff; color: #7953b6; }
 .level-pill[data-level='INDIVIDUAL'] { background: #e6f6f2; color: #087a6e; }
 .point-selector { display: flex; gap: 5px; padding: 0; border: 0; margin: 0; min-width: 180px; }
+.point-selector[aria-invalid="true"] { outline: 1px solid var(--tbm-danger); outline-offset: 3px; border-radius: 4px; }
 .point-option { position: relative; cursor: pointer; }
 .point-option input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .point-option span { display: flex; align-items: center; justify-content: center; width: 31px; height: 32px; border: 1px solid var(--tbm-border); background: var(--tbm-surface-subtle); color: var(--tbm-muted); border-radius: 5px; font-weight: 600; }

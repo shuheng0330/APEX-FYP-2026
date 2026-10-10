@@ -14,7 +14,8 @@ import { assistanceCase, assistanceEmployee } from './kpi-assistance.testing';
 
 describe('KPI assistance workspace', () => {
   let fixture: ComponentFixture<KpiAssistanceComponent>; let component: KpiAssistanceComponent;
-  let api: jasmine.SpyObj<KpiAssistanceService>; let auth: jasmine.SpyObj<AuthService>; let modal: jasmine.SpyObj<NzModalService>;
+  let api: jasmine.SpyObj<KpiAssistanceService>; let auth: jasmine.SpyObj<AuthService>; let modal: NzModalService;
+  let confirmDialog: jasmine.Spy<NzModalService['confirm']>;
   let permissions: string[];
   beforeEach(async () => {
     permissions = ['CAN_REVIEW_INDIVIDUAL_KPI'];
@@ -23,15 +24,14 @@ describe('KPI assistance workspace', () => {
     api.request.and.returnValue(of(assistanceCase('REQUESTED', 9))); api.approve.and.returnValue(of(assistanceCase('AUTHORIZED')));
     api.reject.and.returnValue(of({ ...assistanceCase('REJECTED'), rejectionReason: 'Discuss targets first', rejectedByName: 'HR', rejectedAt: '2028-01-02' }));
     auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole'], { userId: 'superior' }); auth.hasRole.and.callFake(value => permissions.includes(value));
-    modal = jasmine.createSpyObj<NzModalService>('modal', ['confirm']);
     TestBed.configureTestingModule({ imports: [KpiAssistanceComponent, TranslateModule.forRoot()], providers: [provideNoopAnimations(),
-      { provide: KpiAssistanceService, useValue: api }, { provide: AuthService, useValue: auth }, { provide: NzModalService, useValue: modal },
+      { provide: KpiAssistanceService, useValue: api }, { provide: AuthService, useValue: auth },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline, SearchOutline] }] });
-    TestBed.overrideProvider(NzModalService, { useValue: modal });
     await TestBed.compileComponents(); fixture = TestBed.createComponent(KpiAssistanceComponent); component = fixture.componentInstance;
+    modal = fixture.debugElement.injector.get(NzModalService); confirmDialog = spyOn(modal, 'confirm');
   });
   function start(hr = false) { component.hr = hr; fixture.detectChanges(); }
-  function confirm() { const callback = modal.confirm.calls.mostRecent().args[0]?.nzOnOk; if (callback && !(callback instanceof EventEmitter)) callback(undefined); }
+  function confirm() { const callback = confirmDialog.calls.mostRecent().args[0]?.nzOnOk; if (callback && !(callback instanceof EventEmitter)) callback(undefined); }
   it('shows only a Superior\'s own cases even with both permissions', () => {
     permissions.push('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE');
     api.list.and.returnValue(of([assistanceCase(), { ...assistanceCase('REQUESTED', 9), superiorId: 'other' }])); start();
@@ -106,6 +106,18 @@ describe('KPI assistance workspace', () => {
     expect(api.request).toHaveBeenCalledOnceWith(7, 'Needs help preparing KPIs');
     response.error({ error: { message: 'Please retry' } });
     expect(component.requestReason).toBe(' Needs help preparing KPIs '); expect(component.requestVisible).toBeTrue(); expect(component.busy).toBeFalse();
+  });
+  it('highlights missing request selections and reason before sending, with no initial errors', () => {
+    api.list.and.returnValue(of([])); start(); component.requestPermission();
+    expect(component.requestEmployeeError).toBeFalse(); expect(component.requestReasonError).toBeFalse();
+    component.requestPeriodId = null; component.sendRequest(); fixture.detectChanges();
+    expect(api.request).not.toHaveBeenCalled();
+    expect(component.requestPeriodError).toBeTrue(); expect(component.requestEmployeeError).toBeTrue();
+    expect(component.requestReasonError).toBeTrue();
+    expect(document.querySelector('#assistance-period-error')).not.toBeNull();
+    expect(document.querySelector('#assistance-employee-error')).not.toBeNull();
+    const periodSelect = document.querySelector('#assistance-request-period')?.closest('nz-select');
+    expect(periodSelect).not.toBeNull(); expect(periodSelect?.closest('label')).toBeNull();
   });
   it('shows the request reason to HR and keeps earlier requests with no reason viewable', () => {
     permissions = ['CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE']; start(true); component.open(assistanceCase()); fixture.detectChanges();

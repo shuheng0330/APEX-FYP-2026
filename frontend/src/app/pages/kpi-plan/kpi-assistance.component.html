@@ -52,8 +52,8 @@
         @if (value.reviewPeriodStatus === 'CLOSED') { <p class="notice">{{ 'INDIVIDUAL_KPI.CLOSED_HELP' | translate }}</p> }
         @if (rejectMode && canDecide) {
           <label class="field" for="assistance-rejection-reason">{{ 'KPI_ASSISTANCE.REJECTION_REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
-          <textarea id="assistance-rejection-reason" class="assistance-reason" rows="4" maxlength="10000" [(ngModel)]="reason" (ngModelChange)="reasonError = false" [attr.aria-invalid]="reasonError" [placeholder]="'KPI_ASSISTANCE.REASON_PLACEHOLDER' | translate"></textarea>
-          @if (reasonError) { <p class="field-error" role="alert">{{ 'KPI_ASSISTANCE.REASON_REQUIRED' | translate }}</p> }
+          <textarea id="assistance-rejection-reason" class="assistance-reason" rows="4" maxlength="10000" required [(ngModel)]="reason" (ngModelChange)="reasonError = false" [attr.aria-invalid]="reasonError" [attr.aria-describedby]="reasonError ? 'assistance-rejection-error' : null" [placeholder]="'KPI_ASSISTANCE.REASON_PLACEHOLDER' | translate"></textarea>
+          @if (reasonError) { <p id="assistance-rejection-error" class="field-error" role="alert">{{ (reason.trim().length > 10000 ? 'FORM_VALIDATION.REASON_LIMIT' : 'KPI_ASSISTANCE.REASON_REQUIRED') | translate }}</p> }
         }
       }
     </ng-container>
@@ -69,17 +69,17 @@
     <ng-container *nzModalContent>
       @if (requestError) { <div class="error-box" role="alert">{{ requestError }}</div> }
       @if (!eligible.length) { <p class="empty">{{ 'KPI_ASSISTANCE.NO_ELIGIBLE' | translate }}</p> } @else {
-        <div class="information-fields"><label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}<nz-select class="plan-picker" [(ngModel)]="requestPeriodId" (ngModelChange)="participantId = null" [nzDisabled]="busy">
+        <div class="information-fields"><div class="field"><label for="assistance-request-period">{{ 'KPI_PLAN.PERIOD' | translate }} <span class="required-mark" aria-hidden="true">*</span></label><nz-select nzId="assistance-request-period" class="plan-picker" [(ngModel)]="requestPeriodId" (ngModelChange)="participantId = null" [nzDisabled]="busy" aria-required="true" [attr.aria-invalid]="requestPeriodError" [attr.aria-describedby]="requestPeriodError ? 'assistance-period-error' : null">
           @for (period of requestPeriods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
-        </nz-select></label>
-        <label class="field">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}<nz-select class="plan-picker" [(ngModel)]="participantId" nzShowSearch [nzDisabled]="busy" [nzPlaceHolder]="'KPI_ASSISTANCE.SELECT_EMPLOYEE' | translate">
+        </nz-select>@if (requestPeriodError) { <span class="field-error" id="assistance-period-error">{{ 'FORM_VALIDATION.SELECT_PERIOD' | translate }}</span> }</div>
+        <div class="field"><label for="assistance-request-employee">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }} <span class="required-mark" aria-hidden="true">*</span></label><nz-select nzId="assistance-request-employee" class="plan-picker" [(ngModel)]="participantId" nzShowSearch [nzDisabled]="busy" aria-required="true" [attr.aria-invalid]="requestEmployeeError" [attr.aria-describedby]="requestEmployeeError ? 'assistance-employee-error' : null" [nzPlaceHolder]="'KPI_ASSISTANCE.SELECT_EMPLOYEE' | translate">
           @for (employee of requestEmployees; track employee.ownerParticipantId) { <nz-option [nzValue]="employee.ownerParticipantId" [nzLabel]="employee.employeeName + (employee.departmentName ? ' · ' + employee.departmentName : '')" /> }
-        </nz-select></label></div>
+        </nz-select>@if (requestEmployeeError) { <span class="field-error" id="assistance-employee-error">{{ 'KPI_ASSISTANCE.SELECT_EMPLOYEE' | translate }}</span> }</div></div>
         <label class="field" for="assistance-request-reason">{{ 'KPI_ASSISTANCE.REQUEST_REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
-        <textarea id="assistance-request-reason" class="assistance-reason" rows="4" maxlength="10000" [(ngModel)]="requestReason" (ngModelChange)="requestReasonError = false" [disabled]="busy" [attr.aria-invalid]="requestReasonError" [attr.aria-describedby]="requestReasonError ? 'assistance-request-reason-error' : null" [placeholder]="'KPI_ASSISTANCE.REQUEST_REASON_PLACEHOLDER' | translate"></textarea>
-        @if (requestReasonError) { <p id="assistance-request-reason-error" class="field-error" role="alert">{{ 'KPI_ASSISTANCE.REQUEST_REASON_REQUIRED' | translate }}</p> }
+        <textarea id="assistance-request-reason" class="assistance-reason" rows="4" maxlength="10000" required [(ngModel)]="requestReason" (ngModelChange)="requestReasonError = false" [disabled]="busy" [attr.aria-invalid]="requestReasonError" [attr.aria-describedby]="requestReasonError ? 'assistance-request-reason-error' : null" [placeholder]="'KPI_ASSISTANCE.REQUEST_REASON_PLACEHOLDER' | translate"></textarea>
+        @if (requestReasonError) { <p id="assistance-request-reason-error" class="field-error" role="alert">{{ (requestReason.length > 10000 ? 'FORM_VALIDATION.REASON_LIMIT' : 'KPI_ASSISTANCE.REQUEST_REASON_REQUIRED') | translate }}</p> }
       }
     </ng-container>
   </nz-modal>
-  <ng-template #requestFooter><div class="actions drawer-actions"><button nz-button [disabled]="busy" (click)="requestVisible = false">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</button><button nz-button nzType="primary" [nzLoading]="busy" [disabled]="busy || participantId === null" (click)="sendRequest()">{{ 'KPI_ASSISTANCE.SEND_REQUEST' | translate }}</button></div></ng-template>
+  <ng-template #requestFooter><div class="actions drawer-actions"><button nz-button [disabled]="busy" (click)="requestVisible = false">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</button><button nz-button nzType="primary" [nzLoading]="busy" [disabled]="busy || !eligible.length" (click)="sendRequest()">{{ 'KPI_ASSISTANCE.SEND_REQUEST' | translate }}</button></div></ng-template>
 }
