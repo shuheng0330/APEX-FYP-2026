@@ -46,8 +46,8 @@ export class SideMenuComponent {
       ]
     },
     {
-      key: 'NAV.TEAM_PERFORMANCE', icon: 'team', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT'],
-      children: [{ key: 'TEAM_REVIEWS.TITLE', route: '/team-performance/team-reviews', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT'] }]
+      key: 'NAV.TEAM_PERFORMANCE', icon: 'team', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'],
+      children: [{ key: 'TEAM_REVIEWS.TITLE', route: '/team-performance/team-reviews', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'] }]
     },
     {
       key: 'NAV.KPI_ADMINISTRATION', icon: 'calendar',

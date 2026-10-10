@@ -10,6 +10,7 @@ import { TeamReviewsComponent } from './team-reviews.component';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { AuthService } from '../../services/auth.service';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
+import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { KpiItem, KpiPlan, emptyKpiItem } from '../../models/kpi-plan.model';
 
 describe('Team Reviews', () => {
@@ -19,6 +20,7 @@ describe('Team Reviews', () => {
   let modal: jasmine.SpyObj<NzModalService>;
   let auth: jasmine.SpyObj<AuthService>;
   let assessments: jasmine.SpyObj<KpiAssessmentService>;
+  let attitudes: jasmine.SpyObj<AttitudeAssessmentService>;
   const item: KpiItem = { ...emptyKpiItem(), name: 'Customers', perspective: 'Customer', kra: 'Customer growth',
     target: '10 new customers', weightage: 100, scoringDefinitions: { 1: 'Very low', 2: 'Low', 3: 'On target', 4: 'Above target', 5: 'Excellent' } };
   const plan = (status: KpiPlan['status'] = 'PENDING_APPROVAL', id = 10): KpiPlan => ({
@@ -35,9 +37,11 @@ describe('Team Reviews', () => {
     auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']);
     auth.hasRole.and.callFake(permission => permission === 'CAN_REVIEW_INDIVIDUAL_KPI');
     assessments = jasmine.createSpyObj<KpiAssessmentService>('assessments', ['reviews']); assessments.reviews.and.returnValue(of([]));
+    attitudes = jasmine.createSpyObj<AttitudeAssessmentService>('attitudes', ['reviews']); attitudes.reviews.and.returnValue(of([]));
     TestBed.configureTestingModule({ imports: [TeamReviewsComponent, TranslateModule.forRoot()], providers: [
       provideNoopAnimations(), { provide: IndividualKpiPlanService, useValue: api },
       { provide: AuthService, useValue: auth }, { provide: KpiAssessmentService, useValue: assessments },
+      { provide: AttitudeAssessmentService, useValue: attitudes },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }, { provide: NzModalService, useValue: modal }
     ] });
     TestBed.overrideProvider(NzModalService, { useValue: modal });
@@ -106,12 +110,29 @@ describe('Team Reviews', () => {
   it('keeps assessment and KPI plan responsibilities in separate permission-controlled tabs', () => {
     component.selectTab('assessments'); expect(component.tab).toBe('reviews');
     auth.hasRole.and.returnValue(true); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(4);
     component.selectTab('assessments'); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
     component.assessmentWorkspace!.drawerVisible = true; component.selectTab('reviews');
     expect(component.tab).toBe('assessments'); expect(modal.confirm).toHaveBeenCalled();
     component.assessmentWorkspace!.drawerVisible = false; component.selectTab('reviews'); fixture.detectChanges(); expect(component.tab).toBe('reviews');
     expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).not.toBeNull();
+  });
+  it('opens only Attitude Evaluations for an attitude-only reviewer', () => {
+    api.reviews.calls.reset(); auth.hasRole.and.callFake(permission => permission === 'CAN_REVIEW_ATTITUDE_EVALUATION');
+    component.ngOnInit(); fixture.detectChanges();
+    expect(component.tab).toBe('attitude'); expect(attitudes.reviews).toHaveBeenCalledTimes(1);
+    expect(api.reviews).not.toHaveBeenCalled(); expect(assessments.reviews).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
+    component.selectTab('reviews'); component.selectTab('assessments'); expect(component.tab).toBe('attitude');
+  });
+  it('denies the attitude tab without authority and protects an open evaluation from tab/route changes', () => {
+    component.selectTab('attitude'); expect(component.tab).toBe('reviews'); expect(attitudes.reviews).not.toHaveBeenCalled();
+    auth.hasRole.and.returnValue(true); component.selectTab('attitude'); fixture.detectChanges();
+    const workspace = component.attitudeWorkspace!;
+    workspace.drawerVisible = true; component.selectTab('reviews'); expect(component.tab).toBe('attitude');
+    spyOn(workspace, 'canLeave').and.returnValue(false); expect(component.canLeave()).toBeFalse();
+    workspace.drawerVisible = false; component.selectTab('reviews'); expect(component.tab).toBe('reviews');
   });
 });

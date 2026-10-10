@@ -13,6 +13,8 @@ export interface AttitudeAssessmentItem extends AttitudeAssessmentAnswer {
   description: string;
   criterionType: 'SHARED_CORE_VALUE' | 'FORMAT_SPECIFIC';
   displayOrder: number;
+  superiorPoint?: number | null;
+  superiorComment?: string | null;
 }
 
 export interface AttitudeAssessmentRequest {
@@ -39,6 +41,15 @@ export interface AttitudeAssessment {
   submittedBy: string | null;
   submittedToSuperiorId: string | null;
   submittedLate: boolean | null;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  reviewedLate?: boolean | null;
+  attitudeScore?: number | null;
+  superiorDraftSaved?: boolean;
+  canSaveSuperiorDraft?: boolean;
+  canCompleteReview?: boolean;
+  superiorOverdue?: boolean;
+  reviewBlockers?: string[];
   selfAssessmentDeadline: string | null;
   superiorEvaluationDeadline: string | null;
   available: boolean;
@@ -50,4 +61,30 @@ export interface AttitudeAssessment {
   submissionBlockers: string[];
   ratingDefinitions: AttitudeRating[];
   items: AttitudeAssessmentItem[];
+}
+
+export interface AttitudeAssessmentReview {
+  id: number;
+  employeeId: string;
+  employeeName: string;
+  roleName: string | null;
+  departmentName: string | null;
+  reviewPeriodId: number;
+  reviewPeriodName: string;
+  reviewPeriodStatus: KpiPeriodContext['status'];
+  evaluationFormat: AttitudeFormat;
+  status: 'PENDING_REVIEW' | 'REVIEWED';
+  superiorEvaluationDeadline: string | null;
+  submittedAt: string | null;
+  submittedLate: boolean | null;
+  reviewedAt: string | null;
+  reviewedLate: boolean | null;
+  attitudeScore: number | null;
+  canReview: boolean;
+  superiorDraftSaved: boolean;
+  superiorOverdue: boolean;
+}
+
+export interface SuperiorAttitudeAssessmentRequest {
+  items: { itemId: number; superiorPoint: number | null; superiorComment: string | null }[];
 }

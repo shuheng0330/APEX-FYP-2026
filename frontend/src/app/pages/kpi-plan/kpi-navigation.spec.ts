@@ -74,8 +74,10 @@ describe('Individual KPI navigation', () => {
     expect(team.children?.[0].route).toBe('/team-performance/team-reviews');
     const children = routes.find(route => route.path === '')?.children ?? [];
     expect(children.find(route => route.path === 'my-performance/my-kpi-plan')?.data?.['requiredRoles']).toEqual(['ROLE_USER']);
-    expect(children.find(route => route.path === 'team-performance/team-reviews')?.data?.['requiredRoles']).toEqual(['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT']);
+    expect(children.find(route => route.path === 'team-performance/team-reviews')?.data?.['requiredRoles']).toEqual(['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION']);
     auth.hasRole.and.callFake(permission => permission === 'CAN_REVIEW_KPI_ASSESSMENT');
+    expect(menu.hasVisibleChildren(team)).toBeTrue();
+    auth.hasRole.and.callFake(permission => permission === 'CAN_REVIEW_ATTITUDE_EVALUATION');
     expect(menu.hasVisibleChildren(team)).toBeTrue();
     expect(menu.hasAccess(menu.navItems.find(item => item.key === 'NAV.KPI_ADMINISTRATION')!)).toBeFalse();
   });

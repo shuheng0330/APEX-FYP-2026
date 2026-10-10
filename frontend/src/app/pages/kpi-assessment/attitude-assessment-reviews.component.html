@@ -1,0 +1,109 @@
+<div class="review-queue-heading team-review-intro"><div><h3>{{ 'ATTITUDE_REVIEW.TITLE' | translate }}</h3><p class="help">{{ 'ATTITUDE_REVIEW.HELP' | translate }}</p></div></div>
+@if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div> }
+@if (loading) { <p role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
+<section class="review-status-tabs" [attr.aria-label]="'ATTITUDE_REVIEW.TITLE' | translate">
+  @for (status of statuses; track status) {
+    <button type="button" class="review-status-tab" [class.active]="filter === status" [attr.aria-pressed]="filter === status" [disabled]="locked" (click)="filter = status">
+      <span>{{ 'MY_ASSESSMENTS.STATUS.' + status | translate }}</span><strong>{{ count(status) }}</strong>
+    </button>
+  }
+</section>
+<section class="card"><div class="card-body review-queue-filters">
+  <div class="field"><label for="attitude-review-search">{{ 'TEAM_REVIEWS.SEARCH' | translate }}</label>
+    <input id="attitude-review-search" type="search" [(ngModel)]="search" [disabled]="locked" [placeholder]="'TEAM_REVIEWS.SEARCH_PLACEHOLDER' | translate">
+  </div>
+  <div class="field"><label for="attitude-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+    <nz-select nzId="attitude-review-period" class="plan-picker" [(ngModel)]="periodId" [nzDisabled]="locked">
+      <nz-option [nzValue]="null" [nzLabel]="'TEAM_REVIEWS.ALL_PERIODS' | translate" />
+      @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
+    </nz-select>
+  </div>
+  <button nz-button [disabled]="locked" (click)="load()">{{ 'KPI_ASSISTANCE.REFRESH' | translate }}</button>
+</div></section>
+<section class="card"><div class="table-scroll"><table class="data-table review-assessment-table">
+  <thead><tr><th>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</th><th>{{ 'DEPARTMENT_KPI.DEPARTMENT' | translate }}</th>
+    <th>{{ 'KPI_PLAN.PERIOD' | translate }}</th><th>{{ 'ATTITUDE_ASSESSMENT.FORMAT' | translate }}</th>
+    <th>{{ 'ATTITUDE_REVIEW.DEADLINE' | translate }}</th><th>{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th></tr></thead>
+  <tbody>
+    @for (row of visibleReviews; track row.id) {
+      <tr><td><strong>{{ row.employeeName }}</strong><p class="help">{{ row.roleName || '-' }}</p></td>
+        <td>{{ row.departmentName || '-' }}</td><td>{{ row.reviewPeriodName }}</td><td>{{ 'ATTITUDE_SETUP.FORMAT.' + row.evaluationFormat | translate }}</td>
+        <td>{{ row.superiorEvaluationDeadline ? (row.superiorEvaluationDeadline | date:'dd MMM yyyy') : '-' }}</td>
+        <td><span class="status" [attr.data-status]="reviewProgress(row)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(row) | translate }}</span>
+          @if (row.superiorOverdue && row.canReview) { <span class="status overdue">{{ 'MY_ASSESSMENTS.OVERDUE' | translate }}</span> }
+          @if (row.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+        </td><td><button nz-button [disabled]="locked" (click)="open(row.id)">{{ (row.canReview ? 'DEPARTMENT_REVIEW.REVIEW' : 'REVIEW_PERIOD.VIEW') | translate }}</button></td></tr>
+    } @empty { <tr><td colspan="7" class="empty">{{ (search || periodId !== null ? 'KPI_ASSESSMENT_REVIEW.NO_MATCHES' : 'ATTITUDE_REVIEW.EMPTY.' + filter) | translate }}</td></tr> }
+  </tbody>
+</table></div></section>
+<nz-drawer [nzVisible]="drawerVisible" [nzTitle]="drawerTitle" nzWidth="min(960px, 100vw)" [nzFooter]="reviewFooter"
+  [nzClosable]="!busy" [nzMaskClosable]="!busy" [nzKeyboard]="!busy" (nzOnClose)="close()">
+  <ng-container *nzDrawerContent>
+    @if (selected; as assessment) {
+      @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+      @if (success) { <div class="notice" role="status">{{ success }}</div> }
+      <div class="review-detail-summary assessment-review-summary">
+        <div><span class="help">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</span><strong>{{ assessment.employeeName }}</strong><span class="help">{{ assessment.roleName }} @if (assessment.departmentName) { / {{ assessment.departmentName }} }</span></div>
+        <div><span class="help">{{ 'ATTITUDE_ASSESSMENT.FORMAT' | translate }}</span><strong>{{ 'ATTITUDE_SETUP.FORMAT.' + assessment.evaluationFormat | translate }}</strong></div>
+        <div><span class="help">{{ 'ATTITUDE_REVIEW.DEADLINE' | translate }}</span><strong>{{ assessment.superiorEvaluationDeadline ? (assessment.superiorEvaluationDeadline | date:'dd MMM yyyy') : '-' }}</strong></div>
+        <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="reviewProgress(assessment)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(assessment) | translate }}</span></div>
+      </div>
+      @if (assessment.status === 'REVIEWED') {
+        <p class="notice checkpoint-score"><span>{{ 'ATTITUDE_REVIEW.SCORE' | translate }}: {{ assessment.attitudeScore | number:'1.2-2' }}%</span>
+          @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+          <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
+        </p><p class="help">{{ 'ATTITUDE_REVIEW.READ_ONLY' | translate }}</p>
+      } @else if (assessment.reviewPeriodStatus !== 'OPEN') {
+        <p class="notice">{{ 'ATTITUDE_REVIEW.PERIOD_READ_ONLY' | translate }}</p>
+      } @else if (!readonly && assessment.superiorOverdue) {
+        <p class="help warning overdue-help">{{ 'ATTITUDE_REVIEW.LATE_HELP' | translate }}</p>
+      }
+      <div class="team-review-intro"><app-kpi-scoring-guide [ratings]="assessment.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" /></div>
+      @if (!readonly && completionReasons.length) {
+        <div class="submission-readiness" role="status"><strong>{{ 'KPI_ASSESSMENT_REVIEW.BEFORE_COMPLETE' | translate }}</strong>
+          <ul>@for (reason of completionReasons; track reason) { <li>{{ reason }}</li> }</ul>
+        </div>
+      }
+      @for (item of items; track item.id) {
+        <section class="card review-assessment-card">
+          <div class="card-head"><div class="review-kpi-heading"><h3>{{ item.name }}</h3><p class="help target-cell">{{ item.description }}</p></div></div>
+          <div class="card-body">
+            <div class="answer-column self-answers"><h4>{{ 'KPI_ASSESSMENT_REVIEW.SELF_ANSWERS' | translate }}</h4>
+              <strong class="saved-point">{{ item.selfPoint ?? '-' }}</strong>
+              @if (rating(item.selfPoint); as scale) { <span class="selected-point-label">{{ scale.label }}</span><p class="help">{{ scale.description }}</p> }
+              <p class="saved-comment">{{ item.selfComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p>
+            </div>
+            <div class="answer-column superior-answers"><h4>{{ 'ATTITUDE_REVIEW.SUPERIOR_ANSWERS' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</h4>
+              @if (readonly) { <strong class="saved-point">{{ item.superiorPoint ?? '-' }}</strong> }
+              @else {
+                <fieldset class="point-selector" [disabled]="busy" [attr.aria-label]="('ATTITUDE_REVIEW.SUPERIOR_ANSWERS' | translate) + ': ' + item.name"
+                  aria-required="true" [attr.aria-invalid]="!!pointError(item)" [attr.aria-describedby]="pointError(item) ? 'attitude-superior-error-' + item.id : null">
+                  @for (point of points; track point) {
+                    <label class="point-option" [class.selected]="item.superiorPoint === point"><input type="radio" [name]="'attitude-superior-point-' + item.id" [value]="point" [(ngModel)]="item.superiorPoint"><span>{{ point }}</span></label>
+                  }
+                </fieldset>
+              }
+              @if (rating(item.superiorPoint); as scale) { <span class="selected-point-label" role="status">{{ scale.label }}</span><p class="help">{{ scale.description }}</p> }
+              @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'attitude-superior-error-' + item.id">{{ validation | translate }}</span> }
+              <div class="field"><label [for]="'attitude-superior-comment-' + item.id">{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_COMMENT' | translate }}</label>
+                @if (readonly) { <p class="saved-comment">{{ item.superiorComment || '-' }}</p> }
+                @else { <textarea [id]="'attitude-superior-comment-' + item.id" rows="3" maxlength="10000" [disabled]="busy" [(ngModel)]="item.superiorComment" [attr.aria-invalid]="!!commentError(item.superiorComment)" [attr.aria-describedby]="commentError(item.superiorComment) ? 'attitude-comment-error-' + item.id : null" [placeholder]="'KPI_ASSESSMENT_REVIEW.COMMENT_PLACEHOLDER' | translate"></textarea>
+                  @if (commentError(item.superiorComment); as validation) { <span class="field-error" [id]="'attitude-comment-error-' + item.id">{{ validation | translate }}</span> }
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+      } @empty { <p class="empty">{{ 'ATTITUDE_REVIEW.NO_ITEMS' | translate }}</p> }
+    }
+  </ng-container>
+</nz-drawer>
+<ng-template #drawerTitle><div class="drawer-title"><strong>{{ 'ATTITUDE_REVIEW.DETAIL_TITLE' | translate }}</strong><span>{{ selected?.employeeName }} / {{ selected?.reviewPeriodName }}</span></div></ng-template>
+<ng-template #reviewFooter><div class="review-assessment-footer">
+  @if (dirty) { <span class="help" role="status">{{ 'MY_ASSESSMENTS.UNSAVED' | translate }}</span> }
+  <button nz-button [disabled]="busy" (click)="close()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
+  @if (!readonly) {
+    <button nz-button [disabled]="busy" (click)="saveDraft()">{{ 'MY_ASSESSMENTS.SAVE_DRAFT' | translate }}</button>
+    <button nz-button nzType="primary" class="individual-kpi-action" [disabled]="!canComplete" [nzLoading]="busy" (click)="confirmComplete()">{{ 'KPI_ASSESSMENT_REVIEW.COMPLETE' | translate }}</button>
+  }
+</div></ng-template>

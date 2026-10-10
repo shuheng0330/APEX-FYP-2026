@@ -31,4 +31,20 @@ describe('Attitude Self-Assessment API', () => {
     expect(submit.request.method).toBe('POST'); expect(submit.request.body).toEqual({});
     expect(submit.request.withCredentials).toBeTrue(); submit.flush({});
   });
+  it('loads the Superior queue with optional server filters and no writes', () => {
+    api.reviews().subscribe(); const all = http.expectOne(`${base}/reviews`);
+    expect(all.request.method).toBe('GET'); expect(all.request.withCredentials).toBeTrue(); all.flush([]);
+    api.reviews(2, 'PENDING_REVIEW').subscribe();
+    const filtered = http.expectOne(`${base}/reviews?reviewPeriodId=2&status=PENDING_REVIEW`);
+    expect(filtered.request.headers.get('X-Skip-Error-Handler')).toBe('true'); filtered.flush([]);
+  });
+  it('saves only Superior answers and completes the stored review separately', () => {
+    const body = { items: [{ itemId: 7, superiorPoint: null, superiorComment: 'Continue later' }] };
+    api.saveSuperiorDraft(10, body).subscribe(); const save = http.expectOne(`${base}/10/superior-draft`);
+    expect(save.request.method).toBe('PUT'); expect(save.request.body).toEqual(body);
+    expect(save.request.withCredentials).toBeTrue(); expect(save.request.headers.get('X-Skip-Error-Handler')).toBe('true'); save.flush({});
+    api.completeReview(10).subscribe(); const complete = http.expectOne(`${base}/10/complete-review`);
+    expect(complete.request.method).toBe('POST'); expect(complete.request.body).toEqual({});
+    expect(complete.request.withCredentials).toBeTrue(); complete.flush({});
+  });
 });

@@ -10,9 +10,25 @@
         "REASON_REQUIRED": "Enter a reason for this decision.",
         "MANAGER_COMMENT": "Enter a Manager Comment of at least 10 characters before submitting to HR."
     },
+    "ATTITUDE_REVIEW": {
+        "TITLE": "Attitude Evaluations", "DETAIL_TITLE": "Superior Attitude Evaluation",
+        "HELP": "Review your team's annual Attitude Self-Assessments and rate each criterion using the scoring guide. Save a Draft to continue later, or complete the review when ready.",
+        "DEADLINE": "Superior Evaluation Deadline", "SUPERIOR_ANSWERS": "Superior Evaluation",
+        "POINTS_REMAINING": "Select a Superior point for each remaining criterion ({{count}}).",
+        "NO_ITEMS": "This assessment has no attitude criteria to review.",
+        "COMPLETE_CONFIRM": "Finalise this evaluation using your Superior points? The official Attitude Score will be calculated and your answers will become read-only. Employee Self points do not contribute to the score.",
+        "SAVED": "Your Attitude Evaluation Draft has been saved. You can continue it from the Draft tab.",
+        "COMPLETED": "Evaluation completed. The employee can now view your final evaluation.",
+        "SCORE": "Attitude Evaluation Score", "READ_ONLY": "This evaluation is complete. Self and Superior answers are read-only.",
+        "PERIOD_READ_ONLY": "This review period is not Open. You can view the evaluation, but cannot change or complete it.",
+        "LATE_HELP": "The Superior Evaluation deadline has passed. You can still complete the evaluation; it will be recorded as late.",
+        "ACCESS_CHANGED": "You no longer have access to this evaluation. Your review permission or the employee's assigned Superior may have changed. Your unsaved answers are kept.",
+        "EMPTY": { "PENDING_REVIEW": "No Attitude Self-Assessments are waiting for your review.", "DRAFT": "No saved Superior Attitude Evaluation Drafts yet.", "REVIEWED": "No completed attitude evaluations for your team yet." }
+    },
     "ATTITUDE_ASSESSMENT": {
         "TITLE": "Annual Attitude Self-Assessment",
         "GUIDE_TITLE": "Attitude Evaluation Scoring Guide",
+        "FORMAT": "Evaluation Format",
         "INSTRUCTIONS": "Rate your attitude and behaviour for each criterion using the scoring guide. Add a comment if helpful.",
         "PROGRESS": "{{completed}} / {{total}} criteria completed",
         "PROGRESS_LABEL": "Assessment progress",
@@ -207,7 +223,7 @@
     "TEAM_REVIEWS": {
         "TITLE": "Team Reviews", "TYPE": "Individual KPI Approval",
         "APPROVAL_HELP": "Review your team's submitted Individual KPI Plans. Approve a plan or return it with a reason for revision.",
-        "HELP": "Approve Individual KPI Plans, arrange KPI assistance and review your team's KPI assessments.",
+        "HELP": "Approve Individual KPI Plans, arrange KPI assistance and review your team's KPI and Attitude Self-Assessments.",
         "LOADING": "Loading your team's KPI plans...", "FILTER": "Filter Individual KPI Plans by status",
         "EMPLOYEE": "Employee", "SUBMITTED": "Submitted", "SEARCH": "Find an employee",
         "SEARCH_PLACEHOLDER": "Search employee or department...", "ALL_PERIODS": "All Review Periods",

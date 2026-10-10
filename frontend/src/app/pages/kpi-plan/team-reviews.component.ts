@@ -15,19 +15,21 @@ import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { KpiAssistanceComponent } from './kpi-assistance.component';
 import { AuthService } from '../../services/auth.service';
 import { KpiAssessmentReviewsComponent } from '../kpi-assessment/kpi-assessment-reviews.component';
+import { AttitudeAssessmentReviewsComponent } from '../kpi-assessment/attitude-assessment-reviews.component';
 
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })
 export class TeamReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  tab: 'reviews' | 'assistance' | 'assessments' = 'reviews';
+  tab: 'reviews' | 'assistance' | 'assessments' | 'attitude' = 'reviews';
   @ViewChild(KpiAssistanceComponent) assistanceWorkspace?: KpiAssistanceComponent;
   @ViewChild(KpiAssessmentReviewsComponent) assessmentWorkspace?: KpiAssessmentReviewsComponent;
+  @ViewChild(AttitudeAssessmentReviewsComponent) attitudeWorkspace?: AttitudeAssessmentReviewsComponent;
   readonly statuses: ReviewStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'RETURNED'];
   filter: ReviewStatus = 'PENDING_APPROVAL';
   periodId: number | null = null;
@@ -47,16 +49,21 @@ export class TeamReviewsComponent implements OnInit {
   constructor(private api: IndividualKpiPlanService, private translate: TranslateService, private modal: NzModalService, private auth: AuthService) {}
   get canReviewPlans() { return this.auth.hasRole('CAN_REVIEW_INDIVIDUAL_KPI'); }
   get canReviewAssessments() { return this.auth.hasRole('CAN_REVIEW_KPI_ASSESSMENT'); }
-  ngOnInit() { if (this.canReviewPlans) this.load(); else if (this.canReviewAssessments) this.tab = 'assessments'; }
-  selectTab(tab: 'reviews' | 'assistance' | 'assessments') {
-    if (tab === 'assessments' ? !this.canReviewAssessments : !this.canReviewPlans) return;
+  get canReviewAttitude() { return this.auth.hasRole('CAN_REVIEW_ATTITUDE_EVALUATION'); }
+  ngOnInit() {
+    if (this.canReviewPlans) this.load();
+    else if (this.canReviewAssessments) this.tab = 'assessments';
+    else if (this.canReviewAttitude) this.tab = 'attitude';
+  }
+  selectTab(tab: 'reviews' | 'assistance' | 'assessments' | 'attitude') {
+    if (tab === 'attitude' ? !this.canReviewAttitude : tab === 'assessments' ? !this.canReviewAssessments : !this.canReviewPlans) return;
     if (this.busy || this.drawerVisible) return;
-    if (this.assistanceWorkspace?.locked || this.assessmentWorkspace?.locked) {
+    if (this.assistanceWorkspace?.locked || this.assessmentWorkspace?.locked || this.attitudeWorkspace?.locked) {
       this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
     }
     this.tab = tab;
   }
-  canLeave(): boolean | Promise<boolean> { return this.assessmentWorkspace?.canLeave() ?? !this.busy; }
+  canLeave(): boolean | Promise<boolean> { return this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? !this.busy; }
   get periods() {
     return [...new Map(this.plans.map(plan => [plan.reviewPeriodId, { id: plan.reviewPeriodId, name: plan.reviewPeriodName }])).values()];
   }
