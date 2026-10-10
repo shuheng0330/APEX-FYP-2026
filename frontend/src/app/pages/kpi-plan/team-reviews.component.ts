@@ -8,7 +8,9 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
-import { KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
+import { KpiPeriodContext, KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
+import { TeamReviewPeriodService } from '../../services/team-review-period.service';
+import { KpiReturnFeedbackComponent } from './kpi-return-feedback.component';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
@@ -20,7 +22,7 @@ import { AttitudeAssessmentReviewsComponent } from '../kpi-assessment/attitude-a
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })
@@ -33,6 +35,10 @@ export class TeamReviewsComponent implements OnInit {
   readonly statuses: ReviewStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'RETURNED'];
   filter: ReviewStatus = 'PENDING_APPROVAL';
   periodId: number | null = null;
+  periods: KpiPeriodContext[] = [];
+  periodLoading = false;
+  periodError = '';
+  periodsReady = false;
   search = '';
   plans: KpiPlan[] = [];
   selected: KpiPlan | null = null;
@@ -46,11 +52,13 @@ export class TeamReviewsComponent implements OnInit {
   error = '';
   success = '';
 
-  constructor(private api: IndividualKpiPlanService, private translate: TranslateService, private modal: NzModalService, private auth: AuthService) {}
+  constructor(private api: IndividualKpiPlanService, private translate: TranslateService, private modal: NzModalService, private auth: AuthService,
+    private periodApi: TeamReviewPeriodService) {}
   get canReviewPlans() { return this.auth.hasRole('CAN_REVIEW_INDIVIDUAL_KPI'); }
   get canReviewAssessments() { return this.auth.hasRole('CAN_REVIEW_KPI_ASSESSMENT'); }
   get canReviewAttitude() { return this.auth.hasRole('CAN_REVIEW_ATTITUDE_EVALUATION'); }
   ngOnInit() {
+    this.loadPeriods();
     if (this.canReviewPlans) this.load();
     else if (this.canReviewAssessments) this.tab = 'assessments';
     else if (this.canReviewAttitude) this.tab = 'attitude';
@@ -64,12 +72,35 @@ export class TeamReviewsComponent implements OnInit {
     this.tab = tab;
   }
   canLeave(): boolean | Promise<boolean> { return this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? !this.busy; }
-  get periods() {
-    return [...new Map(this.plans.map(plan => [plan.reviewPeriodId, { id: plan.reviewPeriodId, name: plan.reviewPeriodName }])).values()];
+  get selectedPeriod() { return this.periods.find(period => period.id === this.periodId); }
+  loadPeriods() {
+    if (this.periodLoading || this.busy || !(this.canReviewPlans || this.canReviewAssessments || this.canReviewAttitude)) return;
+    this.periodLoading = true; this.periodError = '';
+    this.periodApi.periods().pipe(finalize(() => this.periodLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: result => {
+        this.periods = result.periods;
+        const remembered = this.auth.userId ? Number(sessionStorage.getItem('team-review-period:' + this.auth.userId)) : null;
+        this.periodId = this.periods.find(period => period.id === this.periodId)?.id
+          ?? this.periods.find(period => period.id === remembered)?.id ?? result.defaultPeriodId;
+        this.periodsReady = true;
+      }, error: () => { this.periodError = this.translate.instant('REVIEW_FEEDBACK.PERIOD_ERROR'); }
+    });
+  }
+  async changePeriod(id: number | null) {
+    if (id === this.periodId || this.periodLoading || this.busy || this.loading || !this.periods.some(period => period.id === id)) return;
+    if (this.assistanceWorkspace?.locked || this.drawerVisible) {
+      this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
+    }
+    const assessment = this.attitudeWorkspace ?? this.assessmentWorkspace;
+    if (assessment && !(await assessment.canLeave())) return;
+    if (assessment) { assessment.drawerVisible = false; assessment.selected = null; assessment.items = []; }
+    if (this.assistanceWorkspace) this.assistanceWorkspace.workspace = null;
+    this.periodId = id;
+    if (this.auth.userId) sessionStorage.setItem('team-review-period:' + this.auth.userId, String(id));
   }
   private get filteredPlans() {
     const search = this.search.trim().toLowerCase();
-    return this.plans.filter(plan => (this.periodId === null || plan.reviewPeriodId === this.periodId)
+    return this.plans.filter(plan => this.periodId !== null && plan.reviewPeriodId === this.periodId
       && (!search || `${plan.employeeName ?? ''} ${plan.departmentName ?? ''}`.toLowerCase().includes(search)));
   }
   get visiblePlans() { return this.filteredPlans.filter(plan => plan.status === this.filter); }

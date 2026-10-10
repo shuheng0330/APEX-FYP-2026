@@ -54,9 +54,7 @@
           <div><span class="help">{{ 'DEPARTMENT_REVIEW.SUBMITTED_BY' | translate }}</span><strong>{{ plan.submittedByName || ('DEPARTMENT_REVIEW.NAME_UNAVAILABLE' | translate) }}</strong></div>
           <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="plan.status">{{ 'KPI_PLAN.STATUS.' + plan.status | translate }}</span></div>
         </div>
-        @if (plan.status === 'RETURNED' && plan.returnReason) {
-          <div class="return-note"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong><p>{{ plan.returnReason }}</p></div>
-        }
+        <app-kpi-return-feedback [plan]="plan" />
         <p class="help review-detail-intro">{{ 'DEPARTMENT_REVIEW.DETAIL_HELP' | translate }}</p>
         @for (item of plan.items; track item.id ?? $index; let index = $index) {
           <section class="review-item-card">

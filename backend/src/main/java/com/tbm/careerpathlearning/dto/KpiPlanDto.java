@@ -37,6 +37,12 @@ public class KpiPlanDto {
     private UUID reviewedBy;
     private Boolean reviewedLate;
     private String returnReason;
+    private String latestReturnReason;
+    private OffsetDateTime latestReturnedAt;
+    private UUID latestReturnedBy;
+    private String latestReturnedByName;
+    private boolean returnComparisonAvailable;
+    private List<KpiPlanChangeDto> changesSinceReturn;
     @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
     private boolean revisionRequired;
     private Long assistanceAuthorizationId;

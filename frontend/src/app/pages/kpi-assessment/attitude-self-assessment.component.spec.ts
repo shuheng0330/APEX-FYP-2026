@@ -101,6 +101,14 @@ describe('Annual Attitude Self-Assessment', () => {
     expect(fixture.nativeElement.querySelector('.selected-rating').textContent).toContain('Configured rating 4');
     page.saveDraft(); page.submit(); expect(api.submit.calls.count()).toBe(1);
   });
+  it('warns about a late Attitude submission and keeps the Draft untouched on cancellation', () => {
+    page.assessment!.overdue = true; page.items[0].selfPoint = 4; page.items[0].selfComment = 'Keep reflection';
+    page.confirmSubmit(); const options = modal.confirm.calls.mostRecent().args[0]!;
+    expect(options.nzOkText).toBe('REVIEW_FEEDBACK.SUBMIT_LATE');
+    expect(options.nzData).toEqual({ deadline: page.assessment!.selfAssessmentDeadline });
+    expect(api.create).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    expect(page.items[0].selfComment).toBe('Keep reflection');
+  });
   it('blocks missing points and structural blockers while allowing a Draft with no Superior', () => {
     page.assessment!.submissionBlockers.push('An active immediate Superior must be assigned before submission');
     page.items[0].selfPoint = 4; expect(page.canSubmit).toBeFalse(); page.confirmSubmit(); expect(modal.confirm).not.toHaveBeenCalled();

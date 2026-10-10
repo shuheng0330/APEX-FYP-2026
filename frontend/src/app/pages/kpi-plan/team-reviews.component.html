@@ -3,6 +3,15 @@
     @if (tab === 'reviews' || tab === 'assistance') { <app-kpi-scoring-guide /> }
     @else if (tab === 'attitude' && canReviewAttitude) { <button nz-button type="button" [disabled]="busy || drawerVisible" (click)="attitudeWorkspace?.viewScoringGuide()">{{ 'KPI_SCORING_GUIDE.VIEW' | translate }}</button> }
   </div>
+  <div class="field team-period-selector"><label for="team-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+    <nz-select nzId="team-review-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)"
+      [nzDisabled]="periodLoading || busy || drawerVisible" [nzPlaceHolder]="'FORM_VALIDATION.SELECT_PERIOD' | translate">
+      @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name + ' · ' + ('REVIEW_PERIOD.STATUS.' + period.status | translate)" /> }
+    </nz-select>
+  </div>
+  @if (periodError) { <div class="error-box" role="alert">{{ periodError }} <button nz-button (click)="loadPeriods()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button></div> }
+  @if (periodsReady && periodId === null) { <p class="notice">{{ (periods.length ? 'FORM_VALIDATION.SELECT_PERIOD' : 'REVIEW_FEEDBACK.NO_PERIODS') | translate }}</p> }
+  @if (selectedPeriod?.status === 'CLOSED') { <p class="notice">{{ 'INDIVIDUAL_KPI.CLOSED_HELP' | translate }}</p> }
   <nav class="workflow-tabs" [attr.aria-label]="'TEAM_REVIEWS.TITLE' | translate">
     @if (canReviewPlans) {
     <button type="button" [class.active]="tab === 'reviews'" [attr.aria-pressed]="tab === 'reviews'" [disabled]="busy || drawerVisible" (click)="selectTab('reviews')">{{ 'TEAM_REVIEWS.TYPE' | translate }}</button>
@@ -15,9 +24,9 @@
       <button type="button" [class.active]="tab === 'attitude'" [attr.aria-pressed]="tab === 'attitude'" [disabled]="busy || drawerVisible" (click)="selectTab('attitude')">{{ 'ATTITUDE_REVIEW.TITLE' | translate }}</button>
     }
   </nav>
-  @if (tab === 'assessments' && canReviewAssessments) { <app-kpi-assessment-reviews /> }
-  @else if (tab === 'attitude' && canReviewAttitude) { <app-attitude-assessment-reviews /> }
-  @else if (tab === 'assistance' && canReviewPlans) { <app-kpi-assistance /> } @else if (canReviewPlans) {
+  @if (tab === 'assessments' && canReviewAssessments && periodsReady && periodId !== null) { <app-kpi-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
+  @else if (tab === 'attitude' && canReviewAttitude && periodsReady && periodId !== null) { <app-attitude-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
+  @else if (tab === 'assistance' && canReviewPlans && periodsReady && periodId !== null) { <app-kpi-assistance [sharedPeriod]="true" [periodId]="periodId" /> } @else if (canReviewPlans && tab === 'reviews') {
   @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div><button nz-button [disabled]="loading" (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
   @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
   @if (loading) { <p role="status">{{ 'TEAM_REVIEWS.LOADING' | translate }}</p> }
@@ -32,12 +41,6 @@
   <section class="card"><div class="card-body review-queue-filters">
     <label class="field">{{ 'TEAM_REVIEWS.SEARCH' | translate }}
       <input type="search" [(ngModel)]="search" [placeholder]="'TEAM_REVIEWS.SEARCH_PLACEHOLDER' | translate">
-    </label>
-    <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}
-      <nz-select class="plan-picker" [(ngModel)]="periodId" [nzDisabled]="loading || busy">
-        <nz-option [nzValue]="null" [nzLabel]="'TEAM_REVIEWS.ALL_PERIODS' | translate" />
-        @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
-      </nz-select>
     </label>
   </div></section>
   <section class="card"><div class="table-scroll"><table class="data-table">
@@ -67,7 +70,7 @@
           <div><span class="help">{{ 'KPI_PLAN.PERIOD' | translate }}</span><strong>{{ plan.reviewPeriodName }}</strong></div>
           <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="plan.status">{{ 'KPI_PLAN.STATUS.' + plan.status | translate }}</span></div>
         </div>
-        @if (plan.status === 'RETURNED' && plan.returnReason) { <div class="return-note"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong><p>{{ plan.returnReason }}</p></div> }
+        <app-kpi-return-feedback [plan]="plan" />
         @if (plan.reviewPeriodStatus === 'CLOSED') { <p class="notice">{{ 'INDIVIDUAL_KPI.CLOSED_HELP' | translate }}</p> }
         <p class="help review-detail-intro">{{ 'DEPARTMENT_REVIEW.DETAIL_HELP' | translate }}</p>
         @for (item of plan.items; track item.id ?? $index; let index = $index) {

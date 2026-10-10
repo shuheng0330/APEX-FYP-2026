@@ -158,6 +158,10 @@ class DepartmentKpiPlanServiceTest {
         assertEquals("Clarify target",service.updateDepartment(10L,request,actor).getReturnReason());
         var result=service.submitDepartment(10L,actor);assertEquals(KpiPlanStatus.PENDING_APPROVAL,result.getStatus());
         assertNull(result.getReturnReason());assertNull(result.getReviewedBy());assertNull(result.getReviewedAt());
+        assertEquals("Clarify target",result.getLatestReturnReason());assertEquals(actor,result.getLatestReturnedBy());
+        assertTrue(result.isReturnComparisonAvailable());assertFalse(result.getChangesSinceReturn().isEmpty());
+        var approved=service.approveDepartment(10L,actor);
+        assertEquals("Clarify target",approved.getLatestReturnReason());assertEquals(result.getChangesSinceReturn(),approved.getChangesSinceReturn());
     }
     @Test void returnedDepartmentRejectsUnchangedSaveButAcceptsChangedTarget() {
         pending();service.returnDepartment(10L,reason("Clarify target"),actor);
@@ -172,6 +176,8 @@ class DepartmentKpiPlanServiceTest {
         assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitDepartment(10L,actor).getStatus());
         service.returnDepartment(10L,reason("Another change needed"),actor);
         assertTrue(plan.isRevisionRequired());
+        assertEquals("Another change needed",plan.getLatestReturnReason());
+        assertTrue(service.departmentPlan(10L,actor).getChangesSinceReturn().isEmpty());
     }
     @Test void reorderingOrRecreatingIdenticalItemsDoesNotCountButRemovingAnItemDoes() {
         request.setItems(List.of(KpiPlanValidatorTest.item("Sales","60"),KpiPlanValidatorTest.item("Customers","40")));

@@ -7,6 +7,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ReviewPeriodParticipantRepository extends JpaRepository<ReviewPeriodParticipant, Long> {
+    @org.springframework.data.jpa.repository.Query("select distinct p.reviewPeriod from ReviewPeriodParticipant p "
+        +"where p.staff.manager.id=:superiorId and p.reviewPeriod.status<>com.tbm.careerpathlearning.enums.AnnualKpiReviewPeriodStatus.DRAFT")
+    List<com.tbm.careerpathlearning.model.AnnualKpiReviewPeriod> findTeamReviewPeriods(UUID superiorId);
     boolean existsByReviewPeriodId(Long reviewPeriodId);
     List<ReviewPeriodParticipant> findAllByReviewPeriodId(Long reviewPeriodId);
     Optional<ReviewPeriodParticipant> findByReviewPeriodIdAndStaffId(Long reviewPeriodId, UUID staffId);

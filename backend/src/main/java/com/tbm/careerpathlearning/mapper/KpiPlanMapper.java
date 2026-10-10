@@ -14,6 +14,9 @@ public interface KpiPlanMapper {
     @Mapping(target="submittedByName",source="submitter.name")
     @Mapping(target="submittedToSuperiorName",source="submittedToSuperior.name")
     @Mapping(target="totalWeightage",ignore=true) @Mapping(target="overdue",ignore=true)
+    @Mapping(target="latestReturnedByName",ignore=true)
+    @Mapping(target="returnComparisonAvailable",ignore=true)
+    @Mapping(target="changesSinceReturn",ignore=true)
     KpiPlanDto toDto(KpiPlan plan);
     KpiItemDto toDto(Kpi item);
     @BeanMapping(ignoreByDefault=true)

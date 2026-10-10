@@ -15,9 +15,9 @@
   </section>
   <section class="card"><div class="card-body review-queue-filters">
     <label class="field">{{ 'TEAM_REVIEWS.SEARCH' | translate }}<input type="search" [(ngModel)]="search" [placeholder]="'KPI_ASSISTANCE.SEARCH_PLACEHOLDER' | translate"></label>
-    <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}<nz-select class="plan-picker" [(ngModel)]="periodId" [nzDisabled]="loading || busy"><nz-option [nzValue]="null" [nzLabel]="'TEAM_REVIEWS.ALL_PERIODS' | translate" />
+    @if (!sharedPeriod) { <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}<nz-select class="plan-picker" [(ngModel)]="periodId" [nzDisabled]="loading || busy"><nz-option [nzValue]="null" [nzLabel]="'TEAM_REVIEWS.ALL_PERIODS' | translate" />
       @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
-    </nz-select></label>
+    </nz-select></label> }
   </div></section>
   <section class="card"><div class="table-scroll"><table class="data-table"><thead><tr>
     <th>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</th>@if (hr) { <th>{{ 'KPI_ASSISTANCE.REQUESTING_SUPERIOR' | translate }}</th> }
@@ -69,7 +69,7 @@
     <ng-container *nzModalContent>
       @if (requestError) { <div class="error-box" role="alert">{{ requestError }}</div> }
       @if (!eligible.length) { <p class="empty">{{ 'KPI_ASSISTANCE.NO_ELIGIBLE' | translate }}</p> } @else {
-        <div class="information-fields"><div class="field"><label for="assistance-request-period">{{ 'KPI_PLAN.PERIOD' | translate }} <span class="required-mark" aria-hidden="true">*</span></label><nz-select nzId="assistance-request-period" class="plan-picker" [(ngModel)]="requestPeriodId" (ngModelChange)="participantId = null" [nzDisabled]="busy" aria-required="true" [attr.aria-invalid]="requestPeriodError" [attr.aria-describedby]="requestPeriodError ? 'assistance-period-error' : null">
+        <div class="information-fields"><div class="field"><label for="assistance-request-period">{{ 'KPI_PLAN.PERIOD' | translate }} <span class="required-mark" aria-hidden="true">*</span></label><nz-select nzId="assistance-request-period" class="plan-picker" [(ngModel)]="requestPeriodId" (ngModelChange)="participantId = null" [nzDisabled]="busy || sharedPeriod" aria-required="true" [attr.aria-invalid]="requestPeriodError" [attr.aria-describedby]="requestPeriodError ? 'assistance-period-error' : null">
           @for (period of requestPeriods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
         </nz-select>@if (requestPeriodError) { <span class="field-error" id="assistance-period-error">{{ 'FORM_VALIDATION.SELECT_PERIOD' | translate }}</span> }</div>
         <div class="field"><label for="assistance-request-employee">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }} <span class="required-mark" aria-hidden="true">*</span></label><nz-select nzId="assistance-request-employee" class="plan-picker" [(ngModel)]="participantId" nzShowSearch [nzDisabled]="busy" aria-required="true" [attr.aria-invalid]="requestEmployeeError" [attr.aria-describedby]="requestEmployeeError ? 'assistance-employee-error' : null" [nzPlaceHolder]="'KPI_ASSISTANCE.SELECT_EMPLOYEE' | translate">

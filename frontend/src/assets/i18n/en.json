@@ -1,4 +1,22 @@
 {
+    "REVIEW_FEEDBACK": {
+        "TITLE": "Previous Return Feedback",
+        "CHANGES": "Changes Since Return",
+        "UNAVAILABLE": "Change comparison is unavailable for this earlier return.",
+        "NO_CHANGES": "No changes since the latest return.",
+        "ADDED": "Added", "REMOVED": "Removed", "EDITED": "Edited",
+        "BEFORE": "Previous", "AFTER": "Current",
+        "FIELD": {
+            "name": "KPI Name", "description": "Description", "perspective": "Perspective", "kra": "KRA",
+            "target": "Target", "measurementUnit": "Measurement Unit", "weightage": "Weightage (%)",
+            "point1": "Point 1", "point2": "Point 2", "point3": "Point 3", "point4": "Point 4", "point5": "Point 5"
+        },
+        "PERIOD_ERROR": "Review Periods could not be loaded. Please try again.",
+        "NO_PERIODS": "No Annual Review Periods are available for your team yet.",
+        "LATE_TITLE": "Late Assessment Submission",
+        "LATE_WARNING": "The Self-Assessment deadline has passed. You can still submit, but this assessment will be recorded as late.",
+        "SUBMIT_LATE": "Submit Late Assessment"
+    },
     "FORM_VALIDATION": {
         "REQUIRED_HELP": "Fields marked * are required before final submission or publication. Drafts may be incomplete.",
         "DRAFT_READINESS": "This Draft is not ready to submit or publish. Complete the following:",

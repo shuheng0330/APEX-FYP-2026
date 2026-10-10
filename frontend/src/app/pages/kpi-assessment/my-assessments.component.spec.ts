@@ -198,6 +198,15 @@ describe('My Assessments - KPI Self-Assessment', () => {
     expect(fixture.nativeElement.querySelector('textarea')).toBeNull();
     page.saveDraft(); page.submit(); expect(api.submit.calls.count()).toBe(1);
   });
+  it('warns before late submission without saving answers or evidence when cancelled', () => {
+    page.assessment!.overdue = true; page.items[0].selfPoint = 3; page.items[0].selfComment = 'Keep my answers';
+    page.confirmSubmit();
+    const options = modal.confirm.calls.mostRecent().args[0]!;
+    expect(options.nzOkText).toBe('REVIEW_FEEDBACK.SUBMIT_LATE');
+    expect(options.nzData).toEqual({ deadline: page.assessment!.checkpoint.selfAssessmentDeadline });
+    expect(api.create).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    expect(page.items[0].selfPoint).toBe(3); expect(page.items[0].selfComment).toBe('Keep my answers');
+  });
   it('blocks submission for missing assignments and a missing Superior even with all local points', () => {
     page.items[0].selfPoint = 5; page.assessment!.submissionBlockers.push('Department KPIs are not yet approved', 'An active immediate Superior must be assigned before submission');
     page.confirmSubmit(); expect(page.canSubmit).toBeFalse(); expect(modal.confirm).not.toHaveBeenCalled();

@@ -58,6 +58,7 @@ class KpiPlanPostgresTest {
                 sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS attitude_configuration_id");
                 sql(c,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V43__kpi_plan_latest_return_feedback.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 for(var table:List.of("org_chart","role"))
                     sql(c,"ALTER TABLE "+schema+"."+table+" ALTER COLUMN id RESTART WITH "+(scalar(c,"SELECT coalesce(max(id),0) FROM "+table)+1));
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);
@@ -143,6 +144,8 @@ class KpiPlanPostgresTest {
                     var reason=new KpiPlanReturnRequest();reason.setReason("Clarify department target");
                     var returned=service.returnDepartment(pending.getId(),reason,actor);session.clear();
                     assertEquals("Clarify department target",service.departmentPlan(returned.getId(),actor).getReturnReason());
+                    assertTrue(service.departmentPlan(returned.getId(),actor).isReturnComparisonAvailable());
+                    assertTrue(service.departmentPlan(returned.getId(),actor).getChangesSinceReturn().isEmpty());
                     assertEquals(4L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
                     assertTrue(service.departmentPlan(returned.getId(),actor).isRevisionRequired());
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.submitDepartment(returned.getId(),actor));
@@ -153,8 +156,12 @@ class KpiPlanPostgresTest {
                     service.updateDepartment(returned.getId(),departmentRequest,actor);session.flush();session.clear();
                     assertFalse(service.departmentPlan(returned.getId(),actor).isRevisionRequired());
                     var resubmitted=service.submitDepartment(returned.getId(),actor);assertNull(resubmitted.getReturnReason());
+                    assertEquals("Clarify department target",resubmitted.getLatestReturnReason());
+                    assertEquals("target",resubmitted.getChangesSinceReturn().get(0).fields().get(0).field());
+                    assertEquals("Clarified department target",resubmitted.getChangesSinceReturn().get(0).fields().get(0).currentValue());
                     var approved=service.approveDepartment(returned.getId(),actor);session.clear();
                     assertEquals(KpiPlanStatus.APPROVED,service.departmentPlan(approved.getId(),actor).getStatus());
+                    assertEquals(resubmitted.getChangesSinceReturn(),service.departmentPlan(approved.getId(),actor).getChangesSinceReturn());
                     assertEquals(8L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
                     assertEquals(4L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id "
                         +"JOIN review_period_participant p ON p.id=a.participant_id WHERE k.plan_id="+approved.getId()+" AND p.department_id="+department.getId()));
@@ -165,6 +172,8 @@ class KpiPlanPostgresTest {
                         +"SELECT review_period_id,level,department_id,'DRAFT',created_at,updated_at,created_by,updated_by FROM kpi_plan WHERE id="+approved.getId());
                     var owner=participants.findAllByReviewPeriodId(savedPeriod.getId()).get(0).getStaff();
                     owner.setManager(hod);session.flush();
+                    assertEquals(List.of(savedPeriod.getId()),participants.findTeamReviewPeriods(hod.getId()).stream().map(AnnualKpiReviewPeriod::getId).toList());
+                    assertTrue(participants.findTeamReviewPeriods(UUID.randomUUID()).isEmpty());
                     var individualRequest=new KpiPlanRequest();individualRequest.setReviewPeriodId(savedPeriod.getId());
                     individualRequest.setItems(List.of(KpiPlanValidatorTest.item("Individual sales","100")));
                     var individualDraft=service.createIndividual(individualRequest,owner.getId());
@@ -187,6 +196,10 @@ class KpiPlanPostgresTest {
                     assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitIndividual(individualDraft.getId(),owner.getId()).getStatus());
                     var individualApproved=service.approveIndividual(individualDraft.getId(),hod.getId());
                     assertEquals(KpiPlanStatus.APPROVED,individualApproved.getStatus());
+                    session.flush();session.clear();
+                    var individualHistory=service.individualPlan(individualDraft.getId(),owner.getId());
+                    assertEquals("Clarify the sales target",individualHistory.getLatestReturnReason());
+                    assertTrue(individualHistory.isReturnComparisonAvailable());assertEquals(1,individualHistory.getChangesSinceReturn().size());
                     assertEquals(1L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id "
                         +"WHERE k.plan_id="+individualDraft.getId()+" AND a.participant_id="
                         +participants.findByReviewPeriodIdAndStaffId(savedPeriod.getId(),owner.getId()).orElseThrow().getId()));

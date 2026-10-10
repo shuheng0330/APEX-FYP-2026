@@ -1,4 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
+import { assessmentSubmissionConfirmation } from './assessment-submission-confirmation';
 import { Component, DestroyRef, HostListener, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -187,7 +188,8 @@ export class MyAssessmentsComponent implements OnInit {
     this.showValidation = true;
     if (!this.canSubmit) return;
     this.modal.confirm({ nzTitle: this.translate.instant('MY_ASSESSMENTS.SUBMIT'),
-      nzContent: this.translate.instant('MY_ASSESSMENTS.SUBMIT_CONFIRM'), nzOnOk: () => this.submit() });
+      ...assessmentSubmissionConfirmation(this.translate, 'MY_ASSESSMENTS.SUBMIT_CONFIRM', this.assessment?.overdue === true,
+        this.assessment?.checkpoint.selfAssessmentDeadline ?? null), nzOnOk: () => this.submit() });
   }
   submit() {
     if (!this.canSubmit) return;

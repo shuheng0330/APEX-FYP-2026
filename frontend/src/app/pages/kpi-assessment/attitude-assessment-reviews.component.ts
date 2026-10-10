@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, HostListener, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, DestroyRef, HostListener, Input, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -28,7 +28,8 @@ export class AttitudeAssessmentReviewsComponent implements OnInit {
   readonly statuses: KpiSuperiorReviewProgress[] = ['PENDING_REVIEW', 'DRAFT', 'REVIEWED'];
   readonly points = [1, 2, 3, 4, 5];
   filter: KpiSuperiorReviewProgress = 'PENDING_REVIEW';
-  periodId: number | null = null;
+  @Input() periodId: number | null = null;
+  @Input() sharedPeriod = false;
   search = '';
   reviews: AttitudeAssessmentReview[] = [];
   selected: AttitudeAssessment | null = null;

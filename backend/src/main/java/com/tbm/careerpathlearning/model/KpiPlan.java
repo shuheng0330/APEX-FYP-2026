@@ -43,6 +43,11 @@ public class KpiPlan {
     private UUID reviewedBy;
     private Boolean reviewedLate;
     @Column(columnDefinition="text") private String returnReason;
+    @Column(columnDefinition="text") private String latestReturnReason;
+    private OffsetDateTime latestReturnedAt;
+    private UUID latestReturnedBy;
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(columnDefinition="jsonb") private List<com.tbm.careerpathlearning.dto.KpiItemDto> latestReturnItems;
     @Column(name="revision_required",nullable=false) private boolean revisionRequired;
     @Column(name="assistance_authorization_id",unique=true,updatable=false) private Long assistanceAuthorizationId;
 }

@@ -93,3 +93,4 @@ textarea { min-height: 64px; resize: vertical; }
 .allocation-values dd { margin: 8px 0 0; font-size: 22px; font-weight: 600; color: var(--tbm-text); }
 .allocation-explanation { margin: 0; }
 @media (max-width: 500px) { .allocation-values { grid-template-columns: 1fr; gap: 12px; } .allocation-values > div { display: flex; justify-content: space-between; align-items: baseline; } .allocation-values dd { margin: 0; } }
+.team-period-selector { max-width: 480px; margin: 0 0 24px; }

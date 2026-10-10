@@ -141,6 +141,10 @@ class IndividualKpiPlanServiceTest {
         assertEquals("Clarify target",service.updateIndividual(10L,request,employeeId).getReturnReason());
         assertEquals(KpiPlanStatus.PENDING_APPROVAL,service.submitIndividual(10L,employeeId).getStatus());
         assertNull(plan.getReturnReason());assertNull(plan.getReviewedBy());
+        assertEquals("Clarify target",plan.getLatestReturnReason());assertEquals(superiorId,plan.getLatestReturnedBy());
+        var approved=service.approveIndividual(10L,superiorId);
+        assertTrue(approved.isReturnComparisonAvailable());assertFalse(approved.getChangesSinceReturn().isEmpty());
+        assertEquals("Clarify target",approved.getLatestReturnReason());assertEquals("Sales Manager",approved.getLatestReturnedByName());
     }
     @Test void returnedIndividualRequiresContentChangeAndResetsOnEveryReturn() {
         pending();service.returnIndividual(10L,reason("Clarify target"),superiorId);
@@ -157,6 +161,8 @@ class IndividualKpiPlanServiceTest {
         service.submitIndividual(10L,employeeId);
         service.returnIndividual(10L,reason("Clarify again"),superiorId);
         assertTrue(plan.isRevisionRequired());
+        assertEquals("Clarify again",plan.getLatestReturnReason());
+        assertTrue(service.individualPlan(10L,employeeId).getChangesSinceReturn().isEmpty());
         assertThrows(BadRequestException.class,()->service.submitIndividual(10L,employeeId));
         verify(assignments,never()).cascade(any());
     }

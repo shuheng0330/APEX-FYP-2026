@@ -182,6 +182,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
             throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the HOD knows what to revise");
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,actor);
+        KpiPlanReturnFeedback.capture(plan,mapper,actor,clock);
         plan.setRevisionRequired(true);
         plans.saveAndFlush(plan);return details(plan);
     }
@@ -293,6 +294,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         if(request==null || request.getReason()==null || request.getReason().isBlank() || request.getReason().length()>10000)
             throw new BadRequestException("Provide a return reason (maximum 10000 characters) so the employee knows what to revise");
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,superior);
+        KpiPlanReturnFeedback.capture(plan,mapper,superior,clock);
         plan.setRevisionRequired(true);
         plans.saveAndFlush(plan);return details(plan);
     }
@@ -555,6 +557,10 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private void touch(KpiPlan plan,UUID actor) { plan.setUpdatedBy(actor); plan.setUpdatedAt(OffsetDateTime.now(clock)); }
     private KpiPlanDto details(KpiPlan plan) {
         var dto=mapper.toDto(plan); dto.setTotalWeightage(validator.validate(dto.getItems(),false));
+        dto.setReturnComparisonAvailable(plan.getLatestReturnItems()!=null);
+        dto.setChangesSinceReturn(KpiPlanReturnFeedback.compare(plan.getLatestReturnItems(),dto.getItems()));
+        if(plan.getLatestReturnedBy()!=null)
+            dto.setLatestReturnedByName(staff.findById(plan.getLatestReturnedBy()).map(Staff::getName).orElse(null));
         if(plan.getLevel()==KpiLevel.INDIVIDUAL && plan.getOwnerParticipant()!=null) {
             var participant=plan.getOwnerParticipant();
             dto.setDepartmentName(participant.getDepartmentName());

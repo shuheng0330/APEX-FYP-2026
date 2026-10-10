@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 42;
+    private static final int LATEST_VERSION = 43;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -159,6 +159,16 @@ public class ApplyAnnualReviewPeriodFoundation {
                     + "WHERE name='CAN_REVIEW_ATTITUDE_EVALUATION'");
             if(attitudeReviewPermission!=(extraApplied>=12?1:0))
                 throw new IllegalStateException("Partial/untracked V42 attitude review permission; reconcile before migration");
+            long returnColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan' AND column_name IN ('latest_return_reason','latest_returned_at','latest_returned_by','latest_return_items')");
+            long compatibleReturnColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan' AND is_nullable='YES' AND column_default IS NULL AND "
+                    + "((column_name='latest_return_reason' AND udt_name='text') OR (column_name='latest_returned_at' AND udt_name='timestamptz') "
+                    + "OR (column_name='latest_returned_by' AND udt_name='uuid') OR (column_name='latest_return_items' AND udt_name='jsonb'))");
+            if((extraApplied>=13 && returnColumns!=4) || returnColumns!=compatibleReturnColumns || (returnColumns!=0 && returnColumns!=4))
+                throw new IllegalStateException("Partial/untracked V43 return feedback schema; reconcile before migration");
+            if(extraApplied==12 && returnColumns==4)
+                System.out.println("Verified compatible nullable return feedback columns; V43 will preserve values and add constraints.");
             connection.rollback();
         }
 

@@ -1,5 +1,13 @@
 # Annual KPI Foundation And KPI Plans
 
+V43 retains the latest Department/Individual KPI return feedback and one JSONB item
+comparison baseline on the existing plan. It preserves available legacy reasons without
+inventing historical content. The isolated runner verifies compatible Hibernate-created
+columns before adopting them and backs up the database before migration. See
+`backend/docs/review-feedback-and-period-context.md` for the scoped Team Reviews period
+lookup and late employee-submission confirmation behaviour. No workflow/versioning table
+or permission grant is added.
+
 V41 adds Annual Attitude Self-Assessment and criterion answers (Phase 3 Slice 4 backend only).
 It reuses the period-bound Published configuration and recorded participant Role-to-format mapping.
 One assessment per participant supports incomplete Drafts and read-only Pending Review submission;

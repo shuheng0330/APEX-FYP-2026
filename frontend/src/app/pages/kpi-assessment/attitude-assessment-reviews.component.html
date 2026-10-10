@@ -12,12 +12,12 @@
   <div class="field"><label for="attitude-review-search">{{ 'TEAM_REVIEWS.SEARCH' | translate }}</label>
     <input id="attitude-review-search" type="search" [(ngModel)]="search" [disabled]="locked" [placeholder]="'TEAM_REVIEWS.SEARCH_PLACEHOLDER' | translate">
   </div>
-  <div class="field"><label for="attitude-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+  @if (!sharedPeriod) { <div class="field"><label for="attitude-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
     <nz-select nzId="attitude-review-period" class="plan-picker" [(ngModel)]="periodId" [nzDisabled]="locked">
       <nz-option [nzValue]="null" [nzLabel]="'TEAM_REVIEWS.ALL_PERIODS' | translate" />
       @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
     </nz-select>
-  </div>
+  </div> }
   <button nz-button [disabled]="locked" (click)="load()">{{ 'KPI_ASSISTANCE.REFRESH' | translate }}</button>
 </div></section>
 <section class="card"><div class="table-scroll"><table class="data-table review-assessment-table">

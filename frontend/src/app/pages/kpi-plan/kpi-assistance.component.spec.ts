@@ -32,6 +32,14 @@ describe('KPI assistance workspace', () => {
   });
   function start(hr = false) { component.hr = hr; fixture.detectChanges(); }
   function confirm() { const callback = confirmDialog.calls.mostRecent().args[0]?.nzOnOk; if (callback && !(callback instanceof EventEmitter)) callback(undefined); }
+  it('uses the shared Team Reviews period for queues and assistance eligibility', () => {
+    component.sharedPeriod = true; component.periodId = 2;
+    api.list.and.returnValue(of([assistanceCase('REJECTED')]));
+    api.employees.and.returnValue(of([assistanceEmployee, { ...assistanceEmployee, ownerParticipantId: 9, reviewPeriodId: 2 }]));
+    start(); expect(component.visibleCases).toEqual([]); expect(component.eligible.map(employee => employee.ownerParticipantId)).toEqual([9]);
+    expect(fixture.nativeElement.querySelectorAll('nz-select').length).toBe(0);
+    component.requestPermission(); expect(component.requestPeriodId).toBe(2); expect(component.requestEmployees.length).toBe(1);
+  });
   it('shows only a Superior\'s own cases even with both permissions', () => {
     permissions.push('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE');
     api.list.and.returnValue(of([assistanceCase(), { ...assistanceCase('REQUESTED', 9), superiorId: 'other' }])); start();

@@ -20,6 +20,7 @@ import { AssistedKpiPlanComponent } from './assisted-kpi-plan.component';
 })
 export class KpiAssistanceComponent implements OnInit {
   @Input() hr = false;
+  @Input() sharedPeriod = false;
   @ViewChild(AssistedKpiPlanComponent) planWorkspace?: AssistedKpiPlanComponent;
   private readonly destroyRef = inject(DestroyRef);
   readonly statuses: KpiAssistanceStatus[] = ['REQUESTED', 'AUTHORIZED', 'REJECTED', 'CONSUMED'];
@@ -28,7 +29,8 @@ export class KpiAssistanceComponent implements OnInit {
   cases: KpiAssistance[] = []; employees: KpiAssistanceEmployee[] = [];
   selected: KpiAssistance | null = null; workspace: KpiAssistance | null = null;
   loading = false; busy = false; ready = false; accessChanged = false;
-  error = ''; success = ''; search = ''; periodId: number | null = null;
+  error = ''; success = ''; search = '';
+  @Input() periodId: number | null = null;
   drawerVisible = false; rejectMode = false; reason = ''; reasonError = false;
   requestVisible = false; requestPeriodId: number | null = null; participantId: number | null = null; requestError = '';
   requestReason = ''; requestReasonError = false;
@@ -54,7 +56,8 @@ export class KpiAssistanceComponent implements OnInit {
   toggleRequestedDateOrder() { this.requestedDateOrder = this.requestedDateOrder === 'ascending' ? 'descending' : 'ascending'; }
   count(status: KpiAssistanceStatus) { return this.filtered.filter(value => value.status === status).length; }
   get eligible() {
-    return this.employees.filter(employee => !this.mine.some(value => value.ownerParticipantId === employee.ownerParticipantId && value.status !== 'REJECTED'));
+    return this.employees.filter(employee => (!this.sharedPeriod || employee.reviewPeriodId === this.periodId)
+      && !this.mine.some(value => value.ownerParticipantId === employee.ownerParticipantId && value.status !== 'REJECTED'));
   }
   get requestPeriods() { return [...new Map(this.eligible.map(value => [value.reviewPeriodId, { id: value.reviewPeriodId, name: value.reviewPeriodName }])).values()]; }
   get requestEmployees() { return this.eligible.filter(value => value.reviewPeriodId === this.requestPeriodId); }
@@ -80,7 +83,7 @@ export class KpiAssistanceComponent implements OnInit {
         this.cases = result.cases; this.employees = result.employees;
         const target = again ? this.eligible.find(value => value.ownerParticipantId === again.ownerParticipantId) : undefined;
         if (again && !target) { this.error = this.translate.instant('KPI_ASSISTANCE.NOT_ELIGIBLE'); return; }
-        this.requestPeriodId = target?.reviewPeriodId ?? this.requestPeriods[0]?.id ?? null;
+        this.requestPeriodId = target?.reviewPeriodId ?? (this.sharedPeriod ? this.periodId : this.requestPeriods[0]?.id ?? null);
         this.participantId = target?.ownerParticipantId ?? null; this.requestError = ''; this.requestReason = ''; this.requestReasonError = false; this.requestValidation = false;
         this.drawerVisible = false; this.requestVisible = true;
       }, error: error => this.fail(error)

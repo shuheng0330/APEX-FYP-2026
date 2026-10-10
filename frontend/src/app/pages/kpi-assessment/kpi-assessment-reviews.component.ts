@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, DestroyRef, HostListener, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, HostListener, Input, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -29,7 +29,8 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   readonly reviewProgress = superiorReviewProgress;
   readonly points = [1, 2, 3, 4, 5];
   filter: KpiSuperiorReviewProgress = 'PENDING_REVIEW';
-  periodId: number | null = null;
+  @Input() periodId: number | null = null;
+  @Input() sharedPeriod = false;
   search = '';
   reviews: KpiAssessmentReview[] = [];
   selected: KpiAssessment | null = null;

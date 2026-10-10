@@ -33,7 +33,17 @@ export interface KpiPlan extends KpiPlanRequest {
   submittedToSuperiorId?: string | null; submittedToSuperiorName?: string | null;
   reviewedAt?: string | null; reviewedBy?: string | null; reviewedLate?: boolean | null; returnReason?: string | null;
   revisionRequired?: boolean;
+  latestReturnReason?: string | null;
+  latestReturnedAt?: string | null;
+  latestReturnedBy?: string | null;
+  latestReturnedByName?: string | null;
+  returnComparisonAvailable?: boolean;
+  changesSinceReturn?: KpiPlanChange[];
   assistanceAuthorizationId?: number | null;
+}
+export interface KpiPlanChange {
+  type: 'ADDED' | 'REMOVED' | 'EDITED'; itemId: number | null; itemName: string | null;
+  fields: { field: string; previousValue: string | null; currentValue: string | null }[];
 }
 export function emptyKpiItem(): KpiItem {
   return { name: null, description: null, perspective: null, kra: null, target: null, measurementUnit: null, weightage: null, scoringDefinitions: {} };
