@@ -188,8 +188,67 @@ describe('Attitude Evaluation Setup', () => {
   });
   it('shows the actionable administrator message when an Open period has no binding or published configuration', () => {
     component.options.reviewPeriods = [{ id: 4, name: 'Annual Review 2026', status: 'OPEN' }]; component.loadPeriod(4); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('#attitude-period-binding').textContent).toContain('ATTITUDE_SETUP.NO_PUBLISHED');
+    const warning = fixture.nativeElement.querySelector('#attitude-period-binding .readiness-required');
+    expect(warning.textContent).toContain('ATTITUDE_SETUP.SETUP_REQUIRED');
+    expect(warning.textContent).toContain('ATTITUDE_SETUP.ACTION_REQUIRED');
+    expect(warning.textContent).toContain('Annual Review 2026');
+    expect(warning.textContent).toContain('ATTITUDE_SETUP.UNBOUND_HELP');
+    expect(warning.textContent).toContain('ATTITUDE_SETUP.PUBLISH_NEXT_STEP');
+    expect(warning.querySelector('[nzType="warning"]')).not.toBeNull();
     expect(component.canBind).toBeFalse(); component.confirmBinding(); expect(api.bindInitially).not.toHaveBeenCalled();
+  });
+  it('places readiness first and saved configuration history last without changing the selected configuration', () => {
+    load(edition());
+    const sections = [...fixture.nativeElement.querySelectorAll('.attitude-page > section.card')] as HTMLElement[];
+    expect(sections.map(section => section.id)).toEqual(['attitude-period-binding', 'attitude-details', 'attitude-ratings',
+      'attitude-criteria', 'attitude-roles', 'attitude-history']);
+    expect(sections[sections.length - 1].querySelector('#configuration-history')).not.toBeNull();
+    expect(component.selected?.id).toBe(1);
+  });
+  it('guides an unbound Open period to assign an existing Published configuration instead of publishing again', () => {
+    component.options.reviewPeriods = [{ id: 4, name: 'Annual Review 2026', status: 'OPEN' }];
+    component.editions = [edition('PUBLISHED')]; component.bindingConfigurationId = 1;
+    component.loadPeriod(4); fixture.detectChanges();
+    const section = fixture.nativeElement.querySelector('#attitude-period-binding');
+    expect(section.querySelector('.readiness-required').textContent).toContain('ATTITUDE_SETUP.ASSIGN_NEXT_STEP');
+    expect(section.querySelector('#attitude-published-configuration')).not.toBeNull();
+    expect(section.querySelector('.prepare-configuration')).toBeNull();
+    expect(api.bindInitially).not.toHaveBeenCalled();
+  });
+  it('replaces the action-required warning with a compact assigned state after successful binding', () => {
+    component.options.reviewPeriods = [{ id: 4, name: 'Annual Review 2026', status: 'OPEN' }];
+    component.editions = [edition('PUBLISHED')]; component.bindingConfigurationId = 1;
+    component.loadPeriod(4); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.readiness-required')).not.toBeNull();
+    component.confirmBinding(); decide(); fixture.detectChanges();
+    const ready = fixture.nativeElement.querySelector('.readiness-ready');
+    expect(ready.textContent).toContain('ATTITUDE_SETUP.CONFIGURATION_ASSIGNED');
+    expect(ready.textContent).toContain('Annual Review 2026');
+    expect(ready.textContent).toContain('2027 Attitude Configuration');
+    expect(ready.textContent).toContain('10 Oct 2026');
+    expect(fixture.nativeElement.querySelector('.readiness-required')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.binding-actions')).toBeNull();
+  });
+  it('does not show an action-required warning for no Open periods, a loading or failed lookup, or a non-Open period', () => {
+    expect(fixture.nativeElement.querySelector('.readiness-required')).toBeNull();
+    component.options.reviewPeriods = [{ id: 4, name: 'Annual Review 2026', status: 'OPEN' }];
+    const pending = new Subject<AttitudePeriodConfiguration>(); api.period.and.returnValue(pending);
+    component.loadPeriod(4); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.readiness-required')).toBeNull();
+    pending.error({ error: { message: 'Unavailable' } }); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.readiness-required')).toBeNull();
+    api.period.and.returnValue(of({ ...period(), reviewPeriodStatus: 'CLOSED', canBindInitially: false }));
+    component.loadPeriod(4); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.readiness-required')).toBeNull();
+  });
+  it('preserves the affected Role warning without claiming every employee is ready when formats are missing', () => {
+    component.options.reviewPeriods = [{ id: 4, name: 'Annual Review 2026', status: 'OPEN' }];
+    api.period.and.returnValue(of({ ...period(edition('PUBLISHED')), unmappedRoleNames: ['Sales Executive'] }));
+    component.loadPeriod(4); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.readiness-ready').textContent).toContain('ATTITUDE_SETUP.CONFIGURATION_ASSIGNED');
+    expect(fixture.nativeElement.querySelector('#attitude-period-binding .warning').textContent).toContain('ATTITUDE_SETUP.PERIOD_UNMAPPED');
+    expect(fixture.nativeElement.querySelector('.readiness-required')).toBeNull();
+    expect(component.canBind).toBeFalse();
   });
   it('requires explicit initial binding and does not change an existing Open period just by publishing', () => {
     component.loadPeriod(4); component.form = complete(); component.saveDraft(true); fixture.detectChanges();

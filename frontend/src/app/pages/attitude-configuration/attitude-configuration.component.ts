@@ -8,6 +8,8 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzIconModule, NzIconService } from 'ng-zorro-antd/icon';
+import { CheckCircleOutline, WarningOutline } from '@ant-design/icons-angular/icons';
 import { catchError, finalize, forkJoin, of, Subject, switchMap, tap } from 'rxjs';
 import { AttitudeConfiguration, AttitudeConfigurationOptions, AttitudeConfigurationRequest, AttitudeCriterion,
   AttitudeFormat, AttitudePeriodConfiguration, AttitudeRating, AttitudeRoleOption, attitudePublicationIssues, emptyAttitudeConfiguration } from '../../models/attitude-configuration.model';
@@ -15,7 +17,7 @@ import { AttitudeConfigurationService } from '../../services/attitude-configurat
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzInputModule, NzSelectModule, NzDrawerModule, NzModalModule],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzInputModule, NzSelectModule, NzDrawerModule, NzModalModule, NzIconModule],
   templateUrl: './attitude-configuration.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', './attitude-configuration.component.scss']
 })
@@ -51,6 +53,7 @@ export class AttitudeConfigurationComponent implements OnInit {
   private readonly periodSelection = new Subject<number | null>();
 
   constructor(private api: AttitudeConfigurationService, private translate: TranslateService, private modal: NzModalService) {
+    inject(NzIconService).addIcon(WarningOutline, CheckCircleOutline);
     this.periodSelection.pipe(switchMap(id => {
       this.periodContext = null; this.bindingError = ''; this.bindingSuccess = ''; this.bindingBusy = id !== null;
       return id === null ? of(null) : this.api.period(id).pipe(

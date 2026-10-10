@@ -14,6 +14,53 @@
   @if (error) { <div class="error-box" role="alert">{{ error }} @if (!loaded) { <button nz-button (click)="ngOnInit()" [disabled]="busy">{{ 'ATTITUDE_SETUP.RETRY' | translate }}</button> }</div> }
   @if (success) { <p class="notice" role="status">{{ success }}</p> }
   @if (loaded) {
+    <section class="card" id="attitude-period-binding" aria-labelledby="attitude-readiness-heading">
+      <div class="card-head"><h3 id="attitude-readiness-heading">{{ 'ATTITUDE_SETUP.PERIOD_CONFIGURATION' | translate }}</h3></div>
+      <div class="card-body">
+        @if (options.reviewPeriods.length) {
+          <div class="field binding-period"><label for="attitude-open-period">{{ 'ATTITUDE_SETUP.OPEN_PERIOD' | translate }}</label>
+            <nz-select nzId="attitude-open-period" [ngModel]="periodId" (ngModelChange)="loadPeriod($event)" [nzDisabled]="busy || bindingBusy">
+              @for (period of options.reviewPeriods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name"></nz-option> }
+            </nz-select>
+          </div>
+          @if (bindingBusy) { <p class="help" role="status">{{ 'ATTITUDE_SETUP.LOADING' | translate }}</p> }
+          @if (bindingError) { <div class="error-box binding-feedback" role="alert">{{ bindingError }} <button nz-button [disabled]="bindingBusy" (click)="loadPeriod(periodId)">{{ 'ATTITUDE_SETUP.RETRY' | translate }}</button></div> }
+          @if (periodContext; as context) {
+            @if (context.configuration; as bound) {
+              <div class="readiness-state readiness-ready" role="status">
+                <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+                <div><h4>{{ 'ATTITUDE_SETUP.CONFIGURATION_ASSIGNED' | translate }}</h4>
+                  <p><strong>{{ context.reviewPeriodName }}</strong> <span aria-hidden="true">·</span> {{ bound.name }}</p>
+                  @if (bound.publishedAt) { <p class="help">{{ 'ATTITUDE_SETUP.PUBLISHED_ON' | translate }}: {{ bound.publishedAt | date:'dd MMM yyyy, HH:mm' }}</p> }
+                </div>
+              </div>
+              @if (context.unmappedRoleNames.length) { <p class="help warning">{{ 'ATTITUDE_SETUP.PERIOD_UNMAPPED' | translate:{ roles: context.unmappedRoleNames.join(', ') } }}</p> }
+            } @else if (context.reviewPeriodStatus === 'OPEN') {
+              <div class="readiness-state readiness-required" role="status">
+                <span nz-icon nzType="warning" aria-hidden="true"></span>
+                <div class="readiness-content">
+                  <div class="readiness-heading"><h4>{{ 'ATTITUDE_SETUP.SETUP_REQUIRED' | translate }}</h4><span class="action-required">{{ 'ATTITUDE_SETUP.ACTION_REQUIRED' | translate }}</span></div>
+                  <p>{{ 'ATTITUDE_SETUP.NO_ASSIGNED_CONFIGURATION' | translate }}</p>
+                  <p class="affected-period">{{ context.reviewPeriodName }}</p>
+                  <p>{{ 'ATTITUDE_SETUP.UNBOUND_HELP' | translate }}</p>
+                  <p class="next-step"><strong>{{ 'ATTITUDE_SETUP.NEXT_STEP' | translate }}</strong> {{ (publishedEditions.length ? 'ATTITUDE_SETUP.ASSIGN_NEXT_STEP' : 'ATTITUDE_SETUP.PUBLISH_NEXT_STEP') | translate }}</p>
+                </div>
+              </div>
+              @if (!publishedEditions.length) {
+                <button class="prepare-configuration" nz-button [disabled]="busy || bindingBusy" (click)="focusSection('details')">{{ 'ATTITUDE_SETUP.COMPLETE_CONFIGURATION' | translate }}</button>
+              } @else if (context.canBindInitially) {
+                <div class="binding-actions"><div class="field"><label for="attitude-published-configuration">{{ 'ATTITUDE_SETUP.PUBLISHED_CONFIGURATION' | translate }}</label>
+                  <nz-select nzId="attitude-published-configuration" [(ngModel)]="bindingConfigurationId" [nzDisabled]="busy || bindingBusy">
+                    @for (edition of publishedEditions; track edition.id) { <nz-option [nzValue]="edition.id" [nzLabel]="(edition.name || ('ATTITUDE_SETUP.UNTITLED' | translate)) + ' · ' + (edition.publishedAt | date:'dd MMM yyyy, HH:mm')"></nz-option> }
+                  </nz-select></div>
+                  <button nz-button nzType="primary" [disabled]="!canBind" (click)="confirmBinding()">{{ 'ATTITUDE_SETUP.BIND' | translate }}</button>
+                </div>
+              } @else { <p class="help binding-feedback">{{ 'ATTITUDE_SETUP.BINDING_UNAVAILABLE' | translate }}</p> }
+            } @else { <p class="help binding-feedback">{{ 'ATTITUDE_SETUP.BINDING_UNAVAILABLE' | translate }}</p> }
+          }
+        } @else { <p class="help">{{ 'ATTITUDE_SETUP.NO_OPEN_PERIODS' | translate }}</p> }
+      </div>
+    </section>
     @if (showValidation && issues.length && !readonly) {
       <div class="error-box" role="alert"><strong>{{ 'ATTITUDE_SETUP.BEFORE_PUBLISH' | translate }}</strong>
         <ul>@for (issue of issues; track issue.key) { <li><button class="text-action" (click)="focusSection(issue.section)">{{ 'ATTITUDE_SETUP.' + issue.key | translate }}</button></li> }</ul>
@@ -22,15 +69,6 @@
     <section class="card" id="attitude-details" tabindex="-1">
       <div class="card-body">
         <div class="configuration-details">
-          @if (editions.length) {
-            <div class="field"><label for="configuration-history">{{ 'ATTITUDE_SETUP.HISTORY' | translate }}</label>
-              <nz-select nzId="configuration-history" [(ngModel)]="selectionId" (ngModelChange)="selectEdition($event)" [nzDisabled]="busy" nzShowSearch>
-                @for (edition of editions; track edition.id) {
-                  <nz-option [nzValue]="edition.id" [nzLabel]="(edition.name || ('ATTITUDE_SETUP.UNTITLED' | translate)) + ' · ' + ('ATTITUDE_SETUP.STATUS.' + edition.status | translate) + ' · ' + (edition.createdAt | date:'dd MMM yyyy, HH:mm')"></nz-option>
-                }
-              </nz-select>
-            </div>
-          }
           <div class="field"><label for="configuration-name">{{ 'ATTITUDE_SETUP.NAME' | translate }}</label>
             <input nz-input id="configuration-name" [(ngModel)]="form.name" [disabled]="readonly || busy" maxlength="255"
               [placeholder]="'ATTITUDE_SETUP.NAME_PLACEHOLDER' | translate" [attr.aria-invalid]="showValidation && !form.name?.trim()">
@@ -102,41 +140,18 @@
       </table></div>
     </section>
 
-    <section class="card" id="attitude-period-binding">
-      <div class="card-head"><h3>{{ 'ATTITUDE_SETUP.PERIOD_CONFIGURATION' | translate }}</h3><p class="help">{{ 'ATTITUDE_SETUP.BINDING_HELP' | translate }}</p></div>
-      <div class="card-body">
-        @if (options.reviewPeriods.length) {
-          <div class="field binding-period"><label for="attitude-open-period">{{ 'ATTITUDE_SETUP.OPEN_PERIOD' | translate }}</label>
-            <nz-select nzId="attitude-open-period" [ngModel]="periodId" (ngModelChange)="loadPeriod($event)" [nzDisabled]="busy || bindingBusy">
-              @for (period of options.reviewPeriods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name"></nz-option> }
-            </nz-select>
-          </div>
-          @if (bindingBusy) { <p class="help" role="status">{{ 'ATTITUDE_SETUP.LOADING' | translate }}</p> }
-          @if (bindingError) { <div class="error-box binding-feedback" role="alert">{{ bindingError }} <button nz-button [disabled]="bindingBusy" (click)="loadPeriod(periodId)">{{ 'ATTITUDE_SETUP.RETRY' | translate }}</button></div> }
-          @if (bindingSuccess) { <p class="notice binding-feedback" role="status">{{ bindingSuccess }}</p> }
-          @if (periodContext; as context) {
-            @if (context.configuration; as bound) {
-              <p class="binding-feedback"><strong>{{ 'ATTITUDE_SETUP.BOUND_CONFIGURATION' | translate }}:</strong> {{ bound.name }}</p>
-              <p class="help">{{ 'ATTITUDE_SETUP.BOUND_HELP' | translate }}</p>
-              @if (context.unmappedRoleNames.length) { <p class="help warning">{{ 'ATTITUDE_SETUP.PERIOD_UNMAPPED' | translate:{ roles: context.unmappedRoleNames.join(', ') } }}</p> }
-            } @else {
-              @if (!publishedEditions.length) {
-                <p class="notice binding-feedback" role="status">{{ 'ATTITUDE_SETUP.NO_PUBLISHED' | translate }}</p>
-                <button nz-button (click)="focusSection('details')">{{ 'ATTITUDE_SETUP.COMPLETE_CONFIGURATION' | translate }}</button>
-              } @else if (context.canBindInitially) {
-                <p class="help binding-feedback">{{ 'ATTITUDE_SETUP.UNBOUND_HELP' | translate }}</p>
-                <div class="binding-actions"><div class="field"><label for="attitude-published-configuration">{{ 'ATTITUDE_SETUP.PUBLISHED_CONFIGURATION' | translate }}</label>
-                  <nz-select nzId="attitude-published-configuration" [(ngModel)]="bindingConfigurationId" [nzDisabled]="busy || bindingBusy">
-                    @for (edition of publishedEditions; track edition.id) { <nz-option [nzValue]="edition.id" [nzLabel]="(edition.name || ('ATTITUDE_SETUP.UNTITLED' | translate)) + ' · ' + (edition.publishedAt | date:'dd MMM yyyy, HH:mm')"></nz-option> }
-                  </nz-select></div>
-                  <button nz-button nzType="primary" [disabled]="!canBind" (click)="confirmBinding()">{{ 'ATTITUDE_SETUP.BIND' | translate }}</button>
-                </div>
-              } @else { <p class="notice binding-feedback">{{ 'ATTITUDE_SETUP.BINDING_UNAVAILABLE' | translate }}</p> }
+    @if (editions.length) {
+      <section class="card" id="attitude-history">
+        <div class="card-head"><h3>{{ 'ATTITUDE_SETUP.HISTORY' | translate }}</h3></div>
+        <div class="card-body"><div class="field binding-period"><label for="configuration-history">{{ 'ATTITUDE_SETUP.SELECT_CONFIGURATION' | translate }}</label>
+          <nz-select nzId="configuration-history" [(ngModel)]="selectionId" (ngModelChange)="selectEdition($event)" [nzDisabled]="busy" nzShowSearch>
+            @for (edition of editions; track edition.id) {
+              <nz-option [nzValue]="edition.id" [nzLabel]="(edition.name || ('ATTITUDE_SETUP.UNTITLED' | translate)) + ' · ' + ('ATTITUDE_SETUP.STATUS.' + edition.status | translate) + ' · ' + (edition.createdAt | date:'dd MMM yyyy, HH:mm')"></nz-option>
             }
-          }
-        } @else { <p class="help">{{ 'ATTITUDE_SETUP.NO_OPEN_PERIODS' | translate }}</p> }
-      </div>
-    </section>
+          </nz-select>
+        </div></div>
+      </section>
+    }
   } @else if (busy) { <p class="empty" role="status">{{ 'ATTITUDE_SETUP.LOADING' | translate }}</p> }
 </div>
 
