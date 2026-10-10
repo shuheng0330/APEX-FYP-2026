@@ -1,5 +1,8 @@
 <main class="review-page">
-  <div class="page-heading"><div><h2>{{ 'TEAM_REVIEWS.TITLE' | translate }}</h2><p class="help">{{ 'TEAM_REVIEWS.HELP' | translate }}</p></div>@if (tab === 'reviews' || tab === 'assistance') { <app-kpi-scoring-guide /> }</div>
+  <div class="page-heading"><div><h2>{{ 'TEAM_REVIEWS.TITLE' | translate }}</h2><p class="help">{{ 'TEAM_REVIEWS.HELP' | translate }}</p></div>
+    @if (tab === 'reviews' || tab === 'assistance') { <app-kpi-scoring-guide /> }
+    @else if (tab === 'attitude' && canReviewAttitude) { <button nz-button type="button" [disabled]="busy || drawerVisible" (click)="attitudeWorkspace?.viewScoringGuide()">{{ 'KPI_SCORING_GUIDE.VIEW' | translate }}</button> }
+  </div>
   <nav class="workflow-tabs" [attr.aria-label]="'TEAM_REVIEWS.TITLE' | translate">
     @if (canReviewPlans) {
     <button type="button" [class.active]="tab === 'reviews'" [attr.aria-pressed]="tab === 'reviews'" [disabled]="busy || drawerVisible" (click)="selectTab('reviews')">{{ 'TEAM_REVIEWS.TYPE' | translate }}</button>

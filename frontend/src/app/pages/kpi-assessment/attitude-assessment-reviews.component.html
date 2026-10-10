@@ -97,10 +97,7 @@
     }
   </ng-container>
 </nz-drawer>
-<ng-template #drawerTitle><div class="attitude-review-heading">
-  <div class="drawer-title"><strong>{{ 'ATTITUDE_REVIEW.DETAIL_TITLE' | translate }}</strong><span>{{ selected?.employeeName }} / {{ selected?.reviewPeriodName }}</span></div>
-  @if (selected; as assessment) { <app-kpi-scoring-guide [ratings]="assessment.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" /> }
-</div></ng-template>
+<ng-template #drawerTitle><div class="drawer-title"><strong>{{ 'ATTITUDE_REVIEW.DETAIL_TITLE' | translate }}</strong><span>{{ selected?.employeeName }} / {{ selected?.reviewPeriodName }}</span></div></ng-template>
 <ng-template #reviewFooter><div class="review-assessment-footer">
   @if (dirty) { <span class="help" role="status">{{ 'MY_ASSESSMENTS.UNSAVED' | translate }}</span> }
   <button nz-button [disabled]="busy" (click)="close()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
@@ -109,3 +106,4 @@
     <button nz-button nzType="primary" class="individual-kpi-action" [disabled]="!canComplete" [nzLoading]="busy" (click)="confirmComplete()">{{ 'KPI_ASSESSMENT_REVIEW.COMPLETE' | translate }}</button>
   }
 </div></ng-template>
+<app-kpi-scoring-guide [showButton]="false" [ratings]="guideRatings" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" />

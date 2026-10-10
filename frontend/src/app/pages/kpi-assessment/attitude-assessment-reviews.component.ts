@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, HostListener, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -11,17 +11,20 @@ import { finalize, switchMap, tap, throwError } from 'rxjs';
 import { AttitudeAssessment, AttitudeAssessmentItem, AttitudeAssessmentReview } from '../../models/attitude-assessment.model';
 import { assessmentPointError, assessmentCommentError, KpiSuperiorReviewProgress, superiorReviewProgress } from '../../models/kpi-assessment.model';
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
+import { AttitudeRating } from '../../models/attitude-configuration.model';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 
 @Component({
   selector: 'app-attitude-assessment-reviews', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiScoringGuideComponent],
   templateUrl: './attitude-assessment-reviews.component.html',
-  styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss', './attitude-assessment-reviews.component.scss']
+  styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss']
 })
 export class AttitudeAssessmentReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private savedAnswers = '';
+  @ViewChild(KpiScoringGuideComponent) scoringGuide?: KpiScoringGuideComponent;
+  guideRatings: AttitudeRating[] = [];
   readonly statuses: KpiSuperiorReviewProgress[] = ['PENDING_REVIEW', 'DRAFT', 'REVIEWED'];
   readonly points = [1, 2, 3, 4, 5];
   filter: KpiSuperiorReviewProgress = 'PENDING_REVIEW';
@@ -77,6 +80,26 @@ export class AttitudeAssessmentReviewsComponent implements OnInit {
     return assessmentPointError(item.superiorPoint) ?? assessmentCommentError(item.superiorComment);
   }
   rating(point: number | null | undefined) { return this.selected?.ratingDefinitions.find(rating => rating.point === point); }
+  viewScoringGuide() {
+    if (this.busy || this.loading) return;
+    const periodId = this.periodId ?? (this.periods.length === 1 ? this.periods[0].id : null);
+    if (periodId === null) {
+      this.error = this.translate.instant(this.periods.length ? 'FORM_VALIDATION.SELECT_PERIOD' : 'ATTITUDE_REVIEW.EMPTY.PENDING_REVIEW'); return;
+    }
+    if (this.selected?.reviewPeriodId === periodId) {
+      this.showGuide(this.selected.ratingDefinitions); return;
+    }
+    const row = this.reviews.find(review => review.reviewPeriodId === periodId);
+    if (!row) return;
+    this.loading = true; this.error = '';
+    this.api.get(row.id).pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: assessment => this.showGuide(assessment.ratingDefinitions), error: error => this.fail(error)
+    });
+  }
+  private showGuide(ratings: AttitudeRating[]) {
+    this.guideRatings = ratings;
+    if (this.scoringGuide) this.scoringGuide.visible = true;
+  }
   load() {
     if (this.locked) return;
     this.loading = true; this.error = '';

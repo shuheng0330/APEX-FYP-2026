@@ -1,4 +1,4 @@
-<button nz-button type="button" (click)="visible = true">{{ 'KPI_SCORING_GUIDE.VIEW' | translate }}</button>
+@if (showButton) { <button nz-button type="button" (click)="visible = true">{{ 'KPI_SCORING_GUIDE.VIEW' | translate }}</button> }
 <nz-modal [nzVisible]="visible" [nzTitle]="titleKey | translate"
   nzWidth="min(760px, calc(100vw - 32px))" [nzFooter]="guideFooter" (nzOnCancel)="visible = false">
   <ng-container *nzModalContent>

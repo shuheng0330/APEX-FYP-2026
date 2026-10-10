@@ -91,12 +91,25 @@ describe('Superior Attitude Evaluations', () => {
     expect(drawer().querySelector('.self-answers')?.textContent).not.toContain('Expected behaviour 5');
     expect(drawer().textContent).toContain('Treat others with dignity');
     const guide = fixture.debugElement.query(By.directive(KpiScoringGuideComponent)).componentInstance as KpiScoringGuideComponent;
+    page.viewScoringGuide();
+    expect(guide.visible).toBeTrue();
+    guide.visible = false; fixture.detectChanges();
     expect(guide.ratings).toEqual(page.selected!.ratingDefinitions); expect(guide.titleKey).toBe('ATTITUDE_ASSESSMENT.GUIDE_TITLE');
     expect(drawer().textContent).not.toContain('KPI_SCORING_GUIDE.RATING');
     expect(drawer().querySelector('app-kpi-scoring-guide')).toBeNull();
-    const heading = document.querySelector('.ant-drawer-open .attitude-review-heading')!;
-    expect(heading.querySelector('app-kpi-scoring-guide')).not.toBeNull();
-    expect(getComputedStyle(heading).justifyContent).toBe('space-between');
+    expect(document.querySelector('.ant-drawer-open .ant-drawer-header app-kpi-scoring-guide')).toBeNull();
+    expect(guide.showButton).toBeFalse();
+  });
+  it('loads the configured guide before opening a review without creating a Draft', () => {
+    page.viewScoringGuide();
+    expect(api.get).toHaveBeenCalledOnceWith(20); expect(page.guideRatings).toEqual(assessment().ratingDefinitions);
+    expect(page.scoringGuide?.visible).toBeTrue(); expect(page.selected).toBeNull(); expect(page.drawerVisible).toBeFalse();
+    expect(api.saveSuperiorDraft).not.toHaveBeenCalled();
+  });
+  it('requires a period selection when available reviews use different periods', () => {
+    page.reviews = [row(), { ...row(21), reviewPeriodId: 2, reviewPeriodName: '2027' }];
+    page.viewScoringGuide(); expect(api.get).not.toHaveBeenCalled(); expect(page.error).toBe('FORM_VALIDATION.SELECT_PERIOD');
+    page.periodId = 2; page.viewScoringGuide(); expect(api.get).toHaveBeenCalledOnceWith(21);
   });
   it('binds larger Superior rating controls and comments without changing Self answers', async () => {
     page.open(20); fixture.detectChanges();

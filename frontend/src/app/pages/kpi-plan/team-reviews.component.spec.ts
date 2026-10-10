@@ -124,7 +124,10 @@ describe('Team Reviews', () => {
     expect(component.tab).toBe('attitude'); expect(attitudes.reviews).toHaveBeenCalledTimes(1);
     expect(api.reviews).not.toHaveBeenCalled(); expect(assessments.reviews).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(1);
-    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
+    const guideButton = fixture.nativeElement.querySelector('.page-heading button') as HTMLButtonElement;
+    expect(guideButton.textContent).toContain('KPI_SCORING_GUIDE.VIEW');
+    spyOn(component.attitudeWorkspace!, 'viewScoringGuide'); guideButton.click();
+    expect(component.attitudeWorkspace!.viewScoringGuide).toHaveBeenCalled();
     component.selectTab('reviews'); component.selectTab('assessments'); expect(component.tab).toBe('attitude');
   });
   it('denies the attitude tab without authority and protects an open evaluation from tab/route changes', () => {

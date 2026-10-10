@@ -14,6 +14,7 @@ import { AttitudeRating } from '../../models/attitude-configuration.model';
 export class KpiScoringGuideComponent {
   @Input() ratings: AttitudeRating[] | null = null;
   @Input() titleKey = 'KPI_SCORING_GUIDE.TITLE';
+  @Input() showButton = true;
   visible = false;
   readonly points = [5, 4, 3, 2, 1];
   get orderedRatings() { return [...(this.ratings ?? [])].sort((a, b) => b.point - a.point); }
