@@ -34,12 +34,14 @@ describe('Department KPI navigation', () => {
     const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
     const management = menu.navItems.find(item => item.key === 'NAV.KPI_MANAGEMENT')!;
     expect(menu.hasAccess(management)).toBeTrue();
-    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/department-kpis']);
+    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/department-kpis', '/kpi-management/kpi-review']);
     auth.hasRole.and.callFake(permission => permission === 'CAN_APPROVE_DEPARTMENT_KPI');
     expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/kpi-review']);
     const children = routes.find(route => route.path === '')?.children ?? [];
     expect(children.find(route => route.path === 'kpi-management/department-kpis')?.data?.['requiredRoles']).toEqual(['CAN_MANAGE_DEPARTMENT_KPI']);
-    expect(children.find(route => route.path === 'kpi-management/kpi-review')?.data?.['requiredRoles']).toEqual(['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE']);
+    expect(children.find(route => route.path === 'kpi-management/kpi-review')?.data?.['requiredRoles']).toEqual([
+      'CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE', 'CAN_MANAGE_KPI_AMENDMENTS',
+      'CAN_REVISE_COMPANY_KPI', 'CAN_PREPARE_DEPARTMENT_KPI_REVISION', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS']);
     expect(children.some(route => route.path === 'kpi-management/team-reviews')).toBeFalse();
   });
   it('labels the separate Department pages in the top header', () => {
@@ -53,6 +55,17 @@ describe('Department KPI navigation', () => {
 });
 
 describe('Individual KPI navigation', () => {
+  it('lets an Individual revision initiator reach KPI Review without granting Superior responsibilities', () => {
+    const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']);
+    auth.hasRole.and.callFake(permission => permission === 'CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS');
+    const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
+    const management = menu.navItems.find(item => item.key === 'NAV.KPI_MANAGEMENT')!;
+    expect(menu.hasAccess(management)).toBeTrue();
+    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/kpi-review']);
+    expect(menu.hasVisibleChildren(menu.navItems.find(item => item.key === 'NAV.TEAM_PERFORMANCE')!)).toBeFalse();
+    expect(routes.find(route => route.path === '')?.children?.find(route => route.path === 'kpi-management/kpi-review')?.data?.['requiredRoles'])
+      .toContain('CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS');
+  });
   it('exposes the existing KPI Review item to HR assistance permission without granting Team Reviews', () => {
     const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.callFake(value => value === 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE');
     const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);

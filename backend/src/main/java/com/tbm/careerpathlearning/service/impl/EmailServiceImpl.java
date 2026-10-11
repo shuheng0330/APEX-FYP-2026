@@ -167,6 +167,20 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override @Async
+    public void sendIndividualKpiRevisionEmail(String to, String employee, String period, boolean awaitingApproval, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            String prefix=awaitingApproval?"email.kpi.revision.submitted":"email.kpi.revision.requested";
+            helper.setSubject(messageSource.getMessage(prefix+".title",null,locale));
+            helper.setText(messageSource.getMessage(prefix+".body",
+                new Object[]{employee,period,FRONTEND_ORIGIN+"/team-performance/team-reviews"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send Individual KPI revision notification",e);}
+    }
+
+    @Override @Async
     public void sendAttitudeSelfAssessmentSubmittedEmail(String to, String employee, String period, Locale locale) {
         try {
             var message=mailSender.createMimeMessage();

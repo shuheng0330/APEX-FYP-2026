@@ -7,6 +7,7 @@ import { NzIconModule, NzIconService } from 'ng-zorro-antd/icon';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { InfoCircleOutline } from '@ant-design/icons-angular/icons';
 import { KpiItem, KpiItemErrors, emptyKpiItem } from '../../models/kpi-plan.model';
+import { targetChanged } from '../../models/kpi-revision.model';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 @Component({
   selector: 'app-kpi-item-editor', standalone: true,
@@ -20,6 +21,7 @@ export class KpiItemEditorComponent {
   @Input() scope: 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL' = 'COMPANY';
   @Input() singleItem = false;
   @Input() errors: KpiItemErrors = {};
+  @Input() baselineItems: KpiItem[] = [];
   readonly fields: { key: 'perspective' | 'kra' | 'name' | 'target'; label: string; tooltip?: string }[] = [
     { key: 'perspective', label: 'PERSPECTIVE', tooltip: 'PERSPECTIVE_HELP' },
     { key: 'kra', label: 'KRA', tooltip: 'KRA_HELP' },
@@ -40,6 +42,10 @@ export class KpiItemEditorComponent {
       : this.scope === 'DEPARTMENT' ? 'DEPARTMENT_KPI.WEIGHT_FIELD_HELP' : 'KPI_PLAN.WEIGHT_FIELD_HELP';
   }
   clearError(field: string) { delete this.errors[field]; }
+  targetNeedsReview(item: KpiItem) {
+    const baseline = this.baselineItems.find(previous => previous.id === item.predecessorId);
+    return targetChanged(item, baseline);
+  }
   preventNonNumeric(event: KeyboardEvent) {
     if (!event.ctrlKey && !event.metaKey && event.key.length === 1 && !/[0-9.]/.test(event.key)) event.preventDefault();
   }

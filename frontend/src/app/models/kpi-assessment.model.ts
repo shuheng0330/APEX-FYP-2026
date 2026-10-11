@@ -18,6 +18,7 @@ export interface KpiAssessmentItem {
   evidence: KpiAssessmentEvidence[];
 }
 export interface KpiAssessment {
+  planVersionIds?: Partial<Record<KpiLevel, number>>;
   id: number | null; participantId: number; employeeName: string;
   roleName?: string | null;
   departmentName?: string | null;
@@ -32,6 +33,7 @@ export interface KpiAssessment {
   reviewedAt: string | null; reviewedBy: string | null; reviewedLate: boolean | null; checkpointScore: number | null;
 }
 export interface KpiAssessmentRequest {
+  planVersionIds?: Partial<Record<KpiLevel, number>>;
   checkpointId: number;
   items: { assignmentId: number; selfPoint: number | null; selfComment: string | null }[];
 }

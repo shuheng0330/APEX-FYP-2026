@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { EventEmitter } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -9,6 +11,8 @@ import { of, Subject, throwError } from 'rxjs';
 import { MyKpiPlanComponent } from './my-kpi-plan.component';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItem, KpiPeriodContext, KpiPlan, emptyKpiItem } from '../../models/kpi-plan.model';
+import { By } from '@angular/platform-browser';
+import { KpiVersionHistoryComponent } from './kpi-version-history.component';
 
 describe('My KPI Plan', () => {
   let fixture: ComponentFixture<MyKpiPlanComponent>;
@@ -36,7 +40,7 @@ describe('My KPI Plan', () => {
     api.submit.and.returnValue(of(plan('PENDING_APPROVAL')));
     modal = jasmine.createSpyObj<NzModalService>('modal', ['confirm']);
     TestBed.configureTestingModule({ imports: [MyKpiPlanComponent, TranslateModule.forRoot()], providers: [
-      provideNoopAnimations(), { provide: IndividualKpiPlanService, useValue: api },
+      provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), { provide: IndividualKpiPlanService, useValue: api },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }, { provide: NzModalService, useValue: modal }
     ] });
     TestBed.overrideProvider(NzModalService, { useValue: modal });
@@ -65,6 +69,13 @@ describe('My KPI Plan', () => {
     component.drawerVisible = false; component.plan = { ...component.plan, status: 'APPROVED' }; fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('KPI_ASSISTANCE.EMPLOYEE_CONFIRMED');
     component.plan = plan(); expect(component.readonly).toBeFalse();
+  });
+  it('provides effective-version history for the employee approved Individual plan only', () => {
+    component.plan = { ...plan('APPROVED'), currentVersionNumber: 3 }; component.items = [item()]; fixture.detectChanges();
+    const history = fixture.debugElement.query(By.directive(KpiVersionHistoryComponent))?.componentInstance as KpiVersionHistoryComponent;
+    expect(history.planId).toBe(10); expect(history.effectiveOnly).toBeTrue(); expect(component.readonly).toBeTrue();
+    component.plan = plan('DRAFT'); fixture.detectChanges();
+    expect(fixture.debugElement.query(By.directive(KpiVersionHistoryComponent))).toBeNull();
   });
   it('shows the selected period allocation read-only without scaling editable KPI weights', () => {
     const translate = TestBed.inject(TranslateService);

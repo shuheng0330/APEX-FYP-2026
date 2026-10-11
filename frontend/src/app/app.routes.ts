@@ -58,17 +58,20 @@ export const routes: Routes = [
       },
       {
         path: 'kpi-management/company-kpis', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] },
         loadComponent: () => import('./pages/kpi-plan/company-kpi-plan.component').then(m => m.CompanyKpiPlanComponent)
       },
       {
         path: 'kpi-management/department-kpis', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         data: { requiredRoles: ['CAN_MANAGE_DEPARTMENT_KPI'] },
         loadComponent: () => import('./pages/kpi-plan/department-kpi-plan.component').then(m => m.DepartmentKpiPlanComponent)
       },
       {
         path: 'kpi-management/kpi-review', canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE'] },
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE', 'CAN_MANAGE_KPI_AMENDMENTS', 'CAN_REVISE_COMPANY_KPI', 'CAN_PREPARE_DEPARTMENT_KPI_REVISION', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS'] },
         loadComponent: () => import('./pages/kpi-plan/kpi-review.component').then(m => m.KpiReviewComponent)
       },
       { path: 'kpi-administration/company-kpis', pathMatch: 'full', redirectTo: 'kpi-management/company-kpis' },

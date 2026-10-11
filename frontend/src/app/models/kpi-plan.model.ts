@@ -2,6 +2,7 @@ export type KpiLevel = 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL';
 export type KpiPlanStatus = 'DRAFT' | 'PUBLISHED' | 'PENDING_APPROVAL' | 'RETURNED' | 'APPROVED';
 export interface KpiItem {
   id?: number;
+  predecessorId?: number | null;
   name: string | null;
   description: string | null;
   perspective: string | null;
@@ -24,6 +25,9 @@ export interface KpiPlanRequest {
   reviewPeriodId: number; departmentId?: number; ownerParticipantId?: number; items: KpiItem[];
 }
 export interface KpiPlan extends KpiPlanRequest {
+  currentVersionId?: number | null;
+  currentVersionNumber?: number | null;
+  currentVersionEffectiveAt?: string | null;
   id: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
   level: KpiLevel; status: KpiPlanStatus; departmentName?: string; employeeName?: string;
   kpiSetupDeadline: string | null; totalWeightage: number; overdue: boolean;

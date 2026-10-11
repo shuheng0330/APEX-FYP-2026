@@ -15,6 +15,9 @@ public class Kpi {
     @ManyToOne(fetch=FetchType.LAZY, optional=false)
     @JoinColumn(name="plan_id",insertable=false,updatable=false,foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private KpiPlan plan;
+    @ManyToOne(fetch=FetchType.LAZY,optional=false) @JoinColumn(name="version_id",nullable=false,updatable=false,foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private KpiPlanVersion version;
+    @Column(updatable=false) private Long predecessorId;
     @Column(length=255) private String name;
     @Column(columnDefinition="text") private String description;
     @Column(length=255) private String perspective;

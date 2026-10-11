@@ -3,7 +3,7 @@
     <div><h2>{{ 'DEPARTMENT_KPI.TITLE' | translate }}</h2><p class="help">{{ 'DEPARTMENT_KPI.HELP' | translate }}</p></div>
     <div class="actions">
       <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}
-        <nz-select class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible">
+        <nz-select class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible || !!revisions?.locked">
           @for (period of periods; track period.id) {
             <nz-option [nzValue]="period.id" [nzLabel]="(period.name || ('REVIEW_PERIOD.UNTITLED' | translate)) + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
           }
@@ -11,7 +11,7 @@
       </label>
       @if (departments.length > 1) {
         <label class="field">{{ 'DEPARTMENT_KPI.DEPARTMENT' | translate }}
-          <nz-select class="plan-picker" [ngModel]="departmentId" (ngModelChange)="changeDepartment($event)" [nzDisabled]="busy || drawerVisible">
+          <nz-select class="plan-picker" [ngModel]="departmentId" (ngModelChange)="changeDepartment($event)" [nzDisabled]="busy || drawerVisible || !!revisions?.locked">
             @for (department of departments; track department.id) { <nz-option [nzValue]="department.id" [nzLabel]="department.name" /> }
           </nz-select>
         </label>
@@ -46,6 +46,9 @@
       <div class="return-note" role="status"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong><p>{{ plan?.returnReason }}</p></div>
     }
     @if (plan?.overdue) { <p class="warning">{{ 'KPI_PLAN.LATE_HELP' | translate }}</p> }
+    @if (plan && plan.status === 'APPROVED') {
+      <app-kpi-revision-panel [plan]="plan" [disabled]="busy || drawerVisible" (changed)="revisionUpdated($event.status)" />
+    }
     @if (readonly) {
       <p class="notice">{{ (selectedPeriod.status === 'CLOSED' ? 'DEPARTMENT_KPI.CLOSED_HELP' : 'DEPARTMENT_KPI.READ_ONLY') | translate }}</p>
     }

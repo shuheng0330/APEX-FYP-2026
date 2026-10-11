@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -12,12 +12,19 @@ import { KpiPlan, KpiItem, KpiItemErrors, KpiPeriodContext, emptyKpiItem, kpiIte
 import { KpiPlanService } from '../../services/kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
+import { KpiRevisionPanelComponent } from './kpi-revision-panel.component';
 @Component({
-  standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzModalModule, NzDrawerModule, KpiItemEditorComponent, KpiScoringGuideComponent],
+  standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzModalModule, NzDrawerModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiRevisionPanelComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './company-kpi-plan.component.html'
 })
 export class CompanyKpiPlanComponent implements OnInit {
+  @ViewChild(KpiRevisionPanelComponent) revisions?: KpiRevisionPanelComponent;
+  canLeave() { return this.revisions?.canLeave() ?? !this.busy; }
+  revisionUpdated(status: string) {
+    if (status !== 'EFFECTIVE' || !this.plan) return;
+    this.api.get(this.plan.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: plan => this.acceptPlan(plan), error: e => this.fail(e) });
+  }
   private destroyRef = inject(DestroyRef);
   periods: KpiPeriodContext[] = []; plans: KpiPlan[] = []; selectedId: number | null = null;
   plan: KpiPlan | null = null; items: KpiItem[] = []; busy = false; error = ''; success = '';
@@ -56,7 +63,7 @@ export class CompanyKpiPlanComponent implements OnInit {
       nzOnOk: () => this.publishPlan() });
   }
   changePeriod(id: number) {
-    if (id === this.selectedId || this.busy || this.drawerVisible) return;
+    if (id === this.selectedId || this.busy || this.drawerVisible || this.revisions?.locked) return;
     this.selectedId = id; this.selectPeriod();
   }
   selectPeriod() {

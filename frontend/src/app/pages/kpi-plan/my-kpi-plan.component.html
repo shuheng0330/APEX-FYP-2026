@@ -74,6 +74,10 @@
       <div class="card-head plan-summary">
         <div><h3>{{ 'INDIVIDUAL_KPI.PLAN' | translate }}</h3><p class="help">{{ period.name }}</p></div>
         <div class="actions"><app-kpi-scoring-guide />
+          @if (plan?.status === 'APPROVED' && plan; as approvedPlan) {
+            <span class="help">{{ 'KPI_REVISIONS.CURRENT_VERSION' | translate:{ number: approvedPlan.currentVersionNumber || 1 } }}</span>
+            <app-kpi-version-history [planId]="approvedPlan.id" [disabled]="busy || drawerVisible" [effectiveOnly]="true" />
+          }
           @if (!readonly) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'INDIVIDUAL_KPI.ADD_ITEM' | translate }}</button> }
         </div>
       </div>
@@ -107,7 +111,9 @@
     @for (assigned of assignedPlans; track assigned.id) {
       <section class="card assigned-plan">
         <div class="card-head plan-summary"><h3>{{ 'INDIVIDUAL_KPI.LEVEL.' + assigned.level | translate }}</h3>
-          <span class="status" [attr.data-status]="assigned.status">{{ 'KPI_PLAN.STATUS.' + assigned.status | translate }}</span>
+          <div class="actions"><span class="status" [attr.data-status]="assigned.status">{{ 'KPI_PLAN.STATUS.' + assigned.status | translate }}</span>
+            <span class="help">{{ 'KPI_REVISIONS.CURRENT_VERSION' | translate:{ number: assigned.currentVersionNumber || 1 } }}</span>
+            <app-kpi-version-history [planId]="assigned.id" [disabled]="busy || drawerVisible" [effectiveOnly]="true" /></div>
         </div>
         <div class="table-scroll"><table class="data-table">
           <thead><tr><th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th>

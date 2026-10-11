@@ -36,4 +36,6 @@ public class KpiAssessment {
     @Column(name="checkpoint_score",precision=7,scale=4) private BigDecimal checkpointScore;
     @OneToMany(mappedBy="assessment",cascade=CascadeType.ALL)
     @OrderBy("id ASC") private List<KpiAssessmentItem> items=new ArrayList<>();
+    @OneToMany(mappedBy="assessment",cascade=CascadeType.ALL)
+    private List<KpiAssessmentPlanVersion> planVersions=new ArrayList<>();
 }

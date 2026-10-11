@@ -2,9 +2,10 @@ import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { KpiPlan } from '../../models/kpi-plan.model';
+import { KpiChangesComponent } from './kpi-changes.component';
 
 @Component({
-  selector: 'app-kpi-return-feedback', standalone: true, imports: [CommonModule, TranslateModule],
+  selector: 'app-kpi-return-feedback', standalone: true, imports: [CommonModule, TranslateModule, KpiChangesComponent],
   template: `
     @if (plan.latestReturnReason || plan.returnReason) {
       <section class="feedback" aria-live="polite">
@@ -14,18 +15,7 @@ import { KpiPlan } from '../../models/kpi-plan.model';
         <h4>{{ 'REVIEW_FEEDBACK.CHANGES' | translate }}</h4>
         @if (!plan.returnComparisonAvailable) { <p>{{ 'REVIEW_FEEDBACK.UNAVAILABLE' | translate }}</p> }
         @else {
-          @for (item of plan.changesSinceReturn; track $index) {
-            <details class="change"><summary><strong>{{ item.itemName || '-' }}</strong> <span>{{ 'REVIEW_FEEDBACK.' + item.type | translate }}</span></summary>
-              <div class="comparison">
-                @for (field of item.fields; track field.field) {
-                  <div class="field-change"><strong>{{ 'REVIEW_FEEDBACK.FIELD.' + field.field | translate }}</strong>
-                    <div><span>{{ 'REVIEW_FEEDBACK.BEFORE' | translate }}</span><p>{{ field.previousValue || '-' }}</p></div>
-                    <div><span>{{ 'REVIEW_FEEDBACK.AFTER' | translate }}</span><p>{{ field.currentValue || '-' }}</p></div>
-                  </div>
-                }
-              </div>
-            </details>
-          } @empty { <p>{{ 'REVIEW_FEEDBACK.NO_CHANGES' | translate }}</p> }
+          <app-kpi-changes [changes]="plan.changesSinceReturn || []" />
         }
       </section>
     }

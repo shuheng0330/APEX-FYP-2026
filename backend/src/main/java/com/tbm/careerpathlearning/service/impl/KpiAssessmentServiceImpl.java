@@ -3,6 +3,7 @@ package com.tbm.careerpathlearning.service.impl;
 import com.tbm.careerpathlearning.dto.*;
 import com.tbm.careerpathlearning.enums.*;
 import com.tbm.careerpathlearning.exception.BadRequestException;
+import com.tbm.careerpathlearning.exception.KpiVersionConflictException;
 import com.tbm.careerpathlearning.mapper.*;
 import com.tbm.careerpathlearning.model.*;
 import com.tbm.careerpathlearning.repository.*;
@@ -198,7 +199,12 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     }
     private void apply(KpiAssessment a,KpiAssessmentRequest request) {
         if(request.getItems()==null) throw new BadRequestException("Provide the assessment answers, or an empty list for an incomplete Draft");
-        var available=applicable(a.getParticipant());
+        var available=applicable(a);
+        var selected=selectedVersions(available);
+        if(request.getPlanVersionIds()!=null && !selected.equals(request.getPlanVersionIds())
+                || request.getPlanVersionIds()==null && a.getId()==null && available.stream()
+                    .anyMatch(x->x.getKpi().getVersion()!=null && x.getKpi().getVersion().getVersionNumber()>1))
+            throw new KpiVersionConflictException("KPI definitions have changed. Reload this assessment before saving; your answers have not been transferred to another version.");
         var byId=available.stream().collect(Collectors.toMap(EmployeeKpiAssignment::getId,x->x));
         Set<Long> supplied=new HashSet<>();
         for(var answer:request.getItems()) {
@@ -217,8 +223,15 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             item.setSelfComment(answer.getSelfComment()==null?null:answer.getSelfComment().strip());
         }
     }
-    private void reconcile(KpiAssessment a) {reconcile(a,applicable(a.getParticipant()));}
+    private void reconcile(KpiAssessment a) {reconcile(a,applicable(a));}
     private void reconcile(KpiAssessment a,List<EmployeeKpiAssignment> available) {
+        for(var assignment:available) {
+            var version=assignment.getKpi().getVersion();
+            if(version!=null && a.getPlanVersions().stream().noneMatch(b->b.getLevel()==version.getLevel())) {
+                var binding=new KpiAssessmentPlanVersion();binding.setAssessment(a);binding.setVersion(version);
+                binding.setLevel(version.getLevel());binding.setReviewPeriodId(a.getReviewPeriodId());a.getPlanVersions().add(binding);
+            }
+        }
         var existing=a.getItems().stream().map(i->i.getAssignment().getId()).collect(Collectors.toSet());
         for(var assignment:available) if(!existing.contains(assignment.getId())) a.getItems().add(newItem(a,assignment));
     }
@@ -226,10 +239,24 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         var item=new KpiAssessmentItem();item.setAssessment(a);item.setAssignment(assignment);
         item.setParticipantId(a.getParticipant().getId());item.setReviewPeriodId(a.getReviewPeriodId());return item;
     }
-    private List<EmployeeKpiAssignment> applicable(ReviewPeriodParticipant participant) {
+    private Map<KpiLevel,Long> selectedVersions(List<EmployeeKpiAssignment> available) {
+        var result=new EnumMap<KpiLevel,Long>(KpiLevel.class);
+        for(var x:available) if(x.getKpi().getVersion()!=null) result.put(x.getKpi().getPlan().getLevel(),x.getKpi().getVersion().getId());
+        return result;
+    }
+    private List<EmployeeKpiAssignment> applicable(KpiAssessment assessment) {
+        var participant=assessment.getParticipant();
+        var bound=new EnumMap<KpiLevel,Long>(KpiLevel.class);
+        for(var binding:assessment.getPlanVersions()) bound.put(binding.getLevel(),binding.getVersion().getId());
         return assignments.findAllByParticipantId(participant.getId()).stream()
                 .filter(x->Objects.equals(x.getReviewPeriodId(),participant.getReviewPeriod().getId()))
                 .filter(x->confirmed(x.getKpi().getPlan()))
+                .filter(x->{
+                    var k=x.getKpi();var plan=k.getPlan();var version=k.getVersion();
+                    Long selected=bound.get(plan.getLevel());
+                    if(selected==null && plan.getCurrentVersion()!=null) selected=plan.getCurrentVersion().getId();
+                    return selected==null?version==null:version!=null && selected.equals(version.getId());
+                })
                 .sorted(Comparator.comparing(EmployeeKpiAssignment::getId)).toList();
     }
     private boolean confirmed(KpiPlan plan) {
@@ -239,15 +266,17 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         var allocation=a.getParticipant().getEmployeeLevelConfiguration();
         if(allocation==null) return List.of(KpiLevel.COMPANY,KpiLevel.DEPARTMENT,KpiLevel.INDIVIDUAL);
         var assignedIds=included.stream().map(i->i.getAssignment().getKpi().getId()).collect(Collectors.toSet());
-        var plans=included.stream().map(i->i.getAssignment().getKpi().getPlan()).distinct().toList();
         return Arrays.stream(KpiLevel.values()).filter(level->{
             var weight=switch(level) {
                 case COMPANY->allocation.getCompanyKpiWeight();case DEPARTMENT->allocation.getDepartmentKpiWeight();
                 case INDIVIDUAL->allocation.getIndividualKpiWeight();
             };
             if(weight!=null && weight.signum()==0) return false;
-            return plans.stream().noneMatch(p->p.getLevel()==level && confirmed(p) && !p.getItems().isEmpty()
-                    && p.getItems().stream().allMatch(k->assignedIds.contains(k.getId())));
+            return included.stream().map(i->i.getAssignment().getKpi()).noneMatch(k->{
+                var p=k.getPlan();var definitions=k.getVersion()==null?p.getItems():k.getVersion().getItems();
+                return p.getLevel()==level && confirmed(p) && !definitions.isEmpty()
+                    && definitions.stream().allMatch(item->assignedIds.contains(item.getId()));
+            });
         }).toList();
     }
     private List<String> blockers(KpiAssessment a,List<KpiAssessmentItem> included) {
@@ -279,8 +308,9 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         var included=new ArrayList<>(a.getItems());
         if(a.getStatus()==KpiAssessmentStatus.DRAFT) {
             var present=included.stream().map(i->i.getAssignment().getId()).collect(Collectors.toSet());
-            for(var assigned:applicable(participant)) if(!present.contains(assigned.getId())) included.add(newItem(a,assigned));
+            for(var assigned:applicable(a)) if(!present.contains(assigned.getId())) included.add(newItem(a,assigned));
         }
+        dto.setPlanVersionIds(selectedVersions(included.stream().map(KpiAssessmentItem::getAssignment).toList()));
         dto.setItems(included.stream().map(i->{
             var row=new KpiAssessmentItemDto();row.setId(i.getId());row.setAssignmentId(i.getAssignment().getId());
             row.setLevel(i.getAssignment().getKpi().getPlan().getLevel());row.setKpi(kpis.toDto(i.getAssignment().getKpi()));

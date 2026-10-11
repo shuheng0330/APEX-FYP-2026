@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { EventEmitter } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
@@ -37,7 +39,7 @@ describe('Department KPI plan workspace', () => {
     api.submit.and.returnValue(of(plan('PENDING_APPROVAL')));
     modal = jasmine.createSpyObj<NzModalService>('modal', ['confirm']);
     TestBed.configureTestingModule({ imports: [DepartmentKpiPlanComponent, TranslateModule.forRoot()], providers: [
-      provideNoopAnimations(), { provide: DepartmentKpiPlanService, useValue: api },
+      provideNoopAnimations(), provideHttpClient(), provideHttpClientTesting(), { provide: DepartmentKpiPlanService, useValue: api },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] },
       { provide: NzModalService, useValue: modal }
     ] });

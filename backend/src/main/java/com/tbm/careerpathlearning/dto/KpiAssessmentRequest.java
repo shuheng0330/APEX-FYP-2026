@@ -4,6 +4,7 @@ import java.util.*;
 @Data
 public class KpiAssessmentRequest {
     private Long checkpointId;
+    private Map<com.tbm.careerpathlearning.enums.KpiLevel,Long> planVersionIds;
     private List<Answer> items=new ArrayList<>();
     @Data public static class Answer {
         private Long assignmentId;

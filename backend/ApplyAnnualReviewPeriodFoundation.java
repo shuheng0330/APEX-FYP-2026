@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 43;
+    private static final int LATEST_VERSION = 45;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -41,6 +41,7 @@ public class ApplyAnnualReviewPeriodFoundation {
         long extraApplied;
         long staffCount;
         long roleCount;
+        var preservedRows=new java.util.LinkedHashMap<String,String>();
         try (var connection = DriverManager.getConnection(url, user, password)) {
             connection.setAutoCommit(false);
             connection.setReadOnly(true);
@@ -169,6 +170,35 @@ public class ApplyAnnualReviewPeriodFoundation {
                 throw new IllegalStateException("Partial/untracked V43 return feedback schema; reconcile before migration");
             if(extraApplied==12 && returnColumns==4)
                 System.out.println("Verified compatible nullable return feedback columns; V43 will preserve values and add constraints.");
+            long versionTables=scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                    + "AND table_name IN ('kpi_plan_version','kpi_assessment_plan_version')");
+            long versionColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND "
+                    + "((table_name='annual_kpi_review_period' AND column_name IN ('kpi_amendments_enabled','kpi_amendments_close_date','kpi_amendments_changed_at','kpi_amendments_changed_by')) "
+                    + "OR (table_name='kpi_plan' AND column_name='current_version_id') OR (table_name='kpi' AND column_name IN ('version_id','predecessor_id')))");
+            if(versionTables!=(extraApplied>=14?2:0) || versionColumns!=(extraApplied>=14?7:0))
+                throw new IllegalStateException("Partial/untracked V44 version schema; reconcile before migration");
+            long individualRevisionColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan_version' AND column_name IN ('preparation_mode','revision_superior_id')");
+            long compatibleIndividualRevisionColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='kpi_plan_version' AND is_nullable='YES' AND column_default IS NULL AND "
+                    + "((column_name='preparation_mode' AND udt_name='varchar' AND character_maximum_length=20) "
+                    + "OR (column_name='revision_superior_id' AND udt_name='uuid'))");
+            boolean compatibleHibernateIndividualRevision=extraApplied==14 && individualRevisionColumns==2 && compatibleIndividualRevisionColumns==2;
+            if(individualRevisionColumns!=(extraApplied>=15?2:0) && !compatibleHibernateIndividualRevision)
+                throw new IllegalStateException("Partial/untracked V45 Individual revision schema; reconcile before migration");
+            if(compatibleHibernateIndividualRevision && scalar(connection,"SELECT count(*) FROM kpi_plan_version WHERE preparation_mode IS NOT NULL OR revision_superior_id IS NOT NULL")!=0)
+                throw new IllegalStateException("Untracked Individual revision metadata is populated; investigate before migration");
+            if(compatibleHibernateIndividualRevision)
+                System.out.println("Verified compatible empty Hibernate-created revision columns; V45 will preserve them and add workflow constraints.");
+            if(extraApplied==13) for(var table:List.of("annual_kpi_review_period","review_period_role_configuration",
+                    "review_period_employee_level_configuration","review_checkpoint","review_period_participant","kpi_plan","kpi",
+                    "kpi_scoring_definition","employee_kpi_assignment","kpi_assessment","kpi_assessment_item","kpi_assessment_evidence"))
+                preservedRows.put(table,rowDigest(connection,table));
+            if(extraApplied==14) for(var table:List.of("annual_kpi_review_period","review_period_role_configuration",
+                    "review_period_employee_level_configuration","review_checkpoint","review_period_participant","kpi_plan","kpi",
+                    "kpi_scoring_definition","employee_kpi_assignment","kpi_plan_version","kpi_assessment_plan_version",
+                    "kpi_assessment","kpi_assessment_item","kpi_assessment_evidence"))
+                preservedRows.put(table,rowDigest(connection,table));
             connection.rollback();
         }
 
@@ -219,6 +249,8 @@ public class ApplyAnnualReviewPeriodFoundation {
                     || scalar(connection, "SELECT count(*) FROM public.role") != roleCount) {
                 throw new IllegalStateException("Unexpected inherited row-count change; investigate using the backup");
             }
+            for(var entry:preservedRows.entrySet()) if(!entry.getValue().equals(rowDigest(connection,entry.getKey())))
+                throw new IllegalStateException("Unexpected existing data change in "+entry.getKey()+"; investigate using the backup");
             if (scalar(connection, "SELECT count(*) FROM public.employee_level") != 6)
                 throw new IllegalStateException("Expected six Employee Levels after V30");
             if (scalar(connection, "SELECT count(*) FROM public.role WHERE LOWER(TRIM(name))='superadmin' "
@@ -230,12 +262,21 @@ public class ApplyAnnualReviewPeriodFoundation {
         }
         System.out.println("Phase 1 migrations executed: " + result.migrationsExecuted);
         System.out.println("Inherited staff/role counts preserved; global Spring/Flyway/Hibernate settings unchanged.");
+        if(!preservedRows.isEmpty()) System.out.println("Existing period configuration, KPIs, assignments, assessment answers, evidence and scores verified unchanged.");
     }
 
     private static long scalar(Connection connection, String sql) throws SQLException {
         try (var statement = connection.createStatement()) {
             statement.setQueryTimeout(10);
             try (ResultSet rows = statement.executeQuery(sql)) { rows.next(); return rows.getLong(1); }
+        }
+    }
+    private static String rowDigest(Connection connection,String table) throws SQLException {
+        String row="(to_jsonb(t)-ARRAY['current_version_id','version_id','predecessor_id','kpi_amendments_enabled',"
+                +"'kpi_amendments_close_date','kpi_amendments_changed_at','kpi_amendments_changed_by','preparation_mode','revision_superior_id'])::text";
+        try(var statement=connection.createStatement();var rows=statement.executeQuery(
+                "SELECT md5(coalesce(string_agg("+row+",',' ORDER BY "+row+"),'')) FROM public."+table+" t")) {
+            rows.next();return rows.getString(1);
         }
     }
 }

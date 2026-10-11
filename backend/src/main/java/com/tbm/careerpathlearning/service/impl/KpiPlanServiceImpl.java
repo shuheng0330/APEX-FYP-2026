@@ -518,6 +518,13 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     }
     private void replaceItems(KpiPlan plan,List<KpiItemDto> inputs) {
         validator.validate(inputs,false);
+        if(plan.getCurrentVersion()==null) {
+            var version=new KpiPlanVersion();version.setPlan(plan);version.setReviewPeriodId(plan.getReviewPeriod().getId());
+            version.setLevel(plan.getLevel());version.setVersionNumber(1);version.setCreatedAt(plan.getCreatedAt());
+            version.setUpdatedAt(plan.getUpdatedAt());version.setCreatedBy(plan.getCreatedBy());version.setUpdatedBy(plan.getUpdatedBy());
+            version.getItems().addAll(plan.getItems());
+            plan.getVersions().add(version);plan.setCurrentVersion(version);
+        }
         var before=revisionContent(plan);
         Map<Long,Kpi> existing=new HashMap<>(); plan.getItems().forEach(i->existing.put(i.getId(),i));
         Set<Long> seen=new HashSet<>(); List<Kpi> replacement=new ArrayList<>();
@@ -527,6 +534,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
                 item=existing.get(input.getId());
                 if(item==null || !seen.add(input.getId())) throw new BadRequestException("KPI item IDs must be unique and belong to this plan");
             } else { item=new Kpi(); item.setPlan(plan); item.setPlanId(plan.getId()); item.setReviewPeriodId(plan.getReviewPeriod().getId()); }
+            item.setVersion(plan.getCurrentVersion());
             mapper.update(input,item);
             if(item.getName()!=null) item.setName(item.getName().strip());
             replacement.add(item);
@@ -554,11 +562,28 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         }
         return content;
     }
-    private void touch(KpiPlan plan,UUID actor) { plan.setUpdatedBy(actor); plan.setUpdatedAt(OffsetDateTime.now(clock)); }
+    private void touch(KpiPlan plan,UUID actor) {
+        plan.setUpdatedBy(actor); plan.setUpdatedAt(OffsetDateTime.now(clock));
+        var v=plan.getCurrentVersion();
+        if(v!=null && v.getVersionNumber()==1) {
+            v.setUpdatedAt(plan.getUpdatedAt());v.setUpdatedBy(actor);
+            v.setStatus(switch(plan.getStatus()) {
+                case PUBLISHED,APPROVED->KpiVersionStatus.EFFECTIVE;
+                case PENDING_APPROVAL->KpiVersionStatus.PENDING_APPROVAL;
+                case RETURNED->KpiVersionStatus.RETURNED;
+                default->KpiVersionStatus.DRAFT;
+            });
+            if(v.getStatus()==KpiVersionStatus.EFFECTIVE && v.getEffectiveAt()==null) v.setEffectiveAt(plan.getUpdatedAt());
+        }
+    }
     private KpiPlanDto details(KpiPlan plan) {
         var dto=mapper.toDto(plan); dto.setTotalWeightage(validator.validate(dto.getItems(),false));
         dto.setReturnComparisonAvailable(plan.getLatestReturnItems()!=null);
-        dto.setChangesSinceReturn(KpiPlanReturnFeedback.compare(plan.getLatestReturnItems(),dto.getItems()));
+        var approvalItems=dto.getItems();
+        if(plan.getLatestReturnItems()!=null && plan.getCurrentVersion()!=null && plan.getCurrentVersion().getVersionNumber()>1)
+            approvalItems=plan.getVersions().stream().filter(v->v.getVersionNumber()==1).findFirst()
+                .map(v->v.getItems().stream().map(mapper::toDto).toList()).orElse(approvalItems);
+        dto.setChangesSinceReturn(KpiPlanReturnFeedback.compare(plan.getLatestReturnItems(),approvalItems));
         if(plan.getLatestReturnedBy()!=null)
             dto.setLatestReturnedByName(staff.findById(plan.getLatestReturnedBy()).map(Staff::getName).orElse(null));
         if(plan.getLevel()==KpiLevel.INDIVIDUAL && plan.getOwnerParticipant()!=null) {

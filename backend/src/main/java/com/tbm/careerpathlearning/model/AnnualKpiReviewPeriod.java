@@ -89,6 +89,10 @@ public class AnnualKpiReviewPeriod {
     private OffsetDateTime closedAt;
     @Column(name="participants_snapshotted_at")
     private OffsetDateTime participantsSnapshottedAt;
+    @Column(nullable=false) private boolean kpiAmendmentsEnabled;
+    private LocalDate kpiAmendmentsCloseDate;
+    private OffsetDateTime kpiAmendmentsChangedAt;
+    private UUID kpiAmendmentsChangedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attitude_configuration_id")

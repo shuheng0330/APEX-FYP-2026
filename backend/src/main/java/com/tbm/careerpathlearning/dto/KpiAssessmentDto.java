@@ -17,6 +17,7 @@ public class KpiAssessmentDto {
     private KpiAssessmentCheckpointDto checkpoint;
     private KpiAssessmentStatus status;
     private List<KpiAssessmentItemDto> items=new ArrayList<>();
+    private Map<KpiLevel,Long> planVersionIds=new EnumMap<>(KpiLevel.class);
     private ReviewPeriodEmployeeLevelConfigurationDto kpiAllocation;
     private List<KpiLevel> missingLevels=new ArrayList<>();
     private List<String> submissionBlockers=new ArrayList<>();

@@ -1,0 +1,17 @@
+:host { display: block; }
+.version-summary { background: #f7f9fc; border: 1px solid #dae3ef; border-radius: 9px; padding: 20px; margin-bottom: 24px; }
+.version-summary h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.preserve { white-space: pre-wrap; overflow-wrap: anywhere; }
+.revision-entry { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin: 18px 0; }
+.revision-entry p { margin: 0; }
+.revision-items { margin: 20px 0; }
+.history-item { padding: 12px; margin: 12px 0; border: 1px solid #dae3ef; border-radius: 8px; }
+summary { cursor: pointer; font-weight: 600; }
+.version-buttons { margin: 16px 0; flex-wrap: wrap; }
+.workflow-progress { margin: 12px 0 20px; color: #64748b; }
+.revision-access { margin: 20px 0; }
+.revision-access .actions { align-items: flex-end; flex-wrap: wrap; }
+.revision-reason { margin: 18px 0; width: 100%; }
+.revision-reason textarea { min-height: 110px; }
+.revision-footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.revision-footer .help { margin-right: auto; }

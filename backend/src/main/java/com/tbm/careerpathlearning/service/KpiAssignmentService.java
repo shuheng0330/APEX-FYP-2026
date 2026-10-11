@@ -33,5 +33,8 @@ public class KpiAssignmentService {
             }
         }
         assignments.saveAllAndFlush(output);
+        // Bind newly available levels immediately, without replacing any started assessment's binding.
+        if(plan.getCurrentVersion()!=null)
+            assignments.bindMissingDraftVersions(plan.getReviewPeriod().getId(),plan.getLevel().name(),plan.getCurrentVersion().getId());
     }
 }

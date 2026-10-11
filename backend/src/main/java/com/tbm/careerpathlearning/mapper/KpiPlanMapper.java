@@ -17,6 +17,9 @@ public interface KpiPlanMapper {
     @Mapping(target="latestReturnedByName",ignore=true)
     @Mapping(target="returnComparisonAvailable",ignore=true)
     @Mapping(target="changesSinceReturn",ignore=true)
+    @Mapping(target="currentVersionId",source="currentVersion.id")
+    @Mapping(target="currentVersionNumber",source="currentVersion.versionNumber")
+    @Mapping(target="currentVersionEffectiveAt",source="currentVersion.effectiveAt")
     KpiPlanDto toDto(KpiPlan plan);
     KpiItemDto toDto(Kpi item);
     @BeanMapping(ignoreByDefault=true)

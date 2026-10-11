@@ -13,6 +13,8 @@ import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { KpiItem, KpiPlan, emptyKpiItem } from '../../models/kpi-plan.model';
 import { TeamReviewPeriodService } from '../../services/team-review-period.service';
+import { KpiRevisionService } from '../../services/kpi-revision.service';
+import { revisionFixture } from './kpi-revision.test-data';
 
 describe('Team Reviews', () => {
   let fixture: ComponentFixture<TeamReviewsComponent>;
@@ -23,6 +25,7 @@ describe('Team Reviews', () => {
   let assessments: jasmine.SpyObj<KpiAssessmentService>;
   let attitudes: jasmine.SpyObj<AttitudeAssessmentService>;
   let periods: jasmine.SpyObj<TeamReviewPeriodService>;
+  let revisions: jasmine.SpyObj<KpiRevisionService>;
   const item: KpiItem = { ...emptyKpiItem(), name: 'Customers', perspective: 'Customer', kra: 'Customer growth',
     target: '10 new customers', weightage: 100, scoringDefinitions: { 1: 'Very low', 2: 'Low', 3: 'On target', 4: 'Above target', 5: 'Excellent' } };
   const plan = (status: KpiPlan['status'] = 'PENDING_APPROVAL', id = 10): KpiPlan => ({
@@ -41,6 +44,8 @@ describe('Team Reviews', () => {
     assessments = jasmine.createSpyObj<KpiAssessmentService>('assessments', ['reviews']); assessments.reviews.and.returnValue(of([]));
     attitudes = jasmine.createSpyObj<AttitudeAssessmentService>('attitudes', ['reviews']); attitudes.reviews.and.returnValue(of([]));
     periods = jasmine.createSpyObj<TeamReviewPeriodService>('periods', ['periods']);
+    revisions = jasmine.createSpyObj<KpiRevisionService>('revisions', ['list', 'get']);
+    revisions.list.and.returnValue(of([])); revisions.get.and.returnValue(of(revisionFixture({ level: 'INDIVIDUAL', baseVersionId: null })));
     periods.periods.and.returnValue(of({ periods: [
       { id: 1, name: '2028 Annual Review', status: 'OPEN', startDate: '2028-01-01', endDate: '2028-12-31', kpiSetupDeadline: null },
       { id: 2, name: '2027 Annual Review', status: 'CLOSED', startDate: '2027-01-01', endDate: '2027-12-31', kpiSetupDeadline: null }
@@ -50,6 +55,7 @@ describe('Team Reviews', () => {
       { provide: AuthService, useValue: auth }, { provide: KpiAssessmentService, useValue: assessments },
       { provide: AttitudeAssessmentService, useValue: attitudes },
       { provide: TeamReviewPeriodService, useValue: periods },
+      { provide: KpiRevisionService, useValue: revisions },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }, { provide: NzModalService, useValue: modal }
     ] });
     TestBed.overrideProvider(NzModalService, { useValue: modal });
@@ -151,7 +157,7 @@ describe('Team Reviews', () => {
   it('keeps assessment and KPI plan responsibilities in separate permission-controlled tabs', () => {
     component.selectTab('assessments'); expect(component.tab).toBe('reviews');
     auth.hasRole.and.returnValue(true); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(4);
+    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(5);
     component.selectTab('assessments'); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
     component.assessmentWorkspace!.drawerVisible = true; component.selectTab('reviews');
@@ -178,5 +184,27 @@ describe('Team Reviews', () => {
     workspace.drawerVisible = true; component.selectTab('reviews'); expect(component.tab).toBe('attitude');
     spyOn(workspace, 'canLeave').and.returnValue(false); expect(component.canLeave()).toBeFalse();
     workspace.drawerVisible = false; component.selectTab('reviews'); expect(component.tab).toBe('reviews');
+  });
+  it('scopes Individual revisions to the shared period without adding another period selector', async () => {
+    component.selectTab('revisions'); fixture.detectChanges();
+    expect(component.revisionWorkspace?.superiorOnly).toBeTrue(); expect(component.revisionWorkspace?.sharedPeriod).toBeTrue();
+    expect(revisions.list).toHaveBeenCalledWith(1, 'INDIVIDUAL');
+    expect(fixture.nativeElement.querySelectorAll('.team-period-selector nz-select').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('app-kpi-revisions .plan-picker')?.textContent).not.toContain('2028 Annual Review');
+    await component.changePeriod(2); fixture.detectChanges(); expect(revisions.list).toHaveBeenCalledWith(2, 'INDIVIDUAL');
+  });
+  it('protects revision edits from tab, route and period changes', async () => {
+    component.selectTab('revisions'); fixture.detectChanges();
+    const child = component.revisionWorkspace!; const workspace = child.workspace!;
+    workspace.open(2); fixture.detectChanges();
+    workspace.openItem(0); workspace.editorItems[0].target = 'Changed';
+    component.selectTab('reviews'); expect(component.tab).toBe('revisions');
+    spyOn(child, 'canLeave').and.returnValue(Promise.resolve(false)); expect(await component.canLeave()).toBeFalse();
+    spyOn(workspace, 'close').and.returnValue(Promise.resolve());
+    await component.changePeriod(2); expect(component.periodId).toBe(1);
+  });
+  it('does not infer Individual revision review from HR initiation or job role names', () => {
+    auth.hasRole.and.callFake(p => ['CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS', 'MD', 'Super Admin'].includes(p));
+    component.selectTab('revisions'); expect(component.tab).toBe('reviews'); expect(revisions.list).not.toHaveBeenCalled();
   });
 });

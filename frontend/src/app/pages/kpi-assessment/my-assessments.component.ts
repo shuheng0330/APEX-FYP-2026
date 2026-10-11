@@ -78,7 +78,7 @@ export class MyAssessmentsComponent implements OnInit {
     return JSON.stringify(this.items.map(item => [item.assignmentId, item.selfPoint, item.selfComment ?? null]));
   }
   private request() {
-    return { checkpointId: this.checkpointId!, items: this.items.map(item => ({
+    return { checkpointId: this.checkpointId!, planVersionIds: this.assessment?.planVersionIds, items: this.items.map(item => ({
       assignmentId: item.assignmentId, selfPoint: item.selfPoint, selfComment: item.selfComment
     })) };
   }

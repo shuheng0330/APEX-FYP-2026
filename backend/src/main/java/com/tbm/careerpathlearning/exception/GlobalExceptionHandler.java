@@ -16,6 +16,10 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(KpiVersionConflictException.class)
+    public ResponseEntity<?> handleKpiVersionConflict(KpiVersionConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("title","Configuration changed","message",ex.getMessage()));
+    }
 
     @Autowired
     private MessageSource messageSource;

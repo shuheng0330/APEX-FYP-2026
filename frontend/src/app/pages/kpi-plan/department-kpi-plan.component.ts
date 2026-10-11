@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -13,14 +13,21 @@ import { DepartmentKpiPlanService, KpiDepartmentOption } from '../../services/de
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { canResubmit } from '../../models/submission-revision.model';
+import { KpiRevisionPanelComponent } from './kpi-revision-panel.component';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiRevisionPanelComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './department-kpi-plan.component.html'
 })
 export class DepartmentKpiPlanComponent implements OnInit {
+  @ViewChild(KpiRevisionPanelComponent) revisions?: KpiRevisionPanelComponent;
+  canLeave() { return this.revisions?.canLeave() ?? !this.busy; }
+  revisionUpdated(status: string) {
+    if (status !== 'EFFECTIVE' || !this.plan) return;
+    this.api.get(this.plan.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: plan => this.acceptPlan(plan), error: e => this.fail(e) });
+  }
   private readonly destroyRef = inject(DestroyRef);
   periods: KpiPeriodContext[] = [];
   departments: KpiDepartmentOption[] = [];
@@ -74,8 +81,8 @@ export class DepartmentKpiPlanComponent implements OnInit {
     if (!this.plan) return { key: 'DEPARTMENT_KPI.SAVE_BEFORE_SUBMIT' };
     return null;
   }
-  changePeriod(id: number) { if (!this.busy && !this.drawerVisible) { this.periodId = id; this.selectPlan(); } }
-  changeDepartment(id: number) { if (!this.busy && !this.drawerVisible) { this.departmentId = id; this.selectPlan(); } }
+  changePeriod(id: number) { if (!this.busy && !this.drawerVisible && !this.revisions?.locked) { this.periodId = id; this.selectPlan(); } }
+  changeDepartment(id: number) { if (!this.busy && !this.drawerVisible && !this.revisions?.locked) { this.departmentId = id; this.selectPlan(); } }
   selectPlan() {
     this.plan = this.plans.find(plan => plan.reviewPeriodId === this.periodId && plan.departmentId === this.departmentId) ?? null;
     this.items = structuredClone(this.plan?.items ?? []);

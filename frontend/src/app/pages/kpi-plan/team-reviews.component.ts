@@ -18,17 +18,19 @@ import { KpiAssistanceComponent } from './kpi-assistance.component';
 import { AuthService } from '../../services/auth.service';
 import { KpiAssessmentReviewsComponent } from '../kpi-assessment/kpi-assessment-reviews.component';
 import { AttitudeAssessmentReviewsComponent } from '../kpi-assessment/attitude-assessment-reviews.component';
+import { KpiRevisionsComponent } from './kpi-revisions.component';
 
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent, KpiRevisionsComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })
 export class TeamReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  tab: 'reviews' | 'assistance' | 'assessments' | 'attitude' = 'reviews';
+  tab: 'reviews' | 'assistance' | 'assessments' | 'attitude' | 'revisions' = 'reviews';
+  @ViewChild(KpiRevisionsComponent) revisionWorkspace?: KpiRevisionsComponent;
   @ViewChild(KpiAssistanceComponent) assistanceWorkspace?: KpiAssistanceComponent;
   @ViewChild(KpiAssessmentReviewsComponent) assessmentWorkspace?: KpiAssessmentReviewsComponent;
   @ViewChild(AttitudeAssessmentReviewsComponent) attitudeWorkspace?: AttitudeAssessmentReviewsComponent;
@@ -63,15 +65,15 @@ export class TeamReviewsComponent implements OnInit {
     else if (this.canReviewAssessments) this.tab = 'assessments';
     else if (this.canReviewAttitude) this.tab = 'attitude';
   }
-  selectTab(tab: 'reviews' | 'assistance' | 'assessments' | 'attitude') {
+  selectTab(tab: 'reviews' | 'assistance' | 'assessments' | 'attitude' | 'revisions') {
     if (tab === 'attitude' ? !this.canReviewAttitude : tab === 'assessments' ? !this.canReviewAssessments : !this.canReviewPlans) return;
     if (this.busy || this.drawerVisible) return;
-    if (this.assistanceWorkspace?.locked || this.assessmentWorkspace?.locked || this.attitudeWorkspace?.locked) {
+    if (this.assistanceWorkspace?.locked || this.assessmentWorkspace?.locked || this.attitudeWorkspace?.locked || this.revisionWorkspace?.locked) {
       this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
     }
     this.tab = tab;
   }
-  canLeave(): boolean | Promise<boolean> { return this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? !this.busy; }
+  canLeave(): boolean | Promise<boolean> { return this.revisionWorkspace?.canLeave() ?? this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? !this.busy; }
   get selectedPeriod() { return this.periods.find(period => period.id === this.periodId); }
   loadPeriods() {
     if (this.periodLoading || this.busy || !(this.canReviewPlans || this.canReviewAssessments || this.canReviewAttitude)) return;
@@ -90,6 +92,11 @@ export class TeamReviewsComponent implements OnInit {
     if (id === this.periodId || this.periodLoading || this.busy || this.loading || !this.periods.some(period => period.id === id)) return;
     if (this.assistanceWorkspace?.locked || this.drawerVisible) {
       this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
+    }
+    if (this.revisionWorkspace) {
+      if (this.revisionWorkspace.busy) return;
+      if (this.revisionWorkspace.workspace) await this.revisionWorkspace.workspace.close();
+      if (this.revisionWorkspace.workspace?.visible) return;
     }
     const assessment = this.attitudeWorkspace ?? this.assessmentWorkspace;
     if (assessment && !(await assessment.canLeave())) return;

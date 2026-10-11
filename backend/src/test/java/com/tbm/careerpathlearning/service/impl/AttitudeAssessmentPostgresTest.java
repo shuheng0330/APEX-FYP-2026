@@ -40,7 +40,8 @@ class AttitudeAssessmentPostgresTest {
                 sql(c,"CREATE TABLE authority (LIKE public.authority INCLUDING ALL)");
                 sql(c,"CREATE TABLE role_authority (LIKE public.role_authority INCLUDING ALL)");
                 if(populated) {
-                    sql(c,"INSERT INTO authority SELECT * FROM public.authority WHERE name<>'CAN_REVIEW_ATTITUDE_EVALUATION'");
+                    sql(c,"INSERT INTO authority SELECT * FROM public.authority WHERE name NOT IN ('CAN_REVIEW_ATTITUDE_EVALUATION',"
+                        +"'CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS')");
                     sql(c,"INSERT INTO role_authority SELECT r.* FROM public.role_authority r JOIN authority a ON a.id=r.authority_id");
                 }
                 sql(c,"ALTER TABLE authority ALTER COLUMN id RESTART WITH "+scalar(c,"SELECT coalesce(max(id),0)+1 FROM authority"));
@@ -129,6 +130,8 @@ class AttitudeAssessmentPostgresTest {
                 String before=text(c,"SELECT md5(string_agg(to_jsonb(p)::text,',' ORDER BY id)) FROM annual_kpi_review_period p");
                 sql(c,migration());
                 assertEquals(before,text(c,"SELECT md5(string_agg(to_jsonb(p)::text,',' ORDER BY id)) FROM annual_kpi_review_period p"));
+                sql(c,"ALTER TABLE annual_kpi_review_period ADD COLUMN IF NOT EXISTS kpi_amendments_enabled boolean NOT NULL DEFAULT false, "
+                    +"ADD COLUMN IF NOT EXISTS kpi_amendments_close_date date, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_at timestamptz, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_by uuid");
                 var config=new Configuration();config.setProperty("hibernate.connection.url",env.get("DB_URL"));
                 config.setProperty("hibernate.connection.username",env.get("DB_USER"));config.setProperty("hibernate.connection.password",env.get("DB_PASS"));
                 config.setProperty("hibernate.hbm2ddl.auto","none");config.setProperty("hibernate.default_schema",schema);

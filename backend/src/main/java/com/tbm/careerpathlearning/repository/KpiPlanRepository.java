@@ -24,7 +24,7 @@ public interface KpiPlanRepository extends JpaRepository<KpiPlan,Long> {
     List<KpiPlan> findIndividualReviewPlans(KpiLevel level, Collection<KpiPlanStatus> statuses, UUID superiorId);
     @Query(value="select distinct p.* from kpi_plan p join kpi k on k.plan_id=p.id "
             + "join employee_kpi_assignment a on a.kpi_id=k.id "
-            + "where a.participant_id=:participantId and a.review_period_id=:periodId order by p.level", nativeQuery=true)
+            + "where a.participant_id=:participantId and a.review_period_id=:periodId and k.version_id=p.current_version_id order by p.level", nativeQuery=true)
     List<KpiPlan> findAssignedPlans(Long participantId, Long periodId);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select p from KpiPlan p where p.id=:id")
     Optional<KpiPlan> lockById(Long id);

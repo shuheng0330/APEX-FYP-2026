@@ -9,6 +9,7 @@ import { KpiReviewComponent } from './kpi-review.component';
 import { AuthService } from '../../services/auth.service';
 import { DepartmentKpiPlanService } from '../../services/department-kpi-plan.service';
 import { KpiAssistanceService } from '../../services/kpi-assistance.service';
+import { KpiRevisionService } from '../../services/kpi-revision.service';
 
 describe('Permission-driven KPI Review tabs', () => {
   let fixture: ComponentFixture<KpiReviewComponent>; let component: KpiReviewComponent;
@@ -20,6 +21,7 @@ describe('Permission-driven KPI Review tabs', () => {
     assistance = jasmine.createSpyObj<KpiAssistanceService>('assistance', ['list']); assistance.list.and.returnValue(of([]));
     TestBed.configureTestingModule({ imports: [KpiReviewComponent, TranslateModule.forRoot()], providers: [provideNoopAnimations(),
       { provide: AuthService, useValue: auth }, { provide: DepartmentKpiPlanService, useValue: department }, { provide: KpiAssistanceService, useValue: assistance },
+      { provide: KpiRevisionService, useValue: { periods: () => of([]) } },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }] });
     TestBed.overrideProvider(NzModalService, { useValue: jasmine.createSpyObj<NzModalService>('modal', ['confirm']) }); await TestBed.compileComponents();
   });
@@ -36,12 +38,24 @@ describe('Permission-driven KPI Review tabs', () => {
   });
   it('allows both tabs only when both permissions are held', () => {
     permissions = ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE']; start();
-    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs > button').length).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs > button').length).toBe(3);
     component.selectTab('assistance'); fixture.detectChanges(); expect(assistance.list).toHaveBeenCalledTimes(1);
     component.assistanceWorkspace!.drawerVisible = true; component.selectTab('department'); expect(component.tab).toBe('assistance');
   });
   it('does not infer either authority from Super Admin or HR Role names', () => {
     permissions = ['Super Admin', 'HR']; start(); expect(department.list).not.toHaveBeenCalled(); expect(assistance.list).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs > button').length).toBe(0);
+  });
+  it('opens revisions for amendment-only users without granting Department or assistance review', () => {
+    permissions = ['CAN_MANAGE_KPI_AMENDMENTS']; start();
+    expect(component.tab).toBe('revisions'); expect(component.canRevise).toBeTrue();
+    expect(component.canReviewDepartments).toBeFalse(); expect(component.canAuthorize).toBeFalse();
+    expect(department.list).not.toHaveBeenCalled(); expect(assistance.list).not.toHaveBeenCalled();
+  });
+  it('opens revisions for an Individual revision initiator without other review grants', () => {
+    permissions = ['CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS']; start();
+    expect(component.tab).toBe('revisions'); expect(component.canRevise).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.workflow-tabs > button').length).toBe(1);
+    expect(department.list).not.toHaveBeenCalled(); expect(assistance.list).not.toHaveBeenCalled();
   });
 });

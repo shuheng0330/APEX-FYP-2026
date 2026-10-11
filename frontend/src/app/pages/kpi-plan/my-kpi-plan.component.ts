@@ -13,10 +13,11 @@ import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.ser
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { canResubmit } from '../../models/submission-revision.model';
+import { KpiVersionHistoryComponent } from './kpi-version-history.component';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiVersionHistoryComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './my-kpi-plan.component.html'
 })

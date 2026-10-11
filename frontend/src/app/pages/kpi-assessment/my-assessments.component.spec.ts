@@ -21,6 +21,11 @@ describe('My Assessments - KPI Self-Assessment', () => {
   let api: jasmine.SpyObj<KpiAssessmentService>;
   let modal: jasmine.SpyObj<NzModalService>;
   let attitudeApi: jasmine.SpyObj<AttitudeAssessmentService>;
+  it('echoes immutable plan-version tokens when first saving revised KPI answers', () => {
+    page.assessment!.planVersionIds = { COMPANY: 15, DEPARTMENT: 21, INDIVIDUAL: 30 };
+    page.saveDraft();
+    expect(api.create.calls.mostRecent().args[0].planVersionIds).toEqual({ COMPANY: 15, DEPARTMENT: 21, INDIVIDUAL: 30 });
+  });
   const attitude: AttitudeAssessment = { id: null, participantId: 7, employeeName: 'Amir', roleName: 'Executive', departmentName: 'Sales',
     reviewPeriodId: 1, reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', configurationId: 4, configurationName: '2028 criteria',
     evaluationFormat: 'SALES', status: 'DRAFT', createdAt: null, updatedAt: null, submittedAt: null, submittedBy: null, submittedToSuperiorId: null,

@@ -8,6 +8,8 @@ import com.tbm.careerpathlearning.model.*;
 import com.tbm.careerpathlearning.repository.*;
 import com.tbm.careerpathlearning.service.*;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mapstruct.factory.Mappers;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -89,6 +91,60 @@ class KpiAssessmentServiceTest {
         var dto=service.mine(11L,owner);assertNull(dto.getId());assertNull(dto.getCreatedAt());
         assertTrue(dto.isCanSaveDraft());assertFalse(dto.isCanSubmit());assertEquals(3,dto.getMissingLevels().size());
         assertTrue(dto.getItems().isEmpty());verify(assessments,never()).saveAndFlush(any());
+    }
+    void versionAssignments() {
+        for(var assignment:assigned) {
+            var k=assignment.getKpi();var plan=k.getPlan();var v=new KpiPlanVersion();v.setId(k.getId());
+            v.setVersionNumber(1);v.setLevel(plan.getLevel());v.setPlan(plan);v.setReviewPeriodId(1L);v.setStatus(KpiVersionStatus.EFFECTIVE);
+            v.getItems().add(k);k.setVersion(v);plan.setCurrentVersion(v);
+        }
+    }
+    void reviseCompany() {
+        reviseLevel(KpiLevel.COMPANY);
+    }
+    void reviseLevel(KpiLevel level) {
+        var old=assigned.stream().map(EmployeeKpiAssignment::getKpi).filter(k->k.getPlan().getLevel()==level).findFirst().orElseThrow();
+        var plan=old.getPlan();old.getVersion().setStatus(KpiVersionStatus.SUPERSEDED);
+        var version=new KpiPlanVersion();version.setId(101L);version.setVersionNumber(2);version.setLevel(level);
+        version.setPlan(plan);version.setReviewPeriodId(1L);version.setStatus(KpiVersionStatus.EFFECTIVE);
+        var item=new Kpi();item.setId(101L);item.setName("Revised company");item.setPlan(plan);item.setPlanId(plan.getId());
+        item.setVersion(version);item.setWeightage(new BigDecimal("100"));version.getItems().add(item);plan.setCurrentVersion(version);
+        var assignment=new EmployeeKpiAssignment();assignment.setId(101L);assignment.setKpi(item);assignment.setKpiId(101L);
+        assignment.setParticipant(participant);assignment.setParticipantId(7L);assignment.setReviewPeriodId(1L);assigned.add(assignment);
+    }
+    @ParameterizedTest @EnumSource(KpiLevel.class)
+    void persistedEmptyDraftFreezesAvailableVersionsAndLaterBindsMissingLevels(KpiLevel level) {
+        assign(level,1);versionAssignments();service.create(request(),owner);
+        assertEquals(1,assessment.getPlanVersions().size());assertNull(assessment.getItems().get(0).getSelfPoint());
+        reviseLevel(level);assign(level==KpiLevel.DEPARTMENT?KpiLevel.COMPANY:KpiLevel.DEPARTMENT,2);
+        var detail=service.get(20L,owner);assertEquals(2,detail.getItems().size());
+        assertEquals(1L,detail.getPlanVersionIds().get(level));
+        assertEquals(1,assessment.getPlanVersions().size());service.update(20L,request(),owner);
+        assertEquals(2,assessment.getItems().size());assertEquals(1L,assessment.getItems().get(0).getAssignment().getId());
+        assertFalse(service.get(20L,owner).getMissingLevels().contains(level));
+    }
+    @ParameterizedTest @EnumSource(KpiLevel.class)
+    void staleFirstSaveRejectedButFreshFirstSaveUsesCurrentVersion(KpiLevel level) {
+        assign(level,1);versionAssignments();var virtual=service.mine(11L,owner);assertEquals(1L,virtual.getPlanVersionIds().get(level));
+        reviseLevel(level);var stale=request();stale.setPlanVersionIds(virtual.getPlanVersionIds());
+        assertThrows(com.tbm.careerpathlearning.exception.KpiVersionConflictException.class,()->service.create(stale,owner));
+        assertThrows(com.tbm.careerpathlearning.exception.KpiVersionConflictException.class,()->service.create(request(),owner));
+        var fresh=request();fresh.setPlanVersionIds(service.mine(11L,owner).getPlanVersionIds());service.create(fresh,owner);
+        assertEquals(101L,assessment.getItems().get(0).getAssignment().getId());assertEquals(101L,assessment.getPlanVersions().get(0).getVersion().getId());
+    }
+    @ParameterizedTest @EnumSource(KpiLevel.class)
+    void submittedAndReviewedDefinitionsAnswersAndScoreStayOriginalAfterRevision(KpiLevel level) {
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        var r=request();r.setItems(List.of(answer(1,4),answer(2,3),answer(3,5)));service.create(r,owner);service.submit(20L,owner);
+        var original=assigned.stream().filter(a->a.getKpi().getPlan().getLevel()==level).findFirst().orElseThrow();
+        reviseLevel(level);reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");
+        var superiorRequest=new KpiSuperiorAssessmentRequest();var answers=new ArrayList<KpiSuperiorAssessmentRequest.Answer>();
+        for(var item:assessment.getItems()) {item.setId(item.getAssignment().getId());var answer=new KpiSuperiorAssessmentRequest.Answer();answer.setItemId(item.getId());answer.setSuperiorPoint(item.getSelfPoint());answers.add(answer);}
+        superiorRequest.setItems(answers);service.saveSuperiorDraft(20L,superiorRequest,superiorId);var result=service.completeReview(20L,superiorId);
+        assertEquals(0,new BigDecimal("87").compareTo(result.getCheckpointScore()));
+        var preserved=result.getItems().stream().filter(i->i.getAssignmentId().equals(original.getId())).findFirst().orElseThrow();
+        assertEquals(level+" KPI",preserved.getKpi().getName());
+        assertEquals(original.getKpi().getVersion().getId(),result.getPlanVersionIds().get(level));
     }
     @Test void employeeDetailsUseRecordedParticipantContext() {
         participant.setRoleName("Sales Executive");

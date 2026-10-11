@@ -29,6 +29,9 @@
                 [placeholder]="placeholder(field.key) | translate" [(ngModel)]="item[field.key]" (ngModelChange)="clearError(field.key)"
                 [attr.aria-invalid]="!!errors[field.key]" [attr.aria-describedby]="errors[field.key] ? field.key + '-error-' + index : null">
               @if (errors[field.key]) { <span class="field-error" [id]="field.key + '-error-' + index">{{ errors[field.key] | translate:{ field: ('KPI_PLAN.' + field.label | translate) } }}</span> }
+              @if (field.key === 'target' && targetNeedsReview(item)) {
+                <span class="warning" role="status">{{ 'KPI_REVISIONS.TARGET_REMINDER' | translate }}</span>
+              }
             </div>
           }
           <div class="field">

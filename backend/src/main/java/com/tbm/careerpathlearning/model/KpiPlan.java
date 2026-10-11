@@ -20,8 +20,14 @@ public class KpiPlan {
     @JoinColumn(name="owner_participant_id", insertable=false, updatable=false, foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private ReviewPeriodParticipant ownerParticipant;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=20) private KpiPlanStatus status = KpiPlanStatus.DRAFT;
-    @OneToMany(mappedBy="plan", cascade=CascadeType.ALL, orphanRemoval=true) @OrderBy("id ASC")
+    @Transient
     private List<Kpi> items = new ArrayList<>();
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="current_version_id",foreignKey=@ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private KpiPlanVersion currentVersion;
+    @OneToMany(mappedBy="plan",cascade=CascadeType.ALL)
+    private List<KpiPlanVersion> versions=new ArrayList<>();
+    public List<Kpi> getItems() { return currentVersion==null?items:currentVersion.getItems(); }
+    public void setItems(List<Kpi> value) { if(currentVersion==null) items=value; else currentVersion.setItems(value); }
     @Column(name="created_at", nullable=false, updatable=false) private OffsetDateTime createdAt;
     @Column(name="updated_at", nullable=false) private OffsetDateTime updatedAt;
     @Column(name="created_by", nullable=false, updatable=false) private UUID createdBy;

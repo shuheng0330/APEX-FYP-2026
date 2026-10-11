@@ -16,6 +16,7 @@
     @if (canReviewPlans) {
     <button type="button" [class.active]="tab === 'reviews'" [attr.aria-pressed]="tab === 'reviews'" [disabled]="busy || drawerVisible" (click)="selectTab('reviews')">{{ 'TEAM_REVIEWS.TYPE' | translate }}</button>
     <button type="button" [class.active]="tab === 'assistance'" [attr.aria-pressed]="tab === 'assistance'" [disabled]="busy || drawerVisible" (click)="selectTab('assistance')">{{ 'KPI_ASSISTANCE.TITLE' | translate }}</button>
+    <button type="button" [class.active]="tab === 'revisions'" [attr.aria-pressed]="tab === 'revisions'" [disabled]="busy || drawerVisible" (click)="selectTab('revisions')">{{ 'KPI_REVISIONS.INDIVIDUAL_TITLE' | translate }}</button>
     }
     @if (canReviewAssessments) {
       <button type="button" [class.active]="tab === 'assessments'" [attr.aria-pressed]="tab === 'assessments'" [disabled]="busy || drawerVisible" (click)="selectTab('assessments')">{{ 'KPI_ASSESSMENT_REVIEW.TITLE' | translate }}</button>
@@ -24,7 +25,8 @@
       <button type="button" [class.active]="tab === 'attitude'" [attr.aria-pressed]="tab === 'attitude'" [disabled]="busy || drawerVisible" (click)="selectTab('attitude')">{{ 'ATTITUDE_REVIEW.TITLE' | translate }}</button>
     }
   </nav>
-  @if (tab === 'assessments' && canReviewAssessments && periodsReady && periodId !== null) { <app-kpi-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
+  @if (tab === 'revisions' && canReviewPlans && periodsReady && periodId !== null) { <app-kpi-revisions [sharedPeriod]="true" [superiorOnly]="true" [periodId]="periodId" /> }
+  @else if (tab === 'assessments' && canReviewAssessments && periodsReady && periodId !== null) { <app-kpi-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
   @else if (tab === 'attitude' && canReviewAttitude && periodsReady && periodId !== null) { <app-attitude-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
   @else if (tab === 'assistance' && canReviewPlans && periodsReady && periodId !== null) { <app-kpi-assistance [sharedPeriod]="true" [periodId]="periodId" /> } @else if (canReviewPlans && tab === 'reviews') {
   @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div><button nz-button [disabled]="loading" (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }

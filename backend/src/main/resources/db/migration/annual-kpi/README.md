@@ -251,7 +251,33 @@ and cross-period foreign-key checks. Both opt-in test schemas are rolled back wi
 - The isolated runner verifies through V39 without changing applied migrations or global ORM settings.
   See `backend/docs/kpi-self-assessment-api.md` for API details, test flags and remaining TBC boundaries.
 
-## Deliberate boundaries
+## UC-05 Company and Department Revision Backend
+
+V44 adds immutable plan versions, preserved assessment-version bindings and per-period amendment
+access, initially disabled. Existing rows retain their identifiers and original publication/approval
+metadata. Company revisions are directly confirmed; Department revisions require HOD request,
+separate HR preparation, separate MD approval and requesting-HOD confirmation. Cancellation retains
+audit and proposed contents while releasing the unfinished-revision guard. Individual exceptional
+revisions and frontend revision actions remain deferred at this checkpoint.
+
+The isolated runner validates V44 schema tracking, makes a backup before application and verifies
+existing period/KPI/assignment/assessment row digests after migration. See
+`backend/docs/kpi-plan-revisions-api.md` for API contracts, permissions and assessment protection.
+
+## UC-05 Individual Revision Backend
+
+V45 extends the existing version model with preparation mode and the routed immediate Superior.
+HR/MD initiates; the Superior normally prepares and explicitly approves/confirms, or the initiating
+HR/MD prepares for Superior approval. Superior confirmation is the approval action and atomically
+records approval metadata, switches the effective version and creates owner-only assignments.
+Normal Individual approval/assistance and Company/Department revision flows are unchanged.
+
+The runner backs up before migration and checks existing version, plan, assignment, assessment,
+evidence and period data. Precisely compatible empty nullable Hibernate-created columns may be
+adopted; untracked populated or incompatible metadata is rejected. No guessed permission grants.
+Individual revision frontend work remains deferred until the backend review is approved.
+
+## Original Phase 1-2 Boundaries (Historical)
 
 - Review Period management and Company plan Draft/publication REST/UI workflows are implemented.
 - Partial drafts are stored; published configurations require complete dates, scoring settings and valid totals.

@@ -59,6 +59,10 @@ class KpiPlanPostgresTest {
                 sql(c,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V43__kpi_plan_latest_return_feedback.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                for(var column:List.of("kpi_amendments_enabled","kpi_amendments_close_date","kpi_amendments_changed_at","kpi_amendments_changed_by"))
+                    sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS "+column);
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V44__controlled_kpi_plan_revisions.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V45__individual_kpi_revisions.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 for(var table:List.of("org_chart","role"))
                     sql(c,"ALTER TABLE "+schema+"."+table+" ALTER COLUMN id RESTART WITH "+(scalar(c,"SELECT coalesce(max(id),0) FROM "+table)+1));
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);
@@ -328,10 +332,158 @@ class KpiPlanPostgresTest {
                         +confirmed.getId()+" AND a.participant_id="+assistedParticipant.getId()));
                     assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.confirmAssistedIndividual(requested.getId(),actor));
                     assertEquals(0,service.assistanceEmployees(actor).size());
+                    verifyRevisionRoundTrip(c,session,factory,published.getId(),approved.getId(),savedPeriod.getId(),actor);
+                    verifyIndividualRevisionRoundTrip(c,session,factory,individualApproved.getId(),hod.getId());
                     session.getTransaction().rollback();
                 }
             } finally {c.rollback();}
         }
+    }
+    private void verifyRevisionRoundTrip(Connection c,org.hibernate.Session session,JpaRepositoryFactory factory,
+            Long companyId,Long departmentId,Long periodId,UUID hod) throws Exception {
+        var mapper=Mappers.getMapper(KpiPlanMapper.class);
+        var revisionMapper=Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiRevisionMapper.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionMapper,"kpiPlanMapper",mapper);
+        var assignmentRepository=factory.getRepository(EmployeeKpiAssignmentRepository.class);
+        var revisionService=new com.tbm.careerpathlearning.service.KpiRevisionService(factory.getRepository(KpiPlanVersionRepository.class),
+            factory.getRepository(KpiPlanRepository.class),factory.getRepository(AnnualKpiReviewPeriodRepository.class),
+            factory.getRepository(StaffRepository.class),factory.getRepository(ReviewPeriodParticipantRepository.class),assignmentRepository,
+            new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)),
+            mapper,revisionMapper,new KpiPlanValidator(),new com.tbm.careerpathlearning.service.KpiAssignmentService(
+                factory.getRepository(ReviewPeriodParticipantRepository.class),assignmentRepository,Clock.systemUTC()),
+            factory.getRepository(RoleAuthorityRepository.class),org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),
+            Clock.fixed(Instant.parse("2026-10-11T05:00:00Z"),ZoneOffset.UTC));
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionService,"entityManager",session);
+        var md=UUID.randomUUID();var hr=UUID.randomUUID();
+        for(var id:List.of(md,hr)) {
+            var s=new Staff();s.setId(id);s.setName("Revision fixture actor");s.setEmail(id+"@example.test");s.setAccountStatus(StaffAccountStatus.ACTIVE);
+            s.setCreatedAt(OffsetDateTime.now());s.setUpdatedAt(s.getCreatedAt());session.persist(s);
+        }
+        session.flush();
+        String historical=assessmentState(c);long assignmentCount=scalar(c,"SELECT count(*) FROM employee_kpi_assignment");
+        try {
+            login(hr,"CAN_MANAGE_KPI_AMENDMENTS");revisionService.updateAccess(periodId,new KpiAmendmentAccessRequest(true,null),hr);
+            var request=new KpiRevisionRequest();request.setReason("Exceptional target change");
+            login(md,"CAN_REVISE_COMPANY_KPI");var company=revisionService.startCompany(companyId,request,md);session.clear();
+            assertEquals(1L,scalar(c,"SELECT version_number FROM kpi_plan_version WHERE id=(SELECT current_version_id FROM kpi_plan WHERE id="+companyId+")"));
+            assertEquals(assignmentCount,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
+            company=revisionService.get(company.getId(),md);request.setExpectedLockVersion(company.getLockVersion());request.setItems(company.getItems());
+            request.getItems().get(0).setTarget("New company target");company=revisionService.update(company.getId(),request,md);session.clear();
+            assertTrue(company.getLockVersion()>request.getExpectedLockVersion(),"returned="+company.getLockVersion()+", requested="+request.getExpectedLockVersion()+", stored="+scalar(c,"SELECT lock_version FROM kpi_plan_version WHERE id="+company.getId()));
+            request.setExpectedLockVersion(company.getLockVersion());company=revisionService.confirm(company.getId(),request,md);session.clear();
+            assertEquals(KpiVersionStatus.EFFECTIVE,company.getStatus());assertEquals(2,company.getVersionNumber());
+            assertEquals(assignmentCount+4,scalar(c,"SELECT count(*) FROM employee_kpi_assignment"));
+            assertEquals(historical,assessmentState(c));
+            reject(c,"23514","UPDATE kpi SET target='Corrupt history' WHERE version_id="+company.getBaseVersionId());
+            reject(c,"23514","UPDATE kpi_scoring_definition SET definition='Corrupt history' WHERE kpi_id="+company.getItems().get(0).getId());
+            // Persisted version tokens reject a competing cancellation after finalisation.
+            var terminalId=company.getId();assertThrows(com.tbm.careerpathlearning.exception.KpiVersionConflictException.class,()->revisionService.cancel(terminalId,request,md));
+            login(hod,"CAN_MANAGE_DEPARTMENT_KPI");var department=revisionService.requestDepartment(departmentId,request,hod);
+            request.setExpectedLockVersion(department.getLockVersion());login(hr,"CAN_PREPARE_DEPARTMENT_KPI_REVISION");
+            department=revisionService.prepare(department.getId(),request,hr);request.setExpectedLockVersion(department.getLockVersion());request.setItems(department.getItems());
+            request.getItems().get(0).setTarget("Department revised target");department=revisionService.update(department.getId(),request,hr);
+            request.setExpectedLockVersion(department.getLockVersion());department=revisionService.submit(department.getId(),request,hr);session.clear();
+            request.setExpectedLockVersion(department.getLockVersion());login(md,"CAN_APPROVE_DEPARTMENT_KPI");department=revisionService.approve(department.getId(),request,md);
+            request.setExpectedLockVersion(department.getLockVersion());login(hod,"CAN_MANAGE_DEPARTMENT_KPI");department=revisionService.returnToHr(department.getId(),request,hod);session.clear();
+            assertEquals(KpiVersionStatus.RETURNED,revisionService.get(department.getId(),hod).getStatus());
+            assertNull(department.getApprovedBy());request.setExpectedLockVersion(department.getLockVersion());request.setItems(department.getItems());
+            login(hr,"CAN_PREPARE_DEPARTMENT_KPI_REVISION");request.getItems().get(0).setTarget("Department final target");department=revisionService.update(department.getId(),request,hr);
+            request.setExpectedLockVersion(department.getLockVersion());department=revisionService.submit(department.getId(),request,hr);
+            request.setExpectedLockVersion(department.getLockVersion());login(md,"CAN_APPROVE_DEPARTMENT_KPI");department=revisionService.approve(department.getId(),request,md);
+            request.setExpectedLockVersion(department.getLockVersion());login(hod,"CAN_MANAGE_DEPARTMENT_KPI");department=revisionService.confirm(department.getId(),request,hod);session.clear();
+            assertEquals(KpiVersionStatus.EFFECTIVE,department.getStatus());assertEquals(hod,department.getConfirmedBy());
+            assertEquals(historical,assessmentState(c));
+            login(md,"CAN_REVISE_COMPANY_KPI");var abandoned=revisionService.startCompany(companyId,request,md);request.setExpectedLockVersion(abandoned.getLockVersion());
+            login(hr,"CAN_MANAGE_KPI_AMENDMENTS");revisionService.updateAccess(periodId,new KpiAmendmentAccessRequest(false,null),hr);
+            revisionService.cancel(abandoned.getId(),request,hr);session.clear();
+            reject(c,"23514","UPDATE kpi SET target='Changed cancelled proposal' WHERE version_id="+abandoned.getId());
+            revisionService.updateAccess(periodId,new KpiAmendmentAccessRequest(true,null),hr);login(md,"CAN_REVISE_COMPANY_KPI");
+            assertEquals(4,revisionService.startCompany(companyId,request,md).getVersionNumber());assertEquals(historical,assessmentState(c));
+            reject(c,"23505","INSERT INTO kpi_plan_version(plan_id,review_period_id,level,version_number,base_version_id,status,revision_reason,created_at,updated_at,created_by,updated_by) "
+                +"SELECT plan_id,review_period_id,level,5,base_version_id,'DRAFT','Competing request',now(),now(),created_by,updated_by "
+                +"FROM kpi_plan_version WHERE plan_id="+companyId+" AND version_number=4");
+        } finally {org.springframework.security.core.context.SecurityContextHolder.clearContext();}
+    }
+    private void verifyIndividualRevisionRoundTrip(Connection c,org.hibernate.Session session,JpaRepositoryFactory factory,
+            Long planId,UUID superiorId) throws Exception {
+        var plan=session.find(KpiPlan.class,planId);var superior=session.find(Staff.class,superiorId);
+        plan.getOwnerParticipant().getStaff().setManager(superior);session.flush();
+        sql(c,"INSERT INTO role_authority(role_id,authority_id,created_at,updated_at) SELECT "+superior.getRole().getId()
+            +",id,now(),now() FROM authority WHERE name='CAN_REVIEW_INDIVIDUAL_KPI' ON CONFLICT DO NOTHING");
+        var mapper=Mappers.getMapper(KpiPlanMapper.class);
+        var revisionMapper=Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiRevisionMapper.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionMapper,"kpiPlanMapper",mapper);
+        var assignmentRepository=factory.getRepository(EmployeeKpiAssignmentRepository.class);
+        var revisionService=new com.tbm.careerpathlearning.service.KpiRevisionService(factory.getRepository(KpiPlanVersionRepository.class),
+            factory.getRepository(KpiPlanRepository.class),factory.getRepository(AnnualKpiReviewPeriodRepository.class),
+            factory.getRepository(StaffRepository.class),factory.getRepository(ReviewPeriodParticipantRepository.class),assignmentRepository,
+            new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)),
+            mapper,revisionMapper,new KpiPlanValidator(),new com.tbm.careerpathlearning.service.KpiAssignmentService(
+                factory.getRepository(ReviewPeriodParticipantRepository.class),assignmentRepository,Clock.systemUTC()),
+            factory.getRepository(RoleAuthorityRepository.class),org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),
+            Clock.fixed(Instant.parse("2026-10-11T05:00:00Z"),ZoneOffset.UTC));
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionService,"entityManager",session);
+        UUID hr=UUID.randomUUID();var account=new Staff();account.setId(hr);account.setName("Individual revision HR fixture");
+        account.setEmail(hr+"@example.test");account.setAccountStatus(StaffAccountStatus.ACTIVE);
+        account.setCreatedAt(OffsetDateTime.now());account.setUpdatedAt(account.getCreatedAt());session.persist(account);session.flush();
+        String historical=assessmentState(c);long initialAssignments=scalar(c,"SELECT count(*) FROM employee_kpi_assignment WHERE participant_id="+plan.getOwnerParticipantId());
+        var rootApproval=plan.getReviewedAt();var rootReviewer=plan.getReviewedBy();
+        try {
+            var r=new KpiRevisionRequest();r.setReason("Exceptional individual target change");
+            login(hr,"CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS");var revision=revisionService.requestIndividual(planId,r,hr);
+            assertEquals(KpiRevisionPreparationMode.SUPERIOR,revision.getPreparationMode());r.setExpectedLockVersion(revision.getLockVersion());
+            login(superiorId,"CAN_REVIEW_INDIVIDUAL_KPI");revision=revisionService.prepare(revision.getId(),r,superiorId);
+            r.setExpectedLockVersion(revision.getLockVersion());r.setItems(revision.getItems());r.getItems().get(0).setTarget("Superior revised target");
+            revision=revisionService.update(revision.getId(),r,superiorId);session.clear();
+            r.setExpectedLockVersion(revision.getLockVersion());var stale=r.getExpectedLockVersion();
+            revision=revisionService.confirm(revision.getId(),r,superiorId);session.clear();
+            assertEquals(KpiVersionStatus.EFFECTIVE,revision.getStatus());assertEquals(superiorId,revision.getApprovedBy());
+            assertEquals(revision.getApprovedAt(),revision.getEffectiveAt());assertEquals(revision.getApprovedAt(),revision.getConfirmedAt());
+            assertEquals(revision.getId(),session.find(KpiPlan.class,planId).getCurrentVersion().getId());
+            assertEquals(rootApproval,session.find(KpiPlan.class,planId).getReviewedAt());assertEquals(rootReviewer,session.find(KpiPlan.class,planId).getReviewedBy());
+            assertEquals(1L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id WHERE k.version_id="+revision.getId()));
+            assertEquals(initialAssignments+1,scalar(c,"SELECT count(*) FROM employee_kpi_assignment WHERE participant_id="+plan.getOwnerParticipantId()));
+            assertEquals(historical,assessmentState(c));reject(c,"23514","UPDATE kpi SET target='Corrupt' WHERE version_id="+revision.getId());
+            r.setExpectedLockVersion(stale);Long effectiveId=revision.getId();
+            assertThrows(com.tbm.careerpathlearning.exception.KpiVersionConflictException.class,()->revisionService.confirm(effectiveId,r,superiorId));
+            login(hr,"CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS");r.setPreparationMode(KpiRevisionPreparationMode.HR_MD);
+            revision=revisionService.requestIndividual(planId,r,hr);r.setExpectedLockVersion(revision.getLockVersion());revision=revisionService.prepare(revision.getId(),r,hr);
+            r.setItems(revision.getItems());r.getItems().get(0).setTarget("HR prepared target");r.setExpectedLockVersion(revision.getLockVersion());
+            revision=revisionService.update(revision.getId(),r,hr);r.setExpectedLockVersion(revision.getLockVersion());revision=revisionService.submit(revision.getId(),r,hr);
+            assertEquals(KpiVersionStatus.PENDING_APPROVAL,revision.getStatus());r.setExpectedLockVersion(revision.getLockVersion());
+            login(superiorId,"CAN_REVIEW_INDIVIDUAL_KPI");revision=revisionService.returnToHr(revision.getId(),r,superiorId);session.clear();
+            r.setExpectedLockVersion(revision.getLockVersion());r.setItems(revision.getItems());r.getItems().get(0).setTarget("HR corrected target");
+            login(hr,"CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS");revision=revisionService.update(revision.getId(),r,hr);
+            r.setExpectedLockVersion(revision.getLockVersion());revision=revisionService.submit(revision.getId(),r,hr);
+            r.setExpectedLockVersion(revision.getLockVersion());login(superiorId,"CAN_REVIEW_INDIVIDUAL_KPI");
+            var normalAssignments=org.springframework.test.util.ReflectionTestUtils.getField(revisionService,"assignments");
+            var failingAssignments=org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiAssignmentService.class);
+            org.mockito.Mockito.doThrow(new IllegalStateException("Cascade failed")).when(failingAssignments).cascade(org.mockito.ArgumentMatchers.any());
+            org.springframework.test.util.ReflectionTestUtils.setField(revisionService,"assignments",failingAssignments);
+            var savepoint=c.setSavepoint();Long pendingId=revision.getId();
+            try {
+                assertThrows(IllegalStateException.class,()->revisionService.approve(pendingId,r,superiorId));
+            } finally {
+                c.rollback(savepoint);c.releaseSavepoint(savepoint);session.clear();
+                org.springframework.test.util.ReflectionTestUtils.setField(revisionService,"assignments",normalAssignments);
+            }
+            revision=revisionService.get(pendingId,superiorId);assertEquals(KpiVersionStatus.PENDING_APPROVAL,revision.getStatus());
+            assertNull(revision.getApprovedBy());assertEquals(effectiveId,session.find(KpiPlan.class,planId).getCurrentVersion().getId());
+            assertEquals(historical,assessmentState(c));r.setExpectedLockVersion(revision.getLockVersion());
+            revision=revisionService.approve(revision.getId(),r,superiorId);session.clear();
+            assertEquals(3,revision.getVersionNumber());assertEquals(superiorId,revision.getApprovedBy());assertEquals(KpiVersionStatus.EFFECTIVE,revision.getStatus());
+            assertEquals(1L,scalar(c,"SELECT count(*) FROM employee_kpi_assignment a JOIN kpi k ON k.id=a.kpi_id WHERE k.version_id="+revision.getId()));
+            assertEquals(historical,assessmentState(c));
+        } finally {org.springframework.security.core.context.SecurityContextHolder.clearContext();}
+    }
+    private String assessmentState(Connection c)throws SQLException {
+        try(var s=c.createStatement();var r=s.executeQuery("SELECT jsonb_build_object('assessments',(SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM kpi_assessment a),"
+                +"'answers',(SELECT jsonb_agg(to_jsonb(i) ORDER BY id) FROM kpi_assessment_item i),'evidence',(SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM kpi_assessment_evidence e),"
+                +"'bindings',(SELECT jsonb_agg(to_jsonb(b) ORDER BY id) FROM kpi_assessment_plan_version b))::text")) {r.next();return r.getString(1);}
+    }
+    private void login(UUID id,String permission) {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+            id,null,List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(permission))));
     }
     @Test void sharedTransactionLockSerializesCompetingReviewActions() throws Exception {
         var env=Dotenv.configure().directory(".").load();var url=env.get("DB_URL");

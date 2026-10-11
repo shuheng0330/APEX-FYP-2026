@@ -69,6 +69,8 @@ class AnnualReviewPeriodPostgresTest {
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V32__review_participant_snapshot_and_company_publication.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 execute(connection,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                execute(connection,"ALTER TABLE annual_kpi_review_period ADD COLUMN kpi_amendments_enabled boolean NOT NULL DEFAULT false, "
+                    +"ADD COLUMN kpi_amendments_close_date date, ADD COLUMN kpi_amendments_changed_at timestamptz, ADD COLUMN kpi_amendments_changed_by uuid");
 
                 var configuration = new Configuration();
                 configuration.setProperty("hibernate.connection.url", url);

@@ -38,7 +38,8 @@ class AttitudeConfigurationPostgresTest {
                     sql(c,"CREATE TABLE "+schema+"."+table+" (LIKE public."+table+" INCLUDING ALL)");
                     sql(c,"INSERT INTO "+schema+"."+table+" SELECT * FROM public."+table);
                 }
-                sql(c,"DELETE FROM authority WHERE name IN ('CAN_MANAGE_ATTITUDE_CONFIGURATION','CAN_REVIEW_ATTITUDE_EVALUATION')");
+                sql(c,"DELETE FROM authority WHERE name IN ('CAN_MANAGE_ATTITUDE_CONFIGURATION','CAN_REVIEW_ATTITUDE_EVALUATION',"
+                    +"'CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS')");
                 sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS attitude_configuration_id");
                 sql(c,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
                 for(var table:List.of("authority","annual_kpi_review_period"))
@@ -48,6 +49,8 @@ class AttitudeConfigurationPostgresTest {
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(StandardCharsets.UTF_8));
                 assertEquals(count,scalar(c,"SELECT count(*) FROM annual_kpi_review_period"));
                 assertEquals(before,text(c,"SELECT md5(coalesce(string_agg((to_jsonb(p)-'attitude_configuration_id')::text,',' ORDER BY id),'')) FROM annual_kpi_review_period p"));
+                sql(c,"ALTER TABLE annual_kpi_review_period ADD COLUMN IF NOT EXISTS kpi_amendments_enabled boolean NOT NULL DEFAULT false, "
+                    +"ADD COLUMN IF NOT EXISTS kpi_amendments_close_date date, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_at timestamptz, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_by uuid");
                 assertEquals(0,scalar(c,"SELECT count(*) FROM annual_kpi_review_period WHERE attitude_configuration_id IS NOT NULL"));
                 assertEquals(1,scalar(c,"SELECT count(*) FROM role_authority ra JOIN authority a ON a.id=ra.authority_id WHERE a.name='CAN_MANAGE_ATTITUDE_CONFIGURATION'"));
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);config.setProperty("hibernate.connection.username",env.get("DB_USER"));

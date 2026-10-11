@@ -43,4 +43,11 @@ class KpiAssignmentServiceTest {
         verify(assignments).saveAllAndFlush(capture.capture());assertEquals(1,capture.getValue().size());
         assertEquals(21L,capture.getValue().get(0).getParticipantId());verify(participants,never()).saveAll(any());
     }
+    @Test void cascadeBindsOnlyMissingDraftLevelsToTheConfirmedVersion() {
+        var period=new AnnualKpiReviewPeriod();period.setId(1L);period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);period.setParticipantsSnapshottedAt(OffsetDateTime.now());
+        var plan=new KpiPlan();plan.setReviewPeriod(period);plan.setLevel(KpiLevel.COMPANY);
+        var version=new KpiPlanVersion();version.setId(8L);plan.setCurrentVersion(version);
+        when(participants.findAllByReviewPeriodId(1L)).thenReturn(List.of());service.cascade(plan);
+        verify(assignments).bindMissingDraftVersions(1L,"COMPANY",8L);
+    }
 }
