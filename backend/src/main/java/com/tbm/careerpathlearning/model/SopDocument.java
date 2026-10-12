@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.model;
 
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
+import com.tbm.careerpathlearning.enums.SopVisibility;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,6 +38,11 @@ public class SopDocument {
 
     @Column(name = "uploaded_by")
     private UUID uploadedBy;
+
+    /** FR-09-04; null is treated as PRIVATE (courses created before visibility existed). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility")
+    private SopVisibility visibility;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "generation_status", nullable = false)

@@ -4,6 +4,7 @@ import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
+import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -35,9 +36,15 @@ public interface SopService {
     SopModuleDto rejectModule(Long moduleId, String reason);
 
     // --- Module 2: trainer review of quiz (FR-10) ---
-    SopQuizQuestionDto updateQuestion(Long questionId, SopQuizQuestionDto dto);
+    SopQuizQuestionDto updateQuestion(Long questionId, SopQuizQuestionDto dto, UUID userId);
 
-    SopModuleDto approveModuleQuiz(Long moduleId);
+    /** A trainer-written question added to a module's quiz; the quiz needs approving again. */
+    SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, UUID userId);
 
-    SopModuleDto rejectModuleQuiz(Long moduleId, String reason);
+    SopModuleDto approveModuleQuiz(Long moduleId, UUID userId);
+
+    SopModuleDto rejectModuleQuiz(Long moduleId, String reason, UUID userId);
+
+    /** Review history of a module's quiz, newest first (FR-08-09). */
+    List<SopQuizReviewEventDto> getQuizHistory(Long moduleId);
 }

@@ -13,16 +13,21 @@ import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SopService } from '../../../services/sop.service';
-import { ReviewStatus, RichContent, SopDocument, SopModule } from '../../../models/sop.model';
+import {
+  ContentBlockType, ContentSection, ReviewStatus, RichContent, SopDocument, SopModule
+} from '../../../models/sop.model';
+import { environment } from '../../../../environments/environment';
+import { SopContentViewComponent, parseRichContent } from '../../../components/sop-content-view/sop-content-view.component';
 
 @Component({
   selector: 'app-sop-review',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterModule,
+    CommonModule, FormsModule, RouterModule, DragDropModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
-    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule
+    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, SopContentViewComponent
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']
@@ -144,16 +149,125 @@ export class SopReviewComponent implements OnInit {
     });
   }
 
+  // --- block editing (FR-07-06) ---
+
+  /** Insert-toolbar buttons, in the order they appear above the block list. */
+  readonly blockTypes: { type: ContentBlockType; label: string; icon: string }[] = [
+    { type: 'paragraph', label: 'Paragraph', icon: 'align-left' },
+    { type: 'steps',     label: 'Steps',     icon: 'ordered-list' },
+    { type: 'table',     label: 'Table',     icon: 'table' },
+    { type: 'warnings',  label: 'Warning',   icon: 'warning' },
+    { type: 'image',     label: 'Image',     icon: 'picture' },
+    { type: 'video',     label: 'Video',     icon: 'video-camera' },
+  ];
+
+  /** Per-block upload spinner, keyed "moduleId:blockIndex". */
+  uploading: Record<string, boolean> = {};
+
+  addBlock(moduleId: number, type: ContentBlockType): void {
+    const rich = this.editRich[moduleId];
+    if (!rich) { return; }
+    rich.sections = rich.sections || [];
+    rich.sections.push(this.blankBlock(type));
+  }
+
+  private blankBlock(type: ContentBlockType): ContentSection {
+    switch (type) {
+      case 'steps':
+        return { type, heading: 'Procedure', items: [''] };
+      case 'warnings':
+        return { type, heading: 'Critical Rules', items: [''] };
+      case 'table':
+        return { type, heading: 'Reference Table', headers: ['Column 1', 'Column 2'], rows: [['', '']] };
+      case 'image':
+        return { type, heading: 'Image', url: '', caption: '', alt: '' };
+      case 'video':
+        return { type, heading: 'Video', url: '', caption: '' };
+      default:
+        return { type: 'paragraph', heading: 'Section', body: '' };
+    }
+  }
+
+  removeBlock(moduleId: number, index: number): void {
+    this.editRich[moduleId]?.sections.splice(index, 1);
+  }
+
+  /** Reorder blocks by drag (FR-07-06). */
+  dropBlock(moduleId: number, event: CdkDragDrop<ContentSection[]>): void {
+    const sections = this.editRich[moduleId]?.sections;
+    if (!sections) { return; }
+    moveItemInArray(sections, event.previousIndex, event.currentIndex);
+  }
+
+  // list items within a steps / warnings block
+  addItem(block: ContentSection): void {
+    block.items = block.items || [];
+    block.items.push('');
+  }
+
+  removeItem(block: ContentSection, index: number): void {
+    block.items?.splice(index, 1);
+  }
+
+  // table structure
+  addRow(block: ContentSection): void {
+    const width = block.headers?.length || 1;
+    block.rows = block.rows || [];
+    block.rows.push(new Array(width).fill(''));
+  }
+
+  removeRow(block: ContentSection, index: number): void {
+    block.rows?.splice(index, 1);
+  }
+
+  addColumn(block: ContentSection): void {
+    block.headers = block.headers || [];
+    block.headers.push('Column ' + (block.headers.length + 1));
+    (block.rows || []).forEach(row => row.push(''));
+  }
+
+  removeColumn(block: ContentSection, index: number): void {
+    block.headers?.splice(index, 1);
+    (block.rows || []).forEach(row => row.splice(index, 1));
+  }
+
+  /** Upload a picked image/video and store the returned URL on the block. */
+  onMediaPicked(event: Event, moduleId: number, index: number, block: ContentSection): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) { return; }
+    const key = moduleId + ':' + index;
+    this.uploading[key] = true;
+    this.sopService.uploadMedia(file).subscribe({
+      next: media => {
+        block.url = media.url;
+        if (!block.caption) { block.caption = media.filename; }
+        if (block.type === 'image' && !block.alt) { block.alt = media.filename; }
+        this.uploading[key] = false;
+        // Allow re-picking the same file straight after a replace.
+        input.value = '';
+        this.message.success('Uploaded.');
+      },
+      error: err => {
+        this.uploading[key] = false;
+        input.value = '';
+        this.message.error(err?.error?.message || 'Upload failed.');
+      }
+    });
+  }
+
+  /** Resolve a stored media path to a URL the browser can load. */
+  mediaSrc(url?: string): string {
+    if (!url) { return ''; }
+    if (/^https?:\/\//i.test(url)) { return url; }
+    // Stored paths are API-relative ("/api/sop/media/..."); apiBaseUrl already ends in "/api".
+    return environment.apiBaseUrl.replace(/\/api$/, '') + url;
+  }
+
   // --- content helpers ---
 
   parseContent(m: SopModule): RichContent | null {
-    try {
-      const parsed = JSON.parse(m.content);
-      if (parsed && typeof parsed === 'object' && 'sections' in parsed) {
-        return parsed as RichContent;
-      }
-    } catch { /* fall through */ }
-    return null;
+    return parseRichContent(m.content);
   }
 
   statusColor(status: ReviewStatus): string {

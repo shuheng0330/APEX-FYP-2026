@@ -1,0 +1,329 @@
+<div class="sop-scoreboard page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training Automation</span>
+      <h1>Training Scoreboard</h1>
+      <p>Live progress of staff on SOP training, including anyone retraining after a failed quiz.</p>
+    </div>
+    <div class="heading-actions">
+      <span class="live" [class.paused]="!autoRefresh" aria-live="polite">
+        <span class="live-dot" aria-hidden="true"></span>
+        {{ autoRefresh ? 'Live' : 'Paused' }}@if (updatedAt) { · updated {{ updatedAt | date: 'HH:mm:ss' }} }
+      </span>
+      <label class="auto-refresh">
+        <nz-switch nzSize="small" [(ngModel)]="autoRefresh" aria-label="Refresh automatically"></nz-switch>
+        Every {{ refreshSeconds }}s
+      </label>
+      <button nz-button (click)="refreshNow()" [nzLoading]="refreshing"><nz-icon nzType="reload"></nz-icon>Refresh</button>
+      <button nz-button nzType="primary" (click)="exportCsv()" [disabled]="!filtered.length">
+        <nz-icon nzType="download"></nz-icon>Export CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- FR-10-03: one filter row that scopes everything below it -->
+  <div class="filters">
+    <nz-input-group class="search" [nzPrefix]="searchIcon">
+      <input nz-input placeholder="Search staff or job role" aria-label="Search staff" [(ngModel)]="search" (ngModelChange)="applyFilters()" />
+    </nz-input-group>
+    <ng-template #searchIcon><nz-icon nzType="search"></nz-icon></ng-template>
+    <nz-select class="filter" nzAllowClear nzPlaceHolder="All departments" [(ngModel)]="department" (ngModelChange)="applyFilters()"
+               aria-label="Department">
+      @for (d of departmentOptions; track d) { <nz-option [nzValue]="d" [nzLabel]="d"></nz-option> }
+    </nz-select>
+    <nz-select class="filter wide" nzAllowClear nzShowSearch nzPlaceHolder="All courses" [(ngModel)]="courseId"
+               (ngModelChange)="applyFilters()" aria-label="Course">
+      @for (c of data?.courses ?? []; track c.id) { <nz-option [nzValue]="c.id" [nzLabel]="c.title"></nz-option> }
+    </nz-select>
+    <nz-select class="filter" [(ngModel)]="status" (ngModelChange)="applyFilters()" aria-label="Status">
+      @for (s of statusOptions; track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
+    </nz-select>
+    @if (hasFilters) {
+      <button type="button" class="link-button" (click)="clearFilters()"><nz-icon nzType="close"></nz-icon> Clear filters</button>
+    }
+  </div>
+
+  <nz-spin [nzSpinning]="loading">
+    <div class="board" [class.refreshing]="refreshing">
+
+      <!-- Headline numbers (FR-10-01) -->
+      <div class="kpi-grid">
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="team"></nz-icon> Enrolled</span>
+          <strong>{{ kpis.enrolled }}</strong>
+          <span class="kpi-note" [class.warn]="kpis.overdue">
+            @if (kpis.overdue) {
+              <nz-icon nzType="clock-circle"></nz-icon> {{ kpis.overdue }} overdue
+            } @else {
+              Across {{ kpis.courses }} course{{ kpis.courses === 1 ? '' : 's' }}
+            }
+          </span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="safety-certificate" class="good"></nz-icon> Certified</span>
+          <strong>{{ kpis.certified }}</strong>
+          <span class="kpi-note">Every module quiz passed</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="sync"></nz-icon> In progress</span>
+          <strong>{{ kpis.inProgress }}</strong>
+          <span class="kpi-note">Studying now</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="redo" class="warning"></nz-icon> Retraining</span>
+          <strong>{{ kpis.retraining }}</strong>
+          <span class="kpi-note">{{ kpis.failedAttempts }} failed attempt{{ kpis.failedAttempts === 1 ? '' : 's' }} in total</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="minus-circle"></nz-icon> Not started</span>
+          <strong>{{ kpis.notStarted }}</strong>
+          <span class="kpi-note">Yet to begin</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="trophy"></nz-icon> Certification rate</span>
+          <strong>{{ kpis.certificationRate }}%</strong>
+          <span class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="kpis.certificationRate"
+                aria-label="Certification rate"><span [style.width.%]="kpis.certificationRate"></span></span>
+          <span class="kpi-note">{{ kpis.certified }} of {{ kpis.enrolled }} certified</span>
+        </div>
+      </div>
+
+      <!-- Average score by department: one series, so one colour and no legend -->
+      <section class="chart-card surface-panel">
+        <div class="card-head">
+          <div>
+            <h2>Average score by department</h2>
+            <p class="muted">Final score for certified staff; average of passed modules for staff still training.</p>
+          </div>
+          <div class="view-toggle" role="group" aria-label="Show as">
+            <button type="button" [class.active]="chartView === 'chart'" [attr.aria-pressed]="chartView === 'chart'" (click)="chartView = 'chart'">
+              <nz-icon nzType="bar-chart"></nz-icon> Chart
+            </button>
+            <button type="button" [class.active]="chartView === 'table'" [attr.aria-pressed]="chartView === 'table'" (click)="chartView = 'table'">
+              <nz-icon nzType="table"></nz-icon> Table
+            </button>
+          </div>
+        </div>
+
+        @if (!departmentScores.length) {
+          <nz-empty nzNotFoundContent="No enrolments match these filters."></nz-empty>
+        } @else if (chartView === 'chart') {
+          <div class="bar-chart" role="list" aria-label="Average score by department">
+            <div class="gridlines" aria-hidden="true">
+              @for (t of ticks; track t) { <span [class.base]="t === 0" [style.left.%]="t"></span> }
+            </div>
+            @for (d of departmentScores; track d.name) {
+              <div class="bar-row" role="listitem" tabindex="0" [attr.aria-label]="barLabel(d)"
+                   [class.hovered]="hovered?.name === d.name"
+                   (mouseenter)="hovered = d" (mouseleave)="hovered = null" (focus)="hovered = d" (blur)="hovered = null">
+                <span class="bar-label" [title]="d.name">{{ d.name }}</span>
+                <span class="bar-track">
+                  @if (d.average !== null) {
+                    <span class="bar" [style.width.%]="d.average"></span>
+                    <span class="bar-value" [style.left]="'calc(' + d.average + '% + 6px)'">{{ d.average }}%</span>
+                  } @else {
+                    <span class="bar-none">No scores yet</span>
+                  }
+                  @if (hovered?.name === d.name) {
+                    <span class="tooltip" role="tooltip" aria-hidden="true" [class.below]="$first" [style.left.%]="d.average ?? 0">
+                      <strong>{{ d.average !== null ? d.average + '%' : 'No score yet' }}</strong>
+                      <span class="tooltip-name">{{ d.name }}</span>
+                      <span>{{ d.certified }} of {{ d.enrolled }} certified</span>
+                      @if (d.retraining) { <span>{{ d.retraining }} retraining</span> }
+                      <span>{{ d.scored }} with a score</span>
+                    </span>
+                  }
+                </span>
+              </div>
+            }
+            <div class="axis" aria-hidden="true">
+              <span></span>
+              <span class="axis-ticks">
+                @for (t of ticks; track t) { <span [style.left.%]="t">{{ t }}%</span> }
+              </span>
+            </div>
+          </div>
+        } @else {
+          <table class="data-table">
+            <caption class="sr-only">Average score by department</caption>
+            <thead>
+              <tr><th scope="col">Department</th><th scope="col">Average score</th><th scope="col">Certified</th><th scope="col">Enrolled</th><th scope="col">Retraining</th></tr>
+            </thead>
+            <tbody>
+              @for (d of departmentScores; track d.name) {
+                <tr>
+                  <th scope="row">{{ d.name }}</th>
+                  <td>{{ d.average !== null ? d.average + '%' : '-' }}</td>
+                  <td>{{ d.certified }}</td>
+                  <td>{{ d.enrolled }}</td>
+                  <td>{{ d.retraining }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
+      <!-- Staff training records -->
+      <section class="records surface-panel">
+        <div class="card-head">
+          <div>
+            <h2>Staff training records</h2>
+            <p class="muted">{{ filtered.length }} enrolment{{ filtered.length === 1 ? '' : 's' }}{{ hasFilters ? ' match the filters' : '' }}</p>
+          </div>
+        </div>
+        <nz-table #table [nzData]="filtered" [nzPageSize]="10" nzShowSizeChanger [nzPageSizeOptions]="[10, 20, 50]"
+                  nzSize="middle" [nzScroll]="{ x: '1180px' }" [nzNoResult]="noRecords">
+          <thead>
+            <tr>
+              <th [nzSortFn]="sortStaff" nzLeft nzWidth="220px">Staff</th>
+              <th [nzSortFn]="sortDepartment">Department</th>
+              <th [nzSortFn]="sortCourse" nzWidth="230px">Course</th>
+              <th [nzSortFn]="sortModules">Modules</th>
+              <th [nzSortFn]="sortScore">Score</th>
+              <th>Status</th>
+              <th [nzSortFn]="sortRetraining" nzAlign="center">Retraining</th>
+              <th [nzSortFn]="sortAttempts" nzAlign="center">Attempts</th>
+              <th [nzSortFn]="sortLastAttempt">Last attempt</th>
+              <th [nzSortFn]="sortDue">Due</th>
+              <th nzRight nzWidth="100px"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of table.data; track r.enrollmentId) {
+              <tr>
+                <td nzLeft>
+                  <div class="staff-cell">
+                    <span class="avatar" aria-hidden="true">{{ initials(r.staffName) }}</span>
+                    <span class="staff-copy"><strong>{{ r.staffName }}</strong><small>{{ r.jobRole || '-' }}</small></span>
+                  </div>
+                </td>
+                <td>{{ r.department || '-' }}</td>
+                <td>
+                  <span class="course-title" [title]="r.courseTitle">{{ r.courseTitle }}</span>
+                  @if (r.mandatory) { <span class="flag">Mandatory</span> }
+                </td>
+                <td>
+                  <span class="modules-cell">
+                    <span class="num">{{ r.modulesPassed }}/{{ r.moduleCount }}</span>
+                    <span class="mini-meter" aria-hidden="true"><span [style.width.%]="percent(r)"></span></span>
+                  </span>
+                </td>
+                <td class="num">{{ r.score != null ? r.score + '%' : '-' }}</td>
+                <td>
+                  @let tag = statusTag(r.status);
+                  <nz-tag [nzColor]="tag.color"><nz-icon [nzType]="tag.icon"></nz-icon> {{ tag.label }}</nz-tag>
+                </td>
+                <td class="num" nzAlign="center">{{ r.retrainingAttempts }}</td>
+                <td class="num" nzAlign="center">{{ r.attempts }}</td>
+                <td>{{ r.lastAttemptAt ? (r.lastAttemptAt | date: 'd MMM, HH:mm') : '-' }}</td>
+                <td>
+                  @if (r.status === 'COMPLETED') {
+                    <span class="muted">Done {{ r.completedAt | date: 'd MMM' }}</span>
+                  } @else if (r.dueDate) {
+                    <span class="due">{{ r.dueDate | date: 'd MMM yyyy' }}</span>
+                    @if (r.overdue) { <nz-tag nzColor="red"><nz-icon nzType="clock-circle"></nz-icon> Overdue</nz-tag> }
+                  } @else {
+                    <span class="muted">No due date</span>
+                  }
+                </td>
+                <td nzRight>
+                  <button nz-button nzType="link" nzSize="small" (click)="openDetail(r)" [attr.aria-label]="'Details for ' + r.staffName">
+                    <nz-icon nzType="eye"></nz-icon>Details
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+        <ng-template #noRecords>
+          <nz-empty [nzNotFoundContent]="data?.records?.length ? 'No enrolments match these filters.' : 'Nobody is enrolled in your courses yet. Assign training to see progress here.'"></nz-empty>
+        </ng-template>
+        <p class="footnote">
+          <nz-icon nzType="info-circle"></nz-icon>
+          Certified means every module's quiz was passed at or above the assignment's pass mark. Retraining means a
+          module's quiz was failed and has not been passed yet; each failed attempt counts as a retraining attempt.
+        </p>
+      </section>
+    </div>
+  </nz-spin>
+</div>
+
+<!-- FR-10-02: one staff member's progress, module by module -->
+<nz-drawer [nzVisible]="detailOpen" nzPlacement="right" [nzWidth]="520" [nzTitle]="detail?.record?.staffName || 'Training progress'"
+           (nzOnClose)="closeDetail()">
+  <ng-container *nzDrawerContent>
+    @if (detailLoading) {
+      <div class="drawer-loading"><nz-spin nzSimple></nz-spin></div>
+    } @else if (detail) {
+      @let dt = detail;
+      @let rec = dt.record;
+      @let tag = statusTag(rec.status);
+      <div class="detail">
+        <p class="muted">{{ rec.jobRole || 'No job role' }} · {{ rec.department || 'No department' }}</p>
+        <h3>{{ rec.courseTitle }}</h3>
+        <div class="detail-tags">
+          <nz-tag [nzColor]="tag.color"><nz-icon [nzType]="tag.icon"></nz-icon> {{ tag.label }}</nz-tag>
+          @if (rec.overdue) { <nz-tag nzColor="red"><nz-icon nzType="clock-circle"></nz-icon> Overdue</nz-tag> }
+          @if (rec.mandatory) { <nz-tag>Mandatory</nz-tag> }
+          <nz-tag>{{ rec.selfEnrolled ? 'Self-enrolled' : rec.mode === 'IMMEDIATE' ? 'Start immediately' : 'Learning Portal' }}</nz-tag>
+        </div>
+        <dl class="facts">
+          <div><dt>Score</dt><dd>{{ rec.score != null ? rec.score + '%' : '-' }}</dd></div>
+          <div><dt>Pass mark</dt><dd>{{ rec.passMark }}%</dd></div>
+          <div><dt>Modules passed</dt><dd>{{ rec.modulesPassed }} of {{ rec.moduleCount }}</dd></div>
+          <div><dt>Retraining attempts</dt><dd>{{ rec.retrainingAttempts }}</dd></div>
+          <div><dt>Assigned</dt><dd>{{ rec.assignedAt ? (rec.assignedAt | date: 'd MMM yyyy') : '-' }}</dd></div>
+          <div><dt>Started</dt><dd>{{ rec.startedAt ? (rec.startedAt | date: 'd MMM yyyy') : 'Not yet' }}</dd></div>
+          <div><dt>Due</dt><dd>{{ rec.dueDate ? (rec.dueDate | date: 'd MMM yyyy') : 'No due date' }}</dd></div>
+          <div><dt>Completed</dt><dd>{{ rec.completedAt ? (rec.completedAt | date: 'd MMM yyyy') : 'Not yet' }}</dd></div>
+        </dl>
+
+        <h4>Modules</h4>
+        @for (m of dt.modules; track m.moduleId) {
+          @let mt = moduleTag(m.state);
+          <div class="module">
+            <div class="module-head">
+              <span class="module-order">{{ m.moduleOrder }}</span>
+              <strong>{{ m.title }}</strong>
+              <nz-tag [nzColor]="mt.color">{{ mt.label }}{{ m.passedScore != null ? ' · ' + m.passedScore + '%' : '' }}</nz-tag>
+            </div>
+            @if (m.attempts.length) {
+              <ol class="attempts">
+                @for (a of m.attempts; track $index; let i = $index) {
+                  <li [class.passed]="a.passed">
+                    <nz-icon [nzType]="a.passed ? 'check-circle' : 'close-circle'" nzTheme="fill"></nz-icon>
+                    <span class="attempt-no">Attempt {{ i + 1 }}</span>
+                    <strong>{{ a.score }}%</strong>
+                    <span class="muted">{{ a.correct }}/{{ a.total }} correct · {{ a.passed ? 'passed' : 'failed' }}</span>
+                    <span class="muted when">{{ a.attemptedAt | date: 'd MMM, HH:mm' }}</span>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <p class="muted no-attempts">No quiz attempts yet.</p>
+            }
+          </div>
+        }
+
+        <!-- FR-10-06: final scores the Staff Appraisal module reads -->
+        <h4>Competency scores for appraisal</h4>
+        <p class="muted">Final scores from {{ rec.staffName }}'s completed SOP courses, available read-only to the Staff Appraisal module.</p>
+        @if (competency.length) {
+          <ul class="competency">
+            @for (c of competency; track c.certificateNo) {
+              <li>
+                <nz-icon nzType="safety-certificate" class="good"></nz-icon>
+                <span class="competency-course">{{ c.courseTitle }}</span>
+                <strong>{{ c.finalScore }}%</strong>
+                <span class="muted">{{ c.completedAt | date: 'd MMM yyyy' }} · {{ c.certificateNo }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="muted no-attempts">No completed SOP courses yet.</p>
+        }
+      </div>
+    }
+  </ng-container>
+</nz-drawer>

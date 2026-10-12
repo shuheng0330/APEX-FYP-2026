@@ -1,14 +1,34 @@
 export type SopGenerationStatus = 'PENDING' | 'PARSING' | 'GENERATING' | 'COMPLETED' | 'FAILED';
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REGENERATED';
 export type QuizQuestionType = 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'FILL_IN_THE_BLANK';
+export type QuizDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
+export type QuizReviewAction = 'APPROVED' | 'REJECTED' | 'REGENERATED' | 'EDITED';
+
+export type ContentBlockType = 'paragraph' | 'steps' | 'table' | 'warnings' | 'image' | 'video';
 
 export interface ContentSection {
-  type: 'paragraph' | 'steps' | 'table' | 'warnings';
+  type: ContentBlockType;
   heading: string;
+  /** paragraph */
   body?: string;
+  /** steps, warnings */
   items?: string[];
+  /** table */
   headers?: string[];
   rows?: string[][];
+  /** image, video — URL returned by POST /api/sop/media, or an external link */
+  url?: string;
+  caption?: string;
+  /** image only: alt text for accessibility */
+  alt?: string;
+}
+
+export interface UploadedMedia {
+  url: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  kind: 'image' | 'video';
 }
 
 export interface KeyTerm {
@@ -22,6 +42,8 @@ export interface RichContent {
   tools: string[];
   sections: ContentSection[];
   keyTerms: KeyTerm[];
+  /** 'offline' when built from the SOP text because the AI was unavailable. */
+  source?: 'offline';
 }
 
 export interface SopDocument {
@@ -34,6 +56,8 @@ export interface SopDocument {
   statusMessage?: string;
   moduleCount: number;
   createdAt: string;
+  /** Trainer who uploaded the SOP, shown on each material (FR-07-07). */
+  preparedByName?: string;
 }
 
 export interface SopQuizQuestion {
@@ -44,8 +68,20 @@ export interface SopQuizQuestion {
   options: string[];
   correctAnswer: string;
   explanation?: string;
+  /** Null for questions generated before difficulty was recorded. */
+  difficulty?: QuizDifficulty | null;
   reviewStatus: ReviewStatus;
   rejectionReason?: string;
+}
+
+export interface QuizReviewEvent {
+  id: number;
+  action: QuizReviewAction;
+  /** The rejection reason, or what was edited or regenerated. */
+  detail?: string | null;
+  /** Null when the AI regenerated the quiz. */
+  actorName?: string | null;
+  createdAt: string;
 }
 
 export interface SopModule {

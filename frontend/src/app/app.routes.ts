@@ -26,6 +26,11 @@ import { StaffProfileComponent } from './pages/staff-profile/staff-profile.compo
 import { PermissionGuard } from './guards/permission.guard';
 import { SopUploadComponent } from './pages/sop/sop-upload/sop-upload.component';
 import { SopReviewComponent } from './pages/sop/sop-review/sop-review.component';
+import { SopQuizReviewComponent } from './pages/sop/sop-quiz-review/sop-quiz-review.component';
+import { SopAssignComponent } from './pages/sop/sop-assign/sop-assign.component';
+import { SopScoreboardComponent } from './pages/sop/sop-scoreboard/sop-scoreboard.component';
+import { MyLearningComponent } from './pages/learning-portal/my-learning/my-learning.component';
+import { CoursePlayerComponent } from './pages/learning-portal/course-player/course-player.component';
 
 export const routes: Routes = [
   // Guest-only routes (login, forgot, reset)
@@ -84,6 +89,36 @@ export const routes: Routes = [
         path: 'sop/review/:id', component: SopReviewComponent,
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+      },
+      {
+        path: 'sop/quiz-review', component: SopQuizReviewComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+      },
+      {
+        path: 'sop/quiz-review/:id', component: SopQuizReviewComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+      },
+      {
+        path: 'sop/assign', component: SopAssignComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+      },
+      {
+        path: 'sop/scoreboard', component: SopScoreboardComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+      },
+      {
+        path: 'my-learning', component: MyLearningComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
+      },
+      {
+        path: 'my-learning/course/:id', component: CoursePlayerComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
       },
       {
         path: 'learning/management', component: LearningManagementComponent,

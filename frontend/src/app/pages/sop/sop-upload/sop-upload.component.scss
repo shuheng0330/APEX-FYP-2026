@@ -28,5 +28,6 @@ td small { display: block; margin-top: 3px; color: var(--tbm-muted); }
 .progress-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .actions { display: flex; gap: 6px; white-space: nowrap; }
 .err { max-width: 260px; margin-top: 4px; overflow: hidden; color: var(--tbm-danger); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.note { max-width: 260px; margin-top: 4px; overflow: hidden; color: #ad6800; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 1000px) { .upload-layout { grid-template-columns: 1fr; } .stage-strip { display: none; } }
 @media (max-width: 640px) { .page-heading, .workspace-intro { flex-direction: column; } .metadata-grid { grid-template-columns: 1fr; } .metadata-grid label:first-child { grid-column: auto; } }

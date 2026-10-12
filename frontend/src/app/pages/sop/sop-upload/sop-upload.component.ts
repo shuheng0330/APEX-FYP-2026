@@ -77,7 +77,7 @@ export class SopUploadComponent implements OnInit, OnDestroy {
 
   upload(): void {
     if (!this.selectedFile) {
-      this.message.warning('Please choose a .doc, .docx, or .pdf file first.');
+      this.message.warning('Please choose a .doc, .docx, .pdf, .ppt, .pptx, .xls or .xlsx file first.');
       return;
     }
     const form = new FormData();

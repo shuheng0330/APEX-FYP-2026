@@ -3,15 +3,18 @@ package com.tbm.careerpathlearning.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tbm.careerpathlearning.dto.GeneratedSopContent;
 import com.tbm.careerpathlearning.dto.GeneratedSopPlan;
+import com.tbm.careerpathlearning.enums.QuizDifficulty;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
+import com.tbm.careerpathlearning.exception.InternalServerException;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
+import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +33,7 @@ import java.util.Map;
 /**
  * Orchestrates AI generation for an SOP: parse -> prompt Gemini -> persist
  * modules + quiz, tracking {@link SopGenerationStatus} for the UI (FR-08-04/05).
+ * When the AI fails, the remaining modules are built offline by {@link LocalSopGenerator}.
  */
 @Service
 public class SopGenerationService {
@@ -39,12 +43,17 @@ public class SopGenerationService {
     /** Safety bound on how many modules a single SOP can expand into. */
     private static final int MAX_MODULES = 25;
 
+    /** Marks a module's content as built offline, so the review page can flag it. */
+    private static final String OFFLINE_SOURCE = "offline";
+
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopQuizQuestionRepository sopQuizQuestionRepository;
+    @Autowired private SopQuizReviewEventRepository sopQuizReviewEventRepository;
     @Autowired private DocumentParserService documentParserService;
     @Autowired private FileService fileService;
     @Autowired private GeminiClient geminiClient;
+    @Autowired private LocalSopGenerator localSopGenerator;
 
     /** Self-reference so @Transactional helper methods go through the Spring proxy (not self-invocation). */
     @Autowired @Lazy private SopGenerationService self;
@@ -86,27 +95,62 @@ public class SopGenerationService {
             updateStatus(doc, SopGenerationStatus.GENERATING, null);
 
             // Phase A — plan: break the SOP into modules that together cover every section.
-            GeneratedSopPlan plan = callGeminiPlan(buildOutlinePrompt(doc.getTitle(), text));
-            List<GeneratedSopPlan.PlannedModule> planned = plan.getModules();
-            if (planned == null || planned.isEmpty()) {
-                throw new RuntimeException("The AI did not return any modules for this document.");
-            }
+            List<GeneratedSopPlan.PlannedModule> planned = planWithAi(doc, text);
 
             // Replace any previous generation, then expand each planned module on its own.
             self.clearGenerated(doc.getId());
 
-            int total = Math.min(planned.size(), MAX_MODULES);
-            for (int i = 0; i < total; i++) {
-                pace(); // stay under the free-tier rate limit between calls
-                GeneratedSopPlan.PlannedModule pm = planned.get(i);
-                // Phase B — expand: full-fidelity content for THIS module only.
-                GeneratedSopContent.GeneratedModule gm = callGeminiForModule(
-                        buildModuleExpandPrompt(doc.getTitle(), text, pm.getTitle(), pm.getCovers(), i + 1, total));
-                self.saveModuleWithQuiz(doc.getId(), i + 1, gm);
+            if (planned.isEmpty()) {
+                // The AI could not plan the SOP at all: build every module from its text instead.
+                List<GeneratedSopContent.GeneratedModule> offline = localSopGenerator.generate(doc.getTitle(), text);
+                if (offline.isEmpty()) {
+                    throw new RuntimeException("The AI is unavailable and no modules could be built from this document's text.");
+                }
+                for (int i = 0; i < offline.size(); i++) {
+                    self.saveModuleWithQuiz(doc.getId(), i + 1, offline.get(i), true);
+                }
+                updateStatus(doc, SopGenerationStatus.COMPLETED,
+                        "The AI was unavailable, so all modules were generated offline from the SOP text. Review them carefully before approving.");
+                log.info("SOP generation completed offline for document {} ({} modules)", sopDocumentId, offline.size());
+                return;
             }
 
-            updateStatus(doc, SopGenerationStatus.COMPLETED, null);
-            log.info("SOP generation completed for document {} ({} modules, 2-phase)", sopDocumentId, total);
+            int total = Math.min(planned.size(), MAX_MODULES);
+            List<GeneratedSopContent.GeneratedModule> offline = null; // built once the AI fails part-way
+            int saved = 0;
+            int firstOffline = 0;
+            for (int i = 0; i < total; i++) {
+                GeneratedSopPlan.PlannedModule pm = planned.get(i);
+                GeneratedSopContent.GeneratedModule gm = null;
+                if (offline == null) {
+                    pace(); // stay under the free-tier rate limit between calls
+                    try {
+                        // Phase B — expand: full-fidelity content for THIS module only.
+                        gm = callGeminiForModule(
+                                buildModuleExpandPrompt(doc.getTitle(), text, pm.getTitle(), pm.getCovers(), i + 1, total));
+                    } catch (Exception e) {
+                        // Stop calling the AI for this document; follow its plan offline from here on.
+                        log.warn("AI failed on module {}/{} of document {}, finishing offline: {}",
+                                i + 1, total, sopDocumentId, e.getMessage());
+                        offline = localSopGenerator.generateForPlan(text, planned.subList(0, total));
+                        firstOffline = saved + 1;
+                    }
+                }
+                boolean fromOffline = gm == null;
+                if (fromOffline) {
+                    gm = offline.get(i);
+                    if (gm == null) {
+                        continue; // no SOP text matched this planned module
+                    }
+                } else {
+                    gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), gm.getTitle()));
+                }
+                self.saveModuleWithQuiz(doc.getId(), ++saved, gm, fromOffline);
+            }
+
+            updateStatus(doc, SopGenerationStatus.COMPLETED, offlineNote(firstOffline, saved));
+            log.info("SOP generation completed for document {} ({} modules, 2-phase{})", sopDocumentId, saved,
+                    firstOffline > 0 ? ", offline from module " + firstOffline : "");
         } catch (Exception e) {
             log.error("SOP generation failed for document {}", sopDocumentId, e);
             updateStatus(doc, SopGenerationStatus.FAILED, e.getMessage());
@@ -118,30 +162,32 @@ public class SopGenerationService {
     public void clearGenerated(Long sopDocumentId) {
         List<SopModule> existing = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
         if (!existing.isEmpty()) {
-            sopQuizQuestionRepository.deleteAllBySopModuleIdIn(existing.stream().map(SopModule::getId).toList());
+            List<Long> moduleIds = existing.stream().map(SopModule::getId).toList();
+            sopQuizQuestionRepository.deleteAllBySopModuleIdIn(moduleIds);
+            sopQuizReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopModuleRepository.deleteAllBySopDocumentId(sopDocumentId);
         }
     }
 
     /** Persist one expanded module and its quiz (incremental, so progress is visible live). */
     @Transactional
-    public void saveModuleWithQuiz(Long sopDocumentId, int order, GeneratedSopContent.GeneratedModule gm) {
+    public void saveModuleWithQuiz(Long sopDocumentId, int order, GeneratedSopContent.GeneratedModule gm, boolean offline) {
         OffsetDateTime now = OffsetDateTime.now();
         SopModule module = new SopModule();
         module.setSopDocumentId(sopDocumentId);
         module.setModuleOrder(order);
         module.setTitle(stripModulePrefix(safe(gm.getTitle(), "Module " + order)));
-        module.setContent(serializeRichContent(gm));
+        module.setContent(serializeRichContent(gm, offline));
         module.setReviewStatus(ReviewStatus.PENDING);
         module.setCreatedAt(now);
         module.setUpdatedAt(now);
         SopModule savedModule = sopModuleRepository.save(module);
 
-        saveQuestions(savedModule.getId(), gm.getQuiz(), now);
+        saveQuestions(savedModule.getId(), gm.getQuiz(), now, ReviewStatus.PENDING);
     }
 
     /** Serialize the structured content fields to JSON for storage in the content column. */
-    private String serializeRichContent(GeneratedSopContent.GeneratedModule gm) {
+    private String serializeRichContent(GeneratedSopContent.GeneratedModule gm, boolean offline) {
         try {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("summary", gm.getSummary() != null ? gm.getSummary() : "");
@@ -149,6 +195,9 @@ public class SopGenerationService {
             map.put("tools", gm.getTools() != null ? gm.getTools() : List.of());
             map.put("sections", gm.getSections() != null ? gm.getSections() : List.of());
             map.put("keyTerms", gm.getKeyTerms() != null ? gm.getKeyTerms() : List.of());
+            if (offline) {
+                map.put("source", OFFLINE_SOURCE);
+            }
             return objectMapper.writeValueAsString(map);
         } catch (Exception e) {
             return gm.getSummary() != null ? gm.getSummary() : "";
@@ -159,12 +208,13 @@ public class SopGenerationService {
     @Transactional
     public void regenerateModule(SopModule module, String reason) {
         SopDocument doc = sopDocumentRepository.findById(module.getSopDocumentId()).orElseThrow();
-        GeneratedSopContent.GeneratedModule gm = callGeminiForModule(
+        GeneratedSopContent.GeneratedModule gm = callGeminiForRegeneration(
                 buildModuleRegenerationPrompt(doc.getTitle(), doc.getExtractedText(), module.getTitle(), reason));
+        gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), safe(gm.getTitle(), module.getTitle())));
 
         OffsetDateTime now = OffsetDateTime.now();
         module.setTitle(safe(gm.getTitle(), module.getTitle()));
-        module.setContent(serializeRichContent(gm));
+        module.setContent(serializeRichContent(gm, false));
         module.setReviewStatus(ReviewStatus.REGENERATED);
         module.setRejectionReason(reason);
         module.setUpdatedAt(now);
@@ -172,22 +222,40 @@ public class SopGenerationService {
 
         // Refresh the quiz to match the regenerated content.
         sopQuizQuestionRepository.deleteAllBySopModuleIdIn(List.of(module.getId()));
-        saveQuestions(module.getId(), gm.getQuiz(), now);
+        saveQuestions(module.getId(), gm.getQuiz(), now, ReviewStatus.REGENERATED);
     }
 
     /** Regenerates only the quiz for a module from a trainer's rejection reason (FR-10-03). */
     @Transactional
     public void regenerateQuiz(SopModule module, String reason) {
         SopDocument doc = sopDocumentRepository.findById(module.getSopDocumentId()).orElseThrow();
-        GeneratedSopContent.GeneratedModule gm = callGeminiForModule(
+        GeneratedSopContent.GeneratedModule gm = callGeminiForRegeneration(
                 buildQuizRegenerationPrompt(doc.getTitle(), module.getTitle(), module.getContent(), reason));
+        gm.setQuiz(fullQuiz(sectionsOf(module.getContent()), gm.getQuiz(), module.getTitle()));
 
         OffsetDateTime now = OffsetDateTime.now();
         sopQuizQuestionRepository.deleteAllBySopModuleIdIn(List.of(module.getId()));
-        saveQuestions(module.getId(), gm.getQuiz(), now);
+        saveQuestions(module.getId(), gm.getQuiz(), now, ReviewStatus.REGENERATED);
     }
 
-    private void saveQuestions(Long moduleId, List<GeneratedSopContent.GeneratedQuestion> questions, OffsetDateTime now) {
+    /** The AI's quiz, topped up from the module's own text when it has fewer than QUIZ_SIZE questions. */
+    private List<GeneratedSopContent.GeneratedQuestion> fullQuiz(List<GeneratedSopContent.ContentSection> sections,
+                                                               List<GeneratedSopContent.GeneratedQuestion> quiz,
+                                                               String title) {
+        return localSopGenerator.topUpQuiz(sections, quiz, title, LocalSopGenerator.QUIZ_SIZE);
+    }
+
+    /** The content sections stored for a module, or none when its content is not structured JSON. */
+    private List<GeneratedSopContent.ContentSection> sectionsOf(String content) {
+        try {
+            return objectMapper.readValue(content, GeneratedSopContent.GeneratedModule.class).getSections();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private void saveQuestions(Long moduleId, List<GeneratedSopContent.GeneratedQuestion> questions,
+                               OffsetDateTime now, ReviewStatus status) {
         if (questions == null) {
             return;
         }
@@ -199,7 +267,8 @@ public class SopGenerationService {
             q.setOptions(writeOptions(gq.getOptions()));
             q.setCorrectAnswer(gq.getAnswer());
             q.setExplanation(gq.getExplanation());
-            q.setReviewStatus(ReviewStatus.PENDING);
+            q.setDifficulty(parseDifficulty(gq.getDifficulty()));
+            q.setReviewStatus(status);
             q.setCreatedAt(now);
             q.setUpdatedAt(now);
             sopQuizQuestionRepository.save(q);
@@ -207,6 +276,28 @@ public class SopGenerationService {
     }
 
     // --- Gemini calls + JSON parsing -----------------------------------------
+
+    /** Phase A via the AI. An empty list means the AI could not plan the SOP, so it is built offline. */
+    private List<GeneratedSopPlan.PlannedModule> planWithAi(SopDocument doc, String text) {
+        try {
+            List<GeneratedSopPlan.PlannedModule> planned = callGeminiPlan(buildOutlinePrompt(doc.getTitle(), text)).getModules();
+            return planned == null ? List.of() : planned;
+        } catch (Exception e) {
+            log.warn("AI planning failed for document {}, generating offline: {}", doc.getId(), e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** AI call for a trainer's regenerate request. There is no offline fallback: it must follow the feedback. */
+    private GeneratedSopContent.GeneratedModule callGeminiForRegeneration(String prompt) {
+        try {
+            return callGeminiForModule(prompt);
+        } catch (Exception e) {
+            log.warn("AI regeneration failed: {}", e.getMessage());
+            throw new InternalServerException("AI unavailable",
+                    "The AI service is unavailable right now, so nothing was regenerated. Please try again later.", e);
+        }
+    }
 
     private GeneratedSopPlan callGeminiPlan(String prompt) {
         String raw = geminiClient.generateJson(prompt); // throws with a clear message on HTTP errors
@@ -286,8 +377,8 @@ public class SopGenerationService {
                   ],
                   "keyTerms": [{"term":"Term","definition":"Definition"}],
                   "quiz": [
-                    {"type":"MULTIPLE_CHOICE","question":"...","options":["a","b","c","d"],"answer":"exact option text","explanation":"..."},
-                    {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"..."}
+                    {"type":"MULTIPLE_CHOICE","question":"...","options":["a","b","c","d"],"answer":"exact option text","explanation":"...","difficulty":"MEDIUM"},
+                    {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"...","difficulty":"EASY"}
                   ]
                 }
 
@@ -298,7 +389,10 @@ public class SopGenerationService {
                 - learningObjectives: 2-4 items each starting with an action verb.
                 - tools: only if there are physical tools or materials; otherwise empty [].
                 - keyTerms: key technical terms with definitions; otherwise [].
-                - quiz: 2-3 questions, types MULTIPLE_CHOICE or TRUE_FALSE only.
+                - quiz: exactly 4 questions, types MULTIPLE_CHOICE or TRUE_FALSE only, with at
+                  least one of each type.
+                - difficulty of each question: EASY (recall one stated fact), MEDIUM (apply a step
+                  or rule), HARD (combine several rules or judge a scenario).
 
                 Module title: %s
                 This module must completely cover: %s
@@ -329,10 +423,13 @@ public class SopGenerationService {
                   ],
                   "keyTerms": [{"term":"string","definition":"string"}],
                   "quiz": [
-                    {"type":"MULTIPLE_CHOICE","question":"...","options":["a","b","c","d"],"answer":"...","explanation":"..."},
-                    {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"..."}
+                    {"type":"MULTIPLE_CHOICE","question":"...","options":["a","b","c","d"],"answer":"...","explanation":"...","difficulty":"MEDIUM"},
+                    {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"...","difficulty":"EASY"}
                   ]
                 }
+                The quiz must have exactly 4 questions. Give every quiz question a "difficulty": EASY
+                (recall one stated fact), MEDIUM (apply a step or rule) or HARD (combine several rules
+                or judge a scenario).
 
                 SOP title: %s
                 Module to regenerate: %s
@@ -345,12 +442,14 @@ public class SopGenerationService {
         return """
                 Regenerate ONLY the quiz for the training module below. The trainer rejected the
                 previous quiz for this reason: "%s". Address that feedback. Keep the same "title"
-                and "content" exactly as given, and produce a new 2-4 question quiz (types:
+                and "content" exactly as given, and produce a new quiz of exactly 4 questions (types:
                 MULTIPLE_CHOICE with 4 options, TRUE_FALSE with ["True","False"], FILL_IN_THE_BLANK
-                using ___) with exact "answer" and one-sentence "explanation".
+                using ___) with exact "answer", one-sentence "explanation" and a "difficulty" of
+                EASY (recall one stated fact), MEDIUM (apply a step or rule) or HARD (combine several
+                rules or judge a scenario).
 
                 Respond with ONLY a JSON object of this exact shape:
-                {"title":"string","content":"string","quiz":[{"type":"MULTIPLE_CHOICE","question":"string","options":["a","b","c","d"],"answer":"string","explanation":"string"}]}
+                {"title":"string","content":"string","quiz":[{"type":"MULTIPLE_CHOICE","question":"string","options":["a","b","c","d"],"answer":"string","explanation":"string","difficulty":"MEDIUM"}]}
 
                 SOP title: %s
                 Module title: %s
@@ -360,6 +459,16 @@ public class SopGenerationService {
     }
 
     // --- helpers -------------------------------------------------------------
+
+    /** Status note when the AI dropped out part-way; null when every module came from the AI. */
+    private String offlineNote(int firstOffline, int saved) {
+        if (firstOffline == 0 || firstOffline > saved) {
+            return null;
+        }
+        String modules = firstOffline == saved ? "module " + saved + " was" : "modules " + firstOffline + "-" + saved + " were";
+        return "The AI became unavailable, so " + modules
+                + " generated offline from the SOP text. Review them carefully before approving.";
+    }
 
     /** Sleep between Gemini calls so we stay within the free-tier requests-per-minute limit. */
     private void pace() {
@@ -378,6 +487,18 @@ public class SopGenerationService {
         doc.setStatusMessage(message);
         doc.setUpdatedAt(OffsetDateTime.now());
         sopDocumentRepository.save(doc);
+    }
+
+    /** The AI's difficulty label, or null when it gave none (FR-08-07). */
+    private QuizDifficulty parseDifficulty(String difficulty) {
+        if (difficulty == null) {
+            return null;
+        }
+        try {
+            return QuizDifficulty.valueOf(difficulty.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private QuizQuestionType parseType(String type) {
