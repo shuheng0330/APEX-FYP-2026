@@ -16,4 +16,7 @@ public class SopDocumentDto {
     private String statusMessage;
     private int moduleCount;
     private OffsetDateTime createdAt;
+
+    /** Preparer shown on the material (FR-07-07). */
+    private String preparedByName;
 }

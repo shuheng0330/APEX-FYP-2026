@@ -28,9 +28,9 @@
 
     <div class="upload-layout">
       <label class="drop-zone">
-        <input type="file" accept=".doc,.docx,.pdf" (change)="onFileSelected($event)" />
+        <input type="file" accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx" (change)="onFileSelected($event)" />
         <nz-icon nzType="inbox" nzTheme="outline"></nz-icon>
-        <strong>{{ selectedFile?.name || 'Choose a .doc, .docx, or .pdf SOP' }}</strong>
+        <strong>{{ selectedFile?.name || 'Choose a Word, PDF, PowerPoint or Excel SOP' }}</strong>
         <span>{{ selectedFile ? 'Document ready to upload' : 'Select a document from your device' }}</span>
       </label>
 
@@ -73,6 +73,8 @@
                   [nzStatus]="doc.generationStatus === 'FAILED' ? 'exception' : 'active'"></nz-progress>
                 @if (doc.generationStatus === 'FAILED' && doc.statusMessage) {
                   <div class="err" [title]="doc.statusMessage">{{ doc.statusMessage }}</div>
+                } @else if (doc.statusMessage) {
+                  <div class="note" [title]="doc.statusMessage">{{ doc.statusMessage }}</div>
                 }
               </td>
               <td><strong>{{ doc.moduleCount }}</strong></td>

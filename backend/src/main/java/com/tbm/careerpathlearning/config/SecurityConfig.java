@@ -46,6 +46,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // Training-material images/video (FR-07-06). Must be readable without a
+                        // bearer token because <img>/<video> src requests do not send one.
+                        // Filenames are UUID-prefixed, so URLs are unguessable; GET only, and
+                        // uploading still requires CAN_MANAGE_TRAINING.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/sop/media/**").permitAll()
+
                         // Protect backend API
                         .requestMatchers("/api/**").authenticated()
 

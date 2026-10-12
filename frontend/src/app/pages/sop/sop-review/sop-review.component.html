@@ -28,6 +28,9 @@
             <dl>
               <div><dt>Department</dt><dd>{{ document.departmentTag || '-' }}</dd></div>
               <div><dt>Version</dt><dd>{{ document.version || '-' }}</dd></div>
+              <!-- FR-07-07: preparer and date shown on the material -->
+              <div><dt>Prepared by</dt><dd>{{ document.preparedByName || '-' }}</dd></div>
+              <div><dt>Date</dt><dd>{{ document.createdAt ? (document.createdAt | date: 'd MMM yyyy') : '-' }}</dd></div>
             </dl>
             <div class="review-progress">
               <div><span>Material approved</span><strong>{{ approvedMaterialCount }}/{{ modules.length }}</strong></div>
@@ -99,30 +102,183 @@
                     </div>
                   }
 
-                  @for (section of er.sections; track $index) {
-                    <div class="edit-group">
-                      <span class="edit-group-label">{{ section.type }} — heading</span>
-                      <input nz-input [(ngModel)]="section.heading" class="edit-list-item" placeholder="Section heading" />
-                      @switch (section.type) {
-                        @case ('paragraph') {
-                          <textarea nz-input [(ngModel)]="section.body" [nzAutosize]="{ minRows: 3, maxRows: 8 }" class="edit-list-item"></textarea>
-                        }
-                        @case ('steps') {
-                          @for (item of section.items; track $index; let i = $index) {
-                            <input nz-input [(ngModel)]="section.items![i]" class="edit-list-item" />
-                          }
-                        }
-                        @case ('warnings') {
-                          @for (item of section.items; track $index; let i = $index) {
-                            <textarea nz-input [(ngModel)]="section.items![i]" [nzAutosize]="{ minRows: 2, maxRows: 3 }" class="edit-list-item"></textarea>
-                          }
-                        }
-                        @case ('table') {
-                          <p class="edit-table-note">Table columns cannot be edited inline — reject and regenerate if the table needs changes.</p>
-                        }
+                  <!-- Content blocks: insert toolbar + drag-reorderable list (FR-07-06) -->
+                  <div class="blocks-head">
+                    <span class="edit-group-label">Content Blocks</span>
+                    <div class="insert-bar">
+                      <span class="insert-label">Insert:</span>
+                      @for (bt of blockTypes; track bt.type) {
+                        <button nz-button nzSize="small" type="button"
+                                (click)="addBlock(module.id, bt.type)">
+                          <nz-icon [nzType]="bt.icon"></nz-icon>{{ bt.label }}
+                        </button>
                       }
                     </div>
-                  }
+                  </div>
+
+                  <div cdkDropList class="block-list"
+                       (cdkDropListDropped)="dropBlock(module.id, $event)">
+                    @for (section of er.sections; track $index; let bi = $index) {
+                      <div class="block-card" cdkDrag>
+                        <div class="block-bar" cdkDragHandle>
+                          <nz-icon nzType="holder" class="drag-dots"></nz-icon>
+                          <span class="block-kind">{{ section.type }}</span>
+                          <button nz-button nzType="text" nzSize="small" class="block-remove"
+                                  type="button" (click)="removeBlock(module.id, bi)"
+                                  title="Remove block">
+                            <nz-icon nzType="close"></nz-icon>
+                          </button>
+                        </div>
+
+                        <input nz-input [(ngModel)]="section.heading"
+                               [ngModelOptions]="{ standalone: true }"
+                               class="edit-list-item" placeholder="Block heading" />
+
+                        @switch (section.type) {
+                          @case ('paragraph') {
+                            <textarea nz-input [(ngModel)]="section.body"
+                                      [ngModelOptions]="{ standalone: true }"
+                                      [nzAutosize]="{ minRows: 3, maxRows: 10 }"
+                                      class="edit-list-item" placeholder="Body text"></textarea>
+                          }
+
+                          @case ('steps') {
+                            @for (item of section.items; track $index; let ii = $index) {
+                              <div class="row-line">
+                                <span class="row-index">{{ ii + 1 }}</span>
+                                <input nz-input [(ngModel)]="section.items![ii]"
+                                       [ngModelOptions]="{ standalone: true }" />
+                                <button nz-button nzType="text" nzSize="small" type="button"
+                                        (click)="removeItem(section, ii)">
+                                  <nz-icon nzType="delete"></nz-icon>
+                                </button>
+                              </div>
+                            }
+                            <button nz-button nzSize="small" nzType="dashed" type="button"
+                                    (click)="addItem(section)">
+                              <nz-icon nzType="plus"></nz-icon>Add step
+                            </button>
+                          }
+
+                          @case ('warnings') {
+                            @for (item of section.items; track $index; let ii = $index) {
+                              <div class="row-line">
+                                <nz-icon nzType="warning" class="warn-dot"></nz-icon>
+                                <textarea nz-input [(ngModel)]="section.items![ii]"
+                                          [ngModelOptions]="{ standalone: true }"
+                                          [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+                                <button nz-button nzType="text" nzSize="small" type="button"
+                                        (click)="removeItem(section, ii)">
+                                  <nz-icon nzType="delete"></nz-icon>
+                                </button>
+                              </div>
+                            }
+                            <button nz-button nzSize="small" nzType="dashed" type="button"
+                                    (click)="addItem(section)">
+                              <nz-icon nzType="plus"></nz-icon>Add warning
+                            </button>
+                          }
+
+                          @case ('table') {
+                            <div class="table-edit-scroll">
+                              <table class="table-edit">
+                                <thead>
+                                  <tr>
+                                    @for (h of section.headers; track $index; let ci = $index) {
+                                      <th>
+                                        <input nz-input [(ngModel)]="section.headers![ci]"
+                                               [ngModelOptions]="{ standalone: true }" />
+                                        <button nz-button nzType="text" nzSize="small" type="button"
+                                                (click)="removeColumn(section, ci)" title="Remove column">
+                                          <nz-icon nzType="close"></nz-icon>
+                                        </button>
+                                      </th>
+                                    }
+                                    <th class="col-add">
+                                      <button nz-button nzSize="small" nzType="dashed" type="button"
+                                              (click)="addColumn(section)">
+                                        <nz-icon nzType="plus"></nz-icon>
+                                      </button>
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  @for (row of section.rows; track $index; let ri = $index) {
+                                    <tr>
+                                      @for (cell of row; track $index; let ci = $index) {
+                                        <td>
+                                          <input nz-input [(ngModel)]="section.rows![ri][ci]"
+                                                 [ngModelOptions]="{ standalone: true }" />
+                                        </td>
+                                      }
+                                      <td class="col-add">
+                                        <button nz-button nzType="text" nzSize="small" type="button"
+                                                (click)="removeRow(section, ri)" title="Remove row">
+                                          <nz-icon nzType="delete"></nz-icon>
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
+                            <button nz-button nzSize="small" nzType="dashed" type="button"
+                                    (click)="addRow(section)">
+                              <nz-icon nzType="plus"></nz-icon>Add row
+                            </button>
+                          }
+
+                          @case ('image') {
+                            <div class="media-edit">
+                              @if (section.url) {
+                                <img [src]="mediaSrc(section.url)" [alt]="section.alt || ''"
+                                     class="media-preview" />
+                              }
+                              <div class="media-actions">
+                                <label class="file-btn">
+                                  <input type="file" accept="image/*" hidden
+                                         (change)="onMediaPicked($event, module.id, bi, section)" />
+                                  <nz-icon [nzType]="uploading[module.id + ':' + bi] ? 'loading' : 'upload'"></nz-icon>
+                                  {{ section.url ? 'Replace image' : 'Upload image' }}
+                                </label>
+                                <span class="media-hint">PNG, JPEG, GIF, WEBP or SVG - max 10 MB</span>
+                              </div>
+                              <input nz-input [(ngModel)]="section.caption"
+                                     [ngModelOptions]="{ standalone: true }"
+                                     class="edit-list-item" placeholder="Caption (optional)" />
+                              <input nz-input [(ngModel)]="section.alt"
+                                     [ngModelOptions]="{ standalone: true }"
+                                     class="edit-list-item" placeholder="Alt text for screen readers" />
+                            </div>
+                          }
+
+                          @case ('video') {
+                            <div class="media-edit">
+                              @if (section.url) {
+                                <video [src]="mediaSrc(section.url)" class="media-preview" controls></video>
+                              }
+                              <div class="media-actions">
+                                <label class="file-btn">
+                                  <input type="file" accept="video/*" hidden
+                                         (change)="onMediaPicked($event, module.id, bi, section)" />
+                                  <nz-icon [nzType]="uploading[module.id + ':' + bi] ? 'loading' : 'upload'"></nz-icon>
+                                  {{ section.url ? 'Replace video' : 'Upload video' }}
+                                </label>
+                                <span class="media-hint">MP4, WEBM, OGG or MOV - max 200 MB</span>
+                              </div>
+                              <input nz-input [(ngModel)]="section.caption"
+                                     [ngModelOptions]="{ standalone: true }"
+                                     class="edit-list-item" placeholder="Caption (optional)" />
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+
+                    @if (!er.sections || !er.sections.length) {
+                      <p class="blocks-empty">No content blocks yet - use the Insert buttons above to add one.</p>
+                    }
+                  </div>
 
                   @if (er.keyTerms?.length) {
                     <div class="edit-group">
@@ -141,108 +297,8 @@
 
             <!-- Preview mode: rich rendered content -->
             @if (!editMode[module.id]) {
-              @let rich = parseContent(module);
               <div class="content-scroll">
-
-                @if (rich) {
-                  <!-- AI Summary -->
-                  @if (rich.summary) {
-                    <div class="ai-summary-box">
-                      <div class="ai-label"><nz-icon nzType="robot"></nz-icon> AI SUMMARY</div>
-                      <p>{{ rich.summary }}</p>
-                    </div>
-                  }
-
-                  <!-- Learning Objectives -->
-                  @if (rich.learningObjectives?.length) {
-                    <h3 class="section-title">What You Will Learn</h3>
-                    <div class="objectives-grid">
-                      @for (obj of rich.learningObjectives; track $index) {
-                        <div class="objective-card">
-                          <nz-icon nzType="check-circle" nzTheme="twotone" [nzTwotoneColor]="'#13c2a8'"></nz-icon>
-                          <span>{{ obj }}</span>
-                        </div>
-                      }
-                    </div>
-                  }
-
-                  <!-- Tools -->
-                  @if (rich.tools?.length) {
-                    <h3 class="section-title">Tools & Materials Required</h3>
-                    <div class="tools-row">
-                      @for (tool of rich.tools; track $index) {
-                        <nz-tag nzColor="default">{{ tool }}</nz-tag>
-                      }
-                    </div>
-                  }
-
-                  <!-- Content Sections -->
-                  @for (section of rich.sections; track $index) {
-                    @if (section.heading) {
-                      <h3 class="section-title">{{ section.heading }}</h3>
-                    }
-                    @switch (section.type) {
-                      @case ('paragraph') {
-                        <p class="section-body">{{ section.body }}</p>
-                      }
-                      @case ('steps') {
-                        <ol class="steps-list">
-                          @for (item of section.items; track $index; let i = $index) {
-                            <li>
-                              <span class="step-number">{{ i + 1 }}</span>
-                              <span>{{ item }}</span>
-                            </li>
-                          }
-                        </ol>
-                      }
-                      @case ('table') {
-                        <div class="table-wrapper">
-                          <table class="content-table">
-                            @if (section.headers?.length) {
-                              <thead>
-                                <tr>@for (h of section.headers; track $index) { <th>{{ h }}</th> }</tr>
-                              </thead>
-                            }
-                            <tbody>
-                              @for (row of section.rows; track $index; let ri = $index) {
-                                <tr [class.first-row]="ri === 0">
-                                  @for (cell of row; track $index) { <td>{{ cell }}</td> }
-                                </tr>
-                              }
-                            </tbody>
-                          </table>
-                        </div>
-                      }
-                      @case ('warnings') {
-                        <div class="warnings-list">
-                          @for (item of section.items; track $index) {
-                            <div class="warning-card">
-                              <nz-icon nzType="stop" nzTheme="outline"></nz-icon>
-                              <span>{{ item }}</span>
-                            </div>
-                          }
-                        </div>
-                      }
-                    }
-                  }
-
-                  <!-- Key Terms -->
-                  @if (rich.keyTerms?.length) {
-                    <h3 class="section-title">Key Terms to Know</h3>
-                    <div class="terms-grid">
-                      @for (kt of rich.keyTerms; track $index) {
-                        <div class="term-card">
-                          <strong>{{ kt.term }}</strong>
-                          <p>{{ kt.definition }}</p>
-                        </div>
-                      }
-                    </div>
-                  }
-
-                } @else {
-                  <!-- Fallback for plain text -->
-                  <pre class="plain-content">{{ module.content }}</pre>
-                }
+                <app-sop-content-view [content]="module.content" [reviewer]="true"></app-sop-content-view>
               </div>
             }
 

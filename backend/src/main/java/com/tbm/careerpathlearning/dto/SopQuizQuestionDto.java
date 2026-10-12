@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.dto;
 
+import com.tbm.careerpathlearning.enums.QuizDifficulty;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
 import lombok.Data;
@@ -15,6 +16,7 @@ public class SopQuizQuestionDto {
     private List<String> options;
     private String correctAnswer;
     private String explanation;
+    private QuizDifficulty difficulty;
     private ReviewStatus reviewStatus;
     private String rejectionReason;
 }

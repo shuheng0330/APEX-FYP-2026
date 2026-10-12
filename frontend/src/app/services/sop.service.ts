@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { SopDetail, SopDocument, SopModule, SopQuizQuestion } from '../models/sop.model';
+import { QuizReviewEvent, SopDetail, SopDocument, SopModule, SopQuizQuestion, UploadedMedia } from '../models/sop.model';
 
 /**
  * Client for the SOP training endpoints (/api/sop): upload + AI generation
@@ -57,11 +57,28 @@ export class SopService {
     return this.http.put<SopQuizQuestion>(`${this.baseUrl}/quiz/${questionId}`, dto, { withCredentials: true });
   }
 
+  /** Adds a trainer-written question; the quiz then needs approving again. */
+  addQuestion(moduleId: number, dto: Partial<SopQuizQuestion>): Observable<SopQuizQuestion> {
+    return this.http.post<SopQuizQuestion>(`${this.baseUrl}/module/${moduleId}/quiz`, dto, { withCredentials: true });
+  }
+
   approveQuiz(moduleId: number): Observable<SopModule> {
     return this.http.post<SopModule>(`${this.baseUrl}/module/${moduleId}/quiz/approve`, {}, { withCredentials: true });
   }
 
   rejectQuiz(moduleId: number, reason: string): Observable<SopModule> {
     return this.http.post<SopModule>(`${this.baseUrl}/module/${moduleId}/quiz/reject`, { reason }, { withCredentials: true });
+  }
+
+  /** Who approved, rejected or edited a module's quiz, and each AI regeneration (FR-08-09). */
+  quizHistory(moduleId: number): Observable<QuizReviewEvent[]> {
+    return this.http.get<QuizReviewEvent[]>(`${this.baseUrl}/module/${moduleId}/quiz/history`, { withCredentials: true });
+  }
+
+  /** Uploads an image or video for a content block (FR-07-06). */
+  uploadMedia(file: File): Observable<UploadedMedia> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<UploadedMedia>(`${this.baseUrl}/media`, form, { withCredentials: true });
   }
 }

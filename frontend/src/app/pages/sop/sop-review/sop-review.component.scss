@@ -42,52 +42,6 @@ dt { color: var(--tbm-muted); font-size: 11px; } dd { margin: 0; font-size: 11px
 /* Content scroll area */
 .content-scroll { max-height: calc(100dvh - 310px); overflow-y: auto; padding-right: 6px; margin-bottom: 16px; }
 
-/* AI Summary */
-.ai-summary-box { border-left: 4px solid #13c2a8; background: #f0fdf9; padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 22px; }
-.ai-label { font-size: 11px; font-weight: 700; color: #13c2a8; letter-spacing: .5px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
-.ai-summary-box p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--tbm-text); }
-
-/* Section title */
-.section-title { font-size: 15px; font-weight: 600; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--tbm-border); color: var(--tbm-text); }
-
-/* Learning objectives */
-.objectives-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
-.objective-card { display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; background: var(--tbm-surface-subtle); border-radius: 7px; font-size: 12px; line-height: 1.5; }
-
-/* Tools */
-.tools-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
-
-/* Paragraph */
-.section-body { font-size: 13px; line-height: 1.75; color: var(--tbm-text); margin-bottom: 18px; white-space: pre-wrap; }
-
-/* Steps */
-.steps-list { list-style: none; padding: 0; margin: 0 0 18px; }
-.steps-list li { display: flex; align-items: flex-start; gap: 13px; padding: 11px 0; border-bottom: 1px solid var(--tbm-border); font-size: 13px; line-height: 1.65; }
-.steps-list li:last-child { border-bottom: 0; }
-.step-number { min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #13c2a8; color: #fff; border-radius: 50%; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-
-/* Table */
-.table-wrapper { overflow-x: auto; margin-bottom: 18px; border: 1px solid var(--tbm-border); border-radius: 7px; }
-.content-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.content-table th { background: #f0fdf9; color: #13c2a8; text-align: left; padding: 9px 13px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-.content-table td { padding: 9px 13px; border-bottom: 1px solid var(--tbm-border); }
-.content-table tr:last-child td { border-bottom: 0; }
-.content-table tr.first-row td { background: #fafffe; font-weight: 600; }
-
-/* Warnings */
-.warnings-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-.warning-card { display: flex; align-items: flex-start; gap: 11px; padding: 12px 15px; background: #fff5f5; border: 1px solid #ffd0d0; border-radius: 7px; font-size: 12px; line-height: 1.65; color: #c0392b; }
-.warning-card .anticon { margin-top: 2px; color: #e74c3c; flex-shrink: 0; font-size: 14px; }
-
-/* Key terms */
-.terms-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
-.term-card { padding: 13px 15px; border: 1px solid var(--tbm-border); border-radius: 7px; font-size: 12px; }
-.term-card strong { display: block; font-size: 13px; margin-bottom: 4px; color: var(--tbm-text); }
-.term-card p { margin: 0; color: var(--tbm-muted); line-height: 1.5; }
-
-/* Plain text fallback */
-.plain-content { white-space: pre-wrap; font-size: 13px; line-height: 1.7; padding: 14px; background: var(--tbm-surface-subtle); border-radius: 7px; font-family: inherit; margin-bottom: 16px; }
-
 /* Rejection/edit helpers */
 .previous-reason, .reject-box { padding: 12px; border-radius: 6px; margin-top: 12px; }
 .previous-reason { display: flex; gap: 8px; color: var(--tbm-muted); background: #fff8e7; font-size: 11px; }
@@ -101,6 +55,223 @@ dt { color: var(--tbm-muted); font-size: 11px; } dd { margin: 0; font-size: 11px
 @media (max-width: 960px) {
   .workbench { grid-template-columns: 1fr; }
   .navigator { position: static; }
-  .objectives-grid, .terms-grid { grid-template-columns: 1fr; }
   .content-scroll { max-height: none; }
+}
+
+
+/* ---------- Block editor (FR-07-06) ---------- */
+
+.blocks-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.insert-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+
+  .insert-label {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  button nz-icon {
+    margin-right: 4px;
+  }
+}
+
+.block-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  min-height: 40px;
+}
+
+.block-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  /* CDK applies this to the element being dragged */
+  &.cdk-drag-preview {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+    opacity: 0.95;
+  }
+
+  &.cdk-drag-placeholder {
+    opacity: 0.35;
+    border-style: dashed;
+  }
+}
+
+.block-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  .drag-dots {
+    color: rgba(0, 0, 0, 0.3);
+  }
+
+  .block-kind {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.45);
+    font-weight: 600;
+  }
+
+  .block-remove {
+    margin-left: auto;
+    color: rgba(0, 0, 0, 0.35);
+
+    &:hover {
+      color: #cf1322;
+    }
+  }
+}
+
+/* Smooth reordering animation for the items that shift out of the way */
+.cdk-drop-list-dragging .block-card:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.blocks-empty {
+  margin: 0;
+  padding: 14px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+}
+
+.row-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  input,
+  textarea {
+    flex: 1;
+  }
+
+  .row-index {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: #f0f2f5;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .warn-dot {
+    flex: none;
+    margin-top: 8px;
+    color: #d48806;
+  }
+}
+
+/* ---------- Inline table editing ---------- */
+
+.table-edit-scroll {
+  overflow-x: auto;
+}
+
+.table-edit {
+  border-collapse: collapse;
+  width: 100%;
+
+  th,
+  td {
+    border: 1px solid #e8e8e8;
+    padding: 4px;
+    vertical-align: middle;
+  }
+
+  th {
+    background: #fafafa;
+    white-space: nowrap;
+
+    input {
+      min-width: 110px;
+    }
+  }
+
+  .col-add {
+    width: 1%;
+    text-align: center;
+    background: transparent;
+    border: none;
+  }
+}
+
+/* ---------- Media blocks ---------- */
+
+.media-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.media-preview {
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+  background: #fafafa;
+  align-self: flex-start;
+}
+
+.media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+
+  &:hover {
+    border-color: #40a9ff;
+    color: #40a9ff;
+  }
+}
+
+.media-hint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
 }

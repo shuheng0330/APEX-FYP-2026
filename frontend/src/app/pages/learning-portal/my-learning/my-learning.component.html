@@ -1,0 +1,277 @@
+<div class="my-learning page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Learning Portal</span>
+      <h1>My Learning</h1>
+      <p>Your assigned SOP training, your progress, and courses open for enrolment.</p>
+    </div>
+    <!-- FR-11-07: learning summary -->
+    <div class="summary-tiles">
+      @for (t of tiles; track t.label) {
+        <div class="summary-tile" [ngClass]="'tone-' + t.tone">
+          <strong>{{ t.value }}</strong>
+          <span>{{ t.label }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="toolbar surface-panel">
+    <div class="toolbar-row">
+      <nz-input-group class="search" [nzPrefix]="searchIcon" [nzSuffix]="search ? clearIcon : undefined">
+        <input nz-input type="text" placeholder="Search courses or categories" aria-label="Search courses"
+               [(ngModel)]="search" (ngModelChange)="refresh()" />
+      </nz-input-group>
+      <ng-template #searchIcon><nz-icon nzType="search"></nz-icon></ng-template>
+      <ng-template #clearIcon>
+        <button type="button" class="icon-button" aria-label="Clear search" (click)="clearSearch()">
+          <nz-icon nzType="close-circle"></nz-icon>
+        </button>
+      </ng-template>
+
+      <div class="segment" role="group" aria-label="Show">
+        <button type="button" [class.active]="source === 'all'" [attr.aria-pressed]="source === 'all'" (click)="setSource('all')">
+          <nz-icon nzType="appstore"></nz-icon> All learning
+          <span class="count">{{ home.courses.length + home.openCourses.length }}</span>
+        </button>
+        <button type="button" [class.active]="source === 'assigned'" [attr.aria-pressed]="source === 'assigned'" (click)="setSource('assigned')">
+          <nz-icon nzType="inbox"></nz-icon> Assigned training
+          <span class="count">{{ assignedCount }}</span>
+        </button>
+        <button type="button" [class.active]="source === 'open'" [attr.aria-pressed]="source === 'open'" (click)="setSource('open')">
+          <nz-icon nzType="unlock"></nz-icon> Open for enrolment
+          <span class="count">{{ home.openCourses.length }}</span>
+        </button>
+      </div>
+
+      @if (source !== 'open') {
+        <div class="segment group-by" role="group" aria-label="Group by">
+          <span class="segment-label">Group by</span>
+          <button type="button" [class.active]="groupBy === 'status'" [attr.aria-pressed]="groupBy === 'status'" (click)="setGroupBy('status')">
+            <nz-icon nzType="appstore"></nz-icon> Status
+          </button>
+          <button type="button" [class.active]="groupBy === 'category'" [attr.aria-pressed]="groupBy === 'category'" (click)="setGroupBy('category')">
+            <nz-icon nzType="tag"></nz-icon> Category
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- FR-11-09: filter by status and category -->
+    <div class="toolbar-row filters">
+      @if (source !== 'open') {
+        @for (f of statusFilters; track f) {
+          <button type="button" class="pill" [class.active]="statusFilter === f" [attr.aria-pressed]="statusFilter === f"
+                  (click)="setStatus(f)">{{ f }}</button>
+        }
+        <span class="divider"></span>
+      }
+      <span class="filter-label">Categories</span>
+      @for (cat of categories; track cat) {
+        @let th = theme(cat);
+        @let on = activeCategories.includes(cat);
+        <button type="button" class="pill" [attr.aria-pressed]="on"
+                [style.color]="on ? th.ink : null" [style.background]="on ? th.tint : null"
+                [style.border-color]="on ? th.ink : null" (click)="toggleCategory(cat)">{{ cat }}</button>
+      } @empty {
+        <span class="muted">None yet</span>
+      }
+      @if (activeCategories.length) {
+        <button type="button" class="link-button" (click)="clearCategories()"><nz-icon nzType="close"></nz-icon> Clear</button>
+      }
+    </div>
+  </div>
+
+  <nz-spin [nzSpinning]="loading">
+    @if (!loading) {
+      @if (source !== 'open') {
+        <!-- FR-11-08: courses to start now, with the due date and days remaining -->
+        @if (startNow.length) {
+          <section class="start-now">
+            <div class="section-head">
+              <nz-icon nzType="thunderbolt" class="start-icon"></nz-icon>
+              <h2>Start now, assigned to you</h2>
+              <span class="badge danger">{{ startNow.length }} to finish</span>
+            </div>
+            @for (c of startNow; track c.sopDocumentId) {
+              @let left = daysLeft(c);
+              @let th = theme(c.category);
+              <div class="start-row surface-panel" [class.overdue]="c.overdue">
+                <div class="start-cover" [style.background]="'linear-gradient(135deg, ' + th.from + ', ' + th.to + ')'">
+                  <nz-icon nzType="read"></nz-icon>
+                </div>
+                <div class="start-copy">
+                  <div class="badges">
+                    <span class="badge danger"><nz-icon nzType="bell"></nz-icon> Start immediately</span>
+                    @if (c.mandatory) { <span class="badge warning">Mandatory</span> }
+                    @if (c.retraining) { <span class="badge info">Practice mode</span> }
+                    <span class="badge" [style.color]="th.ink" [style.background]="th.tint">{{ c.category }}</span>
+                  </div>
+                  <strong>{{ c.title }}</strong>
+                  <span class="meta">
+                    {{ c.modulesPassed }}/{{ c.moduleCount }} modules passed
+                    @if (c.daysToComplete) { · {{ c.daysToComplete }} days to complete }
+                    @if (c.dueDate) { · due {{ c.dueDate | date: 'd MMM yyyy' }} }
+                  </span>
+                </div>
+                <div class="days-left" [class.late]="left !== null && left < 0">
+                  @if (left === null) {
+                    <strong>-</strong><span>no due date</span>
+                  } @else if (left < 0) {
+                    <strong>Overdue</strong><span>{{ -left }} day{{ left === -1 ? '' : 's' }} late</span>
+                  } @else if (left === 0) {
+                    <strong>Today</strong><span>due today</span>
+                  } @else {
+                    <strong>{{ left }}d</strong><span>remaining</span>
+                  }
+                </div>
+                <button nz-button nzType="primary" nzDanger (click)="open(c)">
+                  <nz-icon nzType="caret-right"></nz-icon>{{ c.status === 'IN_PROGRESS' ? 'Continue' : 'Start now' }}
+                </button>
+              </div>
+            }
+          </section>
+        }
+
+        <section class="catalogue">
+          <div class="section-head">
+            <nz-icon [nzType]="source === 'assigned' ? 'inbox' : 'book'"></nz-icon>
+            <h2>{{ source === 'assigned' ? 'Assigned training' : 'My courses' }}</h2>
+            <span class="muted">
+              {{ shownCount }} course{{ shownCount === 1 ? '' : 's' }}
+              @if (search.trim()) { matching "{{ search.trim() }}" }
+              @if (statusFilter !== 'All') { · {{ statusFilter }} }
+              · grouped by {{ groupBy }}
+            </span>
+          </div>
+
+          @for (g of groups; track g.key) {
+            <div class="group">
+              <div class="group-head">
+                @if (g.tone === 'category') {
+                  <span class="group-label" [style.color]="theme(g.label).ink" [style.background]="theme(g.label).tint">{{ g.label }}</span>
+                } @else {
+                  <span class="group-label" [ngClass]="'tone-' + g.tone">{{ g.label }}</span>
+                }
+                <span class="muted">{{ g.courses.length }} · {{ g.note }}</span>
+                @if (g.courses.length > preview) {
+                  <button type="button" class="link-button see-all" (click)="toggleGroup(g.key)">
+                    {{ expanded[g.key] ? 'Show less' : 'See all ' + g.courses.length }}
+                    <nz-icon nzType="right" [class.rotated]="expanded[g.key]"></nz-icon>
+                  </button>
+                }
+              </div>
+              <div class="card-grid">
+                @for (c of (expanded[g.key] ? g.courses : g.courses.slice(0, preview)); track c.sopDocumentId) {
+                  <ng-container *ngTemplateOutlet="courseCard; context: { $implicit: c }"></ng-container>
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="empty surface-panel">
+              <nz-empty [nzNotFoundContent]="home.courses.length ? 'No courses match these filters.' : 'No training has been assigned to you yet.'"></nz-empty>
+            </div>
+          }
+        </section>
+      }
+
+      @if (source !== 'assigned') {
+        <!-- FR-11-05: Open courses any staff member can join -->
+        <section class="open-courses">
+          <div class="section-head">
+            <nz-icon nzType="unlock"></nz-icon>
+            <h2>Open for enrolment</h2>
+            <span class="muted">{{ openCourses.length }} course{{ openCourses.length === 1 ? '' : 's' }} you can join</span>
+          </div>
+          @if (openCourses.length) {
+            <div class="card-grid">
+              @for (c of openCourses; track c.sopDocumentId) {
+                @let th = theme(c.category);
+                <div class="course-card">
+                  <div class="cover" [style.background]="'linear-gradient(135deg, ' + th.from + ', ' + th.to + ')'">
+                    <nz-icon nzType="read" class="cover-icon"></nz-icon>
+                    <span class="cover-badge open">Open</span>
+                  </div>
+                  <div class="card-body">
+                    <strong class="card-title">{{ c.title }}</strong>
+                    <span class="meta">{{ c.moduleCount }} module{{ c.moduleCount === 1 ? '' : 's' }} · pass mark {{ c.passMark }}%</span>
+                    <div class="card-foot">
+                      <span class="badge" [style.color]="th.ink" [style.background]="th.tint">{{ c.category }}</span>
+                      <button nz-button nzType="primary" nzSize="small" [nzLoading]="enrolling[c.sopDocumentId]"
+                              (click)="enrol(c, $event)">Enrol</button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="empty surface-panel">
+              <nz-empty [nzNotFoundContent]="home.openCourses.length ? 'No open courses match these filters.' : 'No courses are open for enrolment right now.'"></nz-empty>
+            </div>
+          }
+        </section>
+      }
+    }
+  </nz-spin>
+</div>
+
+<!-- One of the learner's courses -->
+<ng-template #courseCard let-c>
+  @let pct = progress(c);
+  @let th = theme(c.category);
+  <a class="course-card" [routerLink]="['/my-learning/course', c.sopDocumentId]">
+    <div class="cover" [style.background]="'linear-gradient(135deg, ' + th.from + ', ' + th.to + ')'">
+      <nz-icon nzType="read" class="cover-icon"></nz-icon>
+      @if (c.mandatory) {
+        <span class="cover-badge required">Required</span>
+      }
+      <span class="cover-badge mode" [class.immediate]="c.mode === 'IMMEDIATE' && !c.selfEnrolled">
+        {{ c.selfEnrolled ? 'Self-enrolled' : c.mode === 'IMMEDIATE' ? 'Start now' : 'Assigned' }}
+      </span>
+      <span class="ring" [attr.aria-label]="pct + '% complete'">
+        <svg width="34" height="34" viewBox="0 0 30 30" aria-hidden="true">
+          <circle cx="15" cy="15" r="12" class="ring-track"></circle>
+          @if (pct > 0) {
+            <circle cx="15" cy="15" r="12" class="ring-value" [class.done]="pct >= 100" [attr.stroke-dasharray]="ringDash(pct)"></circle>
+          }
+        </svg>
+        @if (pct >= 100) {
+          <nz-icon nzType="check" class="ring-text"></nz-icon>
+        } @else if (pct > 0) {
+          <span class="ring-text">{{ pct }}%</span>
+        }
+      </span>
+      @if (c.status === 'COMPLETED') {
+        <div class="completed-overlay">
+          <span><nz-icon nzType="check-circle"></nz-icon> Completed{{ c.finalScore != null ? ' · ' + c.finalScore + '%' : '' }}</span>
+        </div>
+      }
+    </div>
+    <div class="card-body">
+      <strong class="card-title">{{ c.title }}</strong>
+      <span class="meta">{{ c.modulesPassed }}/{{ c.moduleCount }} modules · pass mark {{ c.passMark }}%</span>
+      <div class="card-foot">
+        <span class="badge" [style.color]="th.ink" [style.background]="th.tint">{{ c.category }}</span>
+        <span class="due" [class.late]="c.overdue">
+          @if (!c.available) {
+            Opens {{ c.effectiveDate | date: 'd MMM' }}
+          } @else if (c.status === 'COMPLETED') {
+            Done {{ c.completedAt | date: 'd MMM' }}
+          } @else if (c.overdue) {
+            Overdue
+          } @else if (c.dueDate) {
+            Due {{ c.dueDate | date: 'd MMM' }}
+          } @else if (c.daysToComplete && c.status === 'NOT_STARTED') {
+            {{ c.daysToComplete }} days once started
+          }
+        </span>
+      </div>
+      @if (c.retraining) {
+        <span class="practice"><nz-icon nzType="redo"></nz-icon> Practice mode: retake a quiz</span>
+      }
+      @if (c.status === 'IN_PROGRESS') {
+        <div class="bar" aria-hidden="true"><div [style.width.%]="pct"></div></div>
+      }
+    </div>
+  </a>
+</ng-template>

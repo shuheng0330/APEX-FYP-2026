@@ -93,17 +93,34 @@ public class SopController {
     // --- Module 2: quiz review (FR-10) --------------------------------------
 
     @PutMapping("/quiz/{questionId}")
-    public ResponseEntity<?> updateQuestion(@PathVariable Long questionId, @RequestBody SopQuizQuestionDto dto) {
-        return ResponseEntity.ok(sopService.updateQuestion(questionId, dto));
+    public ResponseEntity<?> updateQuestion(@PathVariable Long questionId, @RequestBody SopQuizQuestionDto dto,
+                                            Authentication authentication) {
+        return ResponseEntity.ok(sopService.updateQuestion(questionId, dto, userId(authentication)));
+    }
+
+    @PostMapping("/module/{moduleId}/quiz")
+    public ResponseEntity<?> addQuestion(@PathVariable Long moduleId, @RequestBody SopQuizQuestionDto dto,
+                                         Authentication authentication) {
+        return ResponseEntity.ok(sopService.addQuestion(moduleId, dto, userId(authentication)));
     }
 
     @PostMapping("/module/{moduleId}/quiz/approve")
-    public ResponseEntity<?> approveQuiz(@PathVariable Long moduleId) {
-        return ResponseEntity.ok(sopService.approveModuleQuiz(moduleId));
+    public ResponseEntity<?> approveQuiz(@PathVariable Long moduleId, Authentication authentication) {
+        return ResponseEntity.ok(sopService.approveModuleQuiz(moduleId, userId(authentication)));
     }
 
     @PostMapping("/module/{moduleId}/quiz/reject")
-    public ResponseEntity<?> rejectQuiz(@PathVariable Long moduleId, @RequestBody SopRejectRequest req) {
-        return ResponseEntity.ok(sopService.rejectModuleQuiz(moduleId, req.getReason()));
+    public ResponseEntity<?> rejectQuiz(@PathVariable Long moduleId, @RequestBody SopRejectRequest req,
+                                        Authentication authentication) {
+        return ResponseEntity.ok(sopService.rejectModuleQuiz(moduleId, req.getReason(), userId(authentication)));
+    }
+
+    @GetMapping("/module/{moduleId}/quiz/history")
+    public ResponseEntity<?> quizHistory(@PathVariable Long moduleId) {
+        return ResponseEntity.ok(sopService.getQuizHistory(moduleId));
+    }
+
+    private UUID userId(Authentication authentication) {
+        return UUID.fromString(authentication.getPrincipal().toString());
     }
 }

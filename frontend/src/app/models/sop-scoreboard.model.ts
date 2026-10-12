@@ -1,0 +1,79 @@
+import { SopAssignmentMode } from './sop-assignment.model';
+import { LearningModuleState } from './sop-learning.model';
+
+/** COMPLETED means certified: every module's quiz passed. RETRAINING: a failed quiz not passed yet. */
+export type ScoreboardStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'RETRAINING' | 'COMPLETED';
+
+/** One staff member's enrolment in one course (FR-10-01). */
+export interface ScoreboardRecord {
+  enrollmentId: number;
+  staffId: string;
+  staffName: string;
+  jobRole?: string | null;
+  department?: string | null;
+  sopDocumentId: number;
+  courseTitle: string;
+  moduleCount: number;
+  modulesPassed: number;
+  status: ScoreboardStatus;
+  overdue: boolean;
+  mandatory: boolean;
+  mode?: SopAssignmentMode | null;
+  selfEnrolled: boolean;
+  passMark: number;
+  /** Final score once certified, otherwise the average of the modules passed so far. */
+  score?: number | null;
+  finalScore?: number | null;
+  attempts: number;
+  /** Failed quiz attempts, each sending a module back for retraining (FR-10-05). */
+  retrainingAttempts: number;
+  lastAttemptAt?: string | null;
+  dueDate?: string | null;
+  assignedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface Scoreboard {
+  courses: { id: number; title: string }[];
+  departments: string[];
+  records: ScoreboardRecord[];
+  generatedAt: string;
+}
+
+export interface EnrollmentAttempt {
+  score: number;
+  correct: number;
+  total: number;
+  passed: boolean;
+  attemptedAt: string;
+}
+
+export interface EnrollmentModuleProgress {
+  moduleId: number;
+  moduleOrder: number;
+  title: string;
+  state: LearningModuleState;
+  passedScore?: number | null;
+  attempts: EnrollmentAttempt[];
+}
+
+/** One enrolment, module by module (FR-10-02). */
+export interface EnrollmentProgress {
+  record: ScoreboardRecord;
+  modules: EnrollmentModuleProgress[];
+}
+
+/** A completed SOP course's final score, as the Staff Appraisal module reads it (FR-10-06). */
+export interface CompetencyScore {
+  staffId: string;
+  staffName: string;
+  sopDocumentId: number;
+  courseTitle: string;
+  version?: string | null;
+  category?: string | null;
+  finalScore: number;
+  passMark: number;
+  completedAt: string;
+  certificateNo: string;
+}

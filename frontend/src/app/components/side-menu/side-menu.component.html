@@ -21,7 +21,7 @@
       {{ isCollapsed ? '' : (item.key | translate) }}
     </li>
     }
-    @if (item.children) {
+    @if (item.children && hasAccess(item)) {
     <li nz-submenu [nzTitle]="item.key | translate" [nzIcon]="item.icon!" nzTriggerSubMenuAction="click">
       <ul>
         @for (child of item.children!; track child) {

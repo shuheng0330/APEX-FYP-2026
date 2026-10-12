@@ -63,5 +63,7 @@ public class GeneratedSopContent {
         private List<String> options = new ArrayList<>();
         private String answer;
         private String explanation;
+        /** EASY | MEDIUM | HARD */
+        private String difficulty;
     }
 }
