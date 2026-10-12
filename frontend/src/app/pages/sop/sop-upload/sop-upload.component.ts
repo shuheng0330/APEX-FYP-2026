@@ -13,6 +13,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
@@ -23,7 +24,7 @@ import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzFormModule, NzTableModule,
-    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule
+    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule, NzAlertModule
   ],
   templateUrl: './sop-upload.component.html',
   styleUrls: ['./sop-upload.component.scss']

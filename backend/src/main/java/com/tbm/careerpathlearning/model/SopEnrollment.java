@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.model;
 
+import com.tbm.careerpathlearning.config.ClockConfig;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
 import jakarta.persistence.*;
@@ -81,7 +82,7 @@ public class SopEnrollment {
      */
     public LocalDate dueDate() {
         LocalDate from = mode == SopAssignmentMode.IMMEDIATE ? effectiveDate
-                : startedAt != null ? startedAt.toLocalDate() : null;
+                : startedAt != null ? startedAt.atZoneSameInstant(ClockConfig.ZONE).toLocalDate() : null;
         if (from == null || daysToComplete == null) {
             return deadline;
         }

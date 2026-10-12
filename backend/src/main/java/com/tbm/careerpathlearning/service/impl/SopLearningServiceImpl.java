@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -65,6 +66,7 @@ public class SopLearningServiceImpl implements SopLearningService {
     @Autowired private SopCourseFeedbackRepository sopCourseFeedbackRepository;
     @Autowired private StaffRepository staffRepository;
     @Autowired private SopCourseReadiness sopCourseReadiness;
+    @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -105,13 +107,13 @@ public class SopLearningServiceImpl implements SopLearningService {
         }
         SopEnrollment e = sopEnrollmentRepository.findBySopDocumentIdAndStaffId(sopDocumentId, staffId).orElse(null);
         if (e == null) {
-            OffsetDateTime now = OffsetDateTime.now();
+            OffsetDateTime now = OffsetDateTime.now(clock);
             e = new SopEnrollment();
             e.setSopDocumentId(sopDocumentId);
             e.setStaffId(staffId);
             e.setMode(SopAssignmentMode.PORTAL);
             e.setMandatory(false);
-            e.setEffectiveDate(LocalDate.now());
+            e.setEffectiveDate(LocalDate.now(clock));
             e.setPassMark(OPEN_COURSE_PASS_MARK);
             e.setStatus(SopEnrollmentStatus.NOT_STARTED);
             e.setAssignedAt(now);
@@ -197,13 +199,13 @@ public class SopLearningServiceImpl implements SopLearningService {
         attempt.setScore(score);
         attempt.setPassed(passed);
         attempt.setAnswers(writeAnswers(answers));
-        attempt.setAttemptedAt(OffsetDateTime.now());
+        attempt.setAttemptedAt(OffsetDateTime.now(clock));
         sopQuizAttemptRepository.save(attempt);
 
         // Recompute with the new attempt; the course completes when every module is passed.
         Progress after = progress(e, c.doc());
         if (after.course().allPassed() && e.getStatus() != SopEnrollmentStatus.COMPLETED) {
-            OffsetDateTime now = OffsetDateTime.now();
+            OffsetDateTime now = OffsetDateTime.now(clock);
             e.setStatus(SopEnrollmentStatus.COMPLETED);
             e.setCompletedAt(now);
             e.setFinalScore(after.course().finalScore());
@@ -247,7 +249,7 @@ public class SopLearningServiceImpl implements SopLearningService {
         if (comment != null && comment.length() > MAX_COMMENT_LENGTH) {
             throw new BadRequestException("Please keep the comment under " + MAX_COMMENT_LENGTH + " characters.");
         }
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         SopCourseFeedback f = sopCourseFeedbackRepository.findBySopDocumentIdAndStaffId(sopDocumentId, staffId)
                 .orElseGet(() -> {
                     SopCourseFeedback created = new SopCourseFeedback();
@@ -300,8 +302,8 @@ public class SopLearningServiceImpl implements SopLearningService {
         }
     }
 
-    private static void checkAvailable(SopEnrollment e) {
-        if (e.getEffectiveDate() != null && e.getEffectiveDate().isAfter(LocalDate.now())) {
+    private void checkAvailable(SopEnrollment e) {
+        if (e.getEffectiveDate() != null && e.getEffectiveDate().isAfter(LocalDate.now(clock))) {
             throw new BadRequestException("This course opens on "
                     + e.getEffectiveDate().format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)) + ".");
         }
@@ -309,7 +311,7 @@ public class SopLearningServiceImpl implements SopLearningService {
 
     private void ensureStarted(SopEnrollment e) {
         if (e.getStatus() == SopEnrollmentStatus.NOT_STARTED) {
-            OffsetDateTime now = OffsetDateTime.now();
+            OffsetDateTime now = OffsetDateTime.now(clock);
             e.setStatus(SopEnrollmentStatus.IN_PROGRESS);
             e.setStartedAt(now);
             e.setUpdatedAt(now);
@@ -375,7 +377,7 @@ public class SopLearningServiceImpl implements SopLearningService {
     private SopLearningCourseDto toCourseDto(Progress p) {
         SopEnrollment e = p.enrollment();
         SopLearningCourseDto dto = baseCourseDto(p.doc(), p.course().modules().size());
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate due = e.dueDate();
         dto.setEnrollmentId(e.getId());
         dto.setStatus(e.getStatus());

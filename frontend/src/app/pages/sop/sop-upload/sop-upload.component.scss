@@ -10,6 +10,7 @@
 .workspace-intro p { color: var(--tbm-muted); font-size: 13px; }
 .stage-strip { display: flex; align-items: center; gap: 7px; color: var(--tbm-muted); font-size: 11px; white-space: nowrap; }
 .stage-strip i { width: 18px; height: 1px; background: var(--tbm-border); }
+.privacy-warning { margin-bottom: 18px; }
 .upload-layout { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(420px, 1.2fr); gap: 20px; }
 .drop-zone { min-height: 176px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px dashed #98acd0; border-radius: 8px; color: var(--tbm-primary); background: #f5f8fd; cursor: pointer; text-align: center; }
 .drop-zone input { display: none; }

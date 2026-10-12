@@ -36,6 +36,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,7 @@ public class SopServiceImpl implements SopService {
     @Autowired private FileService fileService;
     @Autowired private SopGenerationService sopGenerationService;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -75,7 +77,7 @@ public class SopServiceImpl implements SopService {
 
         String storedPath = fileService.uploadFile(file, "sop");
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         SopDocument doc = new SopDocument();
         doc.setTitle(resolveTitle(title, filename)); // FR-08-03: filename as title when blank
         doc.setVersion(version);
@@ -126,7 +128,7 @@ public class SopServiceImpl implements SopService {
         SopDocument doc = getDocOrThrow(sopDocumentId);
         doc.setGenerationStatus(SopGenerationStatus.PENDING);
         doc.setStatusMessage(null);
-        doc.setUpdatedAt(OffsetDateTime.now());
+        doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
         startGenerationAfterCommit(sopDocumentId);
         return toDocDto(doc, 0);
@@ -161,7 +163,7 @@ public class SopServiceImpl implements SopService {
             module.setTitle(title);
         }
         module.setContent(content);
-        module.setUpdatedAt(OffsetDateTime.now());
+        module.setUpdatedAt(OffsetDateTime.now(clock));
         return toModuleDto(sopModuleRepository.save(module));
     }
 
@@ -170,7 +172,7 @@ public class SopServiceImpl implements SopService {
     public SopModuleDto approveModule(Long moduleId) {
         SopModule module = getModuleOrThrow(moduleId);
         module.setReviewStatus(ReviewStatus.APPROVED);
-        module.setUpdatedAt(OffsetDateTime.now());
+        module.setUpdatedAt(OffsetDateTime.now(clock));
         return toModuleDto(sopModuleRepository.save(module));
     }
 
@@ -205,7 +207,7 @@ public class SopServiceImpl implements SopService {
         q.setOptions(writeOptions(dto.getOptions()));
         q.setCorrectAnswer(dto.getCorrectAnswer());
         q.setExplanation(dto.getExplanation());
-        q.setUpdatedAt(OffsetDateTime.now());
+        q.setUpdatedAt(OffsetDateTime.now(clock));
         SopQuizQuestion saved = sopQuizQuestionRepository.save(q);
         recordQuizEvent(q.getSopModuleId(), QuizReviewAction.EDITED, "Edited: " + q.getQuestionText(), userId);
         return toQuizDto(saved);
@@ -216,7 +218,7 @@ public class SopServiceImpl implements SopService {
     public SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, UUID userId) {
         getModuleOrThrow(moduleId);
         validateQuestion(dto);
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         SopQuizQuestion q = new SopQuizQuestion();
         q.setSopModuleId(moduleId);
         q.setQuestionType(dto.getQuestionType());
@@ -257,7 +259,7 @@ public class SopServiceImpl implements SopService {
     @Transactional
     public SopModuleDto approveModuleQuiz(Long moduleId, UUID userId) {
         SopModule module = getModuleOrThrow(moduleId);
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         List<SopQuizQuestion> questions = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(moduleId);
         for (SopQuizQuestion q : questions) {
             q.setReviewStatus(ReviewStatus.APPROVED);
@@ -343,7 +345,7 @@ public class SopServiceImpl implements SopService {
         event.setAction(action);
         event.setDetail(detail);
         event.setActorId(actorId);
-        event.setCreatedAt(OffsetDateTime.now());
+        event.setCreatedAt(OffsetDateTime.now(clock));
         sopQuizReviewEventRepository.save(event);
     }
 
