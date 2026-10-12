@@ -26,6 +26,12 @@
       </div>
     </div>
 
+    <!-- FR-06-10 -->
+    <nz-alert class="privacy-warning" nzType="warning" nzShowIcon
+      nzMessage="Do not upload documents that contain personal data"
+      nzDescription="Remove names, IC numbers, contact details, salaries and customer information first. Documents are sent to Google Gemini, an external AI service, to generate the training material. During testing APEX uses Gemini's free tier, under which Google may use and review what is sent to improve its products.">
+    </nz-alert>
+
     <div class="upload-layout">
       <label class="drop-zone">
         <input type="file" accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx" (change)="onFileSelected($event)" />

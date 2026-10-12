@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,6 +55,7 @@ public class SopGenerationService {
     @Autowired private FileService fileService;
     @Autowired private GeminiClient geminiClient;
     @Autowired private LocalSopGenerator localSopGenerator;
+    @Autowired private Clock clock;
 
     /** Self-reference so @Transactional helper methods go through the Spring proxy (not self-invocation). */
     @Autowired @Lazy private SopGenerationService self;
@@ -172,7 +174,7 @@ public class SopGenerationService {
     /** Persist one expanded module and its quiz (incremental, so progress is visible live). */
     @Transactional
     public void saveModuleWithQuiz(Long sopDocumentId, int order, GeneratedSopContent.GeneratedModule gm, boolean offline) {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         SopModule module = new SopModule();
         module.setSopDocumentId(sopDocumentId);
         module.setModuleOrder(order);
@@ -212,7 +214,7 @@ public class SopGenerationService {
                 buildModuleRegenerationPrompt(doc.getTitle(), doc.getExtractedText(), module.getTitle(), reason));
         gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), safe(gm.getTitle(), module.getTitle())));
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         module.setTitle(safe(gm.getTitle(), module.getTitle()));
         module.setContent(serializeRichContent(gm, false));
         module.setReviewStatus(ReviewStatus.REGENERATED);
@@ -233,7 +235,7 @@ public class SopGenerationService {
                 buildQuizRegenerationPrompt(doc.getTitle(), module.getTitle(), module.getContent(), reason));
         gm.setQuiz(fullQuiz(sectionsOf(module.getContent()), gm.getQuiz(), module.getTitle()));
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         sopQuizQuestionRepository.deleteAllBySopModuleIdIn(List.of(module.getId()));
         saveQuestions(module.getId(), gm.getQuiz(), now, ReviewStatus.REGENERATED);
     }
@@ -485,7 +487,7 @@ public class SopGenerationService {
     private void updateStatus(SopDocument doc, SopGenerationStatus status, String message) {
         doc.setGenerationStatus(status);
         doc.setStatusMessage(message);
-        doc.setUpdatedAt(OffsetDateTime.now());
+        doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
     }
 

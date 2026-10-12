@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -56,6 +57,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
     @Autowired private SopAssignmentRepository sopAssignmentRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private Clock clock;
 
     @Override
     public List<SopAssignableCourseDto> listCourses(UUID userId, boolean canAssignAny) {
@@ -145,7 +147,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
             throw new BadRequestException("Nobody matches the selected audience.");
         }
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         SopAssignment assignment = new SopAssignment();
         assignment.setSopDocumentId(doc.getId());
         assignment.setAssignedBy(userId);
@@ -231,7 +233,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         SopDocument doc = getDocOrThrow(sopDocumentId);
         checkCanAssign(doc, userId, canAssignAny);
         doc.setVisibility(visibility);
-        doc.setUpdatedAt(OffsetDateTime.now());
+        doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
         int enrolled = sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId).size();
         return toCourseDto(doc, userId, staffRepository.findAllActiveWithRole(), enrolled, new HashMap<>());
@@ -269,7 +271,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         if (r.getMode() == null) {
             throw new BadRequestException("Choose whether staff start immediately or from their Learning Portal.");
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate effective = r.getEffectiveDate() != null ? r.getEffectiveDate() : today;
         if (effective.isBefore(today)) {
             throw new BadRequestException("The effective date cannot be in the past.");

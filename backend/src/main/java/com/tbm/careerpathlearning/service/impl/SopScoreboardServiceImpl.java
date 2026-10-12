@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -51,6 +52,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
     @Autowired private SopQuizAttemptRepository sopQuizAttemptRepository;
     @Autowired private StaffRepository staffRepository;
     @Autowired private SopCourseReadiness sopCourseReadiness;
+    @Autowired private Clock clock;
 
     @Override
     @Transactional(readOnly = true)
@@ -59,7 +61,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
                 .filter(d -> seeAll || userId.equals(d.getUploadedBy()))
                 .collect(Collectors.toMap(SopDocument::getId, Function.identity()));
         SopScoreboardDto dto = new SopScoreboardDto();
-        dto.setGeneratedAt(OffsetDateTime.now());
+        dto.setGeneratedAt(OffsetDateTime.now(clock));
         List<SopEnrollment> enrollments = docs.isEmpty() ? List.of() : sopEnrollmentRepository.findAllBySopDocumentIdIn(docs.keySet());
         Set<Long> enrolledDocs = enrollments.stream().map(SopEnrollment::getSopDocumentId).collect(Collectors.toSet());
         // Courses someone is enrolled in, for the course filter.
@@ -151,7 +153,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
 
     // === mapping ==============================================================
 
-    private static SopScoreboardRecordDto record(SopEnrollment e, SopDocument doc, SopProgress progress, Staff staff) {
+    private SopScoreboardRecordDto record(SopEnrollment e, SopDocument doc, SopProgress progress, Staff staff) {
         SopScoreboardRecordDto r = new SopScoreboardRecordDto();
         r.setEnrollmentId(e.getId());
         r.setStaffId(e.getStaffId());
@@ -166,7 +168,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         r.setStatus(status(e, progress));
         LocalDate due = e.dueDate();
         r.setDueDate(due);
-        r.setOverdue(e.getStatus() != SopEnrollmentStatus.COMPLETED && due != null && due.isBefore(LocalDate.now()));
+        r.setOverdue(e.getStatus() != SopEnrollmentStatus.COMPLETED && due != null && due.isBefore(LocalDate.now(clock)));
         r.setMandatory(e.isMandatory());
         r.setMode(e.getMode());
         r.setSelfEnrolled(e.getAssignmentId() == null);

@@ -15,6 +15,9 @@ backend/.env.*
 backend/src/test/resources
 backend/uploads/
 
+# Local working documents (requirements drafts, audits): not pushed
+/docs/
+
 *.log
 
 # 🌐 Angular (frontend)
