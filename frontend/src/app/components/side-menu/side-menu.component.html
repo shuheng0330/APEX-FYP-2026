@@ -29,6 +29,7 @@
         @for (child of item.children!; track child) {
         @if (hasAccess(child)) {
         <li nz-menu-item [routerLink]="child.route || null" routerLinkActive="active"
+          [class.review-workflow-link]="child.route === '/kpi-management/kpi-review'"
           (click)="onNavClick(child)">
           {{ child!.key | translate }}
         </li>

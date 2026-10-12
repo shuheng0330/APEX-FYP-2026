@@ -17,6 +17,7 @@ public class KpiPlanDto {
     private String departmentName;
     private Long ownerParticipantId;
     private String employeeName;
+    private String roleName;
     private List<KpiItemDto> items;
     private BigDecimal totalWeightage;
     private OffsetDateTime createdAt;

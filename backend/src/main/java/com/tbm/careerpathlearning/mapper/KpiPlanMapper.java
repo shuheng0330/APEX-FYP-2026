@@ -11,6 +11,7 @@ public interface KpiPlanMapper {
     @Mapping(target="departmentId",source="department.id")
     @Mapping(target="departmentName",source="department.name")
     @Mapping(target="employeeName",source="ownerParticipant.staffName")
+    @Mapping(target="roleName",source="ownerParticipant.roleName")
     @Mapping(target="submittedByName",source="submitter.name")
     @Mapping(target="submittedToSuperiorName",source="submittedToSuperior.name")
     @Mapping(target="totalWeightage",ignore=true) @Mapping(target="overdue",ignore=true)
@@ -21,6 +22,14 @@ public interface KpiPlanMapper {
     @Mapping(target="currentVersionNumber",source="currentVersion.versionNumber")
     @Mapping(target="currentVersionEffectiveAt",source="currentVersion.effectiveAt")
     KpiPlanDto toDto(KpiPlan plan);
+    @AfterMapping
+    default void recordedIndividualContext(KpiPlan plan,@MappingTarget KpiPlanDto dto) {
+        if(plan.getLevel()==com.tbm.careerpathlearning.enums.KpiLevel.INDIVIDUAL && plan.getOwnerParticipant()!=null) {
+            var participant=plan.getOwnerParticipant();
+            dto.setDepartmentName(participant.getDepartmentName());
+            dto.setDepartmentId(participant.getDepartment()==null?null:participant.getDepartment().getId());
+        }
+    }
     KpiItemDto toDto(Kpi item);
     @BeanMapping(ignoreByDefault=true)
     @Mapping(target="name",source="name") @Mapping(target="description",source="description")

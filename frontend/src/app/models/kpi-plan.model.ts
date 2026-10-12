@@ -30,6 +30,7 @@ export interface KpiPlan extends KpiPlanRequest {
   currentVersionEffectiveAt?: string | null;
   id: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
   level: KpiLevel; status: KpiPlanStatus; departmentName?: string; employeeName?: string;
+  roleName?: string | null;
   kpiSetupDeadline: string | null; totalWeightage: number; overdue: boolean;
   createdAt: string; updatedAt: string;
   publishedAt?: string; publishedLate?: boolean;

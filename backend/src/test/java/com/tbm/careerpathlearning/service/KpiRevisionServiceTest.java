@@ -184,6 +184,17 @@ class KpiRevisionServiceTest {
         var participant=new ReviewPeriodParticipant();participant.setId(7L);participant.setStaff(owner);participant.setStaffName("Employee");
         plan.setOwnerParticipant(participant);plan.setOwnerParticipantId(7L);
     }
+    @Test void eligiblePlanMetadataUsesPeriodSnapshotWithoutChangingReviewerScope() {
+        individualPlan();var participant=plan.getOwnerParticipant();
+        participant.setRoleName("Recorded Engineer");participant.setDepartmentName("Recorded IT");participant.setDepartment(department);
+        when(plans.findAllByLevelOrderByUpdatedAtDesc(KpiLevel.INDIVIDUAL)).thenReturn(List.of(plan));
+        login(hr,KpiRevisionService.INDIVIDUAL);
+        var result=service.eligiblePlans(1L,hr);assertEquals(1,result.size());
+        assertEquals("Recorded Engineer",result.get(0).getRoleName());assertEquals("Recorded IT",result.get(0).getDepartmentName());
+        assertEquals(10L,result.get(0).getDepartmentId());
+        login(md,KpiRevisionService.SUPERIOR);assertTrue(service.eligiblePlans(1L,md).isEmpty());
+        login(hod,KpiRevisionService.SUPERIOR);assertEquals(1,service.eligiblePlans(1L,hod).size());
+    }
     void prepareIndividual(KpiRevisionPreparationMode mode) {
         individual(mode);UUID preparer=mode==KpiRevisionPreparationMode.SUPERIOR?hod:hr;
         login(preparer,mode==KpiRevisionPreparationMode.SUPERIOR?KpiRevisionService.SUPERIOR:KpiRevisionService.INDIVIDUAL);

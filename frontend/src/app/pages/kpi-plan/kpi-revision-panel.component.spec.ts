@@ -84,4 +84,12 @@ describe('KPI plan revision entry points', () => {
     permissions = ['CAN_APPROVE_DEPARTMENT_KPI']; page.plan = revisionPlan({ level: 'DEPARTMENT' }); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('KPI_REVISIONS.MANAGE_DEPARTMENT');
   });
+  it('uses queue metadata for compact rows but rechecks history before starting a request', () => {
+    fixture.componentRef.setInput('compact', true); fixture.componentRef.setInput('workingRevision', null);
+    fixture.componentRef.setInput('plan', revisionPlan()); fixture.detectChanges();
+    expect(api.history).not.toHaveBeenCalled();
+    api.history.and.returnValue(of([revisionFixture({ id: 7 })])); spyOn(page.workspace!, 'open'); page.manage();
+    expect(api.history).toHaveBeenCalledWith(1); expect(page.workspace!.open).toHaveBeenCalledWith(7);
+    expect(page.requestVisible).toBeFalse();
+  });
 });

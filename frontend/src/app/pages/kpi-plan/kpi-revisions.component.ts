@@ -6,18 +6,21 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzPaginationModule } from 'ng-zorro-antd/pagination';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { KpiRevisionService } from '../../services/kpi-revision.service';
 import { KpiLevel, KpiPeriodContext, KpiPlan } from '../../models/kpi-plan.model';
-import { KpiAmendmentAccess, KpiRevision, KpiVersionStatus } from '../../models/kpi-revision.model';
+import { KpiAmendmentAccess, KpiRevision, KpiVersionStatus, unfinishedRevision } from '../../models/kpi-revision.model';
+import { KpiRevisionGuideComponent } from './kpi-revision-guide.component';
 import { KpiRevisionPanelComponent } from './kpi-revision-panel.component';
 import { KpiRevisionWorkspaceComponent } from './kpi-revision-workspace.component';
 
 @Component({
   selector: 'app-kpi-revisions', standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule, KpiRevisionPanelComponent, KpiRevisionWorkspaceComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule, NzPaginationModule,
+    KpiRevisionGuideComponent, KpiRevisionPanelComponent, KpiRevisionWorkspaceComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss', './kpi-revision.scss'],
   templateUrl: './kpi-revisions.component.html'
 })
@@ -31,6 +34,8 @@ export class KpiRevisionsComponent implements OnInit, OnChanges {
   private initialized = false;
   periods: KpiPeriodContext[] = []; plans: KpiPlan[] = []; revisions: KpiRevision[] = [];
   level: KpiLevel | '' = ''; search = '';
+  employeeSearch = ''; employeeDepartment = ''; employeeRole = ''; employeePage = 1;
+  readonly employeePageSize = 10;
   filter: KpiVersionStatus | '' = ''; busy = false; error = ''; success = '';
   access: KpiAmendmentAccess | null = null; enabled = false; closeDate = '';
   readonly statuses: KpiVersionStatus[] = ['REQUESTED', 'DRAFT', 'RETURNED', 'PENDING_APPROVAL', 'PENDING_MD_APPROVAL', 'PENDING_HOD_CONFIRMATION', 'EFFECTIVE', 'SUPERSEDED', 'CANCELLED'];
@@ -38,7 +43,22 @@ export class KpiRevisionsComponent implements OnInit, OnChanges {
   get canManageAccess() { return !this.superiorOnly && this.auth.hasRole('CAN_MANAGE_KPI_AMENDMENTS'); }
   get selectedPeriod() { return this.periods.find(p => p.id === this.periodId); }
   get visibleRevisions() { return this.revisions.filter(r => this.matchesScope(r) && (!this.filter || r.status === this.filter)); }
-  get visiblePlans() { return this.plans.filter(p => this.matchesScope(p)); }
+  get summaryPlans() { return this.plans.filter(p => p.level !== 'INDIVIDUAL'); }
+  get individualPlans() { return this.plans.filter(p => p.level === 'INDIVIDUAL'); }
+  get employeeDepartments() { return [...new Set(this.individualPlans.map(p => p.departmentName).filter((v): v is string => !!v))].sort(); }
+  get employeeRoles() { return [...new Set(this.individualPlans.map(p => p.roleName).filter((v): v is string => !!v))].sort(); }
+  get filteredEmployees() {
+    const search = this.employeeSearch.trim().toLowerCase();
+    return this.individualPlans.filter(p => (!this.employeeDepartment || p.departmentName === this.employeeDepartment)
+      && (!this.employeeRole || p.roleName === this.employeeRole)
+      && (!search || `${p.employeeName ?? ''} ${p.departmentName ?? ''} ${p.roleName ?? ''}`.toLowerCase().includes(search)))
+      .sort((a, b) => (a.employeeName ?? '').localeCompare(b.employeeName ?? '') || a.id - b.id);
+  }
+  get pagedEmployees() { return this.filteredEmployees.slice((this.employeePage - 1) * this.employeePageSize, this.employeePage * this.employeePageSize); }
+  get employeeFiltered() { return !!(this.employeeSearch.trim() || this.employeeDepartment || this.employeeRole); }
+  employeeFiltersChanged() { this.employeePage = 1; }
+  workingFor(planId: number) { return this.revisions.find(r => r.planId === planId && unfinishedRevision(r)) ?? null; }
+  private resetEmployeeFilters() { this.employeeSearch = ''; this.employeeDepartment = ''; this.employeeRole = ''; this.employeePage = 1; }
   get availableStatuses() { return this.statuses.filter(status => this.superiorOnly ? !['PENDING_MD_APPROVAL', 'PENDING_HOD_CONFIRMATION'].includes(status) : true); }
   private matchesScope(row: { level: KpiLevel; employeeName?: string | null; departmentName?: string | null; revisionSuperiorId?: string | null }) {
     const search = this.search.trim().toLowerCase();
@@ -69,11 +89,11 @@ export class KpiRevisionsComponent implements OnInit, OnChanges {
       next: result => this.acceptContext(result), error: e => this.fail(e) });
   }
   ngOnChanges(changes: SimpleChanges) {
-    if (this.initialized && this.sharedPeriod && changes['periodId']) this.load();
+    if (this.initialized && this.sharedPeriod && changes['periodId']) { this.resetEmployeeFilters(); this.load(); }
   }
   async changePeriod(id: number) {
     if (this.locked || id === this.periodId || !await this.canLeave()) return;
-    this.periodId = id; this.load();
+    this.periodId = id; this.resetEmployeeFilters(); this.load();
   }
   load() {
     if (this.busy || this.periodId === null) return;

@@ -47,4 +47,63 @@ describe('Read-only KPI version history', () => {
     expect(body.textContent).toContain('Bob Smith'); expect(body.textContent).toContain('Alice Johnson');
     expect(body.textContent).toContain('KPI_REVISIONS.APPROVER');
   });
+  it('uses consistent blue button disclosures with unique valid targets and independent expansion', () => {
+    api.history.and.returnValue(of([revisionFixture()])); page.open(); fixture.detectChanges();
+    const body = document.querySelector('.ant-modal-body')!;
+    expect(body.querySelector('details')).toBeNull();
+    expect(body.querySelector('.history-disclosures')).toBeNull();
+    expect(getComputedStyle(body.querySelector('.history-version-heading')!).marginTop).toBe('28px');
+    const plan = body.querySelector<HTMLButtonElement>('.history-plan > button')!;
+    const activity = body.querySelector<HTMLButtonElement>('.revision-activity > button')!;
+    expect(plan.parentElement!.compareDocumentPosition(activity.parentElement!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(plan.type).toBe('button'); expect(plan.textContent).toContain('KPI_REVISIONS.VIEW_FULL_PLAN');
+    expect(plan.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById(plan.getAttribute('aria-controls')!)?.hidden).toBeTrue();
+    expect(activity.textContent).toContain('KPI_REVISIONS.VIEW_ACTIVITY');
+    expect(plan.getAttribute('aria-controls')).not.toBe(activity.getAttribute('aria-controls'));
+    plan.click(); fixture.detectChanges();
+    expect(plan.textContent).toContain('KPI_REVISIONS.HIDE_FULL_PLAN'); expect(plan.getAttribute('aria-expanded')).toBe('true');
+    const item = body.querySelector<HTMLButtonElement>('.history-item-heading button')!;
+    expect(item.textContent).toContain('KPI_REVISIONS.VIEW_KPI_DETAILS'); expect(item.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById(item.getAttribute('aria-controls')!)).not.toBeNull();
+    item.click(); fixture.detectChanges();
+    expect(item.textContent).toContain('KPI_REVISIONS.HIDE_KPI_DETAILS'); expect(item.getAttribute('aria-expanded')).toBe('true');
+    expect(body.querySelector('app-kpi-item-editor')).not.toBeNull();
+    activity.click(); fixture.detectChanges();
+    expect(activity.textContent).toContain('KPI_REVISIONS.HIDE_ACTIVITY');
+    expect(body.querySelector('app-kpi-revision-activity')).not.toBeNull();
+    expect(page.fullPlanVisible).toBeTrue();
+    item.click(); activity.click(); plan.click(); fixture.detectChanges();
+    expect(body.querySelector('app-kpi-revision-activity')).toBeNull(); expect(page.expandedItems.size).toBe(0);
+  });
+  it('resets all expansions on version selection and reopening', () => {
+    const original = revisionFixture({ id: 1, versionNumber: 1, status: 'SUPERSEDED' });
+    api.history.and.returnValue(of([revisionFixture({ status: 'EFFECTIVE' }), original])); page.open();
+    page.fullPlanVisible = true; page.activityVisible = true; page.toggleItem(0);
+    page.selectVersion(original);
+    expect(page.fullPlanVisible).toBeFalse(); expect(page.activityVisible).toBeFalse(); expect(page.expandedItems.size).toBe(0);
+    page.fullPlanVisible = true; page.activityVisible = true; page.toggleItem(0); page.visible = false; page.open();
+    expect(page.fullPlanVisible).toBeFalse(); expect(page.activityVisible).toBeFalse(); expect(page.expandedItems.size).toBe(0);
+  });
+  it('keeps internal activity hidden from employees even when operator events are present', () => {
+    page.effectiveOnly = true;
+    api.history.and.returnValue(of([revisionFixture({ status: 'EFFECTIVE', decisionHistory: [
+      { action: 'RETURNED', actor: 'hr', at: '2026-10-11T12:00:00Z', from: 'PENDING_APPROVAL', to: 'RETURNED', reason: 'Internal feedback' }] })]));
+    page.open(); page.activityVisible = true; fixture.detectChanges();
+    const body = document.querySelector('.ant-modal-body')!;
+    expect(body.querySelector('.revision-activity')).toBeNull(); expect(body.textContent).not.toContain('Internal feedback');
+    expect(body.querySelector('.history-plan > button')).not.toBeNull();
+  });
+  it('allows viewing legacy metadata when no events were recorded and does not duplicate the summary', () => {
+    api.history.and.returnValue(of([revisionFixture({ approvedBy: 'md', approvedAt: '2026-10-11T12:00:00Z' })]));
+    page.open(); page.activityVisible = true; fixture.detectChanges();
+    const body = document.querySelector('.ant-modal-body')!;
+    expect(body.querySelector('.version-summary')!.textContent).not.toContain('KPI_REVISIONS.APPROVER');
+    expect(body.querySelector('app-kpi-revision-activity')!.textContent).toContain('KPI_REVISIONS.APPROVER');
+    expect(body.querySelector('.activity-timeline')).toBeNull();
+  });
+  it('does not reuse disclosure IDs across history instances', () => {
+    const other = TestBed.createComponent(KpiVersionHistoryComponent);
+    expect(other.componentInstance.disclosureId).not.toBe(page.disclosureId); other.destroy();
+  });
 });

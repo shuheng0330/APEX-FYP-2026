@@ -7,35 +7,55 @@
     @if (revision; as version) {
       <section class="version-summary">
         <h3>{{ 'INDIVIDUAL_KPI.LEVEL.' + version.level | translate }}
-          <span class="status">{{ 'KPI_REVISIONS.STATUS.' + version.status | translate }}</span></h3>
-        <p>{{ version.reviewPeriodName }} @if (version.departmentName) { / {{ version.departmentName }} }</p>
+          <span class="status" [attr.data-status]="version.status">{{ 'KPI_REVISIONS.STATUS.' + version.status | translate }}</span>
+          <span class="version-number">{{ 'KPI_REVISIONS.VERSION' | translate:{ number: version.versionNumber } }}</span></h3>
+        <p class="help">{{ version.reviewPeriodName }} @if (version.departmentName) { / {{ version.departmentName }} }</p>
         @if (version.level === 'INDIVIDUAL') {
           <p><strong>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}: {{ version.employeeName }}</strong></p>
-          <p class="help">{{ 'INDIVIDUAL_KPI.SUPERIOR' | translate }}: {{ actorName(version.revisionSuperiorId || null) }}</p>
-          <p class="help">{{ (version.preparationMode === 'SUPERIOR' ? 'KPI_REVISIONS.SUPERIOR_PREPARES' : 'KPI_REVISIONS.HR_PREPARES') | translate }}</p>
         }
-        <p class="help">{{ 'KPI_REVISIONS.VERSION' | translate:{ number: version.versionNumber } }}</p>
         <p class="preserve"><strong>{{ 'KPI_REVISIONS.REASON' | translate }}:</strong> {{ version.revisionReason }}</p>
-        @if (version.requestedBy) { <p class="help">{{ 'KPI_REVISIONS.REQUESTER' | translate }}: {{ actorName(version.requestedBy) }}</p> }
-        @if (version.preparedBy) { <p class="help">{{ 'KPI_REVISIONS.PREPARER' | translate }}: {{ actorName(version.preparedBy) }}</p> }
-        @if (version.approvedBy) { <p class="help">{{ 'KPI_REVISIONS.APPROVER' | translate }}: {{ actorName(version.approvedBy) }} · {{ version.approvedAt | date:'dd MMM yyyy, h:mm a' }}</p> }
-        @if (version.effectiveAt) { <p class="help">{{ 'KPI_REVISIONS.EFFECTIVE_ON' | translate }}: {{ version.effectiveAt | date:'dd MMM yyyy, h:mm a' }}</p> }
-        @if (version.cancelledAt) { <p class="preserve">{{ 'KPI_REVISIONS.CANCEL_REASON' | translate }}: {{ version.cancellationReason }}
-          <br>{{ actorName(version.cancelledBy) }} · {{ version.cancelledAt | date:'dd MMM yyyy, h:mm a' }}</p> }
+        <p class="revision-next"><strong>{{ 'KPI_REVISIONS.NEXT_STEP' | translate }}:</strong> {{ nextStep | translate }}</p>
+        @if (version.cancelledAt) { <p class="preserve">{{ 'KPI_REVISIONS.CANCEL_REASON' | translate }}: {{ version.cancellationReason }}</p> }
       </section>
-      @if (version.level === 'DEPARTMENT') { <p class="workflow-progress">{{ 'KPI_REVISIONS.DEPARTMENT_FLOW' | translate }}</p> }
-      @if (version.level === 'INDIVIDUAL') { <p class="workflow-progress">{{ (version.preparationMode === 'SUPERIOR' ? 'KPI_REVISIONS.SUPERIOR_FLOW' : 'KPI_REVISIONS.HR_FLOW') | translate }}</p> }
+      <ol class="revision-stepper" [attr.aria-label]="'KPI_REVISIONS.PROGRESS' | translate">
+        @for (step of steps; track step.label; let i = $index) {
+          <li [attr.data-state]="step.state" [attr.aria-current]="step.state === 'current' ? 'step' : null">
+            <span class="step-marker" aria-hidden="true">{{ step.state === 'complete' ? '✓' : step.state === 'stopped' ? '×' : i + 1 }}</span>
+            <span>{{ step.label | translate }}<small>{{ 'KPI_REVISIONS.STEP_STATE.' + step.state | translate }}</small></span>
+          </li>
+        }
+      </ol>
       @if (!['EFFECTIVE', 'SUPERSEDED', 'CANCELLED'].includes(version.status)) { <p class="notice">{{ 'KPI_REVISIONS.CURRENT_UNCHANGED' | translate }}</p> }
       @if (version.latestReturnReason) { <div class="return-note"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong>
         <p class="preserve">{{ version.latestReturnReason }}</p><p class="help">{{ actorName(version.latestReturnedBy) }} · {{ version.latestReturnedAt | date:'dd MMM yyyy, h:mm a' }}</p></div> }
-      @if (version.blockers.length) { <div class="warning" role="status"><ul>@for (blocker of version.blockers; track $index) { <li>{{ blocker }}</li> }</ul></div> }
+      @if (visibleBlockers.length) { <div class="warning" role="status"><ul>@for (blocker of visibleBlockers; track $index) { <li>{{ blocker }}</li> }</ul></div> }
       @if (stale) { <div class="error-box">{{ 'KPI_REVISIONS.STALE' | translate }}
         <button nz-button [disabled]="busy || dirty" (click)="refresh()">{{ 'KPI_REVISIONS.REFRESH' | translate }}</button></div> }
+      <section class="revision-comparison">
+        <div class="comparison-heading"><h3>{{ 'KPI_REVISIONS.CHANGES' | translate }}</h3>
+          <button type="button" nz-button nzType="link" class="revision-disclosure" [disabled]="busy" [attr.aria-expanded]="fullPlanVisible" [attr.aria-controls]="disclosureId + '-plan'"
+            (click)="fullPlanVisible = !fullPlanVisible">{{ (fullPlanVisible ? 'KPI_REVISIONS.HIDE_FULL_PLAN' : 'KPI_REVISIONS.VIEW_FULL_PLAN') | translate }}</button></div>
+        @if (baseVersionNumber !== null) { <p class="help">{{ 'KPI_REVISIONS.COMPARING' | translate:{ from: baseVersionNumber, to: version.versionNumber } }}</p> }
+        <app-kpi-changes [changes]="version.changes" [summaryTable]="true" emptyKey="KPI_REVISIONS.NO_CHANGES" />
+      </section>
+      <div [id]="disclosureId + '-plan'" [hidden]="!fullPlanVisible">
+      @if (fullPlanVisible) {
       <section class="card revision-items">
         <div class="card-head plan-summary"><div><h3>{{ 'KPI_REVISIONS.PROPOSED_PLAN' | translate }}</h3>
           <p class="help">{{ 'KPI_PLAN.TOTAL' | translate }}: {{ version.totalWeightage | number:'1.0-2' }}% / 100%</p>
-          <div class="weight-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="version.totalWeightage"
-            [attr.aria-label]="'KPI_PLAN.TOTAL' | translate"><span [style.width.%]="version.totalWeightage > 100 ? 100 : version.totalWeightage"></span></div></div>
+          @if (weightageState !== 'valid') {
+            <div class="revision-weightage-warning" [attr.data-state]="weightageState" [id]="disclosureId + '-weightage-warning'" role="status">
+              <strong>{{ 'KPI_REVISIONS.WEIGHTAGE_WARNING' | translate }}</strong>
+              <p>{{ 'KPI_REVISIONS.WEIGHTAGE_CURRENT' | translate }}: <strong>{{ version.totalWeightage | number:'1.0-2' }}%</strong>.
+                {{ (weightageState === 'over' ? 'KPI_REVISIONS.WEIGHTAGE_REDUCE' : 'KPI_REVISIONS.WEIGHTAGE_INCREASE') | translate }}
+                <strong>{{ weightageDifference | number:'1.0-2' }}%</strong> {{ 'KPI_REVISIONS.WEIGHTAGE_FINALISE' | translate }}</p>
+            </div>
+          }
+          <div class="weight-progress revision-weight-progress" [attr.data-state]="weightageState" role="progressbar"
+            aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="weightageProgress"
+            [attr.aria-valuetext]="'KPI_REVISIONS.WEIGHTAGE_ACCESSIBLE' | translate:{ total: (version.totalWeightage | number:'1.0-2') }"
+            [attr.aria-describedby]="weightageState !== 'valid' ? disclosureId + '-weightage-warning' : null"
+            [attr.aria-label]="'KPI_PLAN.TOTAL' | translate"><span [style.width.%]="weightageProgress"></span></div></div>
           @if (can('EDIT')) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
         </div>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th>
@@ -48,14 +68,17 @@
           } @empty { <tr><td colspan="4" class="empty">{{ 'KPI_PLAN.EMPTY_PLAN' | translate }}</td></tr> }
         </tbody></table></div>
       </section>
-      <h3>{{ 'KPI_REVISIONS.CHANGES' | translate }}</h3>
-      @if (version.targetChangedItemIds.length) { <p class="warning">{{ 'KPI_REVISIONS.TARGET_REMINDER' | translate }}</p> }
-      <app-kpi-changes [changes]="version.changes" emptyKey="KPI_REVISIONS.NO_CHANGES" />
-      @if (version.decisionHistory.length) { <details class="history-item"><summary>{{ 'KPI_REVISIONS.DECISIONS' | translate }}</summary>
-        @for (decision of version.decisionHistory; track $index) { <div class="history-item">
-          <strong>{{ 'KPI_REVISIONS.DECISION.' + decision.action | translate }}</strong>
-          <p class="help">{{ actorName(decision.actor) }} · {{ decision.at | date:'dd MMM yyyy, h:mm a' }}</p>
-          @if (decision.reason) { <p class="preserve">{{ decision.reason }}</p> }</div> }</details> }
+      }
+      </div>
+      <section class="revision-activity">
+        <button type="button" nz-button nzType="link" class="revision-disclosure" [attr.aria-expanded]="activityVisible"
+          [attr.aria-controls]="disclosureId + '-activity'" (click)="activityVisible = !activityVisible">
+          {{ (activityVisible ? 'KPI_REVISIONS.HIDE_ACTIVITY' : 'KPI_REVISIONS.VIEW_ACTIVITY') | translate }}
+        </button>
+        <div [id]="disclosureId + '-activity'" [hidden]="!activityVisible">
+          @if (activityVisible) { <app-kpi-revision-activity [revision]="version" [returnFeedbackVisible]="true" /> }
+        </div>
+      </section>
       @if (reasonAction) { <section class="revision-reason field">
         <p>{{ (reasonAction === 'CANCEL' ? 'KPI_REVISIONS.CANCEL_HELP' : version.level === 'INDIVIDUAL' ? 'KPI_REVISIONS.INDIVIDUAL_RETURN_HELP' : 'KPI_REVISIONS.RETURN_HELP') | translate }}</p>
         <label for="revision-decision-reason">{{ (reasonAction === 'CANCEL' ? 'KPI_REVISIONS.CANCEL_REASON' : 'DEPARTMENT_KPI.RETURN_REASON') | translate }} <span class="required-mark">*</span></label>

@@ -13,18 +13,39 @@ import { KpiRevision, KpiRevisionAction, KpiRevisionDecision, validRevisionReaso
 import { KpiRevisionService } from '../../services/kpi-revision.service';
 import { KpiChangesComponent } from './kpi-changes.component';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { KpiRevisionActivityComponent } from './kpi-revision-activity.component';
+import { revisionSteps, revisionNextStep } from './kpi-revision-progress';
+
+const weightageBlocker = 'KPI item weightages within this plan must total exactly 100%';
 
 @Component({
   selector: 'app-kpi-revision-workspace', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, NzInputModule,
-    KpiChangesComponent, KpiItemEditorComponent],
+    KpiChangesComponent, KpiItemEditorComponent, KpiRevisionActivityComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss', './kpi-revision.scss'],
   templateUrl: './kpi-revision-workspace.component.html'
 })
 export class KpiRevisionWorkspaceComponent {
+  private static nextId = 0;
+  readonly disclosureId = `revision-workspace-${KpiRevisionWorkspaceComponent.nextId++}`;
   @Output() changed = new EventEmitter<KpiRevision>();
   private readonly destroyRef = inject(DestroyRef);
   revision: KpiRevision | null = null; baselineItems: KpiItem[] = [];
+  baseVersionNumber: number | null = null; fullPlanVisible = false; activityVisible = false;
+  get steps() { return this.revision ? revisionSteps(this.revision) : []; }
+  get nextStep() { return this.revision ? revisionNextStep(this.revision) : ''; }
+  get weightageState() {
+    const total = this.revision?.totalWeightage ?? 0;
+    return total === 100 ? 'valid' : total > 100 ? 'over' : 'under';
+  }
+  get weightageDifference() { return Math.abs((this.revision?.totalWeightage ?? 0) - 100); }
+  get weightageProgress() { return Math.min(100, Math.max(0, this.revision?.totalWeightage ?? 0)); }
+  get visibleBlockers() {
+    const blockers = this.revision?.blockers ?? [];
+    // Replace only the known weightage notice while its inline explanation is visible.
+    return this.fullPlanVisible && this.weightageState !== 'valid'
+      ? blockers.filter(blocker => blocker !== weightageBlocker) : blockers;
+  }
   visible = false; busy = false; error = ''; success = ''; stale = false;
   editorVisible = false; editorReadonly = false; editorItems: KpiItem[] = []; editorIndex: number | null = null;
   editorInitial = ''; fieldErrors: KpiItemErrors = {}; itemError = '';
@@ -66,16 +87,18 @@ export class KpiRevisionWorkspaceComponent {
   open(id: number) {
     if (this.busy || this.visible) return;
     this.visible = true; this.revision = null; this.error = ''; this.success = ''; this.stale = false;
+    this.activityVisible = false;
     this.reasonAction = null; this.reason = ''; this.load(id);
   }
   refresh() { if (!this.busy && !this.dirty && this.revision) this.load(this.revision.id); }
   private load(id: number) {
     this.busy = true; this.error = ''; this.success = '';
     this.api.get(id).pipe(switchMap(revision => revision.baseVersionId
-      ? this.api.get(revision.baseVersionId).pipe(map(base => ({ revision, baselineItems: base.items })))
-      : of({ revision, baselineItems: [] as KpiItem[] })),
+      ? this.api.get(revision.baseVersionId).pipe(map(base => ({ revision, baselineItems: base.items, baseNumber: base.versionNumber })))
+      : of({ revision, baselineItems: [] as KpiItem[], baseNumber: null })),
       finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: result => { this.baselineItems = result.baselineItems; this.accept(result.revision); }, error: e => this.fail(e)
+      next: result => { this.baselineItems = result.baselineItems; this.baseVersionNumber = result.baseNumber;
+        this.accept(result.revision); this.fullPlanVisible = this.can('EDIT'); }, error: e => this.fail(e)
     });
   }
   openItem(index: number | null, readonly = false) {
@@ -131,7 +154,10 @@ export class KpiRevisionWorkspaceComponent {
       error: e => this.fail(e)
     });
   }
-  private accept(revision: KpiRevision) { this.revision = revision; this.stale = false; this.changed.emit(revision); }
+  private accept(revision: KpiRevision) {
+    if (revision.allowedActions.includes('EDIT') && !this.revision?.allowedActions.includes('EDIT')) this.fullPlanVisible = true;
+    this.revision = revision; this.stale = false; this.changed.emit(revision);
+  }
   actorName(actor: string | null) { return actor ? this.revision?.actorNames?.[actor] || '-' : '-'; }
   private fail(e: { status?: number; error?: { message?: string } }) {
     const message = e.error?.message || this.translate.instant('KPI_PLAN.ERROR');

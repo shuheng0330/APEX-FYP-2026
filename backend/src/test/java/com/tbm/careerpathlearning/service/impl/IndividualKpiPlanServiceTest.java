@@ -56,6 +56,15 @@ class IndividualKpiPlanServiceTest {
         request=new KpiPlanRequest();request.setReviewPeriodId(1L);request.setItems(List.of());
     }
     @AfterEach void cleanup() {SecurityContextHolder.clearContext();}
+    @Test void planDetailsExposeRecordedRoleWithoutUsingCurrentStaffRole() {
+        participant.setRoleName("Recorded Executive");
+        var currentRole=new Role();currentRole.setName("Current Manager");employee.setRole(currentRole);
+        assertEquals("Recorded Executive",service.individualPlan(10L,employeeId).getRoleName());
+        participant.setDepartmentName("Recorded Sales");
+        assertEquals("Recorded Sales",Mappers.getMapper(KpiPlanMapper.class).toDto(plan).getDepartmentName());
+        participant.setRoleName(null);
+        assertNull(service.individualPlan(10L,employeeId).getRoleName());
+    }
     void complete() {
         var item=new Kpi();item.setId(11L);
         Mappers.getMapper(KpiPlanMapper.class).update(KpiPlanValidatorTest.item("New Customers","100"),item);

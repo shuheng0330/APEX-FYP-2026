@@ -1,4 +1,6 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { NzSelectComponent } from 'ng-zorro-antd/select';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
@@ -61,7 +63,8 @@ describe('KPI revision review queue and amendment controls', () => {
     start(); page.revisions.push(revisionFixture({ id: 8, level: 'INDIVIDUAL', employeeName: 'Bob', status: 'PENDING_APPROVAL' }));
     page.plans = [revisionPlan(), revisionPlan({ id: 4, level: 'INDIVIDUAL', employeeName: 'Bob', status: 'APPROVED' })];
     page.level = 'INDIVIDUAL'; page.search = 'bob'; page.filter = 'PENDING_APPROVAL';
-    expect(page.visibleRevisions.map(r => r.id)).toEqual([8]); expect(page.visiblePlans.map(p => p.id)).toEqual([4]);
+    expect(page.visibleRevisions.map(r => r.id)).toEqual([8]); expect(page.summaryPlans.map(p => p.id)).toEqual([1]);
+    expect(page.individualPlans.map(p => p.id)).toEqual([4]);
   });
   it('uses the Superior shared-period queue without loading HR controls or confirmed plans', () => {
     permissions = ['CAN_MANAGE_KPI_AMENDMENTS', 'CAN_REVIEW_INDIVIDUAL_KPI'];
@@ -76,4 +79,51 @@ describe('KPI revision review queue and amendment controls', () => {
     fixture.componentRef.setInput('periodId', 3); fixture.detectChanges(); expect(api.list).toHaveBeenCalledWith(3, 'INDIVIDUAL');
     expect(page.availableStatuses).toContain('PENDING_APPROVAL'); expect(page.availableStatuses).not.toContain('PENDING_MD_APPROVAL');
   });
+  it('filters employees independently by recorded department and role with pagination and counts', () => {
+    start(); page.plans = Array.from({ length: 12 }, (_, index) => revisionPlan({ id: index + 10,
+      level: 'INDIVIDUAL', status: 'APPROVED', employeeName: 'Employee ' + index,
+      departmentName: index < 11 ? 'IT' : 'Sales', roleName: index < 11 ? 'Engineer' : 'Executive' }));
+    page.level = 'COMPANY'; page.search = 'does not match'; page.filter = 'CANCELLED';
+    expect(page.individualPlans.length).toBe(12); expect(page.pagedEmployees.length).toBe(10);
+    page.employeePage = 2; expect(page.pagedEmployees.length).toBe(2);
+    page.employeeDepartment = 'IT'; page.employeeRole = 'Engineer'; page.employeeFiltersChanged();
+    expect(page.employeePage).toBe(1); expect(page.filteredEmployees.length).toBe(11);
+    page.employeeSearch = 'employee 10'; page.employeeFiltersChanged(); expect(page.filteredEmployees.length).toBe(1);
+    expect(page.employeeDepartments).toEqual(['IT', 'Sales']); expect(page.employeeRoles).toEqual(['Engineer', 'Executive']);
+    page.employeeSearch = 'missing'; expect(page.filteredEmployees.length).toBe(0);
+  });
+  it('resets employee filters on period changes without changing queue filters', async () => {
+    start(); page.employeeSearch = 'Bob'; page.employeeDepartment = 'IT'; page.employeeRole = 'Engineer'; page.employeePage = 2;
+    page.filter = 'CANCELLED'; await page.changePeriod(3);
+    expect(page.employeeSearch).toBe(''); expect(page.employeeDepartment).toBe(''); expect(page.employeeRole).toBe('');
+    expect(page.employeePage).toBe(1); expect(page.filter).toBe('CANCELLED');
+  });
+  it('passes loaded working revisions into row actions without loading employee history on render', () => {
+    permissions = ['CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS'];
+    api.plans.and.returnValue(of([revisionPlan({ id: 1, level: 'INDIVIDUAL', status: 'APPROVED', employeeName: 'Bob' })]));
+    api.list.and.returnValue(of([revisionFixture({ level: 'INDIVIDUAL', allowedActions: ['PREPARE'] })]));
+    start(); expect(page.workingFor(1)?.id).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.employee-plans tbody tr').length).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('KPI_REVISIONS.CONTINUE');
+  });
+  it('keeps custom-select controls outside their associated label elements', () => {
+    start(); expect(fixture.nativeElement.querySelector('label nz-select')).toBeNull();
+    expect(fixture.nativeElement.querySelector('label[for="revision-level"]')).not.toBeNull();
+  });
+  it('opens options from the control and arrow, and supports keyboard opening and closing', fakeAsync(() => {
+    start(); tick(); fixture.detectChanges();
+    const selectDebug = fixture.debugElement.queryAll(By.directive(NzSelectComponent))[1];
+    const select: NzSelectComponent = selectDebug.componentInstance;
+    const host: HTMLElement = selectDebug.nativeElement;
+    host.querySelector<HTMLElement>('.ant-select-selector')!.click(); tick(); fixture.detectChanges();
+    expect(select.nzOpen).toBeTrue(); expect(document.querySelector('.ant-select-dropdown')).not.toBeNull();
+    const top = host.querySelector('nz-select-top-control')!;
+    top.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); tick(); fixture.detectChanges();
+    expect(select.nzOpen).toBeFalse();
+    host.querySelector<HTMLElement>('nz-select-arrow')!.click(); tick(); fixture.detectChanges(); expect(select.nzOpen).toBeTrue();
+    top.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); tick(); fixture.detectChanges();
+    top.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true })); tick(); fixture.detectChanges();
+    expect(select.nzOpen).toBeTrue();
+    top.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); tick(); fixture.detectChanges();
+  }));
 });

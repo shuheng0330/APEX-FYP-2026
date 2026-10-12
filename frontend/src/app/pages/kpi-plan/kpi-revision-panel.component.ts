@@ -21,10 +21,10 @@ import { KpiVersionHistoryComponent } from './kpi-version-history.component';
     KpiVersionHistoryComponent, KpiRevisionWorkspaceComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss', './kpi-revision.scss'],
   template: `
-    <section class="revision-entry">
-      <div><p class="help">{{ 'KPI_REVISIONS.CURRENT_VERSION' | translate:{ number: plan.currentVersionNumber || 1 } }}</p>
+    <section class="revision-entry" [class.compact]="compact">
+      @if (!compact) { <div><p class="help">{{ 'KPI_REVISIONS.CURRENT_VERSION' | translate:{ number: plan.currentVersionNumber || 1 } }}</p>
         @if (working) { <p class="help">{{ 'KPI_REVISIONS.VERSION' | translate:{ number: working.versionNumber } }}:
-          <span class="status">{{ 'KPI_REVISIONS.STATUS.' + working.status | translate }}</span></p> }</div>
+          <span class="status">{{ 'KPI_REVISIONS.STATUS.' + working.status | translate }}</span></p> }</div> }
       <div class="actions">
         <app-kpi-version-history [planId]="plan.id" [disabled]="locked || disabled" />
         @if (canOperate && (working || canStart)) { <button nz-button [disabled]="locked || disabled" (click)="manage()">
@@ -65,6 +65,8 @@ export class KpiRevisionPanelComponent implements OnChanges {
   @Input({ required: true }) plan!: KpiPlan;
   @Input() disabled = false;
   @Input() historyOnly = false;
+  @Input() compact = false;
+  @Input() workingRevision: KpiRevision | null | undefined;
   @Output() changed = new EventEmitter<KpiRevision>();
   @ViewChild(KpiRevisionWorkspaceComponent) workspace?: KpiRevisionWorkspaceComponent;
   private readonly destroyRef = inject(DestroyRef);
@@ -73,8 +75,9 @@ export class KpiRevisionPanelComponent implements OnChanges {
   working: KpiRevision | null = null;
   constructor(private api: KpiRevisionService, private auth: AuthService, private modal: NzModalService, private translate: TranslateService) {}
   ngOnChanges(changes: SimpleChanges) {
-    if (!changes['plan']) return;
+    if (!changes['plan'] && !changes['workingRevision']) return;
     this.working = null; this.error = '';
+    if (this.workingRevision !== undefined) { this.working = this.workingRevision; return; }
     if (this.canOperate) {
       this.busy = true;
       this.api.history(this.plan.id).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({

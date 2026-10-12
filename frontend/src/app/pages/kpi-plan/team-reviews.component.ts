@@ -19,17 +19,25 @@ import { AuthService } from '../../services/auth.service';
 import { KpiAssessmentReviewsComponent } from '../kpi-assessment/kpi-assessment-reviews.component';
 import { AttitudeAssessmentReviewsComponent } from '../kpi-assessment/attitude-assessment-reviews.component';
 import { KpiRevisionsComponent } from './kpi-revisions.component';
+import { ActivatedRoute, Router } from '@angular/router';
+import { TeamReviewTab, teamReviewTabs } from './review-task-directory';
+import { ReviewTabNavigation } from './review-tab-navigation';
+import { ReviewTaskGuideComponent } from './review-task-guide.component';
 
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent, KpiRevisionsComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent, KpiRevisionsComponent, ReviewTaskGuideComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })
 export class TeamReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  tab: 'reviews' | 'assistance' | 'assessments' | 'attitude' | 'revisions' = 'reviews';
+  tab: TeamReviewTab | null = null;
+  readonly navigation = new ReviewTabNavigation(inject(Router), inject(ActivatedRoute), this.destroyRef,
+    () => teamReviewTabs(permission => this.auth.hasRole(permission)), () => this.tab,
+    tab => { this.tab = tab; if (tab === 'reviews' && !this.plansLoaded) this.load(); }, () => this.canChangeTab());
+  private plansLoaded = false;
   @ViewChild(KpiRevisionsComponent) revisionWorkspace?: KpiRevisionsComponent;
   @ViewChild(KpiAssistanceComponent) assistanceWorkspace?: KpiAssistanceComponent;
   @ViewChild(KpiAssessmentReviewsComponent) assessmentWorkspace?: KpiAssessmentReviewsComponent;
@@ -41,6 +49,7 @@ export class TeamReviewsComponent implements OnInit {
   periodLoading = false;
   periodError = '';
   periodsReady = false;
+  periodChanging = false;
   search = '';
   plans: KpiPlan[] = [];
   selected: KpiPlan | null = null;
@@ -55,25 +64,28 @@ export class TeamReviewsComponent implements OnInit {
   success = '';
 
   constructor(private api: IndividualKpiPlanService, private translate: TranslateService, private modal: NzModalService, private auth: AuthService,
-    private periodApi: TeamReviewPeriodService) {}
+    private periodApi: TeamReviewPeriodService) { this.tab = this.navigation.initial(); }
   get canReviewPlans() { return this.auth.hasRole('CAN_REVIEW_INDIVIDUAL_KPI'); }
   get canReviewAssessments() { return this.auth.hasRole('CAN_REVIEW_KPI_ASSESSMENT'); }
   get canReviewAttitude() { return this.auth.hasRole('CAN_REVIEW_ATTITUDE_EVALUATION'); }
   ngOnInit() {
+    this.tab = this.navigation.initial();
+    this.navigation.connect();
     this.loadPeriods();
-    if (this.canReviewPlans) this.load();
-    else if (this.canReviewAssessments) this.tab = 'assessments';
-    else if (this.canReviewAttitude) this.tab = 'attitude';
+    if (this.tab === 'reviews') this.load();
   }
-  selectTab(tab: 'reviews' | 'assistance' | 'assessments' | 'attitude' | 'revisions') {
-    if (tab === 'attitude' ? !this.canReviewAttitude : tab === 'assessments' ? !this.canReviewAssessments : !this.canReviewPlans) return;
-    if (this.busy || this.drawerVisible) return;
+  selectTab(tab: TeamReviewTab) { this.navigation.select(tab); }
+  private canChangeTab(): boolean | Promise<boolean> {
+    if (this.periodChanging || this.busy || this.loading || this.periodLoading || this.drawerVisible) return false;
     if (this.assistanceWorkspace?.locked || this.assessmentWorkspace?.locked || this.attitudeWorkspace?.locked || this.revisionWorkspace?.locked) {
-      this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
+      this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return false;
     }
-    this.tab = tab;
+    return this.revisionWorkspace?.canLeave() ?? this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? true;
   }
-  canLeave(): boolean | Promise<boolean> { return this.revisionWorkspace?.canLeave() ?? this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? !this.busy; }
+  canLeave(): boolean | Promise<boolean> {
+    if (this.navigation.pending || this.periodChanging || this.busy || this.loading || this.periodLoading || this.drawerVisible || this.assistanceWorkspace?.locked) return false;
+    return this.revisionWorkspace?.canLeave() ?? this.attitudeWorkspace?.canLeave() ?? this.assessmentWorkspace?.canLeave() ?? true;
+  }
   get selectedPeriod() { return this.periods.find(period => period.id === this.periodId); }
   loadPeriods() {
     if (this.periodLoading || this.busy || !(this.canReviewPlans || this.canReviewAssessments || this.canReviewAttitude)) return;
@@ -89,21 +101,24 @@ export class TeamReviewsComponent implements OnInit {
     });
   }
   async changePeriod(id: number | null) {
-    if (id === this.periodId || this.periodLoading || this.busy || this.loading || !this.periods.some(period => period.id === id)) return;
+    if (this.navigation.pending || this.periodChanging || id === this.periodId || this.periodLoading || this.busy || this.loading || !this.periods.some(period => period.id === id)) return;
     if (this.assistanceWorkspace?.locked || this.drawerVisible) {
       this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return;
     }
-    if (this.revisionWorkspace) {
-      if (this.revisionWorkspace.busy) return;
-      if (this.revisionWorkspace.workspace) await this.revisionWorkspace.workspace.close();
-      if (this.revisionWorkspace.workspace?.visible) return;
-    }
-    const assessment = this.attitudeWorkspace ?? this.assessmentWorkspace;
-    if (assessment && !(await assessment.canLeave())) return;
-    if (assessment) { assessment.drawerVisible = false; assessment.selected = null; assessment.items = []; }
-    if (this.assistanceWorkspace) this.assistanceWorkspace.workspace = null;
-    this.periodId = id;
-    if (this.auth.userId) sessionStorage.setItem('team-review-period:' + this.auth.userId, String(id));
+    this.periodChanging = true;
+    try {
+      if (this.revisionWorkspace) {
+        if (this.revisionWorkspace.busy) return;
+        if (this.revisionWorkspace.workspace) await this.revisionWorkspace.workspace.close();
+        if (this.revisionWorkspace.workspace?.visible) return;
+      }
+      const assessment = this.attitudeWorkspace ?? this.assessmentWorkspace;
+      if (assessment && !(await assessment.canLeave())) return;
+      if (assessment) { assessment.drawerVisible = false; assessment.selected = null; assessment.items = []; }
+      if (this.assistanceWorkspace) this.assistanceWorkspace.workspace = null;
+      this.periodId = id;
+      if (this.auth.userId) sessionStorage.setItem('team-review-period:' + this.auth.userId, String(id));
+    } finally { this.periodChanging = false; }
   }
   private get filteredPlans() {
     const search = this.search.trim().toLowerCase();
@@ -118,7 +133,7 @@ export class TeamReviewsComponent implements OnInit {
     if (!this.canReviewPlans || this.loading || this.busy) return;
     this.loading = true; this.error = '';
     this.api.reviews().pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: plans => this.plans = plans.filter(plan => plan.level === 'INDIVIDUAL' && this.statuses.includes(plan.status as ReviewStatus)),
+      next: plans => { this.plansLoaded = true; this.plans = plans.filter(plan => plan.level === 'INDIVIDUAL' && this.statuses.includes(plan.status as ReviewStatus)); },
       error: error => this.fail(error)
     });
   }

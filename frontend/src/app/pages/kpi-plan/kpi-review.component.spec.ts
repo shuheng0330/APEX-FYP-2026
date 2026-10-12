@@ -5,6 +5,8 @@ import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
 import { of } from 'rxjs';
+import { provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { KpiReviewComponent } from './kpi-review.component';
 import { AuthService } from '../../services/auth.service';
 import { DepartmentKpiPlanService } from '../../services/department-kpi-plan.service';
@@ -20,6 +22,7 @@ describe('Permission-driven KPI Review tabs', () => {
     department = jasmine.createSpyObj<DepartmentKpiPlanService>('department', ['list']); department.list.and.returnValue(of([]));
     assistance = jasmine.createSpyObj<KpiAssistanceService>('assistance', ['list']); assistance.list.and.returnValue(of([]));
     TestBed.configureTestingModule({ imports: [KpiReviewComponent, TranslateModule.forRoot()], providers: [provideNoopAnimations(),
+      provideRouter([{ path: 'kpi-management/kpi-review', component: KpiReviewComponent }]),
       { provide: AuthService, useValue: auth }, { provide: DepartmentKpiPlanService, useValue: department }, { provide: KpiAssistanceService, useValue: assistance },
       { provide: KpiRevisionService, useValue: { periods: () => of([]) } },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }] });
@@ -57,5 +60,20 @@ describe('Permission-driven KPI Review tabs', () => {
     expect(component.tab).toBe('revisions'); expect(component.canRevise).toBeTrue();
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs > button').length).toBe(1);
     expect(department.list).not.toHaveBeenCalled(); expect(assistance.list).not.toHaveBeenCalled();
+  });
+  it('opens the requested authorised tab before loading child data', async () => {
+    permissions = ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE'];
+    const harness = await RouterTestingHarness.create();
+    const page = await harness.navigateByUrl('/kpi-management/kpi-review?tab=assistance', KpiReviewComponent);
+    expect(page.tab).toBe('assistance'); expect(assistance.list).toHaveBeenCalledTimes(1);
+    expect(department.list).not.toHaveBeenCalled();
+  });
+  it('falls back from an unauthorised deep link without loading restricted data', async () => {
+    permissions = ['CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE'];
+    const harness = await RouterTestingHarness.create();
+    const page = await harness.navigateByUrl('/kpi-management/kpi-review?tab=department', KpiReviewComponent);
+    await harness.fixture.whenStable();
+    expect(page.tab).toBe('assistance'); expect(department.list).not.toHaveBeenCalled();
+    expect(assistance.list).toHaveBeenCalledTimes(1);
   });
 });

@@ -415,7 +415,8 @@ public class KpiRevisionService {
         event(v,action,actor,v.getStatus(),to,reason);v.setStatus(to);
     }
     private void event(KpiPlanVersion v,String action,UUID actor,KpiVersionStatus from,KpiVersionStatus to,String reason) {
-        v.getDecisionHistory().add(new KpiRevisionDecisionDto(action,actor,now(),from,to,reason));
+        // JSON snapshots normalise offsets to UTC; match that before flush to avoid a second version increment.
+        v.getDecisionHistory().add(new KpiRevisionDecisionDto(action,actor,now().withOffsetSameInstant(ZoneOffset.UTC),from,to,reason));
     }
     private String reason(KpiRevisionRequest r) {
         String reason=r==null?null:r.getReason();

@@ -132,3 +132,16 @@
     flex-direction: column;
     padding-inline: 8px;
 }
+
+:host ::ng-deep .ant-menu-inline .review-workflow-link {
+    height: auto;
+    min-height: 40px;
+    line-height: 1.45;
+    padding-block: 10px;
+    white-space: normal;
+
+    .ant-menu-title-content {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}

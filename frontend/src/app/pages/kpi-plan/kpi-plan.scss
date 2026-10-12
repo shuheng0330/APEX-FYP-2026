@@ -94,3 +94,17 @@ textarea { min-height: 64px; resize: vertical; }
 .allocation-explanation { margin: 0; }
 @media (max-width: 500px) { .allocation-values { grid-template-columns: 1fr; gap: 12px; } .allocation-values > div { display: flex; justify-content: space-between; align-items: baseline; } .allocation-values dd { margin: 0; } }
 .team-period-selector { max-width: 480px; margin: 0 0 24px; }
+.review-heading-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; flex-shrink: 0; }
+.grouped-workflow-tabs { gap: 24px; align-items: stretch; }
+.workflow-group { min-width: 0; flex: 3 1 0; }
+.workflow-group h3 { font-size: 12px; font-weight: 600; color: var(--tbm-muted); margin: 0 0 10px; }
+.workflow-group-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.workflow-group + .workflow-group { flex-grow: 2; border-left: 1px solid var(--tbm-border); padding-left: 24px; }
+.workflow-tabs button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.workflow-tabs button:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
+@media (max-width: 1200px) {
+  .grouped-workflow-tabs { flex-direction: column; gap: 20px; }
+  .workflow-group { flex: none; }
+  .workflow-group + .workflow-group { border-left: 0; padding-left: 0; border-top: 1px solid var(--tbm-border); padding-top: 20px; }
+}
+@media (max-width: 900px) { .review-heading-actions { justify-content: flex-start; flex-shrink: 1; } }

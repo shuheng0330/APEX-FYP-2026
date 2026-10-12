@@ -1,11 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { EventEmitter } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
 import { of, throwError } from 'rxjs';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { TeamReviewsComponent } from './team-reviews.component';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { AuthService } from '../../services/auth.service';
@@ -15,6 +17,7 @@ import { KpiItem, KpiPlan, emptyKpiItem } from '../../models/kpi-plan.model';
 import { TeamReviewPeriodService } from '../../services/team-review-period.service';
 import { KpiRevisionService } from '../../services/kpi-revision.service';
 import { revisionFixture } from './kpi-revision.test-data';
+import { reviewLayout } from './review-navigation.test-layout';
 
 describe('Team Reviews', () => {
   let fixture: ComponentFixture<TeamReviewsComponent>;
@@ -51,7 +54,7 @@ describe('Team Reviews', () => {
       { id: 2, name: '2027 Annual Review', status: 'CLOSED', startDate: '2027-01-01', endDate: '2027-12-31', kpiSetupDeadline: null }
     ], defaultPeriodId: 1 }));
     TestBed.configureTestingModule({ imports: [TeamReviewsComponent, TranslateModule.forRoot()], providers: [
-      provideNoopAnimations(), { provide: IndividualKpiPlanService, useValue: api },
+      provideNoopAnimations(), provideRouter([{ path: 'team-performance/team-reviews', component: TeamReviewsComponent }]), { provide: IndividualKpiPlanService, useValue: api },
       { provide: AuthService, useValue: auth }, { provide: KpiAssessmentService, useValue: assessments },
       { provide: AttitudeAssessmentService, useValue: attitudes },
       { provide: TeamReviewPeriodService, useValue: periods },
@@ -79,7 +82,7 @@ describe('Team Reviews', () => {
     expect(component.visiblePlans).toEqual([]); expect(component.periodId).toBeNull();
   });
   it('passes the shared period to assessment tabs and protects unsaved review answers', async () => {
-    auth.hasRole.and.returnValue(true); component.selectTab('assessments'); fixture.detectChanges();
+    auth.hasRole.and.returnValue(true); component.selectTab('assessments'); await fixture.whenStable(); fixture.detectChanges();
     const child = component.assessmentWorkspace!;
     expect(child.periodId).toBe(1); expect(child.sharedPeriod).toBeTrue();
     expect(fixture.nativeElement.querySelectorAll('nz-select').length).toBe(1);
@@ -87,7 +90,7 @@ describe('Team Reviews', () => {
     await component.changePeriod(2); expect(component.periodId).toBe(1);
     leave.and.returnValue(Promise.resolve(true)); await component.changePeriod(2); fixture.detectChanges();
     expect(child.periodId).toBe(2); expect(child.selected).toBeNull();
-    component.selectTab('attitude'); fixture.detectChanges();
+    component.selectTab('attitude'); await fixture.whenStable(); fixture.detectChanges();
     expect(component.attitudeWorkspace?.periodId).toBe(2); expect(component.attitudeWorkspace?.sharedPeriod).toBeTrue();
   });
   it('shows preserved return feedback for resubmitted plans', () => {
@@ -154,15 +157,15 @@ describe('Team Reviews', () => {
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(1);
     component.selectTab('assistance'); expect(component.tab).toBe('assessments');
   });
-  it('keeps assessment and KPI plan responsibilities in separate permission-controlled tabs', () => {
+  it('keeps assessment and KPI plan responsibilities in separate permission-controlled tabs', async () => {
     component.selectTab('assessments'); expect(component.tab).toBe('reviews');
     auth.hasRole.and.returnValue(true); fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.workflow-tabs button').length).toBe(5);
-    component.selectTab('assessments'); fixture.detectChanges();
+    component.selectTab('assessments'); await fixture.whenStable(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).toBeNull();
     component.assessmentWorkspace!.drawerVisible = true; component.selectTab('reviews');
     expect(component.tab).toBe('assessments'); expect(modal.confirm).toHaveBeenCalled();
-    component.assessmentWorkspace!.drawerVisible = false; component.selectTab('reviews'); fixture.detectChanges(); expect(component.tab).toBe('reviews');
+    component.assessmentWorkspace!.drawerVisible = false; component.selectTab('reviews'); await fixture.whenStable(); fixture.detectChanges(); expect(component.tab).toBe('reviews');
     expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).not.toBeNull();
   });
   it('opens only Attitude Evaluations for an attitude-only reviewer', () => {
@@ -177,16 +180,17 @@ describe('Team Reviews', () => {
     expect(component.attitudeWorkspace!.viewScoringGuide).toHaveBeenCalled();
     component.selectTab('reviews'); component.selectTab('assessments'); expect(component.tab).toBe('attitude');
   });
-  it('denies the attitude tab without authority and protects an open evaluation from tab/route changes', () => {
+  it('denies the attitude tab without authority and protects an open evaluation from tab/route changes', async () => {
     component.selectTab('attitude'); expect(component.tab).toBe('reviews'); expect(attitudes.reviews).not.toHaveBeenCalled();
-    auth.hasRole.and.returnValue(true); component.selectTab('attitude'); fixture.detectChanges();
+    auth.hasRole.and.returnValue(true); component.selectTab('attitude'); await fixture.whenStable(); fixture.detectChanges();
     const workspace = component.attitudeWorkspace!;
     workspace.drawerVisible = true; component.selectTab('reviews'); expect(component.tab).toBe('attitude');
     spyOn(workspace, 'canLeave').and.returnValue(false); expect(component.canLeave()).toBeFalse();
-    workspace.drawerVisible = false; component.selectTab('reviews'); expect(component.tab).toBe('reviews');
+    workspace.drawerVisible = false; (workspace.canLeave as jasmine.Spy).and.returnValue(true);
+    component.selectTab('reviews'); await fixture.whenStable(); expect(component.tab).toBe('reviews');
   });
   it('scopes Individual revisions to the shared period without adding another period selector', async () => {
-    component.selectTab('revisions'); fixture.detectChanges();
+    component.selectTab('revisions'); await fixture.whenStable(); fixture.detectChanges();
     expect(component.revisionWorkspace?.superiorOnly).toBeTrue(); expect(component.revisionWorkspace?.sharedPeriod).toBeTrue();
     expect(revisions.list).toHaveBeenCalledWith(1, 'INDIVIDUAL');
     expect(fixture.nativeElement.querySelectorAll('.team-period-selector nz-select').length).toBe(1);
@@ -206,5 +210,83 @@ describe('Team Reviews', () => {
   it('does not infer Individual revision review from HR initiation or job role names', () => {
     auth.hasRole.and.callFake(p => ['CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS', 'MD', 'Super Admin'].includes(p));
     component.selectTab('revisions'); expect(component.tab).toBe('reviews'); expect(revisions.list).not.toHaveBeenCalled();
+  });
+  it('visibly groups all authorised tasks and removes empty groups', () => {
+    auth.hasRole.and.returnValue(true); fixture.detectChanges();
+    const groups = fixture.nativeElement.querySelectorAll('.workflow-group');
+    expect(groups.length).toBe(2);
+    expect(groups[0].querySelector('h3').textContent).toContain('REVIEW_NAV.KPI_PLANS');
+    expect(groups[0].querySelectorAll('button').length).toBe(3);
+    expect(groups[1].querySelector('h3').textContent).toContain('REVIEW_NAV.ASSESSMENTS');
+    expect(groups[1].querySelectorAll('button').length).toBe(2);
+    auth.hasRole.and.callFake(p => p === 'CAN_REVIEW_ATTITUDE_EVALUATION'); component.ngOnInit(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.workflow-group').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('#team-plan-group')).toBeNull();
+  });
+  it('wraps grouped tabs at desktop, tablet and mobile sizes without horizontal overflow', () => {
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('layout', { KPI_REVISIONS: { INDIVIDUAL_TITLE: 'Long translated Individual KPI revision label '.repeat(8) } });
+    translate.use('layout');
+    auth.hasRole.and.returnValue(true); fixture.detectChanges();
+    for (const width of [1440, 768, 360]) {
+      const layout = reviewLayout(fixture.nativeElement.querySelector('main'), width);
+      try {
+        const nav = layout.root.querySelector<HTMLElement>('.workflow-tabs')!;
+        expect(nav.scrollWidth).withContext(String(width)).toBeLessThanOrEqual(nav.clientWidth);
+        expect(layout.window.getComputedStyle(nav).flexDirection).toBe(width > 1200 ? 'row' : 'column');
+        const secondGroup = nav.querySelectorAll('.workflow-group')[1];
+        expect(layout.window.getComputedStyle(secondGroup)[width > 1200 ? 'borderLeftWidth' : 'borderTopWidth']).toBe('1px');
+        for (const button of nav.querySelectorAll('button')) expect(button.getBoundingClientRect().width).toBeLessThanOrEqual(nav.clientWidth);
+      } finally { layout.remove(); }
+    }
+    const button = fixture.nativeElement.querySelector('.workflow-tabs button') as HTMLButtonElement;
+    button.focus(); expect(document.activeElement).toBe(button); expect(button.type).toBe('button');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+  });
+  it('preserves the active assessment tab and URL on period changes and guards simultaneous navigation', async () => {
+    auth.hasRole.and.returnValue(true); component.selectTab('assessments'); await fixture.whenStable(); fixture.detectChanges();
+    const child = component.assessmentWorkspace!;
+    let resolve!: (allowed: boolean) => void;
+    spyOn(child, 'canLeave').and.returnValue(new Promise<boolean>(r => resolve = r));
+    const changing = component.changePeriod(2);
+    component.selectTab('attitude'); expect(component.tab).toBe('assessments');
+    expect(component.canLeave()).toBeFalse(); expect(component.periodChanging).toBeTrue();
+    resolve(false); await changing;
+    expect(component.periodId).toBe(1); expect(component.periodChanging).toBeFalse();
+    expect(TestBed.inject(Router).url).toContain('tab=assessments');
+    (child.canLeave as jasmine.Spy).and.returnValue(true);
+    await component.changePeriod(2); fixture.detectChanges();
+    expect(component.tab).toBe('assessments'); expect(child.periodId).toBe(2);
+    expect(TestBed.inject(Router).url).toContain('tab=assessments');
+  });
+  it('loads a requested assessment tab without requesting the Individual approval queue', async () => {
+    fixture.destroy(); api.reviews.calls.reset(); auth.hasRole.and.returnValue(true);
+    const harness = await RouterTestingHarness.create();
+    const page = await harness.navigateByUrl('/team-performance/team-reviews?tab=assessments', TeamReviewsComponent);
+    expect(page.tab).toBe('assessments'); expect(assessments.reviews).toHaveBeenCalledTimes(1);
+    expect(api.reviews).not.toHaveBeenCalled(); expect(attitudes.reviews).not.toHaveBeenCalled();
+    await page.changePeriod(2); harness.detectChanges();
+    expect(page.tab).toBe('assessments'); expect(page.assessmentWorkspace?.periodId).toBe(2);
+  });
+  it('shows no tabs or queues when no review authority is present', () => {
+    api.reviews.calls.reset(); periods.periods.calls.reset(); auth.hasRole.and.returnValue(false);
+    component.ngOnInit(); fixture.detectChanges();
+    expect(component.tab).toBeNull(); expect(fixture.nativeElement.querySelectorAll('.workflow-group').length).toBe(0);
+    expect(api.reviews).not.toHaveBeenCalled(); expect(periods.periods).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('REVIEW_NAV.NO_TABS');
+  });
+  it('restores the existing per-user Review Period selection without resetting the active tab', async () => {
+    const key = 'team-review-period:navigation-test';
+    const previous = sessionStorage.getItem(key);
+    Object.defineProperty(auth, 'userId', { value: 'navigation-test' });
+    sessionStorage.setItem(key, '2');
+    try {
+      auth.hasRole.and.returnValue(true);
+      component.selectTab('attitude'); await fixture.whenStable(); fixture.detectChanges();
+      component.periodId = null; component.loadPeriods();
+      expect(component.selectedPeriod?.id).toBe(2); expect(component.tab).toBe('attitude');
+    } finally {
+      if (previous === null) sessionStorage.removeItem(key); else sessionStorage.setItem(key, previous);
+    }
   });
 });

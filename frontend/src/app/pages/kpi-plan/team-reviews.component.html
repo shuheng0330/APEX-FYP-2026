@@ -1,30 +1,40 @@
 <main class="review-page">
   <div class="page-heading"><div><h2>{{ 'TEAM_REVIEWS.TITLE' | translate }}</h2><p class="help">{{ 'TEAM_REVIEWS.HELP' | translate }}</p></div>
+    <div class="review-heading-actions">
     @if (tab === 'reviews' || tab === 'assistance') { <app-kpi-scoring-guide /> }
     @else if (tab === 'attitude' && canReviewAttitude) { <button nz-button type="button" [disabled]="busy || drawerVisible" (click)="attitudeWorkspace?.viewScoringGuide()">{{ 'KPI_SCORING_GUIDE.VIEW' | translate }}</button> }
+    <app-review-task-guide [disabled]="navigation.pending || periodChanging" />
+    </div>
   </div>
   <div class="field team-period-selector"><label for="team-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
     <nz-select nzId="team-review-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)"
-      [nzDisabled]="periodLoading || busy || drawerVisible" [nzPlaceHolder]="'FORM_VALIDATION.SELECT_PERIOD' | translate">
+      [nzDisabled]="navigation.pending || periodChanging || periodLoading || busy || drawerVisible" [nzPlaceHolder]="'FORM_VALIDATION.SELECT_PERIOD' | translate">
       @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name + ' · ' + ('REVIEW_PERIOD.STATUS.' + period.status | translate)" /> }
     </nz-select>
   </div>
   @if (periodError) { <div class="error-box" role="alert">{{ periodError }} <button nz-button (click)="loadPeriods()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button></div> }
   @if (periodsReady && periodId === null) { <p class="notice">{{ (periods.length ? 'FORM_VALIDATION.SELECT_PERIOD' : 'REVIEW_FEEDBACK.NO_PERIODS') | translate }}</p> }
   @if (selectedPeriod?.status === 'CLOSED') { <p class="notice">{{ 'INDIVIDUAL_KPI.CLOSED_HELP' | translate }}</p> }
-  <nav class="workflow-tabs" [attr.aria-label]="'TEAM_REVIEWS.TITLE' | translate">
+  <nav class="workflow-tabs grouped-workflow-tabs" [attr.aria-label]="'TEAM_REVIEWS.TITLE' | translate">
     @if (canReviewPlans) {
+    <section class="workflow-group" aria-labelledby="team-plan-group"><h3 id="team-plan-group">{{ 'REVIEW_NAV.KPI_PLANS' | translate }}</h3><div class="workflow-group-buttons">
     <button type="button" [class.active]="tab === 'reviews'" [attr.aria-pressed]="tab === 'reviews'" [disabled]="busy || drawerVisible" (click)="selectTab('reviews')">{{ 'TEAM_REVIEWS.TYPE' | translate }}</button>
     <button type="button" [class.active]="tab === 'assistance'" [attr.aria-pressed]="tab === 'assistance'" [disabled]="busy || drawerVisible" (click)="selectTab('assistance')">{{ 'KPI_ASSISTANCE.TITLE' | translate }}</button>
     <button type="button" [class.active]="tab === 'revisions'" [attr.aria-pressed]="tab === 'revisions'" [disabled]="busy || drawerVisible" (click)="selectTab('revisions')">{{ 'KPI_REVISIONS.INDIVIDUAL_TITLE' | translate }}</button>
+    </div></section>
     }
+    @if (canReviewAssessments || canReviewAttitude) {
+    <section class="workflow-group" aria-labelledby="team-assessment-group"><h3 id="team-assessment-group">{{ 'REVIEW_NAV.ASSESSMENTS' | translate }}</h3><div class="workflow-group-buttons">
     @if (canReviewAssessments) {
       <button type="button" [class.active]="tab === 'assessments'" [attr.aria-pressed]="tab === 'assessments'" [disabled]="busy || drawerVisible" (click)="selectTab('assessments')">{{ 'KPI_ASSESSMENT_REVIEW.TITLE' | translate }}</button>
     }
     @if (canReviewAttitude) {
       <button type="button" [class.active]="tab === 'attitude'" [attr.aria-pressed]="tab === 'attitude'" [disabled]="busy || drawerVisible" (click)="selectTab('attitude')">{{ 'ATTITUDE_REVIEW.TITLE' | translate }}</button>
     }
+    </div></section>
+    }
   </nav>
+  @if (tab === null) { <p class="notice">{{ 'REVIEW_NAV.NO_TABS' | translate }}</p> }
   @if (tab === 'revisions' && canReviewPlans && periodsReady && periodId !== null) { <app-kpi-revisions [sharedPeriod]="true" [superiorOnly]="true" [periodId]="periodId" /> }
   @else if (tab === 'assessments' && canReviewAssessments && periodsReady && periodId !== null) { <app-kpi-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
   @else if (tab === 'attitude' && canReviewAttitude && periodsReady && periodId !== null) { <app-attitude-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
