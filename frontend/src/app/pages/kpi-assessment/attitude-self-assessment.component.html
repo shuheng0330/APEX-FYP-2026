@@ -10,7 +10,7 @@
     <div class="attitude-context">
       <strong>{{ current.reviewPeriodName }}</strong>
       @if (current.evaluationFormat) { <span class="level-pill">{{ 'ATTITUDE_SETUP.FORMAT.' + current.evaluationFormat | translate }}</span> }
-      @if (current.status) { <span class="status" [attr.data-status]="current.status">{{ 'MY_ASSESSMENTS.STATUS.' + current.status | translate }}</span> }
+      @if (current.status && (!current.openingPending || current.id !== null)) { <span class="status" [attr.data-status]="current.status">{{ 'MY_ASSESSMENTS.STATUS.' + current.status | translate }}</span> }
       @if (current.selfAssessmentDeadline) { <span class="help">{{ 'MY_ASSESSMENTS.DEADLINE' | translate }}: {{ current.selfAssessmentDeadline | date:'dd MMM yyyy' }}</span> }
       @if (current.overdue) { <span class="status overdue">{{ 'MY_ASSESSMENTS.OVERDUE' | translate }}</span> }
       @if (current.submittedLate) { <span class="status overdue">{{ 'MY_ASSESSMENTS.SUBMITTED_LATE' | translate }}</span> }
@@ -23,10 +23,16 @@
       </div>
     }
   </div>
-  @if (!current.available && current.availabilityMessage) {
+  @if (!current.available && (current.openingPending || current.availabilityMessage)) {
     <section class="card unavailable-assessment" role="status">
-      <h3>{{ current.availabilityTitle || ('ATTITUDE_ASSESSMENT.UNAVAILABLE' | translate) }}</h3>
-      <p class="help">{{ current.availabilityMessage }}</p>
+      @if (current.openingPending && current.availableFrom) {
+        <h3>{{ 'ATTITUDE_ASSESSMENT.OPENS_ON' | translate:{ date: (current.availableFrom | date:'dd MMM yyyy') } }}</h3>
+        <p class="help">{{ 'ATTITUDE_ASSESSMENT.OPENING_HELP' | translate }}</p>
+      } @else {
+        <h3>{{ current.availabilityTitle || ('ATTITUDE_ASSESSMENT.UNAVAILABLE' | translate) }}</h3>
+        <p class="help">{{ current.availabilityMessage }}</p>
+      }
+      <button nz-button class="opening-refresh" [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button>
     </section>
   } @else if (current.reviewPeriodStatus === 'CLOSED') {
     <p class="notice">{{ 'MY_ASSESSMENTS.CLOSED_HELP' | translate }}</p>
@@ -41,7 +47,7 @@
       <ul>@for (reason of submissionReasons; track reason) { <li>{{ reason }}</li> }</ul>
     </div>
   }
-  @if (items.length) {
+  @if (items.length && !current.openingPending) {
     <section class="card attitude-criteria">
       <div class="card-head assessment-heading">
         <div><h3>{{ 'ATTITUDE_ASSESSMENT.TITLE' | translate }}</h3><p class="help">{{ 'ATTITUDE_ASSESSMENT.INSTRUCTIONS' | translate }}</p></div>

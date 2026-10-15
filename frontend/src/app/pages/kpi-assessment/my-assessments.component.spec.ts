@@ -10,7 +10,7 @@ import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-ang
 import { of, Subject, throwError } from 'rxjs';
 import { MyAssessmentsComponent } from './my-assessments.component';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
-import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentItem, assessmentItemError } from '../../models/kpi-assessment.model';
+import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentItem, KpiScoreBreakdown, assessmentItemError } from '../../models/kpi-assessment.model';
 import { emptyKpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { AttitudeAssessment } from '../../models/attitude-assessment.model';
@@ -29,7 +29,8 @@ describe('My Assessments - KPI Self-Assessment', () => {
   const attitude: AttitudeAssessment = { id: null, participantId: 7, employeeName: 'Amir', roleName: 'Executive', departmentName: 'Sales',
     reviewPeriodId: 1, reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', configurationId: 4, configurationName: '2028 criteria',
     evaluationFormat: 'SALES', status: 'DRAFT', createdAt: null, updatedAt: null, submittedAt: null, submittedBy: null, submittedToSuperiorId: null,
-    submittedLate: null, selfAssessmentDeadline: '2028-12-20', superiorEvaluationDeadline: '2028-12-27', available: true,
+    submittedLate: null, availableFrom: '2028-10-01', openingPending: false,
+    selfAssessmentDeadline: '2028-12-20', superiorEvaluationDeadline: '2028-12-27', available: true,
     availabilityTitle: null, availabilityMessage: null, canSaveDraft: true, canSubmit: false, overdue: false,
     submissionBlockers: ['Select a Self-Assessment Point for Respect'], ratingDefinitions: [], items: [{ id: null, criterionId: 6, name: 'Respect',
       description: 'Treat others with respect', criterionType: 'SHARED_CORE_VALUE', displayOrder: 1, selfPoint: null, selfComment: null }] };
@@ -43,11 +44,12 @@ describe('My Assessments - KPI Self-Assessment', () => {
     selfPoint: null, selfComment: null, superiorPoint: null, superiorComment: null, evidence: [] });
   const assessment = (overrides: Partial<KpiAssessment> = {}): KpiAssessment => ({ id: null, participantId: 7, employeeName: 'Amir', reviewPeriodId: 1,
     reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', checkpoint: checkpoint(), status: 'DRAFT',
+    assessmentModel: 'LEGACY_ALL_LEVELS', pendingResultLevels: [],
     items: [row()], kpiAllocation: null, missingLevels: [], submissionBlockers: ['Select a Self-Assessment Point for Sales 4'],
     canSaveDraft: true, canSubmit: false, overdue: false, createdAt: null, updatedAt: null, submittedAt: null,
     submittedBy: null, submittedToSuperiorId: null, submittedLate: null, reviewedAt: null, reviewedBy: null, reviewedLate: null, checkpointScore: null, ...overrides });
   beforeEach(async () => {
-    api = jasmine.createSpyObj<KpiAssessmentService>('api', ['periods', 'checkpoints', 'mine', 'create', 'update', 'submit', 'upload', 'download', 'removeEvidence']);
+    api = jasmine.createSpyObj<KpiAssessmentService>('api', ['periods', 'checkpoints', 'mine', 'create', 'update', 'submit', 'upload', 'download', 'removeEvidence', 'scoreBreakdown']);
     api.periods.and.returnValue(of([period])); api.checkpoints.and.returnValue(of([checkpoint()])); api.mine.and.returnValue(of(assessment()));
     const save = (request: Parameters<KpiAssessmentService['create']>[0]) => of(assessment({ id: 20,
       items: request.items.map(answer => ({ ...row(answer.assignmentId), ...answer })),
@@ -98,6 +100,84 @@ describe('My Assessments - KPI Self-Assessment', () => {
     page.load(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('73.00%');
     expect(page.assessment?.checkpointScore).toBe(73);
+  });
+  it('shows only Individual KPI answers and clear instructions for a central-model Draft', () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', pendingResultLevels: ['COMPANY', 'DEPARTMENT', 'INDIVIDUAL'],
+      items: [row()], missingLevels: [], submissionBlockers: ['Select a Self-Assessment Point for Sales 4'] })));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assessment-heading').textContent).toContain('MY_ASSESSMENTS.INDIVIDUAL_TITLE');
+    expect(fixture.nativeElement.querySelector('.assessment-heading').textContent).toContain('MY_ASSESSMENTS.INDIVIDUAL_INSTRUCTIONS');
+    expect(fixture.nativeElement.querySelector('th:first-child').textContent).toContain('KPI_PLAN.NAME');
+    page.items[0].selfPoint = 4;
+    expect(page.canSubmit).toBeTrue();
+    page.saveDraft();
+    expect(api.create.calls.mostRecent().args[0].items.map(item => item.assignmentId)).toEqual([4]);
+  });
+  it('distinguishes pending central results from a numeric checkpoint score', () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: null, pendingResultLevels: ['COMPANY', 'DEPARTMENT'] })));
+    page.load(); fixture.detectChanges();
+    const pending: HTMLElement = fixture.nativeElement.querySelector('.result-pending');
+    expect(pending.textContent).toContain('KPI_ASSESSMENT_REVIEW.SCORE_PENDING');
+    expect(pending.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.COMPANY');
+    expect(pending.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.DEPARTMENT');
+    expect(fixture.nativeElement.querySelector('.checkpoint-score')).toBeNull();
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: 0, pendingResultLevels: [] })));
+    page.refresh(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.result-pending')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('0.00%');
+  });
+  it('opens published score details on demand while preserving pending levels and existing answers', async () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'PENDING_REVIEW', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: null, pendingResultLevels: ['DEPARTMENT', 'INDIVIDUAL'] })));
+    const score: KpiScoreBreakdown = { assessmentId: 20, checkpointScore: null, levels: [
+      { level: 'COMPANY', allocation: 15, versionNumber: 2, resultEditionNumber: 1, publishedAt: null,
+        status: 'AVAILABLE', contribution: 12, items: [{ kpi: row().kpi, actualAchievement: '120 units', point: 4 }] },
+      { level: 'DEPARTMENT', allocation: 25, versionNumber: 1, resultEditionNumber: null, publishedAt: null,
+        status: 'PENDING', contribution: null, items: [] },
+      { level: 'INDIVIDUAL', allocation: 60, versionNumber: 1, resultEditionNumber: null, publishedAt: null,
+        status: 'PENDING', contribution: null, items: [] }
+    ] };
+    api.scoreBreakdown.and.returnValue(of(score));
+    page.load(); fixture.detectChanges();
+    expect(api.scoreBreakdown).not.toHaveBeenCalled();
+    const answers = structuredClone(page.items);
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.score-actions button');
+    button.click(); fixture.detectChanges(); await fixture.whenStable();
+    expect(api.scoreBreakdown).toHaveBeenCalledOnceWith(20);
+    const summary = document.body.querySelector('.breakdown-summary')!;
+    expect(summary.textContent).toContain('12.00%');
+    expect(summary.textContent).toContain('KPI_SCORE_BREAKDOWN.STATUS.PENDING');
+    expect(document.body.querySelector('.breakdown-values')?.textContent).toContain('120 units');
+    expect(document.body.querySelectorAll('.breakdown-item').length).toBe(1);
+    page.viewBreakdownCriteria(score.levels[0].items[0].kpi, 'COMPANY');
+    expect(page.detailScope).toBe('COMPANY');expect(page.drawerVisible).toBeTrue();
+    expect(page.items).toEqual(answers);
+    expect(api.create).not.toHaveBeenCalled();expect(api.update).not.toHaveBeenCalled();
+  });
+  it('offers the breakdown beside a completed central score and preserves a real zero contribution', async () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: 90, pendingResultLevels: [] })));
+    api.scoreBreakdown.and.returnValue(of({ assessmentId: 20, checkpointScore: 90, levels: [
+      { level: 'DEPARTMENT', allocation: 0, versionNumber: null, resultEditionNumber: null, publishedAt: null,
+        status: 'NOT_APPLICABLE', contribution: 0, items: [] }
+    ] }));
+    page.load();fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.checkpoint-score button');
+    button.click();fixture.detectChanges();await fixture.whenStable();
+    expect(document.body.querySelector('.breakdown-summary')?.textContent).toContain('0.00%');
+    expect(document.body.querySelector('.breakdown-summary')?.textContent).toContain('KPI_SCORE_BREAKDOWN.STATUS.NOT_APPLICABLE');
+  });
+  it('keeps answers on a breakdown error and ignores a response after the drawer is closed', () => {
+    page.assessment = assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'PENDING_REVIEW', id: 20 });
+    const answers = structuredClone(page.items);
+    api.scoreBreakdown.and.returnValue(throwError(() => ({ status: 403 })));
+    page.openScoreBreakdown();expect(page.breakdownError).toBeTrue();expect(page.items).toEqual(answers);
+    const response = new Subject<KpiScoreBreakdown>();api.scoreBreakdown.and.returnValue(response);
+    page.openScoreBreakdown();page.breakdownVisible = false;
+    response.next({ assessmentId: 20, checkpointScore: null, levels: [] });response.complete();
+    expect(page.breakdown).toBeNull();expect(page.breakdownLoading).toBeFalse();
   });
   it('shows recorded employee context below the tab and above the checkpoint controls', () => {
     page.assessment!.roleName = 'Sales Executive';

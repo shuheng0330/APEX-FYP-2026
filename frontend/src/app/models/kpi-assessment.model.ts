@@ -1,6 +1,21 @@
 import { KpiItem, KpiLevel, KpiPeriodContext } from './kpi-plan.model';
 
 export type KpiAssessmentStatus = 'DRAFT' | 'PENDING_REVIEW' | 'REVIEWED';
+export type KpiAssessmentModel = 'LEGACY_ALL_LEVELS' | 'CENTRAL_RESULTS';
+export interface KpiScoreBreakdown {
+  assessmentId: number;
+  checkpointScore: number | null;
+  levels: {
+    level: KpiLevel;
+    allocation: number;
+    versionNumber: number | null;
+    resultEditionNumber: number | null;
+    publishedAt: string | null;
+    status: 'PENDING' | 'AVAILABLE' | 'NOT_APPLICABLE';
+    contribution: number | null;
+    items: { kpi: KpiItem; actualAchievement: string | null; point: number }[];
+  }[];
+}
 export interface KpiAssessmentCheckpoint {
   id: number; reviewFrequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'; sequenceNumber: number;
   startDate: string; endDate: string; availableFrom: string;
@@ -18,6 +33,7 @@ export interface KpiAssessmentItem {
   evidence: KpiAssessmentEvidence[];
 }
 export interface KpiAssessment {
+  assessmentModel: KpiAssessmentModel; pendingResultLevels: KpiLevel[];
   planVersionIds?: Partial<Record<KpiLevel, number>>;
   id: number | null; participantId: number; employeeName: string;
   roleName?: string | null;
@@ -44,6 +60,7 @@ export function superiorReviewProgress(assessment: { status: KpiAssessmentStatus
   return assessment.superiorDraftSaved ? 'DRAFT' : 'PENDING_REVIEW';
 }
 export interface KpiAssessmentReview {
+  assessmentModel: KpiAssessmentModel; pendingResultLevels: KpiLevel[];
   id: number; employeeId: string; employeeName: string; roleName: string | null; departmentName: string | null;
   reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
   checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentReviewStatus;

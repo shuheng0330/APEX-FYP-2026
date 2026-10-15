@@ -32,3 +32,7 @@
   .superior-answers { border-left: 0; border-top: 1px solid var(--tbm-border); padding: 20px 0 0; }
   .self-answers { padding: 16px; }
 }
+.queue-score { margin-top: 10px; max-width: 300px; overflow-wrap: anywhere; }
+.queue-score strong { display: block; }
+.queue-score-waiting { display: block; margin-top: 6px; }
+.central-review-help { margin: 16px 0; }

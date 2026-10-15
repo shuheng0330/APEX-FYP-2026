@@ -1,7 +1,7 @@
 export interface RoleAuthorityMap {
     roleId: number;
     roleName: string;
-    authorityMap: Map<number, boolean>; // TranslatedAuthority.id
+    authorityMap: Record<number, boolean>; // TranslatedAuthority.id
 }
 
 export interface OrgChartRoleAuthorityMap {

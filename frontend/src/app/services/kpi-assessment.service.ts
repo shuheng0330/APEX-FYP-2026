@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { KpiPeriodContext } from '../models/kpi-plan.model';
-import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentRequest, KpiAssessmentReview, KpiAssessmentReviewStatus, KpiSuperiorAssessmentRequest } from '../models/kpi-assessment.model';
+import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentRequest, KpiAssessmentReview, KpiAssessmentReviewStatus, KpiSuperiorAssessmentRequest, KpiScoreBreakdown } from '../models/kpi-assessment.model';
 
 @Injectable({ providedIn: 'root' })
 export class KpiAssessmentService {
@@ -20,6 +20,7 @@ export class KpiAssessmentService {
   update(id: number, request: KpiAssessmentRequest) { return this.http.put<KpiAssessment>(`${this.base}/${id}`, request, this.options); }
   submit(id: number) { return this.http.post<KpiAssessment>(`${this.base}/${id}/submit`, {}, this.options); }
   get(id: number) { return this.http.get<KpiAssessment>(`${this.base}/${id}`, this.options); }
+  scoreBreakdown(id: number) { return this.http.get<KpiScoreBreakdown>(`${this.base}/${id}/score-breakdown`, this.options); }
   reviews(reviewPeriodId?: number, status?: KpiAssessmentReviewStatus) {
     const params: Record<string, string | number> = {};
     if (reviewPeriodId !== undefined) params['reviewPeriodId'] = reviewPeriodId;

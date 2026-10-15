@@ -43,7 +43,7 @@ export class AttitudeSelfAssessmentComponent implements OnChanges {
     // Initialise after the view check so the shared period selector's loading guard stays consistent.
     queueMicrotask(() => { if (!this.destroyed && this.reviewPeriodId === periodId) this.load(); });
   }
-  get readonly() { return !this.assessment?.canSaveDraft || this.assessment.status !== 'DRAFT'; }
+  get readonly() { return !this.assessment?.available || !this.assessment.canSaveDraft || this.assessment.status !== 'DRAFT'; }
   get dirty() { return !this.readonly && this.signature() !== this.savedAnswers; }
   get completed() { return this.items.filter(item => !assessmentPointError(item.selfPoint, true)).length; }
   get progress() { return this.items.length ? this.completed / this.items.length * 100 : 0; }

@@ -25,7 +25,7 @@ export interface EmployeeLevelConfiguration {
 
 export const REVIEW_DATE_FIELDS = [
   'startDate', 'endDate', 'kpiSetupDeadline',
-  'attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline',
+  'attitudeSelfAssessmentStartDate', 'attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline',
   'appraisalRecommendationDeadline', 'hrFinalisationDeadline'
 ] as const;
 export type ReviewDateField = typeof REVIEW_DATE_FIELDS[number];

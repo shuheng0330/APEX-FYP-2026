@@ -12,7 +12,7 @@ import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { Observable, finalize, of, switchMap, throwError } from 'rxjs';
 import { KpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
-import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem, assessmentItemError, assessmentPointError, assessmentCommentError } from '../../models/kpi-assessment.model';
+import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem, KpiScoreBreakdown, assessmentItemError, assessmentPointError, assessmentCommentError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
@@ -29,7 +29,7 @@ export class MyAssessmentsComponent implements OnInit {
   @ViewChild(AttitudeSelfAssessmentComponent) attitude?: AttitudeSelfAssessmentComponent;
   selectedTab = 0;
   attitudeVisited = false;
-  readonly canChangeTab = () => !this.busy && !this.attitude?.busy && !this.drawerVisible;
+  readonly canChangeTab = () => !this.busy && !this.attitude?.busy && !this.drawerVisible && !this.breakdownVisible;
   selectTab(index: number) { this.selectedTab = index; if (index === 1) this.attitudeVisited = true; }
   get working() { return this.busy || !!this.attitude?.busy; }
   get unsavedChanges() { return this.dirty || !!this.attitude?.dirty; }
@@ -49,6 +49,10 @@ export class MyAssessmentsComponent implements OnInit {
   showValidation = false;
   draftWarnings = false;
   drawerVisible = false;
+  breakdownVisible = false;
+  breakdownLoading = false;
+  breakdownError = false;
+  breakdown: KpiScoreBreakdown | null = null;
   detailItem: KpiItem[] = [];
   detailScope: KpiAssessmentItem['level'] = 'INDIVIDUAL';
   readonly points = [1, 2, 3, 4, 5];
@@ -167,6 +171,19 @@ export class MyAssessmentsComponent implements OnInit {
   }
   viewCriteria(item: KpiAssessmentItem) {
     this.detailItem = [structuredClone(item.kpi)]; this.detailScope = item.level; this.drawerVisible = true;
+  }
+  viewBreakdownCriteria(item: KpiItem, scope: KpiAssessmentItem['level']) {
+    this.detailItem = [structuredClone(item)]; this.detailScope = scope; this.drawerVisible = true;
+  }
+  openScoreBreakdown() {
+    const id = this.assessment?.id;
+    if (id == null || this.busy || this.breakdownLoading || this.assessment?.assessmentModel !== 'CENTRAL_RESULTS') return;
+    this.breakdownVisible = true; this.breakdownLoading = true; this.breakdownError = false; this.breakdown = null;
+    this.api.scoreBreakdown(id).pipe(finalize(() => this.breakdownLoading = false),
+      takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: breakdown => { if (this.breakdownVisible && this.assessment?.id === id) this.breakdown = breakdown; },
+      error: () => { if (this.breakdownVisible && this.assessment?.id === id) this.breakdownError = true; }
+    });
   }
   private persist(): Observable<KpiAssessment> {
     const request = this.request();

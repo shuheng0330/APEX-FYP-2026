@@ -2,7 +2,7 @@ import { EventEmitter } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline } from '@ant-design/icons-angular/icons';
@@ -24,6 +24,7 @@ describe('Annual Attitude Self-Assessment', () => {
     employeeName: 'Alice', roleName: 'Sales Manager', departmentName: 'Sales', reviewPeriodId: 1, reviewPeriodName: '2026 Annual Review',
     reviewPeriodStatus: 'OPEN', configurationId: 5, configurationName: 'Preserved 2026 edition', evaluationFormat: 'MANAGER', status: 'DRAFT',
     createdAt: null, updatedAt: null, submittedAt: null, submittedBy: null, submittedToSuperiorId: null, submittedLate: null,
+    availableFrom: '2026-10-01', openingPending: false,
     selfAssessmentDeadline: '2026-12-20', superiorEvaluationDeadline: '2026-12-27', available: true, availabilityTitle: null, availabilityMessage: null,
     canSaveDraft: true, canSubmit: false, overdue: false, submissionBlockers: ['Select a Self-Assessment Point for Respect'],
     ratingDefinitions: [1, 2, 3, 4, 5].map(point => ({ point, label: `Configured rating ${point}`, description: `Configured behaviour ${point}` })),
@@ -57,6 +58,46 @@ describe('Annual Attitude Self-Assessment', () => {
     expect(fixture.nativeElement.textContent).toContain('20 Dec 2026');
     expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(5);
     expect(fixture.nativeElement.querySelector('input[type=file]')).toBeNull();
+  });
+  it('shows the scheduled opening clearly and prevents editing or writes before it opens', () => {
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { ATTITUDE_ASSESSMENT: { OPENS_ON: 'Attitude Self-Assessment Opens on {{date}}',
+      OPENING_HELP: 'You can complete your annual Attitude Self-Assessment from this date.' } }); translate.use('en');
+    api.mine.and.returnValue(of(assessment({ availableFrom: '2099-10-01', openingPending: true, available: false,
+      canSaveDraft: false, canSubmit: false, availabilityMessage: 'Attitude Self-Assessment opens on 2099-10-01.' })));
+    page.load(); fixture.detectChanges();
+    const notice: HTMLElement = fixture.nativeElement.querySelector('.unavailable-assessment');
+    expect(notice.querySelector('h3')?.textContent).toBe('Attitude Self-Assessment Opens on 01 Oct 2099');
+    expect(notice.textContent).toContain('You can complete your annual Attitude Self-Assessment from this date.');
+    expect(fixture.nativeElement.textContent).toContain('2026 Annual Review');
+    expect(fixture.nativeElement.textContent).toContain('20 Dec 2026');
+    expect(fixture.nativeElement.querySelector('.attitude-criteria')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.assessment-actions')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-status=DRAFT]')).toBeNull();
+    page.saveDraft(); page.confirmSubmit(); page.submit();
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    expect(modal.confirm).not.toHaveBeenCalled();
+  });
+  it('refreshes the scheduled notice into the editable assessment using server availability rather than the browser date', () => {
+    api.mine.and.returnValue(of(assessment({ availableFrom: '2099-10-01', openingPending: true, available: false,
+      canSaveDraft: false, availabilityMessage: 'Scheduled opening' })));
+    page.load(); fixture.detectChanges();
+    api.mine.and.returnValue(of(assessment({ availableFrom: '2099-10-01', openingPending: false, available: true })));
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.opening-refresh'); button.click(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.unavailable-assessment')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(5);
+    expect(fixture.nativeElement.querySelector('.assessment-actions')).not.toBeNull();
+    expect(page.readonly).toBeFalse(); expect(api.create).not.toHaveBeenCalled();
+  });
+  it('keeps the primary configuration message instead of inferring opening status from a future date', () => {
+    api.mine.and.returnValue(of(assessment({ availableFrom: '2099-10-01', openingPending: false, available: false,
+      canSaveDraft: false, items: [], availabilityTitle: 'Attitude Evaluation Not Yet Available',
+      availabilityMessage: 'The Attitude Evaluation criteria have not been configured for this Annual Review Period. Please check again later.' })));
+    page.load(); fixture.detectChanges();
+    const notice: HTMLElement = fixture.nativeElement.querySelector('.unavailable-assessment');
+    expect(notice.querySelector('h3')?.textContent).toBe('Attitude Evaluation Not Yet Available');
+    expect(notice.textContent).toContain('criteria have not been configured');
+    expect(notice.textContent).not.toContain('2099');
   });
   it('uses each returned format and all shared/specific criteria without inferring a format from the role', () => {
     for (const evaluationFormat of ['MANAGER', 'SALES', 'OTHERS'] as const) {

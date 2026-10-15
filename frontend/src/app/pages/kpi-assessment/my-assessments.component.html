@@ -71,19 +71,43 @@
               <ul>@for (reason of submissionReasons; track reason) { <li>{{ reason }}</li> }</ul>
             </div>
           }
-          @if (current.status === 'REVIEWED') {
+          @if (current.status === 'REVIEWED' && current.checkpointScore !== null) {
             <p class="notice checkpoint-score"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ current.checkpointScore | number:'1.2-2' }}%</span>
               @if (current.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+              @if (current.assessmentModel === 'CENTRAL_RESULTS') {
+                <button nz-button nzType="link" [disabled]="busy" (click)="openScoreBreakdown()">{{ 'KPI_SCORE_BREAKDOWN.VIEW' | translate }}</button>
+              }
               <span class="help score-reviewed-at">{{ current.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
             </p>
+          } @else if (current.assessmentModel === 'CENTRAL_RESULTS' && current.status !== 'DRAFT') {
+            <div class="notice result-pending" role="status">
+              <div class="result-pending-header">
+                <strong>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' | translate }}</strong>
+                <div class="score-actions">
+                  <button nz-button nzType="link" [disabled]="busy" (click)="openScoreBreakdown()">{{ 'KPI_SCORE_BREAKDOWN.VIEW' | translate }}</button>
+                  <button nz-button nzType="link" [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button>
+                </div>
+              </div>
+              @if (current.pendingResultLevels.length) {
+                <div class="result-pending-details"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }}
+                  @for (level of current.pendingResultLevels; track level) { {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level | translate }}@if (!$last) {, } }
+                </span></div>
+              }
+              @if (current.reviewedLate || current.reviewedAt) {
+                <div class="result-pending-meta">
+                  @if (current.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+                  @if (current.reviewedAt) { <span class="help score-reviewed-at">{{ current.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span> }
+                </div>
+              }
+            </div>
           }
           <section class="card">
             <div class="card-head assessment-heading"><div>
-              <h3>{{ 'MY_ASSESSMENTS.KPI_TAB' | translate }} - {{ checkpointLabel(current.checkpoint) }}</h3>
-              <p class="help">{{ 'MY_ASSESSMENTS.INSTRUCTIONS' | translate }}</p>
+              <h3>{{ (current.assessmentModel === 'CENTRAL_RESULTS' ? 'MY_ASSESSMENTS.INDIVIDUAL_TITLE' : 'MY_ASSESSMENTS.KPI_TAB') | translate }} - {{ checkpointLabel(current.checkpoint) }}</h3>
+              <p class="help">{{ (current.assessmentModel === 'CENTRAL_RESULTS' ? 'MY_ASSESSMENTS.INDIVIDUAL_INSTRUCTIONS' : 'MY_ASSESSMENTS.INSTRUCTIONS') | translate }}</p>
             </div><app-kpi-scoring-guide /></div>
             <div class="table-scroll"><table class="data-table assessment-table">
-              <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_PLAN.NAME' | translate }}</th>
+              <thead><tr>@if (current.assessmentModel !== 'CENTRAL_RESULTS') { <th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th> }<th>{{ 'KPI_PLAN.NAME' | translate }}</th>
                 <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</th>
                 <th>{{ 'MY_ASSESSMENTS.COMMENT_EVIDENCE' | translate }}</th>
                 @if (current.status === 'REVIEWED') { <th>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate }}</th> }
@@ -91,7 +115,7 @@
               <tbody>
                 @for (item of items; track item.assignmentId) {
                   <tr>
-                    <td><span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span></td>
+                    @if (current.assessmentModel !== 'CENTRAL_RESULTS') { <td><span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span></td> }
                     <td class="kpi-name"><strong>{{ item.kpi.name }}</strong>
                       <button nz-button nzType="link" class="criteria-link" (click)="viewCriteria(item)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
                     </td>
@@ -142,7 +166,7 @@
                       </td>
                     }
                   </tr>
-                } @empty { <tr><td [attr.colspan]="current.status === 'REVIEWED' ? 6 : 5" class="empty">{{ 'MY_ASSESSMENTS.NO_KPIS' | translate }}</td></tr> }
+                } @empty { <tr><td [attr.colspan]="(current.status === 'REVIEWED' ? 5 : 4) + (current.assessmentModel === 'CENTRAL_RESULTS' ? 0 : 1)" class="empty">{{ (current.assessmentModel === 'CENTRAL_RESULTS' ? 'MY_ASSESSMENTS.NO_INDIVIDUAL_KPIS' : 'MY_ASSESSMENTS.NO_KPIS') | translate }}</td></tr> }
               </tbody>
             </table></div>
             @if (!readonly && items.length) { <p class="help evidence-guidance">{{ 'MY_ASSESSMENTS.EVIDENCE_GUIDANCE' | translate }}</p> }
@@ -154,6 +178,68 @@
       </nz-tab>
     </nz-tabset>
   }
+  <nz-drawer [nzVisible]="breakdownVisible" [nzTitle]="'KPI_SCORE_BREAKDOWN.TITLE' | translate" nzWidth="min(900px, 100vw)"
+    [nzFooter]="breakdownFooter" [nzClosable]="!drawerVisible" [nzMaskClosable]="!drawerVisible" [nzKeyboard]="!drawerVisible" (nzOnClose)="breakdownVisible = false">
+    <ng-container *nzDrawerContent>
+      <p class="help">{{ assessment?.reviewPeriodName }} @if (assessment) { / {{ checkpointLabel(assessment.checkpoint) }} }</p>
+      <p>{{ 'KPI_SCORE_BREAKDOWN.HELP' | translate }}</p>
+      @if (breakdownLoading) { <p role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
+      @if (breakdownError) {
+        <div class="error-box" role="alert">{{ 'KPI_SCORE_BREAKDOWN.ERROR' | translate }}
+          <button nz-button (click)="openScoreBreakdown()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button>
+        </div>
+      }
+      @if (breakdown; as score) {
+        <p class="notice"><strong>{{ (score.checkpointScore === null ? 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' : 'KPI_ASSESSMENT_REVIEW.SCORE') | translate }}@if (score.checkpointScore !== null) {: {{ score.checkpointScore | number:'1.2-2' }}%}</strong></p>
+        <section class="card"><div class="table-scroll"><table class="data-table breakdown-summary">
+          <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.ALLOCATION' | translate }}</th>
+            <th>{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.CONTRIBUTION' | translate }}</th></tr></thead>
+          <tbody>@for (level of score.levels; track level.level) {
+            <tr><td>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</td><td>{{ level.allocation | number:'1.0-2' }}%</td>
+              <td>{{ 'KPI_SCORE_BREAKDOWN.STATUS.' + level.status | translate }}</td>
+              <td>@if (level.contribution !== null) { {{ level.contribution | number:'1.2-2' }}% } @else { {{ 'KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate }} }</td>
+            </tr>
+          }</tbody>
+        </table></div></section>
+        <p class="help">{{ 'KPI_SCORE_BREAKDOWN.FORMULA' | translate }}</p>
+        @for (level of score.levels; track level.level) {
+          @if (level.status !== 'NOT_APPLICABLE') {
+            <section class="card breakdown-level">
+              <div class="card-head"><h3>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</h3>
+                <p class="help">{{ 'KPI_SCORE_BREAKDOWN.ALLOCATION' | translate }}: {{ level.allocation | number:'1.0-2' }}%
+                  @if (level.versionNumber !== null) { / {{ 'KPI_RESULTS.VERSION' | translate:{ number: level.versionNumber } }} }
+                  @if (level.resultEditionNumber !== null) { / {{ 'KPI_RESULTS.EDITION' | translate:{ number: level.resultEditionNumber } }} }
+                </p>
+                @if (level.publishedAt) { <p class="help">{{ (level.level === 'INDIVIDUAL' ? 'KPI_SCORE_BREAKDOWN.REVIEWED_ON' : 'KPI_SCORE_BREAKDOWN.PUBLISHED_ON') | translate }}: {{ level.publishedAt | date:'dd MMM yyyy, h:mm a' }}</p> }
+              </div>
+              @if (level.status === 'PENDING') {
+                <div class="card-body">{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }} {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level.level | translate }}</div>
+              } @else {
+                @for (item of level.items; track item.kpi.id) {
+                  <div class="breakdown-item">
+                    <div class="breakdown-item-heading"><strong>{{ item.kpi.name }}</strong>
+                      <button nz-button nzType="link" (click)="viewBreakdownCriteria(item.kpi, level.level)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
+                    </div>
+                    <p class="help">{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target }}</p>
+                    <dl class="breakdown-values">
+                      <div><dt>{{ 'KPI_PLAN.WEIGHT' | translate }}</dt><dd>{{ item.kpi.weightage | number:'1.0-2' }}%</dd></div>
+                      @if (level.level !== 'INDIVIDUAL') {
+                        <div><dt>{{ 'KPI_RESULTS.ACTUAL' | translate }}</dt><dd>{{ item.actualAchievement || '-' }}</dd></div>
+                      }
+                      <div><dt>{{ (level.level === 'INDIVIDUAL' ? 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' : 'KPI_RESULTS.RESULT_POINT') | translate }}</dt>
+                        <dd><strong>{{ item.point }}</strong> / 5 · {{ 'KPI_SCORING_GUIDE.RATING.' + item.point + '.LABEL' | translate }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                }
+              }
+            </section>
+          }
+        }
+      }
+    </ng-container>
+  </nz-drawer>
+  <ng-template #breakdownFooter><div class="actions drawer-actions"><button nz-button [disabled]="drawerVisible" (click)="breakdownVisible = false">{{ 'KPI_PLAN.CLOSE' | translate }}</button></div></ng-template>
   <nz-drawer [nzVisible]="drawerVisible" [nzTitle]="'MY_ASSESSMENTS.KPI_DETAILS' | translate" nzWidth="min(720px, 100vw)" [nzFooter]="detailFooter" (nzOnClose)="drawerVisible = false">
     <ng-container *nzDrawerContent><app-kpi-item-editor [items]="detailItem" [readonly]="true" [singleItem]="true" [scope]="detailScope" /></ng-container>
   </nz-drawer>

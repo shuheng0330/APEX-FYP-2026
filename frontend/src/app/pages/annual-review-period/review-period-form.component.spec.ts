@@ -102,6 +102,41 @@ describe('Annual review period form', () => {
     expect(Object.keys(component.request())).not.toContain('individualKpiApprovalDeadline');
     expect(Object.keys(component.request())).not.toContain('companyKpiCreationDeadline');
   });
+  it('places the required opening date before the employee deadline without prefilling it', () => {
+    fixture.detectChanges(); component.dates.startDate.setValue(new Date(2028, 0, 1)); fixture.detectChanges();
+    expect(component.dates.attitudeSelfAssessmentStartDate.value).toBeNull();
+    const labels: HTMLLabelElement[] = Array.from(fixture.nativeElement.querySelectorAll('#review-attitude label'));
+    expect(labels[0].htmlFor).toBe('attitudeSelfAssessmentStartDate');
+    expect(labels[1].htmlFor).toBe('attitudeSelfAssessmentDeadline');
+    expect(labels[0].querySelector('.required-mark')).not.toBeNull();
+    expect(labels[0].parentElement?.textContent).toContain('REVIEW_PERIOD.ATTITUDE_OPENING_HELP');
+    expect(component.fieldIssue('attitudeSelfAssessmentStartDate')).toBeUndefined();
+  });
+  it('highlights an invalid opening date before saving and allows an incomplete Draft', () => {
+    fixture.detectChanges(); completeForm();
+    component.dates.attitudeSelfAssessmentStartDate.setValue(new Date(2027, 11, 31)); component.save(); fixture.detectChanges();
+    expect(api.create).not.toHaveBeenCalled();
+    const field = fixture.nativeElement.querySelector('label[for=attitudeSelfAssessmentStartDate]').parentElement;
+    expect(field.querySelector('.field-error').textContent).toContain('ATTITUDE_OPENING_BEFORE_START');
+    component.dates.attitudeSelfAssessmentStartDate.setValue(null); component.preview();
+    expect(api.preview).not.toHaveBeenCalled();
+    expect(component.fieldIssue('attitudeSelfAssessmentStartDate')?.key).toContain('REQUIRED');
+    component.save();
+    expect(api.create).toHaveBeenCalledWith(jasmine.objectContaining({ attitudeSelfAssessmentStartDate: null }));
+  });
+  it('sends an edited Upcoming opening date through the existing update request', () => {
+    params.next(convertToParamMap({ id: '29' })); api.get.and.returnValue(of(savedReview())); fixture.detectChanges();
+    expect(component.dates.attitudeSelfAssessmentStartDate.enabled).toBeTrue();
+    component.dates.attitudeSelfAssessmentStartDate.setValue(new Date(2028, 10, 1)); component.save();
+    expect(api.update).toHaveBeenCalledWith(29, jasmine.objectContaining({ attitudeSelfAssessmentStartDate: '2028-11-01' }));
+  });
+  it('includes the opening date in the read-only period summary', () => {
+    params.next(convertToParamMap({ id: '29' })); api.get.and.returnValue(of({ ...savedReview(), status: 'OPEN' })); fixture.detectChanges();
+    const labels: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('dt'));
+    const opening = labels.find(label => label.textContent?.includes('REVIEW_PERIOD.FIELD.attitudeSelfAssessmentStartDate'));
+    expect(opening?.nextElementSibling?.textContent).toContain('01 Oct 2028');
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+  });
   it('loads changed published settings for an earlier new Start Date and can explicitly reload them', () => {
     const values = defaults(); values.sourceReviewPeriodName = '2027 Annual Review Period';
     values.employeeLevelConfigurations[0].companyKpiWeight = 70;

@@ -48,11 +48,31 @@
         <div><span class="help">{{ 'KPI_ASSESSMENT_REVIEW.DEADLINE' | translate }}</span><strong>{{ assessment.checkpoint.superiorAssessmentDeadline | date:'dd MMM yyyy' }}</strong></div>
         <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="reviewProgress(assessment)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(assessment) | translate }}</span></div>
       </div>
-      @if (assessment.status === 'REVIEWED') {
+      @if (assessment.assessmentModel === 'CENTRAL_RESULTS') {
+        <p class="help central-review-help">{{ 'KPI_ASSESSMENT_REVIEW.INDIVIDUAL_HELP' | translate }}</p>
+      }
+      @if (assessment.status === 'REVIEWED' && assessment.checkpointScore !== null) {
         <p class="notice checkpoint-score"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ assessment.checkpointScore | number:'1.2-2' }}%</span>
           @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
           <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
         </p>
+      } @else if (assessment.assessmentModel === 'CENTRAL_RESULTS') {
+        <div class="notice result-pending" role="status">
+          <div class="result-pending-header"><strong>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' | translate }}</strong></div>
+          @if (assessment.pendingResultLevels.length) {
+            <div class="result-pending-details">{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }}
+              @for (level of assessment.pendingResultLevels; track level) { {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level | translate }}@if (!$last) {, } }
+            </div>
+          }
+          @if (assessment.reviewedLate || assessment.reviewedAt) {
+            <div class="result-pending-meta">
+              @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+              @if (assessment.reviewedAt) { <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span> }
+            </div>
+          }
+        </div>
+      }
+      @if (assessment.status === 'REVIEWED') {
         <p class="help">{{ 'KPI_ASSESSMENT_REVIEW.READ_ONLY' | translate }}</p>
       } @else if (assessment.reviewPeriodStatus !== 'OPEN') {
         <p class="notice">{{ 'KPI_ASSESSMENT_REVIEW.PERIOD_READ_ONLY' | translate }}</p>
@@ -66,7 +86,7 @@
       }
       @for (item of items; track item.id) {
         <section class="card review-assessment-card">
-          <div class="card-head"><div class="review-kpi-heading"><span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span>
+          <div class="card-head"><div class="review-kpi-heading">@if (assessment.assessmentModel !== 'CENTRAL_RESULTS') { <span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span> }
             <h3>{{ item.kpi.name }}</h3><p class="help target-cell">{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target }}</p>
           </div><button nz-button nzType="link" class="review-criteria-action" (click)="viewCriteria(item)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button></div>
           <div class="card-body">

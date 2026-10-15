@@ -170,6 +170,7 @@
             <div class="card-body grid">@for (field of finalDeadlines; track field) {
               <div class="field"><label [for]="field">{{ ('REVIEW_PERIOD.FIELD.' + field) | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
                 <nz-date-picker [nzId]="field" [formControlName]="field" [nzDisabled]="busy" [attr.aria-invalid]="!!fieldIssue(field)" nzFormat="dd MMM yyyy"></nz-date-picker>
+                @if (field === 'attitudeSelfAssessmentStartDate') { <p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_OPENING_HELP' | translate }}</p> }
                 @if (fieldIssue(field); as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
               </div>
             }</div>

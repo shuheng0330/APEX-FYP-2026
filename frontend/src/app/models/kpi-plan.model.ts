@@ -14,6 +14,7 @@ export interface KpiItem {
 }
 export interface KpiPeriodContext {
   id: number; name: string | null; status: 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
+    assessmentModel?: 'LEGACY_ALL_LEVELS' | 'CENTRAL_RESULTS';
   startDate: string | null; endDate: string | null; kpiSetupDeadline: string | null;
   participantsSnapshottedAt?: string | null;
   kpiAllocation?: {

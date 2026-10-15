@@ -1,0 +1,294 @@
+<main class="review-page central-results-page">
+  <div class="page-heading">
+    <div>
+      <h2>{{ 'KPI_RESULTS.TITLE' | translate }}</h2>
+      <p class="help">{{ 'KPI_RESULTS.HELP' | translate }}</p>
+    </div>
+    @if (periods.length) {
+      <div class="field context-picker">
+        <label for="central-result-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+        <nz-select nzId="central-result-period" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy">
+          @for (period of periods; track period.id) {
+            <nz-option [nzValue]="period.id" [nzLabel]="(period.name || '-') + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
+          }
+        </nz-select>
+      </div>
+    }
+  </div>
+
+  @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+  @if (success) { <div class="notice" role="status">{{ success }}</div> }
+  @if (!ready) { <p class="help" role="status">{{ 'KPI_RESULTS.LOADING' | translate }}</p> }
+  @else if (!periods.length) {
+    <section class="card empty"><h3>{{ 'KPI_RESULTS.NO_PERIOD_TITLE' | translate }}</h3>
+      <p class="help">{{ 'KPI_RESULTS.NO_PERIOD' | translate }}</p></section>
+  } @else {
+    <nav class="workflow-tabs" [attr.aria-label]="'KPI_RESULTS.LEVEL' | translate">
+      @for (availableLevel of levels; track availableLevel) {
+        <button type="button" [class.active]="level === availableLevel" [attr.aria-pressed]="level === availableLevel"
+          [disabled]="busy" (click)="changeLevel(availableLevel)">
+          {{ (availableLevel === 'COMPANY' ? 'KPI_RESULTS.COMPANY' : 'KPI_RESULTS.DEPARTMENT') | translate }}
+        </button>
+      }
+    </nav>
+    @if (!options.length) {
+      <section class="card empty"><h3>{{ 'KPI_RESULTS.NO_PLAN_TITLE' | translate }}</h3>
+        <p class="help">{{ 'KPI_RESULTS.NO_PLAN' | translate }}</p></section>
+    } @else {
+      <section class="card context-card">
+        <div class="card-body">
+          <div class="context-grid">
+            <div class="field">
+              <label for="central-result-version">{{ 'KPI_RESULTS.PLAN_VERSION' | translate }}</label>
+              <nz-select nzId="central-result-version" [ngModel]="versionId" (ngModelChange)="changeVersion($event)" [nzDisabled]="busy">
+                @for (option of versions; track option.planVersionId) {
+                  <nz-option [nzValue]="option.planVersionId"
+                    [nzLabel]="(('KPI_RESULTS.VERSION' | translate:{ number: option.versionNumber }) + (option.currentVersion ? ' - ' + ('KPI_RESULTS.CURRENT' | translate) : '') + (option.departmentName ? ' - ' + option.departmentName : ''))" />
+                }
+              </nz-select>
+            </div>
+            <div class="field">
+              <label for="central-result-checkpoint">{{ 'KPI_RESULTS.CHECKPOINT' | translate }}</label>
+              <nz-select nzId="central-result-checkpoint" [ngModel]="checkpointId" (ngModelChange)="changeCheckpoint($event)" [nzDisabled]="busy || !checkpoints.length">
+                @for (checkpoint of checkpoints; track checkpoint.id) {
+                  <nz-option [nzValue]="checkpoint.id" [nzLabel]="checkpointLabel(checkpoint)" />
+                }
+              </nz-select>
+            </div>
+          </div>
+          @if (selectedCheckpoint; as checkpoint) {
+            <div class="context-summary">
+              <span class="status" [attr.data-status]="selectedPeriod?.status">{{ 'REVIEW_PERIOD.STATUS.' + selectedPeriod?.status | translate }}</span>
+              <span>{{ 'KPI_RESULTS.FREQUENCY.' + checkpoint.reviewFrequency | translate }}</span>
+              <span>{{ 'KPI_RESULTS.CHECKPOINT_END' | translate }}: {{ checkpoint.endDate | date:'dd MMM yyyy' }}</span>
+              <span>{{ 'KPI_RESULTS.OPENS' | translate }}: {{ openingDate(checkpoint) | date:'dd MMM yyyy' }}</span>
+            </div>
+          }
+        </div>
+      </section>
+      @if (!checkpoints.length) {
+        <section class="card empty"><h3>{{ 'KPI_RESULTS.NO_CHECKPOINT_TITLE' | translate }}</h3>
+          <p class="help">{{ 'KPI_RESULTS.NO_CHECKPOINT' | translate }}</p></section>
+      } @else if (!result) {
+        <section class="card empty">
+          <h3>{{ 'KPI_RESULTS.NO_RESULT_TITLE' | translate }}</h3>
+          @if (selectedPeriod?.status === 'CLOSED') { <p class="help">{{ 'KPI_RESULTS.CLOSED_EMPTY' | translate }}</p> }
+          @else if (selectedPeriod?.status !== 'OPEN') { <p class="help">{{ 'KPI_RESULTS.PERIOD_NOT_OPEN' | translate }}</p> }
+          @else if (selectedCheckpoint && !isOpen(selectedCheckpoint)) {
+            <p class="help">{{ 'KPI_RESULTS.NOT_OPEN_YET' | translate:{ date: (openingDate(selectedCheckpoint) | date:'dd MMM yyyy') } }}</p>
+          } @else { <p class="help">{{ 'KPI_RESULTS.START_HELP' | translate }}</p> }
+          @if (canStart) { <button nz-button nzType="primary" [disabled]="busy" (click)="startDraft()">{{ 'KPI_RESULTS.START_DRAFT' | translate }}</button> }
+        </section>
+      } @else {
+        <div class="result-heading">
+          <div>
+            <h3>{{ (level === 'COMPANY' ? 'KPI_RESULTS.COMPANY' : 'KPI_RESULTS.DEPARTMENT') | translate }}
+              @if (result.departmentName) { <span class="help">/ {{ result.departmentName }}</span> }
+            </h3>
+            <p class="help">{{ 'KPI_RESULTS.VERSION' | translate:{ number: result.planVersionNumber } }} ·
+              {{ 'KPI_RESULTS.EDITION' | translate:{ number: result.editionNumber } }}</p>
+          </div>
+          <div class="actions">
+            <span class="status" [attr.data-status]="result.status">{{ 'KPI_RESULTS.STATUS.' + result.status | translate }}</span>
+            <button nz-button (click)="openHistory()" [disabled]="busy">{{ 'KPI_RESULTS.HISTORY' | translate }}</button>
+          </div>
+        </div>
+        @if (result.previousEditionId && result.status === 'DRAFT') {
+          <div class="notice" role="status">{{ 'KPI_RESULTS.CORRECTION_DRAFT_HELP' | translate }}
+            <strong>{{ 'KPI_RESULTS.CORRECTION_REASON' | translate }}:</strong> {{ result.correctionReason }}</div>
+        } @else if (result.status === 'PUBLISHED') {
+          <div class="notice" role="status">{{ 'KPI_RESULTS.PUBLISHED_HELP' | translate }}
+            @if (result.publishedAt) { {{ result.publishedAt | date:'dd MMM yyyy, h:mm a' }} }
+          </div>
+        } @else if (result.status === 'SUPERSEDED') {
+          <div class="notice">{{ 'KPI_RESULTS.REPLACED_HELP' | translate }}</div>
+        }
+        @if (editable && (showValidation || draftWarnings) && publicationReasons.length) {
+          <div class="draft-readiness" role="status"><strong>{{ 'KPI_RESULTS.BEFORE_PUBLISH' | translate }}</strong>
+            <ul>@for (reason of publicationReasons; track reason) { <li>{{ reason }}</li> }</ul>
+          </div>
+        }
+        <section class="card result-card">
+          <div class="card-head">
+            <h3>{{ 'KPI_RESULTS.ITEMS_TITLE' | translate }}</h3>
+            <p class="help">{{ 'KPI_RESULTS.ITEMS_HELP' | translate }}</p>
+          </div>
+          @for (item of items; track item.id) {
+            <article class="result-item">
+              <div class="result-item-heading">
+                <div><h4>{{ item.kpi.name }}</h4>
+                  <p class="help">{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target || '-' }}
+                    · {{ 'KPI_RESULTS.WEIGHT' | translate }}: {{ item.kpi.weightage | number:'1.0-2' }}%</p></div>
+                <button nz-button nzType="link" (click)="viewCriteria(item)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
+              </div>
+              <div class="result-inputs">
+                <div class="field">
+                  <label [for]="'achievement-' + item.id">{{ 'KPI_RESULTS.ACTUAL' | translate }}
+                    @if (editable) { <span class="required-mark" aria-hidden="true">*</span> }</label>
+                  @if (editable) {
+                    <textarea nz-input rows="2" maxlength="10000" [id]="'achievement-' + item.id"
+                      [(ngModel)]="item.actualAchievement" [disabled]="busy" [placeholder]="'KPI_RESULTS.ACTUAL_PLACEHOLDER' | translate"
+                      [attr.aria-invalid]="showValidation && !item.actualAchievement?.trim()"></textarea>
+                    @if (showValidation && !item.actualAchievement?.trim()) { <span class="field-error">{{ 'KPI_RESULTS.ACTUAL_REQUIRED' | translate }}</span> }
+                  } @else { <p class="answer-text">{{ item.actualAchievement || '-' }}</p> }
+                </div>
+                <div class="field">
+                  <label>{{ 'KPI_RESULTS.RESULT_POINT' | translate }}
+                    @if (editable) { <span class="required-mark" aria-hidden="true">*</span> }</label>
+                  @if (editable) {
+                    <fieldset class="point-selector" [attr.aria-label]="('KPI_RESULTS.RESULT_POINT' | translate) + ': ' + item.kpi.name"
+                      [attr.aria-invalid]="showValidation && item.point == null" [disabled]="busy">
+                      @for (point of points; track point) {
+                        <label class="point-option" [class.selected]="item.point === point">
+                          <input type="radio" [name]="'result-point-' + item.id" [value]="point" [(ngModel)]="item.point">
+                          <span>{{ point }}</span>
+                        </label>
+                      }
+                    </fieldset>
+                    @if (showValidation && item.point == null) { <span class="field-error">{{ 'KPI_RESULTS.POINT_REQUIRED' | translate }}</span> }
+                  } @else { <strong class="saved-point">{{ item.point ?? '-' }}</strong> }
+                  @if (item.point) {
+                    <span class="selected-point-label" role="status">{{ 'KPI_SCORING_GUIDE.RATING.' + item.point + '.LABEL' | translate }}</span>
+                  }
+                </div>
+                <div class="field result-comment">
+                  <label [for]="'result-comment-' + item.id">{{ 'KPI_RESULTS.COMMENT' | translate }}</label>
+                  @if (editable) {
+                    <textarea nz-input rows="2" maxlength="10000" [id]="'result-comment-' + item.id"
+                      [(ngModel)]="item.comment" [disabled]="busy" [placeholder]="'KPI_RESULTS.COMMENT_PLACEHOLDER' | translate"></textarea>
+                  } @else { <p class="answer-text">{{ item.comment || '-' }}</p> }
+                </div>
+              </div>
+              <div class="item-evidence">
+                @if (editable) {
+                  <input #evidenceInput type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="attachEvidence(item, $event)">
+                  <button nz-button nzType="link" [disabled]="busy" (click)="evidenceInput.click()">{{ 'KPI_RESULTS.ATTACH' | translate }}</button>
+                }
+                @for (file of item.evidence; track file.id) {
+                  <div class="file-row"><span [title]="file.originalFilename">{{ file.originalFilename }}</span>
+                    <button nz-button nzType="link" [disabled]="busy" (click)="downloadEvidence(file)">{{ 'KPI_RESULTS.DOWNLOAD' | translate }}</button>
+                    @if (editable) { <button nz-button nzType="link" nzDanger [disabled]="busy" (click)="removeEvidence(item, file)">{{ 'KPI_RESULTS.REMOVE' | translate }}</button> }
+                  </div>
+                }
+              </div>
+            </article>
+          }
+        </section>
+        @if (editable) {
+          <div class="footer-actions">
+            @if (dirty) { <span class="help unsaved" role="status">{{ 'KPI_RESULTS.UNSAVED' | translate }}</span> }
+            <button nz-button [disabled]="busy" (click)="saveDraft()">{{ 'KPI_RESULTS.SAVE_DRAFT' | translate }}</button>
+            <button nz-button nzType="primary" [disabled]="!canPublish" (click)="confirmPublish()">{{ 'KPI_RESULTS.PUBLISH' | translate }}</button>
+          </div>
+        } @else if (canCorrect || result.workingCorrectionId) {
+          <div class="footer-actions">
+            @if (canCorrect) { <button nz-button nzType="primary" [disabled]="busy" (click)="openCorrection()">{{ 'KPI_RESULTS.CORRECT' | translate }}</button> }
+            @else { <button nz-button nzType="primary" [disabled]="busy" (click)="continueCorrection()">{{ 'KPI_RESULTS.CONTINUE_CORRECTION' | translate }}</button> }
+          </div>
+        }
+      }
+    }
+    @if (auth.hasRole('CAN_MANAGE_COMPANY_KPI') && periodId !== null) {
+      <section class="card delegate-card">
+        <div class="card-head"><h3>{{ 'KPI_RESULTS.ENTRANTS' | translate }}</h3>
+          <p class="help">{{ 'KPI_RESULTS.ENTRANTS_HELP' | translate }}</p></div>
+        <div class="card-body">
+          <div class="notice permission-help">
+            <strong>{{ 'KPI_RESULTS.PERMISSION_REQUIRED' | translate }}</strong>
+            <p>{{ 'KPI_RESULTS.ENTRANT_PERMISSION' | translate }}</p>
+            <a [routerLink]="['/staff']" [queryParams]="{ tab: 'access-control' }">{{ 'KPI_RESULTS.GO_TO_ACCESS_CONTROL' | translate }}</a>
+            @if (!canViewAccessControl) {
+              <p>{{ 'KPI_RESULTS.ASK_ACCESS_ADMIN' | translate }}</p>
+            }
+          </div>
+          @if (!activeDelegates.length) { <p class="help">{{ 'KPI_RESULTS.NO_ENTRANTS' | translate }}</p> }
+          @for (delegate of activeDelegates; track delegate.id) {
+            <div class="delegate-row"><span>{{ staffName(delegate.staffId) }}</span>
+              <span class="permission-status" [attr.data-status]="entrantPermission(delegate.staffId)">
+                {{ 'KPI_RESULTS.PERMISSION_STATUS.' + entrantPermission(delegate.staffId) | translate }}
+              </span>
+              @if (selectedPeriod?.status !== 'CLOSED') {
+                <button nz-button nzDanger [disabled]="busy" (click)="revokeDelegate(delegate)">{{ 'KPI_RESULTS.REMOVE_ENTRANT' | translate }}</button>
+              }
+            </div>
+          }
+          @if (selectedPeriod?.status !== 'CLOSED') {
+            <div class="delegate-add">
+              <div class="field">
+                <label for="central-entrant">{{ 'KPI_RESULTS.CHOOSE_ENTRANT' | translate }}</label>
+                <nz-select nzId="central-entrant" nzShowSearch [nzPlaceHolder]="'KPI_RESULTS.SELECT_EMPLOYEE' | translate"
+                  [(ngModel)]="selectedStaffId" [nzDisabled]="busy || staffError">
+                  @for (member of eligibleStaff; track member.staffId) {
+                    <nz-option [nzValue]="member.staffId" [nzLabel]="(member.staffName || member.staffEmail) + ' (' + member.staffEmail + ')'" />
+                  }
+                </nz-select>
+              </div>
+              <button nz-button [disabled]="busy || !selectedStaffId" (click)="assignDelegate()">{{ 'KPI_RESULTS.ASSIGN_ENTRANT' | translate }}</button>
+            </div>
+            @if (staffError) { <p class="help warning">{{ 'KPI_RESULTS.STAFF_UNAVAILABLE' | translate }}</p> }
+          }
+        </div>
+      </section>
+    }
+  }
+
+  <nz-drawer [nzVisible]="criteriaVisible" [nzTitle]="'MY_ASSESSMENTS.VIEW_CRITERIA' | translate"
+    nzWidth="min(720px, 100vw)" (nzOnClose)="criteriaVisible = false">
+    <ng-container *nzDrawerContent><app-kpi-item-editor [items]="criteriaItems" [readonly]="true" [singleItem]="true" [scope]="level || 'COMPANY'" /></ng-container>
+  </nz-drawer>
+  <nz-drawer [nzVisible]="historyVisible" [nzTitle]="'KPI_RESULTS.HISTORY' | translate"
+    nzWidth="min(760px, 100vw)" (nzOnClose)="historyVisible = false">
+    <ng-container *nzDrawerContent>
+      <p class="help">{{ 'KPI_RESULTS.HISTORY_HELP' | translate }}</p>
+      @for (edition of history; track edition.id) {
+        <div class="history-row">
+          <div><strong>{{ 'KPI_RESULTS.EDITION' | translate:{ number: edition.editionNumber } }}</strong>
+            <span class="status" [attr.data-status]="edition.status">{{ 'KPI_RESULTS.STATUS.' + edition.status | translate }}</span>
+            @if (edition.publishedAt) { <p class="help">{{ edition.publishedAt | date:'dd MMM yyyy, h:mm a' }}</p> }
+            @if (edition.correctionReason) { <p class="help">{{ 'KPI_RESULTS.CORRECTION_REASON' | translate }}: {{ edition.correctionReason }}</p> }
+          </div>
+          <button nz-button nzType="link" (click)="historyDetail = historyDetail?.id === edition.id ? null : edition">
+            {{ (historyDetail?.id === edition.id ? 'KPI_RESULTS.HIDE_DETAILS' : 'KPI_RESULTS.VIEW_DETAILS') | translate }}
+          </button>
+          @if (historyDetail?.id === edition.id) {
+            <div class="history-items">
+              @for (entry of edition.items; track entry.id) {
+                <div><strong>{{ entry.kpi.name }}</strong>
+                  <dl class="history-values">
+                    <div><dt>{{ 'KPI_RESULTS.ACTUAL' | translate }}:</dt><dd>{{ entry.actualAchievement || '-' }}</dd></div>
+                    <div><dt>{{ 'KPI_RESULTS.RESULT_POINT' | translate }}:</dt>
+                      <dd>{{ entry.point ?? '-' }}
+                        @if (entry.point) { <span class="history-point-label">{{ 'KPI_SCORING_GUIDE.RATING.' + entry.point + '.LABEL' | translate }}</span> }
+                      </dd>
+                    </div>
+                  </dl>
+                  @if (entry.comment) { <p>{{ entry.comment }}</p> }
+                  @for (file of entry.evidence; track file.id) {
+                    <div class="file-row">{{ file.originalFilename }}
+                      <button nz-button nzType="link" [disabled]="busy" (click)="downloadEvidence(file)">{{ 'KPI_RESULTS.DOWNLOAD' | translate }}</button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </ng-container>
+  </nz-drawer>
+  <nz-modal [nzVisible]="correctionVisible" [nzTitle]="'KPI_RESULTS.CORRECT' | translate" [nzFooter]="correctionFooter"
+    (nzOnCancel)="correctionVisible = false">
+    <ng-container *nzModalContent>
+      <p class="help">{{ 'KPI_RESULTS.CORRECTION_HELP' | translate }}</p>
+      <div class="field"><label for="central-correction-reason">{{ 'KPI_RESULTS.CORRECTION_REASON' | translate }} <span class="required-mark" aria-hidden="true">*</span></label>
+        <textarea nz-input id="central-correction-reason" rows="4" maxlength="10000" [(ngModel)]="correctionReason"
+          [attr.aria-invalid]="!!correctionError" (ngModelChange)="correctionError = ''"></textarea>
+        @if (correctionError) { <span class="field-error">{{ correctionError }}</span> }
+      </div>
+    </ng-container>
+  </nz-modal>
+  <ng-template #correctionFooter><div class="actions modal-actions">
+    <button nz-button [disabled]="busy" (click)="correctionVisible = false">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
+    <button nz-button nzType="primary" [disabled]="busy" (click)="createCorrection()">{{ 'KPI_RESULTS.START_CORRECTION' | translate }}</button>
+  </div></ng-template>
+</main>

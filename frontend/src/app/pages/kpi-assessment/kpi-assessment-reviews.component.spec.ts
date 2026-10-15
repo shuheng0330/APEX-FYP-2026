@@ -27,6 +27,7 @@ describe('Team KPI assessment reviews', () => {
     evidence: [{ id: 8, originalFilename: 'proof.pdf', contentType: 'application/pdf', sizeBytes: 5, uploadedBy: 'employee', uploadedAt: '2028-02-01' }] });
   const assessment = (overrides: Partial<KpiAssessment> = {}): KpiAssessment => ({ id: 20, participantId: 7, employeeName: 'Amir',
     roleName: 'Sales Executive', departmentName: 'Retail', reviewPeriodId: 1, reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN',
+    assessmentModel: 'LEGACY_ALL_LEVELS', pendingResultLevels: [],
     checkpoint, status: 'PENDING_REVIEW', items: [item()], kpiAllocation: null, missingLevels: [], submissionBlockers: [],
     canSaveDraft: false, canSubmit: false, overdue: false, canSaveSuperiorDraft: true, canCompleteReview: false,
     superiorOverdue: false, reviewBlockers: ['Select a Superior Assessment Point for Sales'], createdAt: '2028-02-01', updatedAt: '2028-02-01',
@@ -34,6 +35,7 @@ describe('Team KPI assessment reviews', () => {
     reviewedAt: null, reviewedBy: null, reviewedLate: null, checkpointScore: null, ...overrides });
   const row = (id = 20, status: KpiAssessmentReview['status'] = 'PENDING_REVIEW'): KpiAssessmentReview => ({ id,
     employeeId: 'employee', employeeName: 'Amir', roleName: 'Sales Executive', departmentName: 'Retail', reviewPeriodId: 1,
+    assessmentModel: 'LEGACY_ALL_LEVELS', pendingResultLevels: [],
     reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', checkpoint, status, submittedAt: '2028-02-01', submittedLate: false,
     reviewedAt: null, reviewedLate: null, checkpointScore: null, canReview: status === 'PENDING_REVIEW', superiorOverdue: false });
   beforeEach(async () => {
@@ -184,6 +186,36 @@ describe('Team KPI assessment reviews', () => {
     page.open(20); fixture.detectChanges();
     expect(drawer().querySelector('.checkpoint-score')?.textContent).toContain('73.00%');
     expect(page.selected?.checkpointScore).toBe(73);
+  });
+  it('explains the Individual-only review and pending central results without blocking completion', () => {
+    api.reviews.and.returnValue(of([row(20, 'PENDING_REVIEW')])); page.load();
+    api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS',
+      pendingResultLevels: ['COMPANY', 'DEPARTMENT', 'INDIVIDUAL'] })));
+    page.open(20); fixture.detectChanges();
+    expect(drawer().textContent).toContain('KPI_ASSESSMENT_REVIEW.INDIVIDUAL_HELP');
+    expect(drawer().querySelector('.review-kpi-heading .level-pill')).toBeNull();
+    expect(drawer().querySelector('.result-pending')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.COMPANY');
+    page.items[0].superiorPoint = 4;
+    expect(page.canComplete).toBeTrue();
+    page.confirmComplete();
+    expect(modal.confirm.calls.mostRecent().args[0]?.nzContent).toBe('KPI_ASSESSMENT_REVIEW.COMPLETE_CONFIRM_CENTRAL');
+    expect(api.completeReview).not.toHaveBeenCalled();
+  });
+  it('shows a pending result in the queue and drawer, then a corrected numeric score on reload', () => {
+    api.reviews.and.returnValue(of([{ ...row(21, 'REVIEWED'), assessmentModel: 'CENTRAL_RESULTS',
+      pendingResultLevels: ['DEPARTMENT'], checkpointScore: null }]));
+    page.load(); page.filter = 'REVIEWED'; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.queue-score')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.SCORE_PENDING');
+    api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', checkpointScore: null,
+      pendingResultLevels: ['DEPARTMENT'], canSaveSuperiorDraft: false })));
+    page.open(21); fixture.detectChanges();
+    expect(drawer().querySelector('.checkpoint-score')).toBeNull();
+    expect(drawer().querySelector('.result-pending')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.DEPARTMENT');
+    page.close();
+    api.reviews.and.returnValue(of([{ ...row(21, 'REVIEWED'), assessmentModel: 'CENTRAL_RESULTS',
+      pendingResultLevels: [], checkpointScore: 78 }]));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.queue-score')?.textContent).toContain('78.00%');
   });
   it('rechecks backend completion readiness after saving rather than ignoring new blockers', () => {
     page.open(20); page.items[0].superiorPoint = 4;

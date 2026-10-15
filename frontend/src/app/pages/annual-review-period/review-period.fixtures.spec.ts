@@ -15,7 +15,7 @@ export function validReviewRequest(): AnnualReviewPeriodRequest {
     kpiPerformanceWeight: 50, attitudeEvaluationWeight: 50, annualKpiConsolidationMethod: 'FINAL_CHECKPOINT',
     kpiSetupDeadline: '2027-12-15',
     selfAssessmentDaysAfterCheckpoint: 5, superiorAssessmentDaysAfterSelfDeadline: 5,
-    attitudeSelfAssessmentDeadline: '2028-12-20', superiorAttitudeEvaluationDeadline: '2028-12-27',
+    attitudeSelfAssessmentStartDate: '2028-10-01', attitudeSelfAssessmentDeadline: '2028-12-20', superiorAttitudeEvaluationDeadline: '2028-12-27',
     appraisalRecommendationDeadline: '2029-01-10', hrFinalisationDeadline: '2029-01-20'
   };
 }

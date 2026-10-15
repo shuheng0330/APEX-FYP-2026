@@ -69,6 +69,12 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/kpi-plan/department-kpi-plan.component').then(m => m.DepartmentKpiPlanComponent)
       },
       {
+        path: 'kpi-management/kpi-results', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI', 'CAN_ENTER_COMPANY_KPI_RESULTS', 'CAN_MANAGE_DEPARTMENT_KPI'] },
+        loadComponent: () => import('./pages/kpi-plan/kpi-central-results.component').then(m => m.KpiCentralResultsComponent)
+      },
+      {
         path: 'kpi-management/kpi-review', canActivate: [PermissionGuard],
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE', 'CAN_MANAGE_KPI_AMENDMENTS', 'CAN_REVISE_COMPANY_KPI', 'CAN_PREPARE_DEPARTMENT_KPI_REVISION', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS'] },

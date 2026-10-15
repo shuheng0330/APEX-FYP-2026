@@ -20,6 +20,8 @@ describe('KPI Self-Assessment API', () => {
     expect(checkpoints.request.method).toBe('GET'); checkpoints.flush([]);
     api.mine(3).subscribe(); const mine = http.expectOne(`${base}/mine?checkpointId=3`);
     expect(mine.request.method).toBe('GET'); mine.flush({});
+    api.scoreBreakdown(10).subscribe();const breakdown = http.expectOne(`${base}/10/score-breakdown`);
+    expect(breakdown.request.method).toBe('GET');expect(breakdown.request.withCredentials).toBeTrue();breakdown.flush({});
   });
   it('saves incomplete answers with assignment IDs, then submits the saved assessment', () => {
     const body = { checkpointId: 3, items: [{ assignmentId: 7, selfPoint: null, selfComment: null }] };

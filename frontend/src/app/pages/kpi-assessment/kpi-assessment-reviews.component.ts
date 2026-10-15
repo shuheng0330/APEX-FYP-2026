@@ -102,6 +102,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   private accept(assessment: KpiAssessment) {
     this.selected = assessment; this.items = structuredClone(assessment.items); this.savedAnswers = this.answerSignature(); this.showValidation = false; this.draftWarnings = false;
     this.reviews = this.reviews.map(row => row.id === assessment.id ? { ...row, status: assessment.status as KpiAssessmentReviewStatus,
+      assessmentModel: assessment.assessmentModel, pendingResultLevels: assessment.pendingResultLevels,
       canReview: assessment.canSaveSuperiorDraft === true, superiorOverdue: assessment.superiorOverdue === true,
       superiorDraftSaved: assessment.superiorDraftSaved,
       reviewedAt: assessment.reviewedAt, reviewedLate: assessment.reviewedLate, checkpointScore: assessment.checkpointScore } : row);
@@ -142,7 +143,8 @@ export class KpiAssessmentReviewsComponent implements OnInit {
     this.showValidation = true;
     if (!this.canComplete) return;
     this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSESSMENT_REVIEW.COMPLETE'),
-      nzContent: this.translate.instant('KPI_ASSESSMENT_REVIEW.COMPLETE_CONFIRM'), nzOnOk: () => this.complete() });
+      nzContent: this.translate.instant(this.selected?.assessmentModel === 'CENTRAL_RESULTS'
+        ? 'KPI_ASSESSMENT_REVIEW.COMPLETE_CONFIRM_CENTRAL' : 'KPI_ASSESSMENT_REVIEW.COMPLETE_CONFIRM'), nzOnOk: () => this.complete() });
   }
   complete() {
     if (!this.canComplete || !this.validDraft()) return;

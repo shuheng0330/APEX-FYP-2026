@@ -50,6 +50,8 @@ export interface AttitudeAssessment {
   canCompleteReview?: boolean;
   superiorOverdue?: boolean;
   reviewBlockers?: string[];
+  availableFrom: string | null;
+  openingPending: boolean;
   selfAssessmentDeadline: string | null;
   superiorEvaluationDeadline: string | null;
   available: boolean;

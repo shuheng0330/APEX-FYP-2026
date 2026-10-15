@@ -24,6 +24,7 @@ describe('Superior Attitude Evaluations', () => {
     roleName: 'Sales Executive', departmentName: 'Retail', reviewPeriodId: 1, reviewPeriodName: '2026 Annual Review', reviewPeriodStatus: 'OPEN',
     configurationId: 2, configurationName: 'Preserved configuration', evaluationFormat: 'SALES', status: 'PENDING_REVIEW',
     createdAt: '2026-12-21', updatedAt: '2026-12-21', submittedAt: '2026-12-21', submittedBy: 'employee', submittedToSuperiorId: 'superior', submittedLate: true,
+    availableFrom: '2026-10-01', openingPending: false,
     selfAssessmentDeadline: '2026-12-20', superiorEvaluationDeadline: '2026-12-27', available: true, availabilityTitle: null, availabilityMessage: null,
     canSaveDraft: false, canSubmit: false, overdue: false, submissionBlockers: [],
     canSaveSuperiorDraft: true, canCompleteReview: false, superiorDraftSaved: false, superiorOverdue: false,

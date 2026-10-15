@@ -34,7 +34,8 @@ describe('Department KPI navigation', () => {
     const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
     const management = menu.navItems.find(item => item.key === 'NAV.KPI_MANAGEMENT')!;
     expect(menu.hasAccess(management)).toBeTrue();
-    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/department-kpis', '/kpi-management/kpi-review']);
+    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual([
+      '/kpi-management/department-kpis', '/kpi-management/kpi-results', '/kpi-management/kpi-review']);
     auth.hasRole.and.callFake(permission => permission === 'CAN_APPROVE_DEPARTMENT_KPI');
     expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route)).toEqual(['/kpi-management/kpi-review']);
     const children = routes.find(route => route.path === '')?.children ?? [];
@@ -51,6 +52,19 @@ describe('Department KPI navigation', () => {
     const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
     expect(header.page).toEqual({ title: 'KPI_ASSISTANCE.REVIEW_TITLE', group: 'NAV.KPI_MANAGEMENT' });
     expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
+  });
+});
+
+describe('Central KPI result navigation', () => {
+  it('lets a delegated result entrant reach KPI Results without plan-management pages', () => {
+    const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']);
+    auth.hasRole.and.callFake(permission => permission === 'CAN_ENTER_COMPANY_KPI_RESULTS');
+    const menu = new SideMenuComponent(jasmine.createSpyObj<Router>('router', ['navigate']), auth);
+    const management = menu.navItems.find(item => item.key === 'NAV.KPI_MANAGEMENT')!;
+    expect(management.children?.filter(item => menu.hasAccess(item)).map(item => item.route))
+      .toEqual(['/kpi-management/kpi-results']);
+    const route = routes.find(item => item.path === '')?.children?.find(item => item.path === 'kpi-management/kpi-results');
+    expect(route?.data?.['requiredRoles']).toContain('CAN_ENTER_COMPANY_KPI_RESULTS');
   });
 });
 

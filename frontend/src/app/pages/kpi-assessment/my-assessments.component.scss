@@ -45,6 +45,22 @@
 .superior-result { min-width: 200px; max-width: 300px; }
 .checkpoint-score { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-weight: 600; }
 .checkpoint-score .score-reviewed-at { margin: 0 0 0 auto; font-weight: 400; white-space: nowrap; }
+.result-pending { display: block; }
+.result-pending-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.score-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; margin-left: auto; }
+.result-pending-header .ant-btn-link { flex: 0 0 auto; padding: 0; height: auto; }
+.result-pending-details { margin-top: 6px; overflow-wrap: anywhere; }
+.result-pending-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
+.result-pending-meta .score-reviewed-at { margin: 0; white-space: nowrap; }
+.breakdown-summary { min-width: 520px; }
+.breakdown-level { margin-top: 24px; }
+.breakdown-level h3 { margin: 0; }
+.breakdown-item { padding: 20px; border-top: 1px solid var(--tbm-border); }
+.breakdown-item-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.breakdown-item-heading button { padding: 0; height: auto; white-space: normal; text-align: left; }
+.breakdown-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px; margin: 16px 0 0; }
+.breakdown-values dt { color: var(--tbm-muted); }
+.breakdown-values dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .evidence-name { display: block; max-width: 360px; font-size: 12px; }
 .evidence-guidance { padding: 0 20px 16px; }
 @media (max-width: 900px) {
@@ -52,4 +68,8 @@
   .checkpoint-field { flex-basis: auto; }
   .checkpoint-details { margin-left: 0; justify-content: flex-start; }
   .assessment-actions { margin-left: 0; }
+}
+@media (max-width: 520px) {
+  .result-pending-header { align-items: flex-start; flex-wrap: wrap; }
+  .result-pending-header .ant-btn-link { margin-left: auto; white-space: nowrap; }
 }

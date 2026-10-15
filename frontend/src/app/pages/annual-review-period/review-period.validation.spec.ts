@@ -5,6 +5,25 @@ import { validateReviewConfiguration } from './review-period.validation';
 describe('Annual review configuration validation', () => {
   const validate = (request = validReviewRequest(), publish = true) => validateReviewConfiguration(request, publish, reviewLevels.map(l => l.id), savedReview().roleConfigurations);
   it('accepts the complete contract, including January final assessment deadlines', () => expect(validate()).toEqual([]));
+  it('requires an Attitude opening date for publication while allowing incomplete Drafts', () => {
+    const request = validReviewRequest(); request.attitudeSelfAssessmentStartDate = null;
+    expect(validate(request, false)).toEqual([]);
+    expect(validate(request)).toContain(jasmine.objectContaining({ section: 'attitude', field: 'attitudeSelfAssessmentStartDate', key: 'REVIEW_PERIOD.ERROR.REQUIRED' }));
+  });
+  it('validates supplied opening-date boundaries even before publication', () => {
+    const request = validReviewRequest(); request.attitudeSelfAssessmentStartDate = '2027-12-31';
+    expect(validate(request, false)).toContain(jasmine.objectContaining({ field: 'attitudeSelfAssessmentStartDate', key: 'REVIEW_PERIOD.ERROR.ATTITUDE_OPENING_BEFORE_START' }));
+    request.attitudeSelfAssessmentStartDate = '2028-12-21';
+    expect(validate(request, false)).toContain(jasmine.objectContaining({ field: 'attitudeSelfAssessmentStartDate', key: 'REVIEW_PERIOD.ERROR.ATTITUDE_OPENING_AFTER_DEADLINE' }));
+  });
+  it('allows opening on the Start Date, on the employee deadline, and after the measurement End Date', () => {
+    const request = validReviewRequest(); request.attitudeSelfAssessmentStartDate = request.startDate;
+    expect(validate(request)).toEqual([]);
+    request.attitudeSelfAssessmentStartDate = request.attitudeSelfAssessmentDeadline;
+    expect(validate(request)).toEqual([]);
+    request.endDate = '2028-09-30'; request.attitudeSelfAssessmentStartDate = '2028-10-01';
+    expect(validate(request)).toEqual([]);
+  });
   it('permits incomplete Drafts and provisional totals', () => {
     const request = validReviewRequest(); request.name = null; request.startDate = null; request.endDate = null;
     request.employeeLevelConfigurations = []; request.roleConfigurations = []; request.kpiPerformanceWeight = 10;

@@ -3,7 +3,7 @@ import { AnnualReviewPeriodRequest, ReviewDateField, ReviewRoleConfiguration, we
 export type ReviewSection = 'basic' | 'roles' | 'levels' | 'composition' | 'consolidation' | 'setup' | 'assessment' | 'attitude';
 export interface ReviewValidationIssue { section: ReviewSection; field: string; key: string; params?: Record<string, string | number>; }
 export const SETUP_DEADLINES: ReviewDateField[] = ['kpiSetupDeadline'];
-export const FINAL_DEADLINES: ReviewDateField[] = ['attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline', 'appraisalRecommendationDeadline', 'hrFinalisationDeadline'];
+export const FINAL_DEADLINES: ReviewDateField[] = ['attitudeSelfAssessmentStartDate', 'attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline', 'appraisalRecommendationDeadline', 'hrFinalisationDeadline'];
 
 export function validateReviewConfiguration(request: AnnualReviewPeriodRequest, publish: boolean,
   levelIds: number[], roles: ReviewRoleConfiguration[]): ReviewValidationIssue[] {
@@ -47,6 +47,9 @@ export function validateReviewConfiguration(request: AnnualReviewPeriodRequest, 
     if (days !== null && (!Number.isInteger(days) || days <= 0 || days > 2147483647)) add('assessment', field, 'DAYS');
   }
   FINAL_DEADLINES.forEach(field => required('attitude', field, request[field]));
+  const openingDate = request.attitudeSelfAssessmentStartDate;
+  if (openingDate && request.startDate && openingDate < request.startDate) add('attitude', 'attitudeSelfAssessmentStartDate', 'ATTITUDE_OPENING_BEFORE_START');
+  if (openingDate && request.attitudeSelfAssessmentDeadline && openingDate > request.attitudeSelfAssessmentDeadline) add('attitude', 'attitudeSelfAssessmentStartDate', 'ATTITUDE_OPENING_AFTER_DEADLINE');
   const after = (first: ReviewDateField, next: ReviewDateField) => {
     if (request[first] && request[next] && request[first]! >= request[next]!) add('attitude', next, 'DEADLINE_ORDER');
   };
