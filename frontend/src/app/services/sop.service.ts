@@ -19,8 +19,12 @@ export class SopService {
     return this.http.post<SopDocument>(`${this.baseUrl}/upload`, form, { withCredentials: true });
   }
 
-  list(): Observable<SopDocument[]> {
-    return this.http.get<SopDocument[]>(this.baseUrl, { withCredentials: true });
+  /**
+   * The courses you may see: your own, plus (for HR and the Super Admin) everyone else's read-only.
+   * @param mine only your own courses, as on the upload page
+   */
+  list(mine = false): Observable<SopDocument[]> {
+    return this.http.get<SopDocument[]>(this.baseUrl, { params: { mine }, withCredentials: true });
   }
 
   detail(id: number): Observable<SopDetail> {

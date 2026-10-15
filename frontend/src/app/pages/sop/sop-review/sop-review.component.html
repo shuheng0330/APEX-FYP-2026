@@ -25,6 +25,10 @@
           <div class="document-summary">
             <span class="section-kicker">Selected SOP</span>
             <h2>{{ document.title }}</h2>
+            @if (!document.editable) {
+              <p class="read-only-note"><nz-icon nzType="lock"></nz-icon>
+                Read only. Only {{ document.preparedByName || 'the course owner' }} can edit, approve or reject it.</p>
+            }
             <dl>
               <div><dt>Department</dt><dd>{{ document.departmentTag || '-' }}</dd></div>
               <div><dt>Version</dt><dd>{{ document.version || '-' }}</dd></div>
@@ -65,10 +69,12 @@
               </div>
               <div class="heading-actions">
                 <nz-tag [nzColor]="statusColor(module.reviewStatus)">{{ module.reviewStatus }}</nz-tag>
-                <button nz-button nzSize="small" (click)="toggleEdit(module)">
-                  <nz-icon [nzType]="editMode[module.id] ? 'eye' : 'edit'"></nz-icon>
-                  {{ editMode[module.id] ? 'Preview' : 'Edit' }}
-                </button>
+                @if (document.editable) {
+                  <button nz-button nzSize="small" (click)="toggleEdit(module)">
+                    <nz-icon [nzType]="editMode[module.id] ? 'eye' : 'edit'"></nz-icon>
+                    {{ editMode[module.id] ? 'Preview' : 'Edit' }}
+                  </button>
+                }
               </div>
             </div>
 
@@ -330,7 +336,7 @@
             }
 
             <!-- Reject reason input -->
-            @if (showModuleReject[module.id]) {
+            @if (document.editable && showModuleReject[module.id]) {
               <div class="reject-box">
                 <label>Reason for regeneration
                   <textarea nz-input placeholder="Explain what the generated material needs to improve" [(ngModel)]="moduleRejectReason[module.id]" [nzAutosize]="{ minRows: 3, maxRows: 5 }"></textarea>
@@ -339,7 +345,8 @@
               </div>
             }
 
-            <!-- Action bar -->
+            <!-- Action bar: only the course's owner reviews it (FR-07-08) -->
+            @if (document.editable) {
             <div class="panel-actions">
               @if (editMode[module.id]) {
                 <button nz-button (click)="saveModule(module)" [nzLoading]="busy[module.id]"><nz-icon nzType="save"></nz-icon> Save Edits</button>
@@ -351,6 +358,7 @@
                 <nz-icon nzType="reload"></nz-icon> Reject & Regenerate
               </button>
             </div>
+            }
 
           </main>
         }

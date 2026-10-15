@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzInputModule } from 'ng-zorro-antd/input';
@@ -111,6 +112,21 @@ export class SopQuizReviewComponent implements OnInit {
     });
   }
 
+  /**
+   * A course you can't open (another trainer's, or deleted): the error pop-up already gives the server's reason,
+   * so clear the page and go back to the course list.
+   */
+  private onLoadFailed(e: HttpErrorResponse): void {
+    this.loading = false;
+    this.document = undefined;
+    this.modules = [];
+    this.selectedSopId = null;
+    if (!e.error?.message) {
+      this.message.error('Could not load the SOP.');
+    }
+    this.router.navigate(['/sop/quiz-review']);
+  }
+
   onSelectSop(id: number): void {
     this.selectedSopId = id;
     this.selectedModuleId = null;
@@ -131,7 +147,7 @@ export class SopQuizReviewComponent implements OnInit {
           this.selectModule(first);
         }
       },
-      error: () => { this.loading = false; this.message.error('Could not load the SOP.'); }
+      error: (e: HttpErrorResponse) => this.onLoadFailed(e)
     });
   }
 

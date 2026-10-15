@@ -54,7 +54,7 @@ export class SopUploadComponent implements OnInit, OnDestroy {
     this.pollSub?.unsubscribe();
     this.pollSub = interval(5000).pipe(
       startWith(0),
-      switchMap(() => this.sopService.list())
+      switchMap(() => this.sopService.list(true))
     ).subscribe({
       next: docs => {
         this.documents = docs;

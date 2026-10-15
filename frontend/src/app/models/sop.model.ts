@@ -56,8 +56,10 @@ export interface SopDocument {
   statusMessage?: string;
   moduleCount: number;
   createdAt: string;
-  /** Trainer who uploaded the SOP, shown on each material (FR-07-07). */
+  /** Trainer who uploaded the SOP, shown on each material (FR-07-07); the course's owner. */
   preparedByName?: string;
+  /** Whether you may change this course: only its owner can (FR-07-08, FR-07-19). */
+  editable: boolean;
 }
 
 export interface SopQuizQuestion {
