@@ -27,24 +27,49 @@ public class KpiAssessmentEvidenceStorage {
     public Stored store(MultipartFile file) {
         if(file==null || file.isEmpty() || file.getSize()>maxBytes)
             throw new BadRequestException("Attach a nonempty PDF, PNG or JPEG within the evidence size limit");
-        try(var input=file.getInputStream()) {
-            byte[] bytes=input.readNBytes((int)Math.min(maxBytes+1,Integer.MAX_VALUE));
-            if(bytes.length==0 || bytes.length>maxBytes) throw new BadRequestException("Evidence exceeds the configured size limit");
-            String type=verifiedType(bytes);
-            String filename=safeFilename(file.getOriginalFilename());
-            String key=UUID.randomUUID().toString();
-            Files.createDirectories(root);
-            Path target=path(key);
-            try {Files.write(target,bytes,StandardOpenOption.CREATE_NEW);}
-            catch(IOException failure) {Files.deleteIfExists(target);throw failure;}
-            return new Stored(key,filename,type,bytes.length);
-        } catch(BadRequestException e) {throw e;}
+        try {return store(file.getInputStream(),file.getOriginalFilename());}
+        catch(BadRequestException e) {throw e;}
         catch(IOException e) {throw new IllegalStateException("Could not store assessment evidence",e);}
     }
+    public Stored copy(String key,String originalFilename) {
+        Path source=path(key);
+        if(!Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS))
+            throw new BadRequestException("This evidence file is unavailable");
+        try {return store(Files.newInputStream(source,LinkOption.NOFOLLOW_LINKS),originalFilename);}
+        catch(NoSuchFileException e) {throw new BadRequestException("This evidence file is unavailable");}
+        catch(IOException e) {throw new IllegalStateException("Could not copy assessment evidence",e);}
+    }
+    private Stored store(InputStream input,String originalFilename) throws IOException {
+        byte[] bytes;
+        try(input) {bytes=input.readNBytes((int)Math.min(maxBytes,Integer.MAX_VALUE-1L)+1);}
+        if(bytes.length==0 || bytes.length>maxBytes)
+            throw new BadRequestException("Attach nonempty evidence within the configured size limit");
+        String type=verifiedType(bytes);
+        String filename=safeFilename(originalFilename);
+        String key=UUID.randomUUID().toString();
+        Path target=path(key);
+        Files.createDirectories(root);
+        // Never remove a pre-existing file if exclusive creation fails.
+        boolean created=false;
+        try {
+            try(var output=Files.newOutputStream(target,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE)) {
+                created=true;
+                output.write(bytes);
+            }
+        } catch(IOException failure) {
+            if(created) {
+                try {Files.deleteIfExists(target);}
+                catch(IOException cleanup) {failure.addSuppressed(cleanup);}
+            }
+            throw failure;
+        }
+        return new Stored(key,filename,type,bytes.length);
+    }
     public Resource resource(String key) {
-        var resource=new FileSystemResource(path(key));
-        if(!resource.exists()) throw new BadRequestException("This evidence file is unavailable");
-        return resource;
+        Path source=path(key);
+        if(!Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS))
+            throw new BadRequestException("This evidence file is unavailable");
+        return new FileSystemResource(source);
     }
     public void delete(String key) {
         try {Files.deleteIfExists(path(key));}
@@ -53,7 +78,10 @@ public class KpiAssessmentEvidenceStorage {
     private Path path(String key) {
         if(key==null || !key.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
             throw new BadRequestException("Invalid evidence storage reference");
-        return root.resolve(key);
+        Path target=root.resolve(key);
+        if(Files.isSymbolicLink(root) || Files.isSymbolicLink(target))
+            throw new BadRequestException("Invalid evidence storage reference");
+        return target;
     }
     private String safeFilename(String original) {
         if(original==null || original.isBlank()) return "evidence";
