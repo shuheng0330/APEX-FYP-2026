@@ -36,6 +36,7 @@ dt { color: var(--tbm-muted); font-size: 11px; } dd { margin: 0; font-size: 11px
 .edit-group { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--tbm-surface-subtle); border-radius: 7px; border: 1px solid var(--tbm-border); }
 .edit-group-label { font-size: 10px; font-weight: 700; color: var(--tbm-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
 .edit-list-item { width: 100%; }
+.read-only-note { display: flex; gap: 6px; align-items: flex-start; margin: 6px 0 0; color: var(--tbm-muted); font-size: 12px; }
 .edit-term-pair { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; }
 .add-list-item { align-self: flex-start; }
 .edit-table-note { margin: 0; font-size: 11px; color: var(--tbm-muted); font-style: italic; }

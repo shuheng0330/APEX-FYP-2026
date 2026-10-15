@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { NzCollapseModule } from 'ng-zorro-antd/collapse';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -83,13 +84,31 @@ export class SopReviewComponent implements OnInit {
         }
         this.loading = false;
       },
-      error: () => { this.loading = false; this.message.error('Could not load SOP detail.'); }
+      error: (e: HttpErrorResponse) => this.onLoadFailed(e)
     });
+  }
+
+  /**
+   * A course you can't open (another trainer's, or deleted): the error pop-up already gives the server's reason,
+   * so clear the page and go back to the course list.
+   */
+  private onLoadFailed(e: HttpErrorResponse): void {
+    this.loading = false;
+    this.document = undefined;
+    this.modules = [];
+    this.selectedSopId = null;
+    if (!e.error?.message) {
+      this.message.error('Could not load SOP detail.');
+    }
+    this.router.navigate(['/sop/review']);
   }
 
   // --- material review (FR-09) ---
 
   toggleEdit(m: SopModule): void {
+    if (!this.document?.editable) {
+      return; // read-only course: only its owner can edit
+    }
     if (!this.editMode[m.id]) {
       // Deep-copy the parsed rich content so edits don't mutate the view model directly.
       const rich = this.parseContent(m);

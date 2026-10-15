@@ -86,9 +86,11 @@
                         } @else {
                           <nz-tag class="no-difficulty">No difficulty</nz-tag>
                         }
-                        <button nz-button nzType="text" nzSize="small" (click)="startEdit(q)" [disabled]="busy || drafting">
-                          <nz-icon nzType="edit"></nz-icon> Edit
-                        </button>
+                        @if (document.editable) {
+                          <button nz-button nzType="text" nzSize="small" (click)="startEdit(q)" [disabled]="busy || drafting">
+                            <nz-icon nzType="edit"></nz-icon> Edit
+                          </button>
+                        }
                       </div>
                     </header>
 
@@ -123,7 +125,7 @@
                   <span class="section-kicker">New question</span>
                   <ng-container *ngTemplateOutlet="questionForm"></ng-container>
                 </article>
-              } @else {
+              } @else if (document.editable) {
                 <button nz-button nzType="dashed" nzBlock class="add-question" [disabled]="busy || drafting" (click)="startAdd()">
                   <nz-icon nzType="plus"></nz-icon> Add question
                 </button>
@@ -140,6 +142,9 @@
                 <nz-icon nzType="check-circle"></nz-icon>
                 <span>Approved. Staff can take this quiz in the Learning Portal.</span>
               </div>
+            } @else if (!document.editable) {
+              <p class="muted read-only-note"><nz-icon nzType="lock"></nz-icon>
+                Read only. Only {{ document.preparedByName || 'the course owner' }} can approve or reject this quiz.</p>
             } @else {
               <p class="muted">Staff cannot see this quiz until you approve it.</p>
               <button nz-button nzType="primary" nzBlock [nzLoading]="busy && !regenerating"
@@ -149,6 +154,7 @@
               </button>
             }
 
+            @if (document.editable) {
             <button nz-button nzDanger nzBlock class="reject-toggle" [disabled]="busy" (click)="showReject = !showReject">
               <nz-icon nzType="close"></nz-icon>
               {{ quizState(module) === 'APPROVED' ? 'Reject again' : 'Reject quiz' }}
@@ -165,6 +171,7 @@
                   {{ regenerating ? 'Regenerating…' : 'Reject and regenerate' }}
                 </button>
               </div>
+            }
             }
 
             <div class="history">

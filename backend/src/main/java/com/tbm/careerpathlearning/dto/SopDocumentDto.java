@@ -17,6 +17,9 @@ public class SopDocumentDto {
     private int moduleCount;
     private OffsetDateTime createdAt;
 
-    /** Preparer shown on the material (FR-07-07). */
+    /** Preparer shown on the material (FR-07-07); the course's owner. */
     private String preparedByName;
+
+    /** Whether the signed-in person may change this course: only its owner can (FR-07-08, FR-07-19). */
+    private boolean editable;
 }

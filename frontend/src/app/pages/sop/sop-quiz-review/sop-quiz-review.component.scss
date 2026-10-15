@@ -2,6 +2,7 @@
 .page-heading nz-select { width: min(380px, 100%); }
 .empty-workbench { padding: 70px 20px; }
 .muted { margin: 0; color: var(--tbm-muted); font-size: 12px; }
+.read-only-note { display: flex; gap: 6px; align-items: flex-start; }
 
 /* Layout: quiz list | questions | actions */
 .quiz-workbench { display: grid; grid-template-columns: 260px minmax(0, 1fr) 300px; gap: 14px; align-items: start; }

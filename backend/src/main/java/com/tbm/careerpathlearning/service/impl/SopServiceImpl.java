@@ -29,8 +29,10 @@ import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
+import com.tbm.careerpathlearning.service.SopAccess;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
+import com.tbm.careerpathlearning.service.SopViewer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,45 +98,46 @@ public class SopServiceImpl implements SopService {
         // Kick off parse + AI generation in the background (FR-08-04/05).
         startGenerationAfterCommit(saved.getId());
 
-        return toDocDto(saved, 0);
+        return toDocDto(saved, 0, true);
     }
 
     @Override
-    public List<SopDocumentDto> listDocuments() {
+    public List<SopDocumentDto> listDocuments(SopViewer viewer, boolean mineOnly) {
         return sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
-                .map(d -> toDocDto(d, (int) sopModuleRepository
-                        .findAllBySopDocumentIdOrderByModuleOrderAsc(d.getId()).size()))
+                .filter(d -> mineOnly ? SopAccess.isOwner(d, viewer) : SopAccess.canView(d, viewer))
+                .map(d -> toDocDto(d, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(d.getId()).size(),
+                        SopAccess.canEdit(d, viewer)))
                 .toList();
     }
 
     @Override
-    public SopDetailDto getDetail(Long sopDocumentId) {
-        SopDocument doc = getDocOrThrow(sopDocumentId);
+    public SopDetailDto getDetail(Long sopDocumentId, SopViewer viewer) {
+        SopDocument doc = viewableDoc(sopDocumentId, viewer);
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
 
         SopDetailDto detail = new SopDetailDto();
-        detail.setDocument(toDocDto(doc, modules.size()));
+        detail.setDocument(toDocDto(doc, modules.size(), SopAccess.canEdit(doc, viewer)));
         detail.setModules(modules.stream().map(this::toModuleDto).toList());
         return detail;
     }
 
     @Override
-    public SopDocumentDto getStatus(Long sopDocumentId) {
-        SopDocument doc = getDocOrThrow(sopDocumentId);
+    public SopDocumentDto getStatus(Long sopDocumentId, SopViewer viewer) {
+        SopDocument doc = viewableDoc(sopDocumentId, viewer);
         int moduleCount = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size();
-        return toDocDto(doc, moduleCount);
+        return toDocDto(doc, moduleCount, SopAccess.canEdit(doc, viewer));
     }
 
     @Override
     @Transactional
-    public SopDocumentDto regenerateDocument(Long sopDocumentId) {
-        SopDocument doc = getDocOrThrow(sopDocumentId);
+    public SopDocumentDto regenerateDocument(Long sopDocumentId, SopViewer viewer) {
+        SopDocument doc = editableDoc(sopDocumentId, viewer);
         doc.setGenerationStatus(SopGenerationStatus.PENDING);
         doc.setStatusMessage(null);
         doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
         startGenerationAfterCommit(sopDocumentId);
-        return toDocDto(doc, 0);
+        return toDocDto(doc, 0, true);
     }
 
     /**
@@ -154,14 +157,14 @@ public class SopServiceImpl implements SopService {
     // === Module 2: material review (FR-09) ==================================
 
     @Override
-    public SopModuleDto getModule(Long moduleId) {
-        return toModuleDto(getModuleOrThrow(moduleId));
+    public SopModuleDto getModule(Long moduleId, SopViewer viewer) {
+        return toModuleDto(viewableModule(moduleId, viewer));
     }
 
     @Override
     @Transactional
-    public SopModuleDto updateModule(Long moduleId, String title, String content) {
-        SopModule module = getModuleOrThrow(moduleId);
+    public SopModuleDto updateModule(Long moduleId, String title, String content, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
         if (title != null && !title.isBlank()) {
             module.setTitle(title);
         }
@@ -172,19 +175,19 @@ public class SopServiceImpl implements SopService {
 
     @Override
     @Transactional
-    public SopModuleDto approveModule(Long moduleId) {
-        SopModule module = getModuleOrThrow(moduleId);
+    public SopModuleDto approveModule(Long moduleId, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
         module.setReviewStatus(ReviewStatus.APPROVED);
         module.setUpdatedAt(OffsetDateTime.now(clock));
         return toModuleDto(sopModuleRepository.save(module));
     }
 
     @Override
-    public SopModuleDto rejectModule(Long moduleId, String reason) {
+    public SopModuleDto rejectModule(Long moduleId, String reason, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
         if (reason == null || reason.isBlank()) {
             throw new BadRequestException("A reason is required to reject and regenerate the module."); // FR-09-05
         }
-        SopModule module = getModuleOrThrow(moduleId);
         sopGenerationService.regenerateModule(module, reason); // sets status REGENERATED + refreshes quiz
         recordQuizEvent(moduleId, QuizReviewAction.REGENERATED, "Regenerated together with the rejected module material.", null);
         notifyOwner(module, NotificationType.MATERIAL_REGENERATED, "Material regenerated",
@@ -196,9 +199,10 @@ public class SopServiceImpl implements SopService {
 
     @Override
     @Transactional
-    public SopQuizQuestionDto updateQuestion(Long questionId, SopQuizQuestionDto dto, UUID userId) {
+    public SopQuizQuestionDto updateQuestion(Long questionId, SopQuizQuestionDto dto, SopViewer viewer) {
         SopQuizQuestion q = sopQuizQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new BadRequestException("Quiz question not found."));
+        editableModule(q.getSopModuleId(), viewer);
         validateQuestion(dto);
         if (dto.getQuestionType() != null) {
             q.setQuestionType(dto.getQuestionType());
@@ -214,14 +218,14 @@ public class SopServiceImpl implements SopService {
         q.setExplanation(dto.getExplanation());
         q.setUpdatedAt(OffsetDateTime.now(clock));
         SopQuizQuestion saved = sopQuizQuestionRepository.save(q);
-        recordQuizEvent(q.getSopModuleId(), QuizReviewAction.EDITED, "Edited: " + q.getQuestionText(), userId);
+        recordQuizEvent(q.getSopModuleId(), QuizReviewAction.EDITED, "Edited: " + q.getQuestionText(), viewer.userId());
         return toQuizDto(saved);
     }
 
     @Override
     @Transactional
-    public SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, UUID userId) {
-        getModuleOrThrow(moduleId);
+    public SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, SopViewer viewer) {
+        editableModule(moduleId, viewer);
         validateQuestion(dto);
         OffsetDateTime now = OffsetDateTime.now(clock);
         SopQuizQuestion q = new SopQuizQuestion();
@@ -237,7 +241,7 @@ public class SopServiceImpl implements SopService {
         q.setUpdatedAt(now);
         SopQuizQuestion saved = sopQuizQuestionRepository.save(q);
         // Logged as EDITED: the quiz changed, and the action column only accepts the existing values.
-        recordQuizEvent(moduleId, QuizReviewAction.EDITED, "Added: " + saved.getQuestionText(), userId);
+        recordQuizEvent(moduleId, QuizReviewAction.EDITED, "Added: " + saved.getQuestionText(), viewer.userId());
         return toQuizDto(saved);
     }
 
@@ -262,8 +266,8 @@ public class SopServiceImpl implements SopService {
 
     @Override
     @Transactional
-    public SopModuleDto approveModuleQuiz(Long moduleId, UUID userId) {
-        SopModule module = getModuleOrThrow(moduleId);
+    public SopModuleDto approveModuleQuiz(Long moduleId, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
         OffsetDateTime now = OffsetDateTime.now(clock);
         List<SopQuizQuestion> questions = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(moduleId);
         for (SopQuizQuestion q : questions) {
@@ -271,19 +275,19 @@ public class SopServiceImpl implements SopService {
             q.setUpdatedAt(now);
         }
         sopQuizQuestionRepository.saveAll(questions);
-        recordQuizEvent(moduleId, QuizReviewAction.APPROVED, null, userId);
+        recordQuizEvent(moduleId, QuizReviewAction.APPROVED, null, viewer.userId());
         return toModuleDto(module);
     }
 
     @Override
-    public SopModuleDto rejectModuleQuiz(Long moduleId, String reason, UUID userId) {
+    public SopModuleDto rejectModuleQuiz(Long moduleId, String reason, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
         if (reason == null || reason.isBlank()) {
             throw new BadRequestException("A reason is required to reject and regenerate the quiz."); // FR-10-03
         }
-        SopModule module = getModuleOrThrow(moduleId);
         sopGenerationService.regenerateQuiz(module, reason);
         // Recorded only once the regeneration succeeded; a failed attempt leaves the quiz untouched.
-        recordQuizEvent(moduleId, QuizReviewAction.REJECTED, reason, userId);
+        recordQuizEvent(moduleId, QuizReviewAction.REJECTED, reason, viewer.userId());
         recordQuizEvent(moduleId, QuizReviewAction.REGENERATED, "Regenerated from the trainer's feedback.", null);
         notifyOwner(module, NotificationType.QUIZ_REGENERATED, "Quiz regenerated", "has a new quiz to review",
                 "/sop/quiz-review/");
@@ -291,8 +295,8 @@ public class SopServiceImpl implements SopService {
     }
 
     @Override
-    public List<SopQuizReviewEventDto> getQuizHistory(Long moduleId) {
-        getModuleOrThrow(moduleId);
+    public List<SopQuizReviewEventDto> getQuizHistory(Long moduleId, SopViewer viewer) {
+        viewableModule(moduleId, viewer);
         Map<UUID, String> names = new HashMap<>();
         return sopQuizReviewEventRepository.findAllBySopModuleIdOrderByCreatedAtDescIdDesc(moduleId).stream()
                 .map(e -> {
@@ -310,8 +314,8 @@ public class SopServiceImpl implements SopService {
 
     @Override
     @Transactional
-    public void deleteDocument(Long sopDocumentId) {
-        SopDocument doc = getDocOrThrow(sopDocumentId);
+    public void deleteDocument(Long sopDocumentId, SopViewer viewer) {
+        SopDocument doc = editableDoc(sopDocumentId, viewer);
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
         if (!modules.isEmpty()) {
             List<Long> moduleIds = modules.stream().map(SopModule::getId).toList();
@@ -354,6 +358,32 @@ public class SopServiceImpl implements SopService {
                 .orElseThrow(() -> new BadRequestException("Module not found."));
     }
 
+    /** The course, if the viewer may see it (FR-07-08, FR-07-19). */
+    private SopDocument viewableDoc(Long id, SopViewer viewer) {
+        SopDocument doc = getDocOrThrow(id);
+        SopAccess.requireView(doc, viewer);
+        return doc;
+    }
+
+    /** The course, if the viewer may change it: only its owner can. */
+    private SopDocument editableDoc(Long id, SopViewer viewer) {
+        SopDocument doc = getDocOrThrow(id);
+        SopAccess.requireEdit(doc, viewer);
+        return doc;
+    }
+
+    private SopModule viewableModule(Long moduleId, SopViewer viewer) {
+        SopModule module = getModuleOrThrow(moduleId);
+        viewableDoc(module.getSopDocumentId(), viewer);
+        return module;
+    }
+
+    private SopModule editableModule(Long moduleId, SopViewer viewer) {
+        SopModule module = getModuleOrThrow(moduleId);
+        editableDoc(module.getSopDocumentId(), viewer);
+        return module;
+    }
+
     /** Adds an entry to a module quiz's review history (FR-08-09, NFR-007); actorId null means the AI. */
     private void recordQuizEvent(Long moduleId, QuizReviewAction action, String detail, UUID actorId) {
         SopQuizReviewEvent event = new SopQuizReviewEvent();
@@ -376,7 +406,7 @@ public class SopServiceImpl implements SopService {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    private SopDocumentDto toDocDto(SopDocument d, int moduleCount) {
+    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, boolean editable) {
         SopDocumentDto dto = new SopDocumentDto();
         dto.setId(d.getId());
         dto.setTitle(d.getTitle());
@@ -388,6 +418,7 @@ public class SopServiceImpl implements SopService {
         dto.setModuleCount(moduleCount);
         dto.setCreatedAt(d.getCreatedAt());
         dto.setPreparedByName(preparerName(d));
+        dto.setEditable(editable);
         return dto;
     }
 

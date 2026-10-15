@@ -84,22 +84,22 @@ export const routes: Routes = [
       {
         path: 'sop/review', component: SopReviewComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
       },
       {
         path: 'sop/review/:id', component: SopReviewComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
       },
       {
         path: 'sop/quiz-review', component: SopQuizReviewComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
       },
       {
         path: 'sop/quiz-review/:id', component: SopQuizReviewComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING'] },
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
       },
       {
         path: 'sop/assign', component: SopAssignComponent,
