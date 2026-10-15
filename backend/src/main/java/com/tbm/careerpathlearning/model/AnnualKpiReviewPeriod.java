@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.model;
 
 import com.tbm.careerpathlearning.enums.AnnualKpiConsolidationMethod;
 import com.tbm.careerpathlearning.enums.AnnualKpiReviewPeriodStatus;
+import com.tbm.careerpathlearning.enums.KpiAssessmentModel;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,6 +40,11 @@ public class AnnualKpiReviewPeriod {
     @Column(nullable = false, length = 20)
     private AnnualKpiReviewPeriodStatus status = AnnualKpiReviewPeriodStatus.DRAFT;
 
+    // The new assessment workflow is activated in its integration slice, not by this foundation.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assessment_model", nullable = false, length = 24)
+    private KpiAssessmentModel assessmentModel = KpiAssessmentModel.LEGACY_ALL_LEVELS;
+
     @Column(name = "kpi_performance_weight", precision = 5, scale = 2)
     private BigDecimal kpiPerformanceWeight = new BigDecimal("50.00");
 
@@ -57,6 +63,9 @@ public class AnnualKpiReviewPeriod {
 
     @Column(name = "superior_assessment_days_after_self_deadline")
     private Integer superiorAssessmentDaysAfterSelfDeadline;
+
+    @Column(name = "attitude_self_assessment_start_date")
+    private LocalDate attitudeSelfAssessmentStartDate;
 
     @Column(name = "attitude_self_assessment_deadline")
     private LocalDate attitudeSelfAssessmentDeadline;

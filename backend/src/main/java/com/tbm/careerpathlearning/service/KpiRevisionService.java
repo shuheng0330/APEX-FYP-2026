@@ -407,7 +407,9 @@ public class KpiRevisionService {
         if(!internal) {
             dto.setLatestReturnReason(null);dto.setLatestReturnedBy(null);dto.setLatestReturnedAt(null);dto.setDecisionHistory(List.of());
             dto.setCancellationReason(null);dto.setPreparationMode(null);dto.setRevisionSuperiorId(null);
-            dto.setActorNames(Map.of());
+            var approver = v.getApprovedBy();
+            dto.setActorNames(v.getLevel()==KpiLevel.INDIVIDUAL && approver!=null && names.get(approver)!=null
+                ? Map.of(approver,names.get(approver)) : Map.of());
         }
         return dto;
     }

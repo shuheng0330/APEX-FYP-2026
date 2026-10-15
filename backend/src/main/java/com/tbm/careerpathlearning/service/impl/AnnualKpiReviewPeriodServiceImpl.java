@@ -65,6 +65,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     public AnnualKpiReviewPeriodDto create(AnnualKpiReviewPeriodRequest request, boolean publish, UUID actor) {
         periods.lockConfiguration();
         AnnualKpiReviewPeriod period = new AnnualKpiReviewPeriod();
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
         apply(request, period);
         List<ReviewPeriodEmployeeLevelConfiguration> weights = resolveWeights(period, request, null);
         List<ReviewPeriodRoleConfiguration> selected = resolveRoles(period, request, previousRoles(period));
@@ -379,7 +380,10 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         requireFrozenConfiguration(period, request);
         var selected = configurations.findAllByReviewPeriodIdOrderByIdAsc(period.getId());
         var weights = levelConfigurations.findAllByReviewPeriodIdOrderByEmployeeLevelDisplayOrderAsc(period.getId());
+        var existingAttitudeStart=period.getAttitudeSelfAssessmentStartDate();
         apply(request, period);
+        if(request.getAttitudeSelfAssessmentStartDate()==null)
+            period.setAttitudeSelfAssessmentStartDate(existingAttitudeStart);
         validate(period, selected, weights, true);
         var schedule = generate(period, selected);
         checkpoints.deleteAllByReviewPeriodId(period.getId()); checkpoints.flush();

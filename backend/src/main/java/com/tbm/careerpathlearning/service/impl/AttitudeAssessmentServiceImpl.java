@@ -229,6 +229,7 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
         var period=p.getReviewPeriod();dto.setParticipantId(p.getId());dto.setEmployeeName(p.getStaffName());
         dto.setRoleName(p.getRoleName());dto.setDepartmentName(p.getDepartmentName());dto.setReviewPeriodId(period.getId());
         dto.setReviewPeriodName(period.getName());dto.setReviewPeriodStatus(period.getStatus());
+        dto.setAvailableFrom(period.getAttitudeSelfAssessmentStartDate());
         dto.setSelfAssessmentDeadline(period.getAttitudeSelfAssessmentDeadline());
         dto.setSuperiorEvaluationDeadline(period.getSuperiorAttitudeEvaluationDeadline());
     }
@@ -239,6 +240,9 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
                     :"Attitude Self-Assessment becomes available when the Annual Review Period opens.";
         if(problem==null && dto.getSelfAssessmentDeadline()==null)
             problem="The Attitude Self-Assessment deadline has not been configured. Please contact your administrator.";
+        var openingProblem=openingProblem(dto.getAvailableFrom());
+        dto.setOpeningPending(problem==null && openingProblem!=null && dto.getAvailableFrom()!=null);
+        if(problem==null) problem=openingProblem;
         dto.setAvailable(problem==null);dto.setAvailabilityTitle(problem==null?null:UNAVAILABLE_TITLE);dto.setAvailabilityMessage(problem);
         if(problem!=null) dto.setSubmissionBlockers(List.of(problem));
     }
@@ -249,6 +253,8 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
             reasons.add("Attitude Self-Assessment is available only while the Annual Review Period is Open");
         var problem=configurationProblem(a.getParticipant());if(problem!=null) reasons.add(problem);
         if(period.getAttitudeSelfAssessmentDeadline()==null) reasons.add("The Attitude Self-Assessment deadline has not been configured");
+        var openingProblem=openingProblem(period.getAttitudeSelfAssessmentStartDate());
+        if(openingProblem!=null) reasons.add(openingProblem);
         if(problem==null) {
             if(!Objects.equals(a.getConfiguration().getId(),period.getAttitudeConfiguration().getId()) || a.getEvaluationFormat()!=format(a.getParticipant()))
                 reasons.add("The assessment does not match this review period's Attitude Evaluation setup");
@@ -267,6 +273,11 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
         if(format==null) return "An Attitude Evaluation format has not been assigned to your Job Role for this Annual Review Period. Please contact your administrator.";
         if(criteria(config,format).isEmpty()) return MISSING_CONFIGURATION;
         return null;
+    }
+    private String openingProblem(LocalDate availableFrom) {
+        if(availableFrom==null)
+            return "The Attitude Self-Assessment opening date has not been configured. Please contact your administrator.";
+        return today().isBefore(availableFrom)?"Attitude Self-Assessment opens on "+availableFrom+".":null;
     }
     private AttitudeEvaluationFormat format(ReviewPeriodParticipant p) {
         if(p.getRole()==null || p.getReviewPeriod().getAttitudeConfiguration()==null) return null;

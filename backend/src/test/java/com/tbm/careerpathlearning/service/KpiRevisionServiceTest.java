@@ -293,7 +293,9 @@ class KpiRevisionServiceTest {
     }
     @Test void employeeSeesOnlyEffectiveIndividualHistory() {
         prepareIndividual(KpiRevisionPreparationMode.HR_MD);base.setLatestReturnReason("Internal feedback");
+        base.setApprovedBy(hod);base.setApprovedAt(OffsetDateTime.now());base.setCreatedBy(hr);
         login(other,"ROLE_USER");var result=service.history(1L,other);assertEquals(1,result.size());assertNull(result.get(0).getLatestReturnReason());
+        assertEquals(Map.of(hod,hod.toString()),result.get(0).getActorNames());
         assertTrue(result.get(0).getDecisionHistory().isEmpty());assertThrows(AccessDeniedException.class,()->service.get(working.getId(),other));
     }
     @Test void notificationsWaitForCommit() {

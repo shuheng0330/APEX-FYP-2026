@@ -33,6 +33,7 @@ class KpiAssessmentServiceTest {
     StaffRepository staff=mock(StaffRepository.class);
     KpiAssessmentEvidenceStorage storage=mock(KpiAssessmentEvidenceStorage.class);
     EmailService email=mock(EmailService.class);
+    KpiCheckpointAggregateService aggregates=mock(KpiCheckpointAggregateService.class);
     UUID owner=UUID.randomUUID(),superiorId=UUID.randomUUID(),outsider=UUID.randomUUID();
     Staff employee,superior;
     AnnualKpiReviewPeriod period;
@@ -45,6 +46,7 @@ class KpiAssessmentServiceTest {
     void date(String day) {
         service=new KpiAssessmentServiceImpl(assessments,items,files,participants,checkpoints,assignments,periods,staff,
                 Mappers.getMapper(KpiPlanMapper.class),Mappers.getMapper(KpiAssessmentMapper.class),storage,email,new KpiCheckpointScoreCalculator(),
+                aggregates,
                 Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC));
     }
     @BeforeEach void setup() {
@@ -85,6 +87,55 @@ class KpiAssessmentServiceTest {
     }
     void complete() {assign(KpiLevel.COMPANY,1);assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);
         var r=request();r.setItems(List.of(answer(1,1),answer(2,2),answer(3,5)));service.create(r,owner);}
+
+    @Test void scoreBreakdownRequiresActiveOwnerEvenWhenAnotherUserIsTheSuperior() {
+        complete();assessment.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        var expected=new KpiScoreBreakdownDto(20L,null,List.of());
+        when(aggregates.breakdown(assessment)).thenReturn(expected);
+        assertSame(expected,service.scoreBreakdown(20L,owner));
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,outsider));
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,superiorId));
+        verify(aggregates,times(1)).breakdown(assessment);
+        employee.setAccountStatus(StaffAccountStatus.INACTIVE);
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,owner));
+    }
+
+    @Test void scoreBreakdownDoesNotChangeLegacyAssessments() {
+        complete();
+        assertThrows(BadRequestException.class,()->service.scoreBreakdown(20L,owner));
+        verify(aggregates,never()).breakdown(any());
+    }
+
+    @Test void centralModelShowsOnlyIndividualAnswersAndDoesNotWaitForCentralPublication() {
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);
+        versionAssignments();
+        var virtual=service.mine(11L,owner);
+        assertEquals(KpiAssessmentModel.CENTRAL_RESULTS,virtual.getAssessmentModel());
+        assertEquals(List.of(KpiLevel.INDIVIDUAL),virtual.getItems().stream().map(KpiAssessmentItemDto::getLevel).toList());
+        assertEquals(3,virtual.getPlanVersionIds().size());
+        var request=request();request.setPlanVersionIds(virtual.getPlanVersionIds());request.setItems(List.of(answer(3,4)));
+        service.create(request,owner);
+        assertEquals(1,assessment.getItems().size());assertEquals(3,assessment.getPlanVersions().size());
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,service.submit(20L,owner).getStatus());
+        assertNull(assessment.getCheckpointScore());
+        verify(aggregates,never()).refresh(any(),any(),any());
+    }
+
+    @Test void centralModelRejectsCompanyAnswersAndKeepsSuperiorReviewIndividualOnly() {
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        var foreign=request();foreign.setItems(List.of(answer(1,3)));
+        assertThrows(AccessDeniedException.class,()->service.create(foreign,owner));
+        var request=request();request.setItems(List.of(answer(3,4)));service.create(request,owner);service.submit(20L,owner);
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");assessment.getItems().get(0).setId(8L);
+        var review=new KpiSuperiorAssessmentRequest();var answer=new KpiSuperiorAssessmentRequest.Answer();
+        answer.setItemId(8L);answer.setSuperiorPoint(5);review.setItems(List.of(answer));
+        service.saveSuperiorDraft(20L,review,superiorId);
+        var completed=service.completeReview(20L,superiorId);
+        assertEquals(KpiAssessmentStatus.REVIEWED,completed.getStatus());assertNull(completed.getCheckpointScore());
+        verify(aggregates).refresh(assessment,superiorId,"Individual KPI review completed");
+    }
     void reviewer(UUID id,String permission) {SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(id,null,List.of(new SimpleGrantedAuthority(permission))));}
 
     @Test void getNeverCreatesRecordAndExplainsMissingAssignments() {

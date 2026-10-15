@@ -35,9 +35,12 @@ class AttitudeAssessmentServiceTest {
     AttitudeAssessmentServiceImpl service;
 
     void date(String day) {
+        businessClock(Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC));
+    }
+    void businessClock(Clock clock) {
         service=new AttitudeAssessmentServiceImpl(assessments,participants,periods,staff,
                 Mappers.getMapper(AttitudeAssessmentMapper.class),Mappers.getMapper(AttitudeConfigurationMapper.class),
-                Mappers.getMapper(KpiPlanMapper.class),email,Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC));
+                Mappers.getMapper(KpiPlanMapper.class),email,clock);
     }
     @BeforeEach void setup() {
         date("2027-01-01");
@@ -49,6 +52,7 @@ class AttitudeAssessmentServiceTest {
         var role=new Role();role.setId(3L);role.setName("Recorded role");
         period=new AnnualKpiReviewPeriod();period.setId(1L);period.setName("Annual Review");period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);
         period.setStartDate(LocalDate.of(2027,1,1));period.setEndDate(LocalDate.of(2027,12,31));
+        period.setAttitudeSelfAssessmentStartDate(period.getStartDate());
         period.setAttitudeSelfAssessmentDeadline(LocalDate.of(2027,12,5));period.setSuperiorAttitudeEvaluationDeadline(LocalDate.of(2027,12,15));
         participant=new ReviewPeriodParticipant();participant.setId(7L);participant.setStaff(employee);participant.setStaffName("Amir");
         participant.setRole(role);participant.setRoleName("Recorded role");participant.setReviewPeriod(period);participant.setReviewFrequency(ReviewFrequency.MONTHLY);
@@ -76,6 +80,69 @@ class AttitudeAssessmentServiceTest {
     AttitudeAssessmentRequest request() {var r=new AttitudeAssessmentRequest();r.setReviewPeriodId(1L);return r;}
     AttitudeAssessmentRequest.Answer answer(Long id,Integer point) {var a=new AttitudeAssessmentRequest.Answer();a.setCriterionId(id);a.setSelfPoint(point);return a;}
     void complete() {var r=request();r.setItems(List.of(answer(11L,3),answer(12L,5)));service.create(r,owner);}
+    @Test void openingDateBlocksReadsAndDirectCreationWithoutPersistingAVirtualDraft() {
+        period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));date("2027-09-30");
+        var dto=service.mine(1L,owner);
+        assertEquals(LocalDate.of(2027,10,1),dto.getAvailableFrom());assertTrue(dto.isOpeningPending());
+        assertFalse(dto.isAvailable());assertFalse(dto.isCanSaveDraft());assertFalse(dto.isCanSubmit());
+        assertNull(dto.getId());assertTrue(dto.getAvailabilityMessage().contains("2027-10-01"));
+        assertTrue(dto.getSubmissionBlockers().stream().anyMatch(s->s.contains("opens on")));
+        assertThrows(BadRequestException.class,()->service.create(request(),owner));
+        verify(assessments,never()).saveAndFlush(any());verifyNoInteractions(email);
+    }
+    @Test void openingIsInclusiveAndDoesNotDependOnEmployeeKpiFrequency() {
+        period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));
+        for(var frequency:ReviewFrequency.values()) {
+            participant.setReviewFrequency(frequency);
+            date("2027-09-30");assertFalse(service.mine(1L,owner).isAvailable());
+            date("2027-10-01");assertTrue(service.mine(1L,owner).isAvailable());
+            assertFalse(service.mine(1L,owner).isOpeningPending());
+            date("2027-10-02");assertTrue(service.mine(1L,owner).isAvailable());
+        }
+        date("2027-10-01");complete();assertTrue(service.get(20L,owner).isCanSubmit());
+        assertEquals(AttitudeAssessmentStatus.PENDING_REVIEW,service.submit(20L,owner).getStatus());
+        assertSame(configuration,period.getAttitudeConfiguration());
+    }
+    @Test void openingUsesTheBusinessClockCalendarDayInsteadOfUtc() {
+        period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));var zone=ZoneId.of("Asia/Singapore");
+        businessClock(Clock.fixed(Instant.parse("2027-09-30T15:59:59Z"),zone));
+        assertTrue(service.mine(1L,owner).isOpeningPending());
+        businessClock(Clock.fixed(Instant.parse("2027-09-30T16:00:00Z"),zone));
+        assertTrue(service.mine(1L,owner).isAvailable());assertFalse(service.mine(1L,owner).isOpeningPending());
+    }
+    @Test void storedDraftCannotBeUpdatedOrSubmittedBeforeOpeningAndAnswersArePreserved() {
+        period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));date("2027-10-01");complete();
+        var original=assessment.getItems().stream().map(AttitudeAssessmentItem::getSelfPoint).toList();
+        date("2027-09-30");
+        var replacement=request();replacement.setItems(List.of(answer(11L,1),answer(12L,1)));
+        assertThrows(BadRequestException.class,()->service.update(20L,replacement,owner));
+        assertThrows(BadRequestException.class,()->service.submit(20L,owner));
+        assertEquals(original,assessment.getItems().stream().map(AttitudeAssessmentItem::getSelfPoint).toList());
+        assertEquals(AttitudeAssessmentStatus.DRAFT,assessment.getStatus());
+        assertFalse(service.get(20L,owner).isCanSubmit());verifyNoInteractions(email);
+    }
+    @Test void openingDateDoesNotReplacePrimaryConfigurationOrPeriodBlockers() {
+        period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));date("2027-09-30");
+        period.setAttitudeConfiguration(null);
+        assertFalse(service.mine(1L,owner).isOpeningPending());
+        assertTrue(service.mine(1L,owner).getAvailabilityMessage().contains("criteria"));
+        period.setAttitudeConfiguration(configuration);
+        for(var status:List.of(AnnualKpiReviewPeriodStatus.UPCOMING,AnnualKpiReviewPeriodStatus.CLOSED)) {
+            period.setStatus(status);assertFalse(service.mine(1L,owner).isOpeningPending());
+            assertFalse(service.mine(1L,owner).isAvailable());
+            assertThrows(BadRequestException.class,()->service.create(request(),owner));
+        }
+        period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);period.setAttitudeSelfAssessmentStartDate(null);
+        assertFalse(service.mine(1L,owner).isOpeningPending());
+        assertTrue(service.mine(1L,owner).getAvailabilityMessage().contains("opening date has not been configured"));
+    }
+    @Test void sameDayDeadlineAndEndedOpenPeriodsRemainActionableWithLateSubmission() {
+        period.setEndDate(LocalDate.of(2027,9,30));period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));
+        period.setAttitudeSelfAssessmentDeadline(LocalDate.of(2027,10,1));date("2027-10-01");complete();
+        assertFalse(service.get(20L,owner).isOverdue());date("2027-10-02");
+        assertTrue(service.get(20L,owner).isOverdue());assertTrue(service.submit(20L,owner).getSubmittedLate());
+        assertFalse(service.get(20L,owner).isOpeningPending());
+    }
     @AfterEach void cleanup() {SecurityContextHolder.clearContext();if(TransactionSynchronizationManager.isSynchronizationActive()) TransactionSynchronizationManager.clearSynchronization();}
 
     @Test void virtualDraftUsesBoundConfigurationAndRecordedRoleWithoutWrites() {

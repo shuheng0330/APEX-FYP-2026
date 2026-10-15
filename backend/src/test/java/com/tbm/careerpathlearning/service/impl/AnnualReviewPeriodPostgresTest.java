@@ -71,6 +71,7 @@ class AnnualReviewPeriodPostgresTest {
                 execute(connection, new ClassPathResource("db/migration/annual-kpi/V40__attitude_evaluation_configuration.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 execute(connection,"ALTER TABLE annual_kpi_review_period ADD COLUMN kpi_amendments_enabled boolean NOT NULL DEFAULT false, "
                     +"ADD COLUMN kpi_amendments_close_date date, ADD COLUMN kpi_amendments_changed_at timestamptz, ADD COLUMN kpi_amendments_changed_by uuid");
+                execute(connection,"ALTER TABLE annual_kpi_review_period ADD COLUMN assessment_model varchar(24) NOT NULL DEFAULT 'LEGACY_ALL_LEVELS'");
 
                 var configuration = new Configuration();
                 configuration.setProperty("hibernate.connection.url", url);

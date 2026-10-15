@@ -63,6 +63,8 @@ class KpiPlanPostgresTest {
                     sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS "+column);
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V44__controlled_kpi_plan_revisions.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V45__individual_kpi_revisions.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS assessment_model");
+                sql(c,new ClassPathResource("db/migration/annual-kpi/V46__central_kpi_result_foundation.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 for(var table:List.of("org_chart","role"))
                     sql(c,"ALTER TABLE "+schema+"."+table+" ALTER COLUMN id RESTART WITH "+(scalar(c,"SELECT coalesce(max(id),0) FROM "+table)+1));
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);
@@ -224,7 +226,8 @@ class KpiPlanPostgresTest {
                         periods,factory.getRepository(StaffRepository.class),Mappers.getMapper(KpiPlanMapper.class),
                         Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssessmentMapper.class),
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.class),
-                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),new com.tbm.careerpathlearning.service.KpiCheckpointScoreCalculator(),assessmentClock);
+                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),new com.tbm.careerpathlearning.service.KpiCheckpointScoreCalculator(),
+                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiCheckpointAggregateService.class),assessmentClock);
                     assertNull(assessmentService.mine(checkpoint.getId(),owner.getId()).getId());
                     assertEquals(0L,scalar(c,"SELECT count(*) FROM kpi_assessment"));
                     var assessmentRequest=new KpiAssessmentRequest();assessmentRequest.setCheckpointId(checkpoint.getId());

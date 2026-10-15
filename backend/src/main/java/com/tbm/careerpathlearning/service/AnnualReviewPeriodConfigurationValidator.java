@@ -42,10 +42,10 @@ public class AnnualReviewPeriodConfigurationValidator {
     public void validateForPublication(AnnualKpiReviewPeriod period) {
         validateForScheduling(period);
         if (Stream.of(period.getKpiSetupDeadline(),
-                        period.getAttitudeSelfAssessmentDeadline(), period.getSuperiorAttitudeEvaluationDeadline(),
+                        period.getAttitudeSelfAssessmentStartDate(), period.getAttitudeSelfAssessmentDeadline(), period.getSuperiorAttitudeEvaluationDeadline(),
                         period.getAppraisalRecommendationDeadline(), period.getHrFinalisationDeadline())
                 .anyMatch(Objects::isNull)) {
-            throw new IllegalArgumentException("All KPI setup, attitude and appraisal deadlines are required before publishing");
+            throw new IllegalArgumentException("All KPI setup, attitude opening and deadline dates, and appraisal deadlines are required before publishing");
         }
         if (period.getAttitudeSelfAssessmentDeadline().isBefore(period.getStartDate())) {
             throw new IllegalArgumentException("Attitude self-assessment deadline cannot precede the period start date");
@@ -64,6 +64,12 @@ public class AnnualReviewPeriodConfigurationValidator {
     }
 
     private void validateDeadlines(AnnualKpiReviewPeriod period) {
+        var attitudeStart=period.getAttitudeSelfAssessmentStartDate();
+        if(attitudeStart!=null && period.getStartDate()!=null && attitudeStart.isBefore(period.getStartDate()))
+            throw new IllegalArgumentException("Attitude Self-Assessment opening date must be on or after the period Start Date");
+        if(attitudeStart!=null && period.getAttitudeSelfAssessmentDeadline()!=null
+                && attitudeStart.isAfter(period.getAttitudeSelfAssessmentDeadline()))
+            throw new IllegalArgumentException("Attitude Self-Assessment opening date must be on or before the Self-Assessment Deadline");
         Stream.of(period.getKpiSetupDeadline())
                 .filter(Objects::nonNull).forEach(deadline -> {
                     if (period.getStartDate() != null && deadline.isAfter(period.getStartDate())) {

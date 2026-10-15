@@ -17,6 +17,20 @@ class AnnualReviewPeriodFoundationTest {
     private final ReviewCheckpointGenerator generator = new ReviewCheckpointGenerator();
     private final AnnualReviewPeriodConfigurationValidator validator = new AnnualReviewPeriodConfigurationValidator();
 
+    @Test void attitudeOpeningDateValidatesSuppliedBoundariesWithoutAnEndDateCutoff() {
+        var period=period();
+        assertThatCode(()->validator.validateDraft(period)).doesNotThrowAnyException();
+        period.setAttitudeSelfAssessmentStartDate(period.getStartDate().minusDays(1));
+        assertThatIllegalArgumentException().isThrownBy(()->validator.validateDraft(period)).withMessageContaining("on or after");
+        period.setAttitudeSelfAssessmentDeadline(LocalDate.of(2028,1,10));
+        period.setAttitudeSelfAssessmentStartDate(period.getAttitudeSelfAssessmentDeadline().plusDays(1));
+        assertThatIllegalArgumentException().isThrownBy(()->validator.validateDraft(period)).withMessageContaining("on or before");
+        period.setAttitudeSelfAssessmentStartDate(period.getAttitudeSelfAssessmentDeadline());
+        assertThatCode(()->validator.validateDraft(period)).doesNotThrowAnyException();
+        period.setAttitudeSelfAssessmentStartDate(period.getStartDate());
+        assertThatCode(()->validator.validateDraft(period)).doesNotThrowAnyException();
+    }
+
     @Test
     void monthlyCheckpointsIncludeJanuaryDeadlinesForDecember() {
         var period = period();

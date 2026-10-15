@@ -14,12 +14,14 @@ public class KpiAssessmentDto {
     private Long reviewPeriodId;
     private String reviewPeriodName;
     private AnnualKpiReviewPeriodStatus reviewPeriodStatus;
+    private KpiAssessmentModel assessmentModel;
     private KpiAssessmentCheckpointDto checkpoint;
     private KpiAssessmentStatus status;
     private List<KpiAssessmentItemDto> items=new ArrayList<>();
     private Map<KpiLevel,Long> planVersionIds=new EnumMap<>(KpiLevel.class);
     private ReviewPeriodEmployeeLevelConfigurationDto kpiAllocation;
     private List<KpiLevel> missingLevels=new ArrayList<>();
+    private List<KpiLevel> pendingResultLevels=new ArrayList<>();
     private List<String> submissionBlockers=new ArrayList<>();
     private boolean canSaveDraft;
     private boolean canSubmit;

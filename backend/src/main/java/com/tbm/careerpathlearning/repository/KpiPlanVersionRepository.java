@@ -6,6 +6,7 @@ import jakarta.persistence.LockModeType;
 import java.util.*;
 
 public interface KpiPlanVersionRepository extends JpaRepository<KpiPlanVersion,Long> {
+    List<KpiPlanVersion> findAllByReviewPeriodIdOrderByVersionNumberDescIdDesc(Long periodId);
     List<KpiPlanVersion> findAllByPlanIdOrderByVersionNumberDesc(Long planId);
     @Query("select v from KpiPlanVersion v where v.versionNumber>1 order by v.updatedAt desc,v.id desc")
     List<KpiPlanVersion> revisions();

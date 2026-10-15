@@ -34,6 +34,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AnnualKpiReviewPeriodControllerTest {
     private static final String BASE = "/api/annual-kpi-review-periods";
     private final UUID actor = UUID.randomUUID();
+    @Test void openingDateUsesExistingPeriodRequestAndResponseContract() throws Exception {
+        var dto=new AnnualKpiReviewPeriodDto();dto.setAttitudeSelfAssessmentStartDate(java.time.LocalDate.of(2027,10,1));
+        when(service.create(any(),eq(false),eq(actor))).thenReturn(dto);
+        mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attitudeSelfAssessmentStartDate\":\"2027-10-01\",\"roleConfigurations\":[]}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.attitudeSelfAssessmentStartDate").value("2027-10-01"));
+        verify(service).create(argThat(request->java.time.LocalDate.of(2027,10,1).equals(request.getAttitudeSelfAssessmentStartDate())),eq(false),eq(actor));
+    }
     @Autowired private MockMvc mvc;
     @MockitoBean private AnnualKpiReviewPeriodService service;
     @MockitoBean private EmployeeLevelService employeeLevelService;

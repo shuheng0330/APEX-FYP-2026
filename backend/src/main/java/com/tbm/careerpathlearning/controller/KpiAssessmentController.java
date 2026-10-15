@@ -21,6 +21,7 @@ public class KpiAssessmentController {
     @GetMapping("/mine") public KpiAssessmentDto mine(@RequestParam Long checkpointId,Authentication auth){return service.mine(checkpointId,actor(auth));}
     @GetMapping("/{id}") @PreAuthorize("hasAnyAuthority('ROLE_USER','CAN_REVIEW_KPI_ASSESSMENT')")
     public KpiAssessmentDto get(@PathVariable Long id,Authentication auth){return service.get(id,actor(auth));}
+    @GetMapping("/{id}/score-breakdown") public KpiScoreBreakdownDto scoreBreakdown(@PathVariable Long id,Authentication auth){return service.scoreBreakdown(id,actor(auth));}
     @PostMapping public ResponseEntity<KpiAssessmentDto> create(@RequestBody KpiAssessmentRequest request,Authentication auth){return ResponseEntity.status(201).body(service.create(request,actor(auth)));}
     @PutMapping("/{id}") public KpiAssessmentDto update(@PathVariable Long id,@RequestBody KpiAssessmentRequest request,Authentication auth){return service.update(id,request,actor(auth));}
     @PostMapping("/{id}/submit") public KpiAssessmentDto submit(@PathVariable Long id,Authentication auth){return service.submit(id,actor(auth));}

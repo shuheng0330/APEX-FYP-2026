@@ -38,6 +38,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     private final KpiAssessmentEvidenceStorage storage;
     private final EmailService email;
     private final KpiCheckpointScoreCalculator scores;
+    private final KpiCheckpointAggregateService aggregates;
     private final Clock clock;
 
     public KpiAssessmentServiceImpl(KpiAssessmentRepository assessments,KpiAssessmentItemRepository items,
@@ -45,10 +46,12 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             ReviewCheckpointRepository checkpoints,EmployeeKpiAssignmentRepository assignments,
             AnnualKpiReviewPeriodRepository periods,StaffRepository staff,KpiPlanMapper kpis,
             KpiAssessmentMapper mapper,KpiAssessmentEvidenceStorage storage,EmailService email,KpiCheckpointScoreCalculator scores,
+            KpiCheckpointAggregateService aggregates,
             @Qualifier("annualKpiReviewClock") Clock clock) {
         this.assessments=assessments;this.items=items;this.files=files;this.participants=participants;
         this.checkpoints=checkpoints;this.assignments=assignments;this.periods=periods;this.staff=staff;
-        this.kpis=kpis;this.mapper=mapper;this.storage=storage;this.email=email;this.scores=scores;this.clock=clock;
+        this.kpis=kpis;this.mapper=mapper;this.storage=storage;this.email=email;this.scores=scores;
+        this.aggregates=aggregates;this.clock=clock;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
     public List<KpiPeriodContextDto> periods(UUID actor) {
@@ -76,6 +79,16 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAnyAuthority('ROLE_USER','CAN_REVIEW_KPI_ASSESSMENT')")
     public KpiAssessmentDto get(Long id,UUID actor) {var a=assessment(id,false);readAccess(a,actor);return details(a,actor);}
+
+    @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
+    public KpiScoreBreakdownDto scoreBreakdown(Long id,UUID actor) {
+        active(actor);var a=assessment(id,false);
+        if(!a.getParticipant().getStaff().getId().equals(actor))
+            throw new AccessDeniedException("You may view only your own checkpoint score breakdown");
+        if(a.getAssessmentModel()!=KpiAssessmentModel.CENTRAL_RESULTS)
+            throw new BadRequestException("Score breakdown is available for central-results checkpoints");
+        return aggregates.breakdown(a);
+    }
 
     @Override @PreAuthorize("hasAuthority('ROLE_USER')")
     public KpiAssessmentDto create(KpiAssessmentRequest request,UUID actor) {
@@ -122,6 +135,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
                     dto.setId(a.getId());dto.setEmployeeId(p.getStaff().getId());dto.setEmployeeName(p.getStaffName());
                     dto.setRoleName(p.getRoleName());dto.setDepartmentName(p.getDepartmentName());
                     dto.setReviewPeriodId(period.getId());dto.setReviewPeriodName(period.getName());dto.setReviewPeriodStatus(period.getStatus());
+                    dto.setAssessmentModel(a.getAssessmentModel());dto.setPendingResultLevels(aggregates.pendingLevels(a));
                     dto.setCheckpoint(checkpointDto(a.getCheckpoint(),a));dto.setStatus(a.getStatus());
                     dto.setSubmittedAt(a.getSubmittedAt());dto.setSubmittedLate(a.getSubmittedLate());
                     dto.setReviewedAt(a.getReviewedAt());dto.setReviewedLate(a.getReviewedLate());dto.setCheckpointScore(a.getCheckpointScore());
@@ -157,10 +171,11 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         periods.lockConfiguration();var a=assessment(id,true);reviewWritable(a,actor);
         var blockers=reviewBlockers(a);
         if(!blockers.isEmpty()) throw new BadRequestException(String.join("; ",blockers));
-        var score=scores.calculate(a);
-        a.setCheckpointScore(score);a.setReviewedAt(OffsetDateTime.now(clock));a.setReviewedBy(actor);
+        if(a.getAssessmentModel()==KpiAssessmentModel.LEGACY_ALL_LEVELS) a.setCheckpointScore(scores.calculate(a));
+        a.setReviewedAt(OffsetDateTime.now(clock));a.setReviewedBy(actor);
         a.setReviewedLate(today().isAfter(a.getCheckpoint().getSuperiorAssessmentDeadline()));
         a.setStatus(KpiAssessmentStatus.REVIEWED);touch(a,actor);assessments.saveAndFlush(a);
+        aggregates.refresh(a,actor,"Individual KPI review completed");
         String recipient=a.getParticipant().getStaff().getEmail(),employee=a.getParticipant().getStaffName();
         String period=a.getParticipant().getReviewPeriod().getName(),checkpoint=a.getCheckpoint().getEndDate().toString();
         afterCommit(()->email.sendKpiAssessmentReviewedEmail(recipient,employee,period,checkpoint,Locale.ENGLISH));
@@ -205,7 +220,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
                 || request.getPlanVersionIds()==null && a.getId()==null && available.stream()
                     .anyMatch(x->x.getKpi().getVersion()!=null && x.getKpi().getVersion().getVersionNumber()>1))
             throw new KpiVersionConflictException("KPI definitions have changed. Reload this assessment before saving; your answers have not been transferred to another version.");
-        var byId=available.stream().collect(Collectors.toMap(EmployeeKpiAssignment::getId,x->x));
+        var byId=answerable(a,available).stream().collect(Collectors.toMap(EmployeeKpiAssignment::getId,x->x));
         Set<Long> supplied=new HashSet<>();
         for(var answer:request.getItems()) {
             if(answer==null || answer.getAssignmentId()==null || !supplied.add(answer.getAssignmentId()))
@@ -233,7 +248,11 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             }
         }
         var existing=a.getItems().stream().map(i->i.getAssignment().getId()).collect(Collectors.toSet());
-        for(var assignment:available) if(!existing.contains(assignment.getId())) a.getItems().add(newItem(a,assignment));
+        for(var assignment:answerable(a,available)) if(!existing.contains(assignment.getId())) a.getItems().add(newItem(a,assignment));
+    }
+    private List<EmployeeKpiAssignment> answerable(KpiAssessment assessment,List<EmployeeKpiAssignment> available) {
+        return assessment.getAssessmentModel()==KpiAssessmentModel.CENTRAL_RESULTS
+                ?available.stream().filter(x->x.getKpi().getPlan().getLevel()==KpiLevel.INDIVIDUAL).toList():available;
     }
     private KpiAssessmentItem newItem(KpiAssessment a,EmployeeKpiAssignment assignment) {
         var item=new KpiAssessmentItem();item.setAssessment(a);item.setAssignment(assignment);
@@ -264,9 +283,11 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     }
     private List<KpiLevel> missingLevels(KpiAssessment a,List<KpiAssessmentItem> included) {
         var allocation=a.getParticipant().getEmployeeLevelConfiguration();
-        if(allocation==null) return List.of(KpiLevel.COMPANY,KpiLevel.DEPARTMENT,KpiLevel.INDIVIDUAL);
+        if(allocation==null) return a.getAssessmentModel()==KpiAssessmentModel.CENTRAL_RESULTS
+                ?List.of(KpiLevel.INDIVIDUAL):List.of(KpiLevel.COMPANY,KpiLevel.DEPARTMENT,KpiLevel.INDIVIDUAL);
         var assignedIds=included.stream().map(i->i.getAssignment().getKpi().getId()).collect(Collectors.toSet());
-        return Arrays.stream(KpiLevel.values()).filter(level->{
+        return Arrays.stream(KpiLevel.values()).filter(level->
+            a.getAssessmentModel()!=KpiAssessmentModel.CENTRAL_RESULTS || level==KpiLevel.INDIVIDUAL).filter(level->{
             var weight=switch(level) {
                 case COMPANY->allocation.getCompanyKpiWeight();case DEPARTMENT->allocation.getDepartmentKpiWeight();
                 case INDIVIDUAL->allocation.getIndividualKpiWeight();
@@ -308,9 +329,16 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         var included=new ArrayList<>(a.getItems());
         if(a.getStatus()==KpiAssessmentStatus.DRAFT) {
             var present=included.stream().map(i->i.getAssignment().getId()).collect(Collectors.toSet());
-            for(var assigned:applicable(a)) if(!present.contains(assigned.getId())) included.add(newItem(a,assigned));
+        for(var assigned:answerable(a,applicable(a))) if(!present.contains(assigned.getId())) included.add(newItem(a,assigned));
         }
-        dto.setPlanVersionIds(selectedVersions(included.stream().map(KpiAssessmentItem::getAssignment).toList()));
+        if(a.getAssessmentModel()==KpiAssessmentModel.CENTRAL_RESULTS) {
+            var versions=new EnumMap<KpiLevel,Long>(KpiLevel.class);
+            a.getPlanVersions().forEach(binding->versions.put(binding.getLevel(),binding.getVersion().getId()));
+            if(a.getStatus()==KpiAssessmentStatus.DRAFT) versions.putAll(selectedVersions(applicable(a)));
+            dto.setPlanVersionIds(versions);
+        } else dto.setPlanVersionIds(selectedVersions(included.stream().map(KpiAssessmentItem::getAssignment).toList()));
+        dto.setAssessmentModel(a.getAssessmentModel());
+        dto.setPendingResultLevels(aggregates.pendingLevels(a));
         dto.setItems(included.stream().map(i->{
             var row=new KpiAssessmentItemDto();row.setId(i.getId());row.setAssignmentId(i.getAssignment().getId());
             row.setLevel(i.getAssignment().getKpi().getPlan().getLevel());row.setKpi(kpis.toDto(i.getAssignment().getKpi()));
@@ -349,7 +377,8 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     }
     private KpiAssessment newDraft(ReviewPeriodParticipant p,ReviewCheckpoint c,UUID actor) {
         var a=new KpiAssessment();a.setParticipant(p);a.setCheckpoint(c);a.setReviewPeriodId(p.getReviewPeriod().getId());
-        a.setReviewFrequency(p.getReviewFrequency());a.setCreatedAt(OffsetDateTime.now(clock));a.setCreatedBy(actor);touch(a,actor);return a;
+        a.setReviewFrequency(p.getReviewFrequency());a.setAssessmentModel(p.getReviewPeriod().getAssessmentModel());
+        a.setCreatedAt(OffsetDateTime.now(clock));a.setCreatedBy(actor);touch(a,actor);return a;
     }
     private void writable(KpiAssessment a,UUID actor) {
         active(actor);

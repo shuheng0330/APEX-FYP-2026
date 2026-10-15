@@ -21,6 +21,8 @@ public class KpiAssessment {
     @Column(name="review_period_id",nullable=false,updatable=false) private Long reviewPeriodId;
     @Enumerated(EnumType.STRING) @Column(name="review_frequency",nullable=false,updatable=false,length=20)
     private ReviewFrequency reviewFrequency;
+    @Enumerated(EnumType.STRING) @Column(nullable=false,updatable=false,length=24)
+    private KpiAssessmentModel assessmentModel=KpiAssessmentModel.LEGACY_ALL_LEVELS;
     @Enumerated(EnumType.STRING) @Column(nullable=false,length=20) private KpiAssessmentStatus status=KpiAssessmentStatus.DRAFT;
     @Column(name="created_at",nullable=false,updatable=false) private OffsetDateTime createdAt;
     @Column(name="updated_at",nullable=false) private OffsetDateTime updatedAt;

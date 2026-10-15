@@ -1,5 +1,11 @@
 # Annual KPI Foundation And KPI Plans
 
+V47 adds the configurable Attitude Self-Assessment opening date. Existing published
+periods retain their previous availability through a Start Date backfill; Drafts
+remain incomplete/saveable. Use the backed-up isolated runner before starting new
+entities. See `backend/docs/attitude-assessment-opening-date.md`. The initial
+delivery is database/backend only; frontend implementation requires separate approval.
+
 V43 retains the latest Department/Individual KPI return feedback and one JSONB item
 comparison baseline on the existing plan. It preserves available legacy reasons without
 inventing historical content. The isolated runner verifies compatible Hibernate-created

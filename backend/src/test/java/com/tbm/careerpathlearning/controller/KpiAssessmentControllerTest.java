@@ -34,6 +34,16 @@ class KpiAssessmentControllerTest {
     UUID actor=UUID.randomUUID();
     UsernamePasswordAuthenticationToken user(String authority) {return new UsernamePasswordAuthenticationToken(actor,null,List.of(new SimpleGrantedAuthority(authority)));}
     void messages(){when(messageSource.getMessage(anyString(),any(),any(Locale.class))).thenReturn("Forbidden");}
+    @Test void employeeBreakdownPassesAuthenticatedIdentityAndEnforcesOwnerDenial() throws Exception {
+        var auth=authentication(user("ROLE_USER"));
+        when(service.scoreBreakdown(5L,actor)).thenReturn(new KpiScoreBreakdownDto(5L,null,List.of()));
+        mvc.perform(get("/api/kpi-assessments/5/score-breakdown").with(auth))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.assessmentId").value(5));
+        verify(service).scoreBreakdown(5L,actor);
+        messages();when(service.scoreBreakdown(6L,actor)).thenThrow(new org.springframework.security.access.AccessDeniedException("Not your assessment"));
+        mvc.perform(get("/api/kpi-assessments/6/score-breakdown").with(auth)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/kpi-assessments/5/score-breakdown")).andExpect(status().isUnauthorized());
+    }
     @Test void employeeCanReadAndSaveIncompleteDraftAndSubmit() throws Exception {
         var auth=authentication(user("ROLE_USER"));
         mvc.perform(get("/api/kpi-assessments/periods").with(auth)).andExpect(status().isOk());

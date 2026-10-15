@@ -57,6 +57,7 @@ public class AnnualKpiReviewPeriodRequest {
     }
     private Integer selfAssessmentDaysAfterCheckpoint;
     private Integer superiorAssessmentDaysAfterSelfDeadline;
+    private LocalDate attitudeSelfAssessmentStartDate;
     private LocalDate attitudeSelfAssessmentDeadline;
     private LocalDate superiorAttitudeEvaluationDeadline;
     private LocalDate appraisalRecommendationDeadline;

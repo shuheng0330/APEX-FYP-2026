@@ -8,6 +8,7 @@ public interface KpiAssessmentService {
     List<KpiAssessmentCheckpointDto> checkpoints(Long periodId,UUID actor);
     KpiAssessmentDto mine(Long checkpointId,UUID actor);
     KpiAssessmentDto get(Long id,UUID actor);
+    KpiScoreBreakdownDto scoreBreakdown(Long id,UUID actor);
     KpiAssessmentDto create(KpiAssessmentRequest request,UUID actor);
     KpiAssessmentDto update(Long id,KpiAssessmentRequest request,UUID actor);
     KpiAssessmentDto submit(Long id,UUID actor);

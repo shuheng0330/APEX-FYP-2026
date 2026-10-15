@@ -39,7 +39,7 @@ class AttitudeConfigurationPostgresTest {
                     sql(c,"INSERT INTO "+schema+"."+table+" SELECT * FROM public."+table);
                 }
                 sql(c,"DELETE FROM authority WHERE name IN ('CAN_MANAGE_ATTITUDE_CONFIGURATION','CAN_REVIEW_ATTITUDE_EVALUATION',"
-                    +"'CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS')");
+                    +"'CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS','CAN_ENTER_COMPANY_KPI_RESULTS')");
                 sql(c,"ALTER TABLE annual_kpi_review_period DROP COLUMN IF EXISTS attitude_configuration_id");
                 sql(c,"CREATE TABLE role_authority(role_id bigint,authority_id bigint,created_at timestamptz,updated_at timestamptz,PRIMARY KEY(role_id,authority_id))");
                 for(var table:List.of("authority","annual_kpi_review_period"))

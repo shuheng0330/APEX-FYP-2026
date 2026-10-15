@@ -5,6 +5,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
 
 @Data
 public class KpiAssessmentReviewDto {
@@ -16,6 +18,7 @@ public class KpiAssessmentReviewDto {
     private Long reviewPeriodId;
     private String reviewPeriodName;
     private AnnualKpiReviewPeriodStatus reviewPeriodStatus;
+    private KpiAssessmentModel assessmentModel;
     private KpiAssessmentCheckpointDto checkpoint;
     private KpiAssessmentStatus status;
     private OffsetDateTime submittedAt;
@@ -23,6 +26,7 @@ public class KpiAssessmentReviewDto {
     private OffsetDateTime reviewedAt;
     private Boolean reviewedLate;
     private BigDecimal checkpointScore;
+    private List<KpiLevel> pendingResultLevels=new ArrayList<>();
     private boolean canReview;
     private boolean superiorDraftSaved;
     private boolean superiorOverdue;

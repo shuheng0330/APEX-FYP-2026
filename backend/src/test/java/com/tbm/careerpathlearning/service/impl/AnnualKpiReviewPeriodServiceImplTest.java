@@ -106,6 +106,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
     void incompleteDraftKeepsDefaultWeightsAndDoesNotGenerateCheckpoints() {
         var dto = service.create(new AnnualKpiReviewPeriodRequest(), false, actor);
         assertThat(dto.getStatus()).isEqualTo(AnnualKpiReviewPeriodStatus.DRAFT);
+        assertThat(dto.getAssessmentModel()).isEqualTo(KpiAssessmentModel.CENTRAL_RESULTS);
         assertThat(dto.getReferenceNumber()).isNotBlank();
         assertThat(dto.getKpiPerformanceWeight()).isEqualByComparingTo("50");
         assertThat(dto.getCreatedBy()).isEqualTo(actor);
@@ -118,6 +119,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
     void datedCreationLoadsEditableLookupDefaultsAndFrozenRoleLevel() {
         var request = validRequest(); request.setEmployeeLevelConfigurations(null);
         var dto = service.create(request, true, actor);
+        assertThat(dto.getAssessmentModel()).isEqualTo(KpiAssessmentModel.CENTRAL_RESULTS);
         assertThat(dto.getEmployeeLevelConfigurations()).hasSize(6);
         assertThat(dto.getEmployeeLevelConfigurations().get(3).getIndividualKpiWeight()).isEqualByComparingTo("60");
         assertThat(dto.getRoleConfigurations().get(0).getEmployeeLevelId()).isEqualTo(4L);
@@ -225,7 +227,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         var next = validRequest(); next.setName("2028 Annual Review"); next.setStartDate(LocalDate.of(2028, 1, 1));
         next.setEndDate(LocalDate.of(2028, 12, 31)); setSetup(next, next.getStartDate());
         next.setEmployeeLevelConfigurations(null); next.getRoleConfigurations().get(0).setReviewFrequency(null);
-        next.setAttitudeSelfAssessmentDeadline(null); next.setSuperiorAttitudeEvaluationDeadline(null);
+        next.setAttitudeSelfAssessmentStartDate(null); next.setAttitudeSelfAssessmentDeadline(null); next.setSuperiorAttitudeEvaluationDeadline(null);
         next.setAppraisalRecommendationDeadline(null); next.setHrFinalisationDeadline(null);
         var created = service.create(next, false, actor);
         assertThat(created.getEmployeeLevelConfigurations().get(3).getCompanyKpiWeight()).isEqualByComparingTo("20");
@@ -401,6 +403,28 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThat(service.update(id, request, actor).getStatus()).isEqualTo(AnnualKpiReviewPeriodStatus.OPEN);
     }
 
+    @Test void upcomingUpdatePreservesOpeningDateForOlderClientsAndAllowsExplicitChanges() {
+        var request=validRequest();var created=service.create(request,true,actor);
+        assertThat(created.getAttitudeSelfAssessmentStartDate()).isEqualTo(LocalDate.of(2027,10,1));
+        request.setAttitudeSelfAssessmentStartDate(null);
+        assertThat(service.update(created.getId(),request,actor).getAttitudeSelfAssessmentStartDate())
+                .isEqualTo(LocalDate.of(2027,10,1));
+        request.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,11,1));
+        assertThat(service.update(created.getId(),request,actor).getAttitudeSelfAssessmentStartDate())
+                .isEqualTo(LocalDate.of(2027,11,1));
+    }
+
+    @Test void draftMayOmitOpeningDateButMustConfigureItBeforePublication() {
+        var request=validRequest();request.setAttitudeSelfAssessmentStartDate(null);
+        var draft=service.create(request,false,actor);
+        assertThat(draft.getAttitudeSelfAssessmentStartDate()).isNull();
+        assertThatThrownBy(()->service.publish(draft.getId(),actor)).isInstanceOf(BadRequestException.class);
+        request.setAttitudeSelfAssessmentStartDate(request.getAttitudeSelfAssessmentDeadline());
+        service.update(draft.getId(),request,actor);
+        assertThat(service.publish(draft.getId(),actor).getAttitudeSelfAssessmentStartDate())
+                .isEqualTo(request.getAttitudeSelfAssessmentDeadline());
+    }
+
     @ParameterizedTest
     @MethodSource("invalidConfigurations")
     void invalidPublicationIsRejectedBeforePersistence(Consumer<AnnualKpiReviewPeriodRequest> change) {
@@ -427,6 +451,9 @@ class AnnualKpiReviewPeriodServiceImplTest {
                 r -> r.setSelfAssessmentDaysAfterCheckpoint(0),
                 r -> r.setSuperiorAssessmentDaysAfterSelfDeadline(-1),
                 r -> r.setKpiSetupDeadline(null),
+                r -> r.setAttitudeSelfAssessmentStartDate(null),
+                r -> r.setAttitudeSelfAssessmentStartDate(r.getStartDate().minusDays(1)),
+                r -> r.setAttitudeSelfAssessmentStartDate(r.getAttitudeSelfAssessmentDeadline().plusDays(1)),
                 r -> r.setAttitudeSelfAssessmentDeadline(null), r -> r.setSuperiorAttitudeEvaluationDeadline(null),
                 r -> r.setAppraisalRecommendationDeadline(null), r -> r.setHrFinalisationDeadline(null),
                 r -> r.setKpiSetupDeadline(r.getStartDate().plusDays(1)),
@@ -666,6 +693,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
         setSetup(request, request.getStartDate());
         request.setSelfAssessmentDaysAfterCheckpoint(5);
         request.setSuperiorAssessmentDaysAfterSelfDeadline(5);
+        request.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));
         request.setAttitudeSelfAssessmentDeadline(LocalDate.of(2027, 12, 5));
         request.setSuperiorAttitudeEvaluationDeadline(LocalDate.of(2027, 12, 15));
         request.setAppraisalRecommendationDeadline(LocalDate.of(2028, 1, 15));

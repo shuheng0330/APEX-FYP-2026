@@ -14,6 +14,7 @@ public class AnnualKpiReviewPeriodDto {
     private Long id;
     private String referenceNumber;
     private AnnualKpiReviewPeriodStatus status;
+    private KpiAssessmentModel assessmentModel;
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
@@ -24,6 +25,7 @@ public class AnnualKpiReviewPeriodDto {
     private LocalDate kpiSetupDeadline;
     private Integer selfAssessmentDaysAfterCheckpoint;
     private Integer superiorAssessmentDaysAfterSelfDeadline;
+    private LocalDate attitudeSelfAssessmentStartDate;
     private LocalDate attitudeSelfAssessmentDeadline;
     private LocalDate superiorAttitudeEvaluationDeadline;
     private LocalDate appraisalRecommendationDeadline;

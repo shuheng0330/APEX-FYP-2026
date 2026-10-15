@@ -41,7 +41,7 @@ class AttitudeAssessmentPostgresTest {
                 sql(c,"CREATE TABLE role_authority (LIKE public.role_authority INCLUDING ALL)");
                 if(populated) {
                     sql(c,"INSERT INTO authority SELECT * FROM public.authority WHERE name NOT IN ('CAN_REVIEW_ATTITUDE_EVALUATION',"
-                        +"'CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS')");
+                        +"'CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS','CAN_ENTER_COMPANY_KPI_RESULTS')");
                     sql(c,"INSERT INTO role_authority SELECT r.* FROM public.role_authority r JOIN authority a ON a.id=r.authority_id");
                 }
                 sql(c,"ALTER TABLE authority ALTER COLUMN id RESTART WITH "+scalar(c,"SELECT coalesce(max(id),0)+1 FROM authority"));
@@ -130,6 +130,9 @@ class AttitudeAssessmentPostgresTest {
                 String before=text(c,"SELECT md5(string_agg(to_jsonb(p)::text,',' ORDER BY id)) FROM annual_kpi_review_period p");
                 sql(c,migration());
                 assertEquals(before,text(c,"SELECT md5(string_agg(to_jsonb(p)::text,',' ORDER BY id)) FROM annual_kpi_review_period p"));
+                if(scalar(c,"SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace "
+                        +"WHERE n.nspname='"+schema+"' AND c.conname='ck_period_attitude_opening_required'")==0)
+                    sql(c,new ClassPathResource("db/migration/annual-kpi/V47__attitude_self_assessment_opening_date.sql").getContentAsString(StandardCharsets.UTF_8));
                 sql(c,"ALTER TABLE annual_kpi_review_period ADD COLUMN IF NOT EXISTS kpi_amendments_enabled boolean NOT NULL DEFAULT false, "
                     +"ADD COLUMN IF NOT EXISTS kpi_amendments_close_date date, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_at timestamptz, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_by uuid");
                 var config=new Configuration();config.setProperty("hibernate.connection.url",env.get("DB_URL"));

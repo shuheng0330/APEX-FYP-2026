@@ -23,6 +23,7 @@ public interface AnnualKpiReviewPeriodMapper {
     @Mapping(target = "kpiSetupDeadline", source = "kpiSetupDeadline")
     @Mapping(target = "selfAssessmentDaysAfterCheckpoint", source = "selfAssessmentDaysAfterCheckpoint")
     @Mapping(target = "superiorAssessmentDaysAfterSelfDeadline", source = "superiorAssessmentDaysAfterSelfDeadline")
+    @Mapping(target = "attitudeSelfAssessmentStartDate", source = "attitudeSelfAssessmentStartDate")
     @Mapping(target = "attitudeSelfAssessmentDeadline", source = "attitudeSelfAssessmentDeadline")
     @Mapping(target = "superiorAttitudeEvaluationDeadline", source = "superiorAttitudeEvaluationDeadline")
     @Mapping(target = "appraisalRecommendationDeadline", source = "appraisalRecommendationDeadline")

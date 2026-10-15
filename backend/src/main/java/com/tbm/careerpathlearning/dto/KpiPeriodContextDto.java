@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.dto;
 import com.tbm.careerpathlearning.enums.AnnualKpiReviewPeriodStatus;
+import com.tbm.careerpathlearning.enums.KpiAssessmentModel;
 import lombok.Data;
 import java.time.LocalDate;
 @Data
@@ -7,6 +8,7 @@ public class KpiPeriodContextDto {
     private Long id;
     private String name;
     private AnnualKpiReviewPeriodStatus status;
+    private KpiAssessmentModel assessmentModel;
     private LocalDate startDate;
     private LocalDate endDate;
     private LocalDate kpiSetupDeadline;

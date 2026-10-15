@@ -31,6 +31,15 @@ class AttitudeAssessmentControllerTest {
     @MockitoBean MessageSource messageSource;
     UUID actor=UUID.randomUUID();
     UsernamePasswordAuthenticationToken user(String authority) {return new UsernamePasswordAuthenticationToken(actor,null,List.of(new SimpleGrantedAuthority(authority)));}
+    @Test void scheduledOpeningIsExposedWithServerCalculatedWriteRestrictions() throws Exception {
+        var dto=new AttitudeAssessmentDto();dto.setAvailableFrom(java.time.LocalDate.of(2027,10,1));dto.setOpeningPending(true);
+        dto.setAvailabilityTitle("Attitude Evaluation Not Yet Available");dto.setAvailabilityMessage("Attitude Self-Assessment opens on 2027-10-01.");
+        when(service.mine(1L,actor)).thenReturn(dto);
+        mvc.perform(get("/api/attitude-assessments/mine?reviewPeriodId=1").with(authentication(user("ROLE_USER"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.availableFrom").value("2027-10-01"))
+                .andExpect(jsonPath("$.openingPending").value(true)).andExpect(jsonPath("$.available").value(false))
+                .andExpect(jsonPath("$.canSaveDraft").value(false)).andExpect(jsonPath("$.canSubmit").value(false));
+    }
     @Test void employeePermissionAllowsAllOwnerActionsWithoutRoleNameOrSetupPermission() throws Exception {
         var auth=authentication(user("ROLE_USER"));
         mvc.perform(get("/api/attitude-assessments/periods").with(auth)).andExpect(status().isOk());

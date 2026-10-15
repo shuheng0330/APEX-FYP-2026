@@ -35,6 +35,8 @@ public class AttitudeAssessmentDto {
     private boolean canCompleteReview;
     private boolean superiorOverdue;
     private List<String> reviewBlockers=new ArrayList<>();
+    private LocalDate availableFrom;
+    private boolean openingPending;
     private LocalDate selfAssessmentDeadline;
     private LocalDate superiorEvaluationDeadline;
     private boolean available;
