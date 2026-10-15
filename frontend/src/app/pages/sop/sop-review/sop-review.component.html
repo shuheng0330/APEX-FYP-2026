@@ -84,23 +84,37 @@
                     <textarea nz-input [(ngModel)]="er.summary" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
                   </label>
 
-                  @if (er.learningObjectives?.length) {
-                    <div class="edit-group">
-                      <span class="edit-group-label">Learning Objectives</span>
-                      @for (obj of er.learningObjectives; track $index; let i = $index) {
-                        <input nz-input [(ngModel)]="er.learningObjectives[i]" class="edit-list-item" />
-                      }
-                    </div>
-                  }
+                  <div class="edit-group">
+                    <span class="edit-group-label">Learning Objectives</span>
+                    @for (obj of er.learningObjectives; track $index; let i = $index) {
+                      <div class="row-line">
+                        <input nz-input [(ngModel)]="er.learningObjectives[i]" class="edit-list-item" aria-label="Learning objective" />
+                        <button nz-button nzType="text" nzSize="small" type="button" aria-label="Remove learning objective"
+                                (click)="removeAt(er.learningObjectives, i)">
+                          <nz-icon nzType="delete"></nz-icon>
+                        </button>
+                      </div>
+                    }
+                    <button nz-button nzSize="small" nzType="dashed" type="button" class="add-list-item" (click)="addObjective(er)">
+                      <nz-icon nzType="plus"></nz-icon>Add objective
+                    </button>
+                  </div>
 
-                  @if (er.tools?.length) {
-                    <div class="edit-group">
-                      <span class="edit-group-label">Tools & Materials</span>
-                      @for (tool of er.tools; track $index; let i = $index) {
-                        <input nz-input [(ngModel)]="er.tools[i]" class="edit-list-item" />
-                      }
-                    </div>
-                  }
+                  <div class="edit-group">
+                    <span class="edit-group-label">Tools & Materials</span>
+                    @for (tool of er.tools; track $index; let i = $index) {
+                      <div class="row-line">
+                        <input nz-input [(ngModel)]="er.tools[i]" class="edit-list-item" aria-label="Tool or material" />
+                        <button nz-button nzType="text" nzSize="small" type="button" aria-label="Remove tool or material"
+                                (click)="removeAt(er.tools, i)">
+                          <nz-icon nzType="delete"></nz-icon>
+                        </button>
+                      </div>
+                    }
+                    <button nz-button nzSize="small" nzType="dashed" type="button" class="add-list-item" (click)="addTool(er)">
+                      <nz-icon nzType="plus"></nz-icon>Add tool or material
+                    </button>
+                  </div>
 
                   <!-- Content blocks: insert toolbar + drag-reorderable list (FR-07-06) -->
                   <div class="blocks-head">
@@ -280,17 +294,22 @@
                     }
                   </div>
 
-                  @if (er.keyTerms?.length) {
-                    <div class="edit-group">
-                      <span class="edit-group-label">Key Terms</span>
-                      @for (kt of er.keyTerms; track $index) {
-                        <div class="edit-term-pair">
-                          <input nz-input [(ngModel)]="kt.term" placeholder="Term" />
-                          <input nz-input [(ngModel)]="kt.definition" placeholder="Definition" />
-                        </div>
-                      }
-                    </div>
-                  }
+                  <div class="edit-group">
+                    <span class="edit-group-label">Key Terms</span>
+                    @for (kt of er.keyTerms; track $index; let i = $index) {
+                      <div class="edit-term-pair">
+                        <input nz-input [(ngModel)]="kt.term" placeholder="Term" aria-label="Key term" />
+                        <input nz-input [(ngModel)]="kt.definition" placeholder="Definition" aria-label="Definition" />
+                        <button nz-button nzType="text" nzSize="small" type="button" aria-label="Remove key term"
+                                (click)="removeAt(er.keyTerms, i)">
+                          <nz-icon nzType="delete"></nz-icon>
+                        </button>
+                      </div>
+                    }
+                    <button nz-button nzSize="small" nzType="dashed" type="button" class="add-list-item" (click)="addKeyTerm(er)">
+                      <nz-icon nzType="plus"></nz-icon>Add key term
+                    </button>
+                  </div>
                 </div>
               }
             }

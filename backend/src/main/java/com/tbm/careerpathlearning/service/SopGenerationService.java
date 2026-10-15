@@ -410,6 +410,8 @@ public class SopGenerationService {
         return """
                 Regenerate ONE training module from the SOP below. The trainer rejected the
                 previous version for this reason: "%s". Address that feedback fully.
+                If the feedback asks to drop something, such as key terms, tools or learning
+                objectives, return that field as an empty list []. Any list below may be empty.
 
                 Return ONLY a JSON object with this EXACT shape — no markdown fences:
                 {

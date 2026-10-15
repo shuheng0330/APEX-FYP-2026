@@ -1,6 +1,9 @@
 package com.tbm.careerpathlearning.service.impl;
 
 import com.tbm.careerpathlearning.config.ClockConfig;
+import com.tbm.careerpathlearning.dto.NotificationListDto;
+import com.tbm.careerpathlearning.enums.AuthorityName;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.OrgChartType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
@@ -9,8 +12,10 @@ import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import com.tbm.careerpathlearning.enums.SopVisibility;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
+import com.tbm.careerpathlearning.model.Authority;
 import com.tbm.careerpathlearning.model.OrgChart;
 import com.tbm.careerpathlearning.model.Role;
+import com.tbm.careerpathlearning.model.RoleAuthority;
 import com.tbm.careerpathlearning.model.SopAssignment;
 import com.tbm.careerpathlearning.model.SopCourseFeedback;
 import com.tbm.careerpathlearning.model.SopDocument;
@@ -20,6 +25,10 @@ import com.tbm.careerpathlearning.model.SopQuizAttempt;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
 import com.tbm.careerpathlearning.model.Staff;
+import com.tbm.careerpathlearning.model.TrainerAccessGrant;
+import com.tbm.careerpathlearning.model.TrainingAuditLog;
+import com.tbm.careerpathlearning.repository.AuthorityRepository;
+import com.tbm.careerpathlearning.repository.RoleAuthorityRepository;
 import com.tbm.careerpathlearning.repository.SopAssignmentRepository;
 import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
@@ -29,7 +38,11 @@ import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
+import com.tbm.careerpathlearning.repository.TrainingAuditLogRepository;
+import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
+import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Field;
@@ -40,10 +53,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +69,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * In-memory stand-ins for the SOP repositories, so the training services can be tested through whole
+ * In-memory stand-ins for the training repositories, so the training services can be tested through whole
  * flows (assign, start, fail, retake, complete) without a database. Only the repository methods the
  * services call are implemented; any other call fails the test with UnsupportedOperationException.
  */
@@ -65,7 +81,8 @@ class SopTestStore {
     private static final Set<Class<?>> REPOSITORIES = Set.of(SopDocumentRepository.class, SopModuleRepository.class,
             SopQuizQuestionRepository.class, SopQuizReviewEventRepository.class, SopAssignmentRepository.class,
             SopEnrollmentRepository.class, SopQuizAttemptRepository.class, SopCourseFeedbackRepository.class,
-            StaffRepository.class);
+            StaffRepository.class, TrainerAccessGrantRepository.class, TrainingAuditLogRepository.class,
+            AuthorityRepository.class, RoleAuthorityRepository.class);
 
     final Map<Long, SopDocument> docs = new LinkedHashMap<>();
     final Map<Long, SopModule> modules = new LinkedHashMap<>();
@@ -76,11 +93,19 @@ class SopTestStore {
     final Map<Long, SopQuizAttempt> attempts = new LinkedHashMap<>();
     final Map<Long, SopCourseFeedback> feedback = new LinkedHashMap<>();
     final Map<UUID, Staff> staff = new LinkedHashMap<>();
+    final Map<UUID, TrainerAccessGrant> grants = new LinkedHashMap<>();
+    final Map<Long, TrainingAuditLog> auditLog = new LinkedHashMap<>();
+    final Map<AuthorityName, Authority> authorities = new EnumMap<>(AuthorityName.class);
+    final List<RoleAuthority> roleAuthorities = new ArrayList<>();
+    /** Notifications the services sent, in order. */
+    final List<Sent> notifications = new ArrayList<>();
     final TestClock clock = new TestClock(NOW, ClockConfig.ZONE);
 
     private final AtomicLong ids = new AtomicLong(1000);
     private final Map<Class<?>, Object> repositories = new HashMap<>();
     private SopCourseReadiness readiness;
+    private TrainingAuditService audit;
+    private final NotificationService notifier = new RecordingNotifications();
 
     /** Sets the service's repositories, clock and course readiness check to this store's. */
     <T> T wire(T service) {
@@ -89,6 +114,8 @@ class SopTestStore {
                 Object value = REPOSITORIES.contains(f.getType()) ? repository(f.getType())
                         : f.getType() == Clock.class ? clock
                         : f.getType() == SopCourseReadiness.class ? readiness()
+                        : f.getType() == TrainingAuditService.class ? audit()
+                        : f.getType() == NotificationService.class ? notifier
                         : null;
                 if (value != null) {
                     ReflectionTestUtils.setField(service, f.getName(), value);
@@ -104,6 +131,13 @@ class SopTestStore {
             wire(readiness);
         }
         return readiness;
+    }
+
+    TrainingAuditService audit() {
+        if (audit == null) {
+            audit = wire(new TrainingAuditServiceImpl());
+        }
+        return audit;
     }
 
     LocalDate today() {
@@ -131,6 +165,16 @@ class SopTestStore {
         r.setVisible(true);
         r.setOrgChart(department);
         return r;
+    }
+
+    /** Gives the role a permission, as the Roles page does. */
+    void permit(Role role, AuthorityName name) {
+        Authority authority = authorities.computeIfAbsent(name, n -> {
+            Authority a = new Authority(n, n.name());
+            a.setId(ids.incrementAndGet());
+            return a;
+        });
+        roleAuthorities.add(new RoleAuthority(role, authority));
     }
 
     Staff person(String name, Role role) {
@@ -264,6 +308,8 @@ class SopTestStore {
                 return a[0];
             case "findById":
                 return Optional.ofNullable(table(type).get(a[0]));
+            case "findAll":
+                return new ArrayList<>(table(type).values());
             case "delete":
                 table(type).values().remove(a[0]);
                 return null;
@@ -370,8 +416,25 @@ class SopTestStore {
                     return staff.values().stream().filter(s -> s.getAccountStatus() == StaffAccountStatus.ACTIVE).toList();
                 case "findAllWithRoleByIdIn":
                     return staff.values().stream().filter(s -> ((Collection<UUID>) a[0]).contains(s.getId())).toList();
+                case "findByIdAndIsDeletedFalse":
+                    return Optional.ofNullable(staff.get(a[0])).filter(s -> !s.isDeleted());
                 default:
             }
+        }
+        if (type == TrainingAuditLogRepository.class && method.equals("findAllByTargetTypeAndTargetIdOrderByCreatedAtDescIdDesc")) {
+            return auditLog.values().stream().filter(e -> e.getTargetType().equals(a[0]) && e.getTargetId().equals(a[1]))
+                    .sorted(Comparator.comparing(TrainingAuditLog::getCreatedAt).thenComparing(TrainingAuditLog::getId).reversed())
+                    .toList();
+        }
+        if (type == TrainerAccessGrantRepository.class && method.equals("findAllByRevokedAtIsNullAndLapsedAtIsNullAndEndDateBefore")) {
+            return grants.values().stream().filter(g -> g.getRevokedAt() == null && g.getLapsedAt() == null
+                    && g.getEndDate() != null && g.getEndDate().isBefore((LocalDate) a[0])).toList();
+        }
+        if (type == AuthorityRepository.class && method.equals("findByName")) {
+            return Optional.ofNullable(authorities.get(a[0]));
+        }
+        if (type == RoleAuthorityRepository.class && method.equals("findAllByRoleIdIn")) {
+            return roleAuthorities.stream().filter(ra -> ((Collection<Long>) a[0]).contains(ra.getId().getRoleId())).toList();
         }
         throw new UnsupportedOperationException(type.getSimpleName() + "." + method);
     }
@@ -390,6 +453,8 @@ class SopTestStore {
         if (type == SopEnrollmentRepository.class) return enrollments;
         if (type == SopQuizAttemptRepository.class) return attempts;
         if (type == SopCourseFeedbackRepository.class) return feedback;
+        if (type == TrainerAccessGrantRepository.class) return grants;
+        if (type == TrainingAuditLogRepository.class) return auditLog;
         return staff;
     }
 
@@ -417,10 +482,59 @@ class SopTestStore {
         } else if (entity instanceof SopCourseFeedback x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             feedback.put(x.getId(), x);
+        } else if (entity instanceof TrainerAccessGrant x) {
+            grants.put(x.getStaffId(), x);
+        } else if (entity instanceof TrainingAuditLog x) {
+            if (x.getId() == null) x.setId(ids.incrementAndGet());
+            auditLog.put(x.getId(), x);
         } else {
             throw new UnsupportedOperationException("save " + entity.getClass().getSimpleName());
         }
         return entity;
+    }
+
+    /** A notification a service sent. */
+    record Sent(UUID recipient, NotificationType type, String title, String body, String link) {
+    }
+
+    /** Records notifications instead of saving and emailing them. */
+    private final class RecordingNotifications implements NotificationService {
+        private final Set<String> keys = new HashSet<>();
+
+        @Override
+        public void notify(UUID recipientId, NotificationType type, String title, String body, String link) {
+            notifications.add(new Sent(recipientId, type, title, body, link));
+        }
+
+        @Override
+        public boolean notifyOnce(String dedupeKey, UUID recipientId, NotificationType type, String title, String body,
+                                  String link) {
+            if (!keys.add(dedupeKey)) {
+                return false;
+            }
+            notify(recipientId, type, title, body, link);
+            return true;
+        }
+
+        @Override
+        public NotificationListDto mine(UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long unreadCount(UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void markRead(Long notificationId, UUID userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void markAllRead(UUID userId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     /** A clock the test can move; every service wired to the store sees the change. */

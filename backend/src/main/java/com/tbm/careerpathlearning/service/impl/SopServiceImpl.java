@@ -7,6 +7,7 @@ import com.tbm.careerpathlearning.dto.SopDocumentDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.QuizReviewAction;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
@@ -27,6 +28,7 @@ import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.service.FileService;
+import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +59,7 @@ public class SopServiceImpl implements SopService {
     @Autowired private FileService fileService;
     @Autowired private SopGenerationService sopGenerationService;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private NotificationService notificationService;
     @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -184,6 +187,8 @@ public class SopServiceImpl implements SopService {
         SopModule module = getModuleOrThrow(moduleId);
         sopGenerationService.regenerateModule(module, reason); // sets status REGENERATED + refreshes quiz
         recordQuizEvent(moduleId, QuizReviewAction.REGENERATED, "Regenerated together with the rejected module material.", null);
+        notifyOwner(module, NotificationType.MATERIAL_REGENERATED, "Material regenerated",
+                "now has new material and a new quiz to review", "/sop/review/");
         return toModuleDto(getModuleOrThrow(moduleId));
     }
 
@@ -280,6 +285,8 @@ public class SopServiceImpl implements SopService {
         // Recorded only once the regeneration succeeded; a failed attempt leaves the quiz untouched.
         recordQuizEvent(moduleId, QuizReviewAction.REJECTED, reason, userId);
         recordQuizEvent(moduleId, QuizReviewAction.REGENERATED, "Regenerated from the trainer's feedback.", null);
+        notifyOwner(module, NotificationType.QUIZ_REGENERATED, "Quiz regenerated", "has a new quiz to review",
+                "/sop/quiz-review/");
         return toModuleDto(getModuleOrThrow(moduleId));
     }
 
@@ -324,6 +331,15 @@ public class SopServiceImpl implements SopService {
     }
 
     // === helpers ============================================================
+
+    /** Tells the course owner that regenerated content is ready to review (FR-07-06, FR-08-04). */
+    private void notifyOwner(SopModule module, NotificationType type, String title, String what, String page) {
+        sopDocumentRepository.findById(module.getSopDocumentId())
+                .filter(doc -> doc.getUploadedBy() != null)
+                .ifPresent(doc -> notificationService.notify(doc.getUploadedBy(), type, title + ": " + doc.getTitle(),
+                        "Module " + module.getModuleOrder() + ", \"" + module.getTitle() + "\", " + what + ".",
+                        page + doc.getId()));
+    }
 
     private SopDocument getDocOrThrow(Long id) {
         SopDocument doc = sopDocumentRepository.findById(id).orElse(null);

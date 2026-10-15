@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.dto.SopAssignmentPreviewDto;
 import com.tbm.careerpathlearning.dto.SopAssignmentRequest;
 import com.tbm.careerpathlearning.dto.SopAssignmentResultDto;
 import com.tbm.careerpathlearning.dto.SopAudienceDto;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.OrgChartType;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
@@ -23,6 +24,7 @@ import com.tbm.careerpathlearning.repository.SopAssignmentRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopAssignmentService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -57,6 +60,9 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
     @Autowired private SopAssignmentRepository sopAssignmentRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private NotificationService notificationService;
+
+    private static final DateTimeFormatter NOTICE_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
     @Autowired private Clock clock;
 
     @Override
@@ -165,6 +171,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         // and anyone who already completed the course is left as they are.
         Map<UUID, SopEnrollment> enrolled = enrollmentsByStaff(doc.getId());
         List<SopEnrollment> changed = new ArrayList<>();
+        Set<UUID> newcomers = new HashSet<>();
         int assigned = 0;
         int updated = 0;
         int skipped = 0;
@@ -180,6 +187,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
                 e.setStaffId(s.getId());
                 e.setStatus(SopEnrollmentStatus.NOT_STARTED);
                 e.setAssignedAt(now);
+                newcomers.add(s.getId());
                 assigned++;
             } else {
                 updated++;
@@ -200,6 +208,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         sopEnrollmentRepository.saveAll(changed);
         assignment.setStaffCount(changed.size());
         assignment = sopAssignmentRepository.save(assignment);
+        notifyAssigned(doc, changed, newcomers, nameOf(userId, active));
 
         SopAssignmentResultDto result = new SopAssignmentResultDto();
         result.setAssignment(toAssignmentDto(assignment, doc.getTitle(), new HashMap<>()));
@@ -240,6 +249,44 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
     }
 
     // === helpers ============================================================
+
+    /**
+     * Tells each person their course is waiting for them (FR-09-05), or that its terms changed. Sent as part of
+     * the assignment, so nothing goes out if it fails.
+     */
+    private void notifyAssigned(SopDocument doc, List<SopEnrollment> changed, Set<UUID> newcomers, String assignerName) {
+        String link = "/my-learning/course/" + doc.getId();
+        for (SopEnrollment e : changed) {
+            if (newcomers.contains(e.getStaffId())) {
+                notificationService.notify(e.getStaffId(), NotificationType.COURSE_ASSIGNED,
+                        (e.isMandatory() ? "New mandatory training: " : "New training: ") + doc.getTitle(),
+                        assignerName + " assigned you \"" + doc.getTitle() + "\". " + termsText(e), link);
+            } else {
+                notificationService.notify(e.getStaffId(), NotificationType.COURSE_ASSIGNMENT_UPDATED,
+                        "Training updated: " + doc.getTitle(),
+                        "The terms of \"" + doc.getTitle() + "\" have changed. " + termsText(e), link);
+            }
+        }
+    }
+
+    /** When the course opens and when it is due, in the learner's words. */
+    private String termsText(SopEnrollment e) {
+        boolean later = e.getEffectiveDate() != null && e.getEffectiveDate().isAfter(LocalDate.now(clock));
+        if (e.getMode() == SopAssignmentMode.IMMEDIATE) {
+            return (later ? "It starts on " + NOTICE_DATE.format(e.getEffectiveDate()) + ". " : "")
+                    + "Complete it by " + NOTICE_DATE.format(e.dueDate()) + ".";
+        }
+        return (later ? "It opens in your Learning Portal on " + NOTICE_DATE.format(e.getEffectiveDate()) + ". "
+                : "It is in your Learning Portal now. ")
+                + "Once you start, you have " + e.getDaysToComplete() + " days to finish, and it must be finished by "
+                + NOTICE_DATE.format(e.getDeadline()) + ".";
+    }
+
+    private String nameOf(UUID staffId, List<Staff> active) {
+        return active.stream().filter(s -> s.getId().equals(staffId)).map(Staff::getName).findFirst()
+                .or(() -> staffRepository.findById(staffId).map(Staff::getName))
+                .orElse("Your trainer");
+    }
 
     /** Generated courses the user may assign: their own, or every course with CAN_ASSIGN_TRAINING. */
     private List<SopDocument> assignableDocs(UUID userId, boolean canAssignAny) {
