@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.service.impl;
 
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizDifficulty;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
@@ -126,6 +127,24 @@ class SopServiceImplTest {
         assertTrue(e.getMessage().contains("unavailable"), e.getMessage());
         assertTrue(history().isEmpty());
         assertEquals(before, statuses());
+    }
+
+    @Test
+    @DisplayName("The course owner is told when regenerated content is ready, and not when the AI fails (FR-07-06, FR-08-04)")
+    void ownerIsNotified() {
+        service.rejectModuleQuiz(moduleId, "Add a question on cash drops", trainer.getId());
+        service.rejectModule(moduleId, "Shorter please");
+        gemini.down = true;
+        assertThrows(InternalServerException.class, () -> service.rejectModuleQuiz(moduleId, "Again", trainer.getId()));
+
+        assertEquals(List.of(NotificationType.QUIZ_REGENERATED, NotificationType.MATERIAL_REGENERATED),
+                store.notifications.stream().map(SopTestStore.Sent::type).toList());
+        SopTestStore.Sent quiz = store.notifications.get(0);
+        assertEquals(trainer.getId(), quiz.recipient());
+        assertEquals("Quiz regenerated: Cash Handling SOP", quiz.title());
+        assertEquals("Module 1, \"Handling Cash\", has a new quiz to review.", quiz.body());
+        assertEquals("/sop/quiz-review/1", quiz.link());
+        assertEquals("/sop/review/1", store.notifications.get(1).link());
     }
 
     @Test

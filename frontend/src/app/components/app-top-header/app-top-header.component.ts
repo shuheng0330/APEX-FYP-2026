@@ -9,6 +9,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AuthService } from '../../services/auth.service';
 import { EvaluationCycleDto, EvaluationCycleService } from '../../services/evaluation-cycle.service';
+import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 interface PageContext {
   title: string;
@@ -20,7 +21,7 @@ interface PageContext {
   standalone: true,
   imports: [
     CommonModule, NzBadgeModule, NzButtonModule, NzDropDownModule,
-    NzIconModule, NzTagModule
+    NzIconModule, NzTagModule, NotificationBellComponent
   ],
   templateUrl: './app-top-header.component.html',
   styleUrl: './app-top-header.component.scss'

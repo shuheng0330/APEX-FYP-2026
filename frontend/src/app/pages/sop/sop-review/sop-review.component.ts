@@ -104,8 +104,13 @@ export class SopReviewComponent implements OnInit {
 
   saveModule(m: SopModule): void {
     if (this.editMode[m.id] && this.editRich[m.id]) {
+      // Blank list entries are dropped, so removing every key term leaves none (FR-07-11).
+      const rich = this.editRich[m.id];
+      rich.learningObjectives = (rich.learningObjectives ?? []).filter(o => o.trim());
+      rich.tools = (rich.tools ?? []).filter(t => t.trim());
+      rich.keyTerms = (rich.keyTerms ?? []).filter(k => k.term.trim() || k.definition.trim());
       // Serialize the edited rich object back to JSON — structure is preserved.
-      m.content = JSON.stringify(this.editRich[m.id]);
+      m.content = JSON.stringify(rich);
     }
     this.busy[m.id] = true;
     this.sopService.updateModule(m.id, m.title, m.content).subscribe({
@@ -197,6 +202,23 @@ export class SopReviewComponent implements OnInit {
     const sections = this.editRich[moduleId]?.sections;
     if (!sections) { return; }
     moveItemInArray(sections, event.previousIndex, event.currentIndex);
+  }
+
+  // the module's own lists: objectives, tools and key terms (FR-07-11)
+  addObjective(rich: RichContent): void {
+    (rich.learningObjectives ??= []).push('');
+  }
+
+  addTool(rich: RichContent): void {
+    (rich.tools ??= []).push('');
+  }
+
+  addKeyTerm(rich: RichContent): void {
+    (rich.keyTerms ??= []).push({ term: '', definition: '' });
+  }
+
+  removeAt(list: unknown[] | undefined, index: number): void {
+    list?.splice(index, 1);
   }
 
   // list items within a steps / warnings block

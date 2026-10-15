@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.dto.SopAssignmentPreviewDto;
 import com.tbm.careerpathlearning.dto.SopAssignmentRequest;
 import com.tbm.careerpathlearning.dto.SopAssignmentResultDto;
 import com.tbm.careerpathlearning.dto.SopAudienceDto;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
@@ -127,6 +128,40 @@ class SopAssignmentServiceImplTest {
     }
 
     @Test
+    @DisplayName("Newly assigned staff are notified with a link to the course and its due date (FR-09-05)")
+    void assignmentNotifiesNewStaff() {
+        service.assign(salesDepartmentAndMeiling(), trainer.getId(), false);
+
+        assertEquals(3, store.notifications.size());
+        SopTestStore.Sent toAisyah = store.notifications.stream()
+                .filter(n -> n.recipient().equals(aisyah.getId())).findFirst().orElseThrow();
+        assertEquals(NotificationType.COURSE_ASSIGNED, toAisyah.type());
+        assertEquals("New mandatory training: E-Hailing Delivery", toAisyah.title());
+        assertEquals("Tan Wei Ming assigned you \"E-Hailing Delivery\". Complete it by 26 Oct 2026.", toAisyah.body());
+        assertEquals("/my-learning/course/1", toAisyah.link());
+    }
+
+    @Test
+    @DisplayName("Staff whose enrolment changes are told the new terms; staff who completed it are not")
+    void reassignmentNotifiesUpdates() {
+        service.assign(salesDepartmentAndMeiling(), trainer.getId(), false);
+        store.enrollmentOf(1L, aisyah.getId()).setStatus(SopEnrollmentStatus.COMPLETED);
+        store.notifications.clear();
+        SopAssignmentRequest portal = request(SopAssignmentMode.PORTAL, false, today.plusDays(60), 10, 70);
+        portal.setRoleIds(List.of(20L)); // Aisyah, who completed it, and Ravi
+
+        service.assign(portal, trainer.getId(), false);
+
+        assertEquals(1, store.notifications.size());
+        SopTestStore.Sent toRavi = store.notifications.get(0);
+        assertEquals(ravi.getId(), toRavi.recipient());
+        assertEquals(NotificationType.COURSE_ASSIGNMENT_UPDATED, toRavi.type());
+        assertEquals("Training updated: E-Hailing Delivery", toRavi.title());
+        assertEquals("The terms of \"E-Hailing Delivery\" have changed. It is in your Learning Portal now. Once you start, "
+                + "you have 10 days to finish, and it must be finished by 11 Dec 2026.", toRavi.body());
+    }
+
+    @Test
     @DisplayName("Assigning again by job role updates the existing enrolments, and a near deadline caps the due date")
     void reassignByRole() {
         service.assign(salesDepartmentAndMeiling(), trainer.getId(), false);
@@ -243,6 +278,7 @@ class SopAssignmentServiceImplTest {
         SopAssignmentRequest nobody = request(SopAssignmentMode.PORTAL, false, today.plusDays(10), 14, 70);
         assertThrows(BadRequestException.class, () -> service.assign(nobody, trainer.getId(), false), "no audience");
         assertTrue(store.assignments.isEmpty());
+        assertTrue(store.notifications.isEmpty(), "a refused assignment notifies nobody");
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.controller;
 
 import com.tbm.careerpathlearning.dto.*;
+import com.tbm.careerpathlearning.enums.AuthorityName;
 import com.tbm.careerpathlearning.enums.OtpPurpose;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
 import com.tbm.careerpathlearning.exception.BadRequestException;
@@ -73,6 +74,9 @@ public class AuthController {
 
     @Autowired
     private StaffRefreshTokenService staffRefreshTokenService;
+
+    @Autowired
+    private TrainerAccessService trainerAccessService;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
@@ -542,6 +546,13 @@ public class AuthController {
             AuthorityDto authorityDto = authorityService.findById(roleAuthorityDto.getAuthority().getId());
             SimpleGrantedAuthority simpleGrantedAuthority = new SimpleGrantedAuthority(authorityDto.getName().getAuthorityName());
             authorities.add(simpleGrantedAuthority);
+        }
+
+        // Trainer access can also be granted to the person directly, on top of their role (FR-20-01).
+        String trainerAccess = AuthorityName.CAN_MANAGE_TRAINING.getAuthorityName();
+        if (authorities.stream().noneMatch(a -> trainerAccess.equals(a.getAuthority()))
+                && trainerAccessService.hasActiveGrant(staffDto.getId())) {
+            authorities.add(new SimpleGrantedAuthority(trainerAccess));
         }
 
         return authorities;

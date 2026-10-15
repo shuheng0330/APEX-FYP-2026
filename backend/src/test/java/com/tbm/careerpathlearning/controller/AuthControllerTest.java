@@ -61,6 +61,8 @@ class AuthControllerTest {
     @MockitoBean
     private StaffRefreshTokenService staffRefreshTokenService;
     @MockitoBean
+    private TrainerAccessService trainerAccessService;
+    @MockitoBean
     private EmailService emailService;
     @MockitoBean
     private MessageSource messageSource;
@@ -556,5 +558,65 @@ class AuthControllerTest {
         mockMvc.perform(get("/auth/me")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized()); // Controller returns 401
+    }
+
+    // --- Trainer access granted to the person directly (FR-20-01, NFR-002) ---
+    @Test
+    void login_ShouldAddTrainerAccess_WhenAGrantIsActive() throws Exception {
+        LoginRequest req = new LoginRequest();
+        req.setEmail("staff@test.com");
+        req.setPassword("Password123");
+        when(validationService.isNullOrBlank(any())).thenReturn(false);
+        when(staffService.findByIsDeletedIsFalseAndEmail(req.getEmail())).thenReturn(Optional.of(mockStaff));
+        when(staffLoginAuditService.getStaffLoginAuditById(mockStaff.getId())).thenReturn(mockAudit);
+        when(authenticationService.loginWithEmailAndPassword(any(), any(), any())).thenReturn(true);
+        when(tokenService.generateAccessToken(any(), any())).thenReturn("mock-access-token");
+        when(authenticationService.createAndSaveRefreshToken(any())).thenReturn("mock-refresh-token");
+        when(trainerAccessService.hasActiveGrant(mockStaff.getId())).thenReturn(true);
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+
+        verify(tokenService).generateAccessToken(eq(mockStaff.getId()), argThat(roles -> roles.contains("CAN_MANAGE_TRAINING")));
+    }
+
+    @Test
+    void refresh_ShouldAddTrainerAccess_WhenAGrantIsActive() throws Exception {
+        UUID userId = mockStaff.getId();
+        mockRefresh(userId);
+        when(trainerAccessService.hasActiveGrant(userId)).thenReturn(true);
+
+        mockMvc.perform(post("/auth/refresh")
+                        .cookie(new Cookie("sb-refresh", "valid-refresh-token"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        verify(tokenService).generateAccessToken(eq(userId), argThat(roles -> roles.contains("CAN_MANAGE_TRAINING")));
+    }
+
+    @Test
+    void refresh_ShouldNotAddTrainerAccess_WhenNoGrant() throws Exception {
+        UUID userId = mockStaff.getId();
+        mockRefresh(userId);
+
+        mockMvc.perform(post("/auth/refresh")
+                        .cookie(new Cookie("sb-refresh", "valid-refresh-token"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        verify(tokenService).generateAccessToken(eq(userId), argThat(roles -> !roles.contains("CAN_MANAGE_TRAINING")));
+    }
+
+    private void mockRefresh(UUID userId) {
+        StaffRefreshTokenDto tokenDto = new StaffRefreshTokenDto();
+        tokenDto.setStaffId(userId);
+        tokenDto.setToken("valid-refresh-token");
+        tokenDto.setExpiresAt(OffsetDateTime.now().plusDays(1));
+        when(staffRefreshTokenService.getStaffRefreshTokenByToken("valid-refresh-token")).thenReturn(Optional.of(tokenDto));
+        when(authenticationService.createAndSaveRefreshToken(userId)).thenReturn("new-refresh-token");
+        when(staffService.findById(userId)).thenReturn(mockStaff);
+        when(tokenService.generateAccessToken(any(), any())).thenReturn("new-access-token");
     }
 }

@@ -1,0 +1,189 @@
+<div class="trainer-access page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training Automation</span>
+      <h1>Trainer Access</h1>
+      <p>Give individual staff Trainer access on top of their job role, for a set period if needed. Every change is recorded with its reason.</p>
+    </div>
+    <button nz-button (click)="load()" [nzLoading]="loading"><nz-icon nzType="reload"></nz-icon>Refresh</button>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-tile"><span>With Trainer access</span><strong>{{ counts.any }}</strong></div>
+    <div class="metric-tile"><span>Through a grant</span><strong>{{ counts.grant }}</strong></div>
+    <div class="metric-tile"><span>Through job role</span><strong>{{ counts.role }}</strong></div>
+    <div class="metric-tile" [class.warn]="counts.endingSoon">
+      <span>Grants ending within 7 days</span><strong>{{ counts.endingSoon }}</strong>
+    </div>
+  </div>
+
+  <div class="filters">
+    <nz-input-group class="search" [nzPrefix]="searchIcon">
+      <input nz-input placeholder="Search name, email or job role" aria-label="Search staff" [(ngModel)]="search"
+             (ngModelChange)="applyFilters()" />
+    </nz-input-group>
+    <ng-template #searchIcon><nz-icon nzType="search"></nz-icon></ng-template>
+    <nz-select class="filter" nzAllowClear nzPlaceHolder="All departments" [(ngModel)]="department"
+               (ngModelChange)="applyFilters()" aria-label="Department">
+      @for (d of departments; track d) { <nz-option [nzValue]="d" [nzLabel]="d"></nz-option> }
+    </nz-select>
+    <nz-radio-group [(ngModel)]="access" (ngModelChange)="applyFilters()" aria-label="Trainer access">
+      @for (o of accessOptions; track o.value) {
+        <label nz-radio-button [nzValue]="o.value">{{ o.label }}</label>
+      }
+    </nz-radio-group>
+    @if (hasFilters) {
+      <button type="button" class="link-button" (click)="clearFilters()"><nz-icon nzType="close"></nz-icon> Clear filters</button>
+    }
+  </div>
+
+  <section class="surface-panel table-panel">
+    <div class="table-scroll">
+      <nz-table #table [nzData]="filtered" [nzLoading]="loading" [nzPageSize]="20" [nzHideOnSinglePage]="true" nzSize="middle">
+        <thead>
+          <tr><th>Staff member</th><th>Department</th><th>Job role</th><th>Trainer access</th><th>Courses owned</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          @for (s of table.data; track s.staffId) {
+            <tr>
+              <td><strong>{{ s.name }}</strong><small>{{ s.email }}</small></td>
+              <td>{{ s.department || '-' }}</td>
+              <td>{{ s.jobRole || '-' }}</td>
+              <td class="access-cell">
+                @if (s.viaRole) { <nz-tag nzColor="blue">Job role</nz-tag> }
+                @if (s.viaGrant) {
+                  <nz-tag [nzColor]="endingSoon(s) ? 'orange' : 'green'">
+                    Grant · {{ s.grantEndDate ? 'last day ' + (s.grantEndDate | date: 'd MMM yyyy') : 'no end date' }}
+                  </nz-tag>
+                  <small>Granted by {{ s.grantedByName }} on {{ s.grantedAt | date: 'd MMM yyyy' }}</small>
+                }
+                @if (!s.viaRole && !s.viaGrant) { <span class="muted">No access</span> }
+              </td>
+              <td>{{ s.ownedCourses || '-' }}</td>
+              <td class="actions">
+                @if (s.viaGrant) {
+                  <button nz-button nzSize="small" (click)="openGrant(s)"><nz-icon nzType="calendar"></nz-icon>Change end date</button>
+                  <button nz-button nzSize="small" nzDanger (click)="openRevoke(s)">Revoke</button>
+                } @else {
+                  <button nz-button nzSize="small" nzType="primary" (click)="openGrant(s)"><nz-icon nzType="plus"></nz-icon>Grant access</button>
+                }
+                <button nz-button nzSize="small" nzType="text" (click)="openHistory(s)" [attr.aria-label]="'History for ' + s.name">
+                  <nz-icon nzType="history"></nz-icon>History
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </div>
+    @if (!loading && !filtered.length) {
+      <nz-empty [nzNotFoundContent]="staff.length ? 'Nobody matches these filters' : 'No active staff'"></nz-empty>
+    }
+  </section>
+</div>
+
+<!-- Grant, or change the end date of a grant in force (FR-20-01) -->
+<nz-modal [nzVisible]="!!grantTarget" [nzTitle]="isChange ? 'Change end date' : 'Grant Trainer access'" [nzFooter]="grantFooter"
+          [nzWidth]="520" (nzOnCancel)="closeGrant()">
+  <ng-container *nzModalContent>
+    @if (grantTarget; as target) {
+      <p class="dialog-person"><strong>{{ target.name }}</strong> · {{ target.jobRole || 'No job role' }} · {{ target.department || 'No department' }}</p>
+      @if (target.viaRole && !target.viaGrant) {
+        <nz-alert nzType="info" nzShowIcon class="dialog-alert"
+                  nzMessage="Already a trainer through their job role. A grant keeps their access if their role changes."></nz-alert>
+      }
+      <label class="field">
+        <span>Last day <em>(optional)</em></span>
+        <nz-date-picker [(ngModel)]="grantEndDate" [nzDisabledDate]="disabledDate" nzFormat="d MMM yyyy"
+                        nzPlaceHolder="No end date" aria-label="Last day"></nz-date-picker>
+        <small>Access works until the end of this day, Malaysia time. Leave it empty for no end date.</small>
+      </label>
+      <label class="field">
+        <span>Reason <em>(required)</em></span>
+        <textarea nz-input rows="3" [(ngModel)]="grantReason" [maxlength]="maxReason"
+                  placeholder="e.g. Presenting the product sharing session on 20 Oct" aria-label="Reason"></textarea>
+        <small class="counter">{{ grantReason.length }}/{{ maxReason }}</small>
+      </label>
+      <p class="summary"><nz-icon nzType="info-circle"></nz-icon> {{ grantSummary }}</p>
+      @if (grantError) { <nz-alert nzType="error" nzShowIcon [nzMessage]="grantError" class="dialog-alert"></nz-alert> }
+    }
+  </ng-container>
+</nz-modal>
+<ng-template #grantFooter>
+  <button nz-button (click)="closeGrant()" [disabled]="saving">Cancel</button>
+  <button nz-button nzType="primary" (click)="confirmGrant()" [nzLoading]="saving">
+    {{ isChange ? 'Confirm new end date' : 'Confirm grant' }}
+  </button>
+</ng-template>
+
+<!-- Revoke (FR-20-01, FR-20-07) -->
+<nz-modal [nzVisible]="!!revokeTarget" nzTitle="Revoke Trainer access" [nzFooter]="revokeFooter" [nzWidth]="520"
+          (nzOnCancel)="closeRevoke()">
+  <ng-container *nzModalContent>
+    @if (revokeTarget; as target) {
+      <p class="dialog-person"><strong>{{ target.name }}</strong> · {{ target.jobRole || 'No job role' }} · {{ target.department || 'No department' }}</p>
+      @if (revokeBlocked) {
+        <nz-alert nzType="warning" nzShowIcon class="dialog-alert" nzMessage="Transfer their courses first"
+                  [nzDescription]="coursesTemplate"></nz-alert>
+        <ng-template #coursesTemplate>
+          <p>{{ target.name }} owns {{ target.ownedCourses }} course{{ target.ownedCourses === 1 ? '' : 's' }}. Each must move to another trainer
+            before their Trainer access can be revoked. Course transfers arrive with the course ownership update.</p>
+          @if (coursesLoading) { <nz-spin nzSimple nzSize="small"></nz-spin> }
+          <ul class="course-list">
+            @for (c of revokeCourses; track c.id) { <li>{{ c.title }}@if (c.version) { <span class="muted"> · v{{ c.version }}</span> }</li> }
+          </ul>
+        </ng-template>
+      } @else {
+        @if (target.viaRole) {
+          <nz-alert nzType="info" nzShowIcon class="dialog-alert"
+                    nzMessage="They keep Trainer access through their job role; only the individual grant ends."></nz-alert>
+        }
+        <label class="field">
+          <span>Reason <em>(required)</em></span>
+          <textarea nz-input rows="3" [(ngModel)]="revokeReason" [maxlength]="maxReason"
+                    placeholder="e.g. Sharing session finished" aria-label="Reason"></textarea>
+          <small class="counter">{{ revokeReason.length }}/{{ maxReason }}</small>
+        </label>
+        <p class="summary"><nz-icon nzType="info-circle"></nz-icon>
+          @if (target.viaRole) { Their grant ends now. } @else { {{ target.name }} loses Trainer access within 15 minutes. }
+        </p>
+      }
+      @if (revokeError) { <nz-alert nzType="error" nzShowIcon [nzMessage]="revokeError" class="dialog-alert"></nz-alert> }
+    }
+  </ng-container>
+</nz-modal>
+<ng-template #revokeFooter>
+  <button nz-button (click)="closeRevoke()" [disabled]="saving">{{ revokeBlocked ? 'Close' : 'Cancel' }}</button>
+  @if (!revokeBlocked) {
+    <button nz-button nzType="primary" nzDanger (click)="confirmRevoke()" [nzLoading]="saving">Confirm revoke</button>
+  }
+</ng-template>
+
+<!-- Access history (FR-20-01, NFR-007) -->
+<nz-drawer [nzVisible]="!!historyTarget" nzPlacement="right" [nzWidth]="460"
+           [nzTitle]="historyTarget ? 'Trainer access history · ' + historyTarget.name : ''" (nzOnClose)="closeHistory()">
+  <ng-container *nzDrawerContent>
+    @if (historyLoading) {
+      <div class="drawer-loading"><nz-spin nzSimple></nz-spin></div>
+    } @else if (!history.length) {
+      <nz-empty nzNotFoundContent="No Trainer access changes recorded"></nz-empty>
+    } @else {
+      <nz-timeline>
+        @for (e of history; track e.id) {
+          @let action = actionOf(e.action);
+          <nz-timeline-item [nzColor]="action.color">
+            <div class="entry">
+              <div class="entry-head">
+                <nz-tag [nzColor]="action.color === 'gray' ? 'default' : action.color">{{ action.label }}</nz-tag>
+                <span class="muted">{{ e.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+              </div>
+              <p class="entry-by">By {{ e.actorName || 'the system' }}</p>
+              @if (e.detail) { <p>{{ e.detail }}</p> }
+              @if (e.reason) { <p class="entry-reason">“{{ e.reason }}”</p> }
+            </div>
+          </nz-timeline-item>
+        }
+      </nz-timeline>
+    }
+  </ng-container>
+</nz-drawer>
