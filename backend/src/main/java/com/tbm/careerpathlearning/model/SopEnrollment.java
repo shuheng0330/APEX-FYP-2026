@@ -56,6 +56,14 @@ public class SopEnrollment {
     @Column(name = "pass_mark", nullable = false)
     private int passMark;
 
+    /**
+     * The course's estimated duration when this person was assigned or enrolled, in minutes; it counts as
+     * training hours once they complete the course (FR-07-15, FR-18-03). Later changes to the course's
+     * estimate do not alter it.
+     */
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private SopEnrollmentStatus status = SopEnrollmentStatus.NOT_STARTED;

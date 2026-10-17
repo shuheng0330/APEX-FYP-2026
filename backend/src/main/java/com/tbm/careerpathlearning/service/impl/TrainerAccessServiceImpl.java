@@ -1,10 +1,13 @@
 package com.tbm.careerpathlearning.service.impl;
 
+import com.tbm.careerpathlearning.dto.CourseOwnerDto;
+import com.tbm.careerpathlearning.dto.CourseTransferRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessStaffDto;
 import com.tbm.careerpathlearning.dto.TrainerOwnedCourseDto;
 import com.tbm.careerpathlearning.dto.TrainingAuditEntryDto;
 import com.tbm.careerpathlearning.enums.AuthorityName;
+import com.tbm.careerpathlearning.enums.CourseOwnerStatus;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
 import com.tbm.careerpathlearning.enums.TrainingAuditAction;
@@ -14,11 +17,13 @@ import com.tbm.careerpathlearning.model.Authority;
 import com.tbm.careerpathlearning.model.OrgChart;
 import com.tbm.careerpathlearning.model.Role;
 import com.tbm.careerpathlearning.model.SopDocument;
+import com.tbm.careerpathlearning.model.SopEnrollment;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainerAccessGrant;
 import com.tbm.careerpathlearning.repository.AuthorityRepository;
 import com.tbm.careerpathlearning.repository.RoleAuthorityRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
+import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
 import com.tbm.careerpathlearning.service.NotificationService;
@@ -34,6 +39,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,6 +60,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     @Autowired private AuthorityRepository authorityRepository;
     @Autowired private RoleAuthorityRepository roleAuthorityRepository;
     @Autowired private SopDocumentRepository sopDocumentRepository;
+    @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private TrainingAuditService trainingAuditService;
     @Autowired private NotificationService notificationService;
     @Autowired private Clock clock;
@@ -87,7 +94,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         Staff staff = staffRepository.findByIdAndIsDeletedFalse(staffId)
                 .filter(s -> s.getAccountStatus() == StaffAccountStatus.ACTIVE)
                 .orElseThrow(() -> new BadRequestException("Trainer access can only be given to an active staff member."));
-        String reason = reason(request);
+        String reason = reason(request == null ? null : request.getReason());
         LocalDate today = LocalDate.now(clock);
         LocalDate endDate = request.getEndDate();
         if (endDate != null && endDate.isBefore(today)) {
@@ -134,7 +141,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     public TrainerAccessStaffDto revoke(UUID staffId, TrainerAccessRequest request, UUID adminId) {
         Staff staff = staffRepository.findById(staffId)
                 .orElseThrow(() -> new BadRequestException("Staff member not found."));
-        String reason = reason(request);
+        String reason = reason(request == null ? null : request.getReason());
         boolean viaRole = !rolesWith(AuthorityName.CAN_MANAGE_TRAINING, List.of(staff)).isEmpty();
         TrainerAccessGrant grant = trainerAccessGrantRepository.findById(staffId).orElse(null);
         if (grant == null || !grant.activeOn(LocalDate.now(clock))) {
@@ -142,11 +149,17 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
                     + (viaRole ? " Their access comes from their job role; change it on the Roles page." : ""));
         }
         if (!viaRole) {
-            List<String> courses = owned(staffId).stream().map(SopDocument::getTitle).toList();
+            // Revoking abandons this trainer account: their courses go to someone else in the same step (FR-20-07).
+            List<SopDocument> courses = owned(staffId);
             if (!courses.isEmpty()) {
-                throw new BadRequestException("Transfer their courses first",
-                        staff.getName() + " owns " + courses.size() + (courses.size() == 1 ? " course: " : " courses: ")
-                                + String.join(", ", courses) + ". Transfer them to another trainer before revoking.");
+                if (request.getTransferToId() == null) {
+                    throw new BadRequestException("Choose who takes over their courses",
+                            staff.getName() + " owns " + courses.size() + (courses.size() == 1 ? " course: " : " courses: ")
+                                    + String.join(", ", courses.stream().map(SopDocument::getTitle).toList())
+                                    + ". Choose who takes them over, then revoke.");
+                }
+                Staff newOwner = newOwner(request.getTransferToId(), staffId);
+                transfer(courses, newOwner, reason, adminId);
             }
         }
         OffsetDateTime now = OffsetDateTime.now(clock);
@@ -210,13 +223,145 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
                         name + "'s Trainer access ended after " + lastDay + ", but they still own " + courses.size()
                                 + (courses.size() == 1 ? " course: " : " courses: ") + String.join(", ", courses)
                                 + ". Transfer them to another trainer.",
-                        "/sop/trainer-access");
+                        "/sop/trainer-access?tab=owners");
             }
         }
         return expired.size();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CourseOwnerDto> courseOwners() {
+        List<SopDocument> courses = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc();
+        Owners owners = owners(courses);
+        Map<Long, Long> enrolled = courses.isEmpty() ? Map.of()
+                : sopEnrollmentRepository.findAllBySopDocumentIdIn(courses.stream().map(SopDocument::getId).toList()).stream()
+                .collect(Collectors.groupingBy(SopEnrollment::getSopDocumentId, Collectors.counting()));
+        return courses.stream()
+                .map(c -> toCourseOwnerDto(c, owners, enrolled.getOrDefault(c.getId(), 0L).intValue()))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CourseOwnerDto transferCourse(Long courseId, CourseTransferRequest request, UUID adminId) {
+        SopDocument course = sopDocumentRepository.findById(courseId)
+                .filter(c -> !c.isDeleted())
+                .orElseThrow(() -> new BadRequestException("Course not found."));
+        String reason = reason(request == null ? null : request.getReason());
+        if (!owners(List.of(course)).status(course).needsNewOwner()) {
+            throw new BadRequestException("This course's owner still has Trainer access. Only a course whose owner has left "
+                    + "or lost Trainer access can be transferred.");
+        }
+        Staff newOwner = newOwner(request.getNewOwnerId(), course.getUploadedBy());
+        transfer(List.of(course), newOwner, reason, adminId);
+        int enrolled = sopEnrollmentRepository.findAllBySopDocumentId(courseId).size();
+        return toCourseOwnerDto(course, owners(List.of(course)), enrolled);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TrainingAuditEntryDto> courseHistory(Long courseId) {
+        return trainingAuditService.history(TrainingAuditTarget.COURSE, courseId.toString());
+    }
+
     // === helpers ============================================================
+
+    /** Who owns the given courses, and whether each owner can still look after them. */
+    private record Owners(Map<UUID, Staff> staff, Set<Long> trainerRoles, Map<UUID, TrainerAccessGrant> grants,
+                          LocalDate today) {
+
+        CourseOwnerStatus status(SopDocument course) {
+            if (course.getUploadedBy() == null) {
+                return CourseOwnerStatus.NO_OWNER;
+            }
+            Staff owner = staff.get(course.getUploadedBy());
+            if (owner == null || owner.isDeleted() || owner.getAccountStatus() != StaffAccountStatus.ACTIVE) {
+                return CourseOwnerStatus.OWNER_LEFT;
+            }
+            boolean viaRole = owner.getRole() != null && trainerRoles.contains(owner.getRole().getId());
+            TrainerAccessGrant grant = grants.get(owner.getId());
+            boolean viaGrant = grant != null && grant.activeOn(today);
+            return viaRole || viaGrant ? CourseOwnerStatus.OK : CourseOwnerStatus.NO_TRAINER_ACCESS;
+        }
+    }
+
+    private Owners owners(Collection<SopDocument> courses) {
+        Set<UUID> ownerIds = courses.stream().map(SopDocument::getUploadedBy).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        // Not only active staff: an owner who has left still needs a name and an OWNER_LEFT status.
+        Map<UUID, Staff> staff = ownerIds.isEmpty() ? Map.of()
+                : staffRepository.findAllWithRoleByIdIn(ownerIds).stream()
+                .collect(Collectors.toMap(Staff::getId, Function.identity()));
+        Map<UUID, TrainerAccessGrant> grants = trainerAccessGrantRepository.findAll().stream()
+                .collect(Collectors.toMap(TrainerAccessGrant::getStaffId, Function.identity()));
+        return new Owners(staff, rolesWith(AuthorityName.CAN_MANAGE_TRAINING, staff.values()), grants, LocalDate.now(clock));
+    }
+
+    private CourseOwnerDto toCourseOwnerDto(SopDocument course, Owners owners, int enrolledCount) {
+        CourseOwnerDto dto = new CourseOwnerDto();
+        dto.setCourseId(course.getId());
+        dto.setTitle(course.getTitle());
+        dto.setVersion(course.getVersion());
+        dto.setOwnerId(course.getUploadedBy());
+        Staff owner = course.getUploadedBy() == null ? null : owners.staff().get(course.getUploadedBy());
+        dto.setOwnerName(owner == null ? null : owner.getName());
+        CourseOwnerStatus status = owners.status(course);
+        dto.setStatus(status);
+        dto.setNeedsNewOwner(status.needsNewOwner());
+        dto.setEnrolledCount(enrolledCount);
+        dto.setCreatedAt(course.getCreatedAt());
+        return dto;
+    }
+
+    /** The person taking over courses: an active staff member with Trainer access who is not the previous owner. */
+    private Staff newOwner(UUID newOwnerId, UUID previousOwnerId) {
+        if (newOwnerId == null) {
+            throw new BadRequestException("Choose who takes over.");
+        }
+        if (newOwnerId.equals(previousOwnerId)) {
+            throw new BadRequestException("Choose someone other than the current owner.");
+        }
+        Staff staff = staffRepository.findByIdAndIsDeletedFalse(newOwnerId)
+                .filter(s -> s.getAccountStatus() == StaffAccountStatus.ACTIVE)
+                .orElseThrow(() -> new BadRequestException("The new owner must be an active staff member."));
+        boolean hasAccess = !rolesWith(AuthorityName.CAN_MANAGE_TRAINING, List.of(staff)).isEmpty()
+                || trainerAccessGrantRepository.findById(staff.getId()).map(g -> g.activeOn(LocalDate.now(clock))).orElse(false);
+        if (!hasAccess) {
+            throw new BadRequestException(staff.getName() + " has no Trainer access. Give them Trainer access first.");
+        }
+        return staff;
+    }
+
+    /** Moves the courses to their new owner, logs each move, and tells the new owner once (FR-20-06). */
+    private void transfer(List<SopDocument> courses, Staff newOwner, String reason, UUID adminId) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        Map<UUID, String> names = new HashMap<>();
+        for (SopDocument course : courses) {
+            String from = course.getUploadedBy() == null ? "no owner"
+                    : names.computeIfAbsent(course.getUploadedBy(),
+                    id -> staffRepository.findById(id).map(Staff::getName).orElse("a former staff member"));
+            course.setUploadedBy(newOwner.getId());
+            course.setUpdatedAt(now);
+            sopDocumentRepository.save(course);
+            trainingAuditService.record(adminId, TrainingAuditAction.COURSE_TRANSFERRED, TrainingAuditTarget.COURSE,
+                    course.getId().toString(), reason, "From " + from + " to " + newOwner.getName());
+        }
+        String admin = staffRepository.findById(adminId).map(Staff::getName).orElse("The Super Admin");
+        List<String> titles = courses.stream().map(SopDocument::getTitle).toList();
+        if (courses.size() == 1) {
+            notificationService.notify(newOwner.getId(), NotificationType.COURSE_TRANSFERRED,
+                    "Course transferred to you: " + titles.get(0),
+                    admin + " made you the owner of \"" + titles.get(0) + "\". You can now edit, review and assign it.",
+                    "/sop/review/" + courses.get(0).getId());
+        } else {
+            notificationService.notify(newOwner.getId(), NotificationType.COURSE_TRANSFERRED,
+                    courses.size() + " courses transferred to you",
+                    admin + " made you the owner of " + String.join(", ", titles)
+                            + ". You can now edit, review and assign them.",
+                    "/sop/upload");
+        }
+    }
 
     private List<SopDocument> owned(UUID staffId) {
         return sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
@@ -262,8 +407,8 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         return dto;
     }
 
-    private static String reason(TrainerAccessRequest request) {
-        String reason = request == null || request.getReason() == null ? "" : request.getReason().strip();
+    private static String reason(String text) {
+        String reason = text == null ? "" : text.strip();
         if (reason.isEmpty()) {
             throw new BadRequestException("Give a reason for this change.");
         }

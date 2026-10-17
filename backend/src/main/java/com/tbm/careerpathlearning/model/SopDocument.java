@@ -18,6 +18,12 @@ import java.util.UUID;
 @Table(name = "sop_document")
 public class SopDocument {
 
+    /** The pass mark a new course starts with (FR-07-15). */
+    public static final int DEFAULT_PASS_MARK = 70;
+
+    /** The estimated duration counted until the trainer sets the course's own (FR-07-15). */
+    public static final int DEFAULT_DURATION_MINUTES = 60;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -58,9 +64,25 @@ public class SopDocument {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
+    /**
+     * The course's own pass mark, as a percentage (FR-07-15); an assignment may raise it but not lower it
+     * (FR-09-03). The column default fills existing courses when the column is added.
+     */
+    @Column(name = "pass_mark", nullable = false, columnDefinition = "integer default 70 not null")
+    private int passMark = DEFAULT_PASS_MARK;
+
+    /** The trainer's estimate of how long the course takes, in minutes; null until they set one (FR-07-15). */
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    /** The duration that counts: the trainer's estimate, or the default until they set one. */
+    public int effectiveDurationMinutes() {
+        return durationMinutes != null ? durationMinutes : DEFAULT_DURATION_MINUTES;
+    }
 }

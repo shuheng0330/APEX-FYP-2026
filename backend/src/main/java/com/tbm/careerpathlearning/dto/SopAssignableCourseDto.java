@@ -23,6 +23,12 @@ public class SopAssignableCourseDto {
     private boolean ready;
     private SopVisibility visibility;
     private int enrolledCount;
+    /** The course's own pass mark; an assignment may raise it but not lower it (FR-09-03). */
+    private int passMark;
+    /** The estimated duration that counts, in minutes (FR-07-15). */
+    private int durationMinutes;
+    /** False while the course still counts the default duration. */
+    private boolean durationSet;
     /** Departments and job roles matching the SOP's department, suggested as the audience (FR-09-01). */
     private List<Long> recommendedDepartmentIds = new ArrayList<>();
     private List<Long> recommendedRoleIds = new ArrayList<>();

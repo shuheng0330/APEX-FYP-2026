@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
 @Service
 public class SopAssignmentServiceImpl implements SopAssignmentService {
 
-    private static final int DEFAULT_PASS_MARK = 70;
     private static final int MAX_DAYS_TO_COMPLETE = 365;
 
     @Autowired private SopDocumentRepository sopDocumentRepository;
@@ -146,7 +145,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         if (!sopCourseReadiness.of(doc).ready()) {
             throw new BadRequestException("Approve every module and quiz of this course before assigning it.");
         }
-        Terms terms = validTerms(request);
+        Terms terms = validTerms(request, doc);
         List<Staff> active = staffRepository.findAllActiveWithRole();
         List<Staff> recipients = recipients(request, active);
         if (recipients.isEmpty()) {
@@ -199,6 +198,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
             e.setDeadline(terms.deadline());
             e.setDaysToComplete(terms.daysToComplete());
             e.setPassMark(terms.passMark());
+            e.setDurationMinutes(doc.effectiveDurationMinutes());
             e.setUpdatedAt(now);
             changed.add(e);
         }
@@ -314,7 +314,8 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
                          int passMark) {
     }
 
-    private Terms validTerms(SopAssignmentRequest r) {
+    /** The assignment's terms; the pass mark defaults to the course's own and cannot go below it (FR-09-03). */
+    private Terms validTerms(SopAssignmentRequest r, SopDocument doc) {
         if (r.getMode() == null) {
             throw new BadRequestException("Choose whether staff start immediately or from their Learning Portal.");
         }
@@ -333,9 +334,12 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         if (days == null || days < 1 || days > MAX_DAYS_TO_COMPLETE) {
             throw new BadRequestException("Days to complete must be between 1 and " + MAX_DAYS_TO_COMPLETE + ".");
         }
-        int passMark = r.getPassMark() != null ? r.getPassMark() : DEFAULT_PASS_MARK;
-        if (passMark < 1 || passMark > 100) {
-            throw new BadRequestException("The pass mark must be between 1 and 100.");
+        int passMark = r.getPassMark() != null ? r.getPassMark() : doc.getPassMark();
+        if (passMark < doc.getPassMark()) {
+            throw new BadRequestException("The pass mark can't be lower than the course's own (" + doc.getPassMark() + "%).");
+        }
+        if (passMark > 100) {
+            throw new BadRequestException("The pass mark must be between " + doc.getPassMark() + " and 100.");
         }
         return new Terms(r.getMode(), effective, r.getDeadline(), days, passMark);
     }
@@ -404,6 +408,9 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         dto.setApprovedQuizzes(readiness.approvedQuizzes());
         dto.setReady(readiness.ready());
         dto.setVisibility(d.getVisibility() == null ? SopVisibility.PRIVATE : d.getVisibility());
+        dto.setPassMark(d.getPassMark());
+        dto.setDurationMinutes(d.effectiveDurationMinutes());
+        dto.setDurationSet(d.getDurationMinutes() != null);
         dto.setEnrolledCount(enrolledCount);
         // FR-09-01: suggest the departments (and their job roles) that match the SOP's department.
         Set<Long> departments = new LinkedHashSet<>();

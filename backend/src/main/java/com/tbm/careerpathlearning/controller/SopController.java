@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.controller;
 
+import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopModuleEditRequest;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopRejectRequest;
@@ -84,6 +85,14 @@ public class SopController {
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication authentication) {
         sopService.deleteDocument(id, viewer(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    /** The course's own pass mark and estimated duration (FR-07-15); its owner only. */
+    @PutMapping("/{id}/settings")
+    @PreAuthorize(CHANGE)
+    public ResponseEntity<?> updateSettings(@PathVariable Long id, @RequestBody SopCourseSettingsRequest request,
+                                            Authentication authentication) {
+        return ResponseEntity.ok(sopService.updateSettings(id, request, viewer(authentication)));
     }
 
     // --- Module 2: material review (FR-09) ----------------------------------

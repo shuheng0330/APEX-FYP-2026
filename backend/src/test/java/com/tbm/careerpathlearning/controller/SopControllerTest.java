@@ -79,7 +79,8 @@ class SopControllerTest {
         for (MockHttpServletRequestBuilder change : List.of(
                 put("/api/sop/module/5"), post("/api/sop/module/5/approve"), post("/api/sop/module/5/reject"),
                 put("/api/sop/quiz/9"), post("/api/sop/module/5/quiz"), post("/api/sop/module/5/quiz/approve"),
-                post("/api/sop/module/5/quiz/reject"), post("/api/sop/1/generate"), delete("/api/sop/1"))) {
+                post("/api/sop/module/5/quiz/reject"), post("/api/sop/1/generate"), delete("/api/sop/1"),
+                put("/api/sop/1/settings"))) {
             mockMvc.perform(as(change, hr).contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isForbidden());
         }
@@ -87,6 +88,7 @@ class SopControllerTest {
         verify(sopService, never()).updateModule(any(), any(), any(), any());
         verify(sopService, never()).approveModule(any(), any());
         verify(sopService, never()).deleteDocument(any(), any());
+        verify(sopService, never()).updateSettings(any(), any(), any());
     }
 
     @Test
