@@ -2,7 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { QuizReviewEvent, SopDetail, SopDocument, SopModule, SopQuizQuestion, UploadedMedia } from '../models/sop.model';
+import {
+  QuizReviewEvent, SopCourseSettings, SopDetail, SopDocument, SopModule, SopQuizQuestion, UploadedMedia
+} from '../models/sop.model';
 
 /**
  * Client for the SOP training endpoints (/api/sop): upload + AI generation
@@ -25,6 +27,11 @@ export class SopService {
    */
   list(mine = false): Observable<SopDocument[]> {
     return this.http.get<SopDocument[]>(this.baseUrl, { params: { mine }, withCredentials: true });
+  }
+
+  /** The course's own pass mark and estimated duration (FR-07-15); its owner only. */
+  updateSettings(id: number, settings: SopCourseSettings): Observable<SopDocument> {
+    return this.http.put<SopDocument>(`${this.baseUrl}/${id}/settings`, settings, { withCredentials: true });
   }
 
   detail(id: number): Observable<SopDetail> {

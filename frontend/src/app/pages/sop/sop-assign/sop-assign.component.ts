@@ -16,6 +16,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { SopAssignmentService } from '../../../services/sop-assignment.service';
+import { formatDuration } from '../sop.util';
 import {
   AssignableCourse, Assignment, AssignmentOutcome, AssignmentPreview, AssignmentRequest, Audience, AudienceGroup,
   SopAssignmentMode
@@ -57,6 +58,7 @@ export class SopAssignComponent implements OnInit {
   mode: SopAssignmentMode = 'PORTAL';
   mandatory = false;
   passMark = 70;
+  readonly formatDuration = formatDuration;
   effectiveDate: Date = this.today();
   deadline: Date | null = new Date(this.today().getTime() + 30 * DAY_MS);
   daysToComplete = 14;
@@ -114,6 +116,7 @@ export class SopAssignComponent implements OnInit {
   selectCourse(course: AssignableCourse): void {
     if (!course.ready || this.assigning) return;
     this.selectedCourseId = course.id;
+    this.passMark = course.passMark; // an assignment starts from the course's own pass mark (FR-09-03)
     this.loadHistory();
     this.refreshPreview();
   }
@@ -215,7 +218,9 @@ export class SopAssignComponent implements OnInit {
     if (!this.audienceReady) return 'Choose who should take it.';
     if (!this.deadline) return 'Set a deadline.';
     if (!this.daysToComplete || this.daysToComplete < 1 || this.daysToComplete > 365) return 'Days to complete must be 1 to 365.';
-    if (!this.passMark || this.passMark < 1 || this.passMark > 100) return 'Pass mark must be 1 to 100.';
+    if (!this.passMark || this.passMark < course.passMark || this.passMark > 100) {
+      return `Pass mark must be ${course.passMark} to 100: it can't be lower than the course's own.`;
+    }
     if (this.preview && this.preview.newCount + this.preview.updateCount === 0) {
       return this.preview.completedCount ? 'Everyone selected has already completed this course.' : 'Nobody matches this audience.';
     }

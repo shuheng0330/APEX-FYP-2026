@@ -36,6 +36,44 @@
               <div><dt>Prepared by</dt><dd>{{ document.preparedByName || '-' }}</dd></div>
               <div><dt>Date</dt><dd>{{ document.createdAt ? (document.createdAt | date: 'd MMM yyyy') : '-' }}</dd></div>
             </dl>
+            <!-- FR-07-15: the course's own pass mark and estimated duration -->
+            <div class="course-settings">
+              <span class="settings-title">Course settings</span>
+              @if (document.editable) {
+                @if (!document.durationSet) {
+                  <p class="settings-reminder"><nz-icon nzType="clock-circle"></nz-icon>
+                    <span>Set the estimated duration. Until you do, this course counts as {{ formatDuration(document.durationMinutes) }}
+                      of training for everyone who completes it.</span></p>
+                }
+                <label class="settings-field">
+                  <span>Pass mark (%)</span>
+                  <nz-input-number [(ngModel)]="settingsPassMark" [nzMin]="1" [nzMax]="100" [nzStep]="5" [nzPrecision]="0"
+                                   aria-label="Pass mark in percent"></nz-input-number>
+                </label>
+                <div class="settings-field">
+                  <span>Estimated duration</span>
+                  <div class="duration-inputs">
+                    <nz-input-number [(ngModel)]="settingsHours" [nzMin]="0" [nzMax]="24" [nzPrecision]="0" aria-label="Hours"></nz-input-number>
+                    <span>h</span>
+                    <nz-input-number [(ngModel)]="settingsMinutes" [nzMin]="0" [nzMax]="59" [nzStep]="15" [nzPrecision]="0" aria-label="Minutes"></nz-input-number>
+                    <span>min</span>
+                  </div>
+                </div>
+                @if (settingsError) {
+                  <p class="settings-error" role="alert">{{ settingsError }}</p>
+                }
+                <button nz-button nzType="primary" nzSize="small" (click)="saveSettings()" [nzLoading]="savingSettings" [disabled]="!!settingsError">
+                  Save settings
+                </button>
+                <p class="settings-hint">Changes apply to new assignments and enrolments. Staff already assigned keep theirs.</p>
+              } @else {
+                <dl>
+                  <div><dt>Pass mark</dt><dd>{{ document.passMark }}%</dd></div>
+                  <div><dt>Duration</dt><dd>{{ formatDuration(document.durationMinutes) }}{{ document.durationSet ? '' : ' (default)' }}</dd></div>
+                </dl>
+              }
+            </div>
+
             <div class="review-progress">
               <div><span>Material approved</span><strong>{{ approvedMaterialCount }}/{{ modules.length }}</strong></div>
               <nz-progress [nzPercent]="overallProgress" [nzShowInfo]="false"></nz-progress>

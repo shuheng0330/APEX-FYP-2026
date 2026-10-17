@@ -60,6 +60,18 @@ export interface SopDocument {
   preparedByName?: string;
   /** Whether you may change this course: only its owner can (FR-07-08, FR-07-19). */
   editable: boolean;
+  /** The course's own pass mark, as a percentage (FR-07-15). */
+  passMark: number;
+  /** The estimated duration that counts, in minutes: the trainer's, or the 1-hour default until they set one. */
+  durationMinutes: number;
+  /** Whether the trainer has set the estimated duration; until then they are reminded. */
+  durationSet: boolean;
+}
+
+/** A course's own settings, set by its owner (FR-07-15). */
+export interface SopCourseSettings {
+  passMark: number;
+  durationMinutes: number;
 }
 
 export interface SopQuizQuestion {

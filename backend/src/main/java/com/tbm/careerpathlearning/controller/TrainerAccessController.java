@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.controller;
 
+import com.tbm.careerpathlearning.dto.CourseTransferRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,23 @@ public class TrainerAccessController {
     @GetMapping("/{staffId}/courses")
     public ResponseEntity<?> courses(@PathVariable UUID staffId) {
         return ResponseEntity.ok(trainerAccessService.ownedCourses(staffId));
+    }
+
+    /** Every course with its owner, for the Course owners tab (FR-20-06). */
+    @GetMapping("/courses")
+    public ResponseEntity<?> courseOwners() {
+        return ResponseEntity.ok(trainerAccessService.courseOwners());
+    }
+
+    @PostMapping("/courses/{courseId}/transfer")
+    public ResponseEntity<?> transfer(@PathVariable Long courseId, @RequestBody CourseTransferRequest request,
+                                      Authentication authentication) {
+        return ResponseEntity.ok(trainerAccessService.transferCourse(courseId, request, userId(authentication)));
+    }
+
+    @GetMapping("/courses/{courseId}/history")
+    public ResponseEntity<?> courseHistory(@PathVariable Long courseId) {
+        return ResponseEntity.ok(trainerAccessService.courseHistory(courseId));
     }
 
     private UUID userId(Authentication authentication) {

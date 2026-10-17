@@ -17,6 +17,12 @@ export interface AssignableCourse {
   ready: boolean;
   visibility: SopVisibility;
   enrolledCount: number;
+  /** The course's own pass mark; an assignment may raise it but not lower it (FR-09-03). */
+  passMark: number;
+  /** The estimated duration that counts, in minutes (FR-07-15). */
+  durationMinutes: number;
+  /** False while the course still counts the default duration. */
+  durationSet: boolean;
   recommendedDepartmentIds: number[];
   recommendedRoleIds: number[];
 }

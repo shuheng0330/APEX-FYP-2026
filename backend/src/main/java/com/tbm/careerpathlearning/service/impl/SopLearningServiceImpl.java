@@ -56,7 +56,6 @@ import java.util.UUID;
 public class SopLearningServiceImpl implements SopLearningService {
 
     /** Pass mark for an Open course a learner joins themselves (no assignment sets one). */
-    private static final int OPEN_COURSE_PASS_MARK = 70;
     private static final int MAX_COMMENT_LENGTH = 2000;
 
     @Autowired private SopDocumentRepository sopDocumentRepository;
@@ -114,7 +113,8 @@ public class SopLearningServiceImpl implements SopLearningService {
             e.setMode(SopAssignmentMode.PORTAL);
             e.setMandatory(false);
             e.setEffectiveDate(LocalDate.now(clock));
-            e.setPassMark(OPEN_COURSE_PASS_MARK);
+            e.setPassMark(doc.getPassMark());
+            e.setDurationMinutes(doc.effectiveDurationMinutes());
             e.setStatus(SopEnrollmentStatus.NOT_STARTED);
             e.setAssignedAt(now);
             e.setUpdatedAt(now);
@@ -401,7 +401,7 @@ public class SopLearningServiceImpl implements SopLearningService {
 
     private SopLearningCourseDto openCourseDto(SopDocument doc, int moduleCount) {
         SopLearningCourseDto dto = baseCourseDto(doc, moduleCount);
-        dto.setPassMark(OPEN_COURSE_PASS_MARK);
+        dto.setPassMark(doc.getPassMark());
         dto.setAvailable(true);
         return dto;
     }

@@ -10,6 +10,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
+import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
@@ -21,6 +22,7 @@ import {
 } from '../../../models/sop.model';
 import { environment } from '../../../../environments/environment';
 import { SopContentViewComponent, parseRichContent } from '../../../components/sop-content-view/sop-content-view.component';
+import { MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, formatDuration } from '../sop.util';
 
 @Component({
   selector: 'app-sop-review',
@@ -28,7 +30,7 @@ import { SopContentViewComponent, parseRichContent } from '../../../components/s
   imports: [
     CommonModule, FormsModule, RouterModule, DragDropModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
-    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, SopContentViewComponent
+    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, NzInputNumberModule, SopContentViewComponent
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']
@@ -47,6 +49,13 @@ export class SopReviewComponent implements OnInit {
   moduleRejectReason: Record<number, string> = {};
   editMode: Record<number, boolean> = {};
   editRich: Record<number, RichContent> = {};
+
+  // course settings (FR-07-15), edited by the course's owner
+  readonly formatDuration = formatDuration;
+  settingsPassMark = 70;
+  settingsHours = 1;
+  settingsMinutes = 0;
+  savingSettings = false;
   busy: Record<number, boolean> = {};
 
   constructor(
@@ -79,6 +88,7 @@ export class SopReviewComponent implements OnInit {
       next: detail => {
         this.document = detail.document;
         this.modules = detail.modules;
+        this.resetSettings();
         if (!this.selectedModuleId || !this.modules.some(m => m.id === this.selectedModuleId)) {
           this.selectedModuleId = this.modules[0]?.id ?? null;
         }
@@ -101,6 +111,51 @@ export class SopReviewComponent implements OnInit {
       this.message.error('Could not load SOP detail.');
     }
     this.router.navigate(['/sop/review']);
+  }
+
+  // --- course settings (FR-07-15) ---
+
+  /** Fills the settings form from the course. */
+  private resetSettings(): void {
+    const doc = this.document;
+    if (!doc) return;
+    this.settingsPassMark = doc.passMark;
+    this.settingsHours = Math.floor(doc.durationMinutes / 60);
+    this.settingsMinutes = doc.durationMinutes % 60;
+  }
+
+  get settingsDurationMinutes(): number {
+    return (this.settingsHours ?? 0) * 60 + (this.settingsMinutes ?? 0);
+  }
+
+  /** Why the settings can't be saved, or null when they can. */
+  get settingsError(): string | null {
+    const passMark = this.settingsPassMark;
+    if (passMark == null || !Number.isInteger(passMark) || passMark < 1 || passMark > 100) {
+      return 'The pass mark must be between 1 and 100.';
+    }
+    const minutes = this.settingsDurationMinutes;
+    if (!Number.isFinite(minutes) || minutes < MIN_DURATION_MINUTES || minutes > MAX_DURATION_MINUTES) {
+      return 'The estimated duration must be between 30 minutes and 24 hours.';
+    }
+    return null;
+  }
+
+  saveSettings(): void {
+    const doc = this.document;
+    if (!doc?.editable || this.settingsError || this.savingSettings) return;
+    this.savingSettings = true;
+    this.sopService.updateSettings(doc.id, { passMark: this.settingsPassMark, durationMinutes: this.settingsDurationMinutes })
+      .subscribe({
+        next: updated => {
+          this.savingSettings = false;
+          this.document = updated;
+          this.resetSettings();
+          this.message.success('Course settings saved. They apply to new assignments and enrolments.');
+        },
+        // The error pop-up gives the server's reason; the form keeps what was typed.
+        error: () => { this.savingSettings = false; }
+      });
   }
 
   // --- material review (FR-09) ---

@@ -1,5 +1,7 @@
 package com.tbm.careerpathlearning.service;
 
+import com.tbm.careerpathlearning.dto.CourseOwnerDto;
+import com.tbm.careerpathlearning.dto.CourseTransferRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessStaffDto;
 import com.tbm.careerpathlearning.dto.TrainerOwnedCourseDto;
@@ -20,7 +22,10 @@ public interface TrainerAccessService {
     /** Grants Trainer access, or changes the end date of the grant already in force. */
     TrainerAccessStaffDto grant(UUID staffId, TrainerAccessRequest request, UUID adminId);
 
-    /** Revokes the grant. Refused while the person owns courses they would no longer be able to manage. */
+    /**
+     * Revokes the grant. If the person would lose Trainer access while owning courses, the request must name who
+     * takes them over: the courses move and the grant is revoked together (FR-20-07).
+     */
     TrainerAccessStaffDto revoke(UUID staffId, TrainerAccessRequest request, UUID adminId);
 
     /** Every grant, change, revocation and lapse for the person, newest first. */
@@ -35,4 +40,16 @@ public interface TrainerAccessService {
      * @return how many grants lapsed
      */
     int lapseExpiredGrants();
+
+    /** Every course with its owner, and whether the owner account is abandoned (FR-20-06). */
+    List<CourseOwnerDto> courseOwners();
+
+    /**
+     * Gives a course whose owner account is abandoned to an active staff member with Trainer access, and tells
+     * them. A course whose owner still has Trainer access cannot be transferred.
+     */
+    CourseOwnerDto transferCourse(Long courseId, CourseTransferRequest request, UUID adminId);
+
+    /** The course's transfers, newest first. */
+    List<TrainingAuditEntryDto> courseHistory(Long courseId);
 }

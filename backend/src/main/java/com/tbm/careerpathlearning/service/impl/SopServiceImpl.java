@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
@@ -65,6 +66,10 @@ public class SopServiceImpl implements SopService {
     @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** A course's estimated duration is between 30 minutes and 24 hours (FR-07-15). */
+    static final int MIN_DURATION_MINUTES = 30;
+    static final int MAX_DURATION_MINUTES = 24 * 60;
 
     // === Module 1: upload + generation ======================================
 
@@ -138,6 +143,25 @@ public class SopServiceImpl implements SopService {
         sopDocumentRepository.save(doc);
         startGenerationAfterCommit(sopDocumentId);
         return toDocDto(doc, 0, true);
+    }
+
+    @Override
+    @Transactional
+    public SopDocumentDto updateSettings(Long sopDocumentId, SopCourseSettingsRequest request, SopViewer viewer) {
+        SopDocument doc = editableDoc(sopDocumentId, viewer);
+        if (request == null || request.getPassMark() == null
+                || request.getPassMark() < 1 || request.getPassMark() > 100) {
+            throw new BadRequestException("The pass mark must be between 1 and 100.");
+        }
+        if (request.getDurationMinutes() == null
+                || request.getDurationMinutes() < MIN_DURATION_MINUTES || request.getDurationMinutes() > MAX_DURATION_MINUTES) {
+            throw new BadRequestException("The estimated duration must be between 30 minutes and 24 hours.");
+        }
+        doc.setPassMark(request.getPassMark());
+        doc.setDurationMinutes(request.getDurationMinutes());
+        doc.setUpdatedAt(OffsetDateTime.now(clock));
+        sopDocumentRepository.save(doc);
+        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), true);
     }
 
     /**
@@ -419,6 +443,9 @@ public class SopServiceImpl implements SopService {
         dto.setCreatedAt(d.getCreatedAt());
         dto.setPreparedByName(preparerName(d));
         dto.setEditable(editable);
+        dto.setPassMark(d.getPassMark());
+        dto.setDurationMinutes(d.effectiveDurationMinutes());
+        dto.setDurationSet(d.getDurationMinutes() != null);
         return dto;
     }
 

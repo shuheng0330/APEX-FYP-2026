@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.service;
 
+import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
@@ -35,6 +36,12 @@ public interface SopService {
     SopDocumentDto regenerateDocument(Long sopDocumentId, SopViewer viewer);
 
     void deleteDocument(Long sopDocumentId, SopViewer viewer);
+
+    /**
+     * Sets the course's own pass mark and estimated duration (FR-07-15). Only its owner may. Staff already
+     * assigned or enrolled keep the values they had; the new ones apply to later assignments and enrolments.
+     */
+    SopDocumentDto updateSettings(Long sopDocumentId, SopCourseSettingsRequest request, SopViewer viewer);
 
     // --- Module 2: trainer review of material (FR-09) ---
     SopModuleDto getModule(Long moduleId, SopViewer viewer);

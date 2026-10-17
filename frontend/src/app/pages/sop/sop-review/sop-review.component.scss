@@ -36,6 +36,15 @@ dt { color: var(--tbm-muted); font-size: 11px; } dd { margin: 0; font-size: 11px
 .edit-group { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--tbm-surface-subtle); border-radius: 7px; border: 1px solid var(--tbm-border); }
 .edit-group-label { font-size: 10px; font-weight: 700; color: var(--tbm-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
 .edit-list-item { width: 100%; }
+.course-settings { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; padding: 12px; border: 1px solid var(--tbm-border); border-radius: 7px; }
+.settings-title { font-size: 11px; font-weight: 700; color: var(--tbm-muted); text-transform: uppercase; letter-spacing: .4px; }
+.settings-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.settings-field nz-input-number { width: 90px; }
+.duration-inputs { display: flex; align-items: center; gap: 6px; }
+.duration-inputs nz-input-number { width: 70px; }
+.settings-reminder { display: flex; gap: 6px; margin: 0; padding: 8px; border-radius: 6px; background: #fff7e6; color: #874d00; font-size: 12px; }
+.settings-error { margin: 0; color: var(--tbm-danger); font-size: 12px; }
+.settings-hint { margin: 0; color: var(--tbm-muted); font-size: 11px; }
 .read-only-note { display: flex; gap: 6px; align-items: flex-start; margin: 6px 0 0; color: var(--tbm-muted); font-size: 12px; }
 .edit-term-pair { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; }
 .add-list-item { align-self: flex-start; }

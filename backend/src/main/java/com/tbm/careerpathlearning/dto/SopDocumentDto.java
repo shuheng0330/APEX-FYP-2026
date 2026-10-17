@@ -22,4 +22,13 @@ public class SopDocumentDto {
 
     /** Whether the signed-in person may change this course: only its owner can (FR-07-08, FR-07-19). */
     private boolean editable;
+
+    /** The course's own pass mark, as a percentage (FR-07-15). */
+    private int passMark;
+
+    /** The estimated duration that counts, in minutes: the trainer's, or the default until they set one. */
+    private int durationMinutes;
+
+    /** Whether the trainer has set the estimated duration; until then the default counts and they are reminded. */
+    private boolean durationSet;
 }

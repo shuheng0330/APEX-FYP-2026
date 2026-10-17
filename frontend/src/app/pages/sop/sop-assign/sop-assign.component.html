@@ -35,6 +35,9 @@
                   · {{ c.mine ? 'Yours' : (c.ownerName || 'Unknown owner') }}
                 </span>
                 <span class="course-meta">
+                  Pass {{ c.passMark }}% · {{ formatDuration(c.durationMinutes) }}{{ c.durationSet ? '' : ' (default)' }}
+                </span>
+                <span class="course-meta">
                   @if (c.ready) {
                     {{ c.enrolledCount }} enrolled ·
                     <span class="visibility" [class.open]="c.visibility === 'OPEN'">{{ c.visibility === 'OPEN' ? 'Open' : 'Private' }}</span>
@@ -135,10 +138,21 @@
                 </div>
               </div>
               <div class="rule">
-                <nz-input-number [(ngModel)]="passMark" [nzMin]="1" [nzMax]="100" [nzStep]="5"></nz-input-number>
+                <nz-input-number [(ngModel)]="passMark" [nzMin]="course.passMark" [nzMax]="100" [nzStep]="5"></nz-input-number>
                 <div>
                   <strong>Pass mark (%)</strong>
-                  <span>Minimum quiz score to pass each module and earn the certificate.</span>
+                  <span>Minimum quiz score to pass each module and earn the certificate. The course's own is {{ course.passMark }}%;
+                    you can raise it for this assignment, but not lower it.</span>
+                </div>
+              </div>
+              <div class="rule">
+                <strong class="rule-value">{{ formatDuration(course.durationMinutes) }}</strong>
+                <div>
+                  <strong>Estimated duration</strong>
+                  <span>Counted as training hours for staff who complete it.
+                    @if (!course.durationSet) {
+                      The course owner hasn't set it yet, so the default is used. They can set it on Review Generated Training.
+                    }</span>
                 </div>
               </div>
               <div class="rule">
