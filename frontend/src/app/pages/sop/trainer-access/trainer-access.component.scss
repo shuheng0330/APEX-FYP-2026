@@ -1,38 +1,10 @@
+@use 'trainer-access-shared';
+
 .trainer-access { display: flex; flex-direction: column; gap: 20px; }
 .page-heading { margin-bottom: 0; }
-.metric-tile span { color: var(--tbm-muted); font-size: 13px; }
-.metric-tile.warn strong { color: #ad6800; }
-.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.filters .search { width: 280px; }
-.filters .filter { width: 200px; }
-.link-button { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--tbm-primary); cursor: pointer; }
-.table-panel { padding: 8px 12px 12px; }
-.table-scroll { overflow-x: auto; }
-td small { display: block; margin-top: 3px; color: var(--tbm-muted); }
+.tab-body { display: flex; flex-direction: column; gap: 20px; }
 .access-cell nz-tag { margin-bottom: 2px; }
-.actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.muted { color: var(--tbm-muted); }
-
-.dialog-person { margin: 0 0 14px; color: var(--tbm-muted); }
-.dialog-person strong { color: var(--tbm-text); }
-.dialog-alert { margin-bottom: 14px; }
-.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-weight: 600; }
-.field em { color: var(--tbm-muted); font-style: normal; font-weight: 400; }
-.field small { color: var(--tbm-muted); font-weight: 400; }
-.field .counter { align-self: flex-end; }
 .field nz-date-picker { width: 220px; }
-.summary { display: flex; gap: 8px; margin: 0 0 4px; color: var(--tbm-text); }
-.summary nz-icon { margin-top: 3px; color: var(--tbm-primary); }
-.course-list { margin: 8px 0 0; padding-left: 18px; }
-
-.drawer-loading { display: flex; justify-content: center; padding: 40px 0; }
-.entry-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.entry p { margin: 4px 0 0; }
-.entry-by { color: var(--tbm-muted); font-size: 12px; }
-.entry-reason { font-style: italic; }
 
 @media (max-width: 900px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px) {
-  .filters .search, .filters .filter { width: 100%; }
-  .page-heading { flex-direction: column; }
-}
+@media (max-width: 640px) { .page-heading { flex-direction: column; } }

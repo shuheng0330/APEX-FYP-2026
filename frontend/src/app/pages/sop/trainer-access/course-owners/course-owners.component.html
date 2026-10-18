@@ -1,0 +1,134 @@
+<div class="course-owners">
+  <div class="metric-grid">
+    <div class="metric-tile"><span>Courses</span><strong>{{ counts.all }}</strong></div>
+    <div class="metric-tile" [class.warn]="counts.needsOwner">
+      <span>Need a new owner</span><strong>{{ counts.needsOwner }}</strong>
+    </div>
+  </div>
+
+  <p class="note"><nz-icon nzType="info-circle"></nz-icon>
+    A course can be transferred only when its owner has left or no longer has Trainer access. The new owner is told,
+    and staff already enrolled keep their progress.
+  </p>
+
+  <div class="filters">
+    <nz-radio-group [(ngModel)]="view" (ngModelChange)="applyFilters()" aria-label="Which courses">
+      @for (o of viewOptions; track o.value) {
+        <label nz-radio-button [nzValue]="o.value">{{ o.label }}</label>
+      }
+    </nz-radio-group>
+    <nz-input-group class="search" [nzPrefix]="searchIcon">
+      <input nz-input placeholder="Search course or owner" aria-label="Search courses" [(ngModel)]="search"
+             (ngModelChange)="applyFilters()" />
+    </nz-input-group>
+    <ng-template #searchIcon><nz-icon nzType="search"></nz-icon></ng-template>
+  </div>
+
+  <section class="surface-panel table-panel">
+    <div class="table-scroll">
+      <nz-table #table [nzData]="filtered" [nzLoading]="loading" [nzPageSize]="20" [nzHideOnSinglePage]="true" nzSize="middle">
+        <thead>
+          <tr><th>Course</th><th>Owner</th><th>Status</th><th>Enrolled</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          @for (c of table.data; track c.courseId) {
+            @let status = statusOf(c);
+            <tr>
+              <td>
+                <strong>{{ c.title }}</strong>
+                <small>@if (c.version) { v{{ c.version }} · }Uploaded {{ c.createdAt | date: 'd MMM yyyy' }}</small>
+              </td>
+              <td>@if (c.ownerName) { {{ c.ownerName }} } @else { <span class="muted">No owner</span> }</td>
+              <td><nz-tag [nzColor]="status.color">{{ status.label }}</nz-tag></td>
+              <td>{{ c.enrolledCount || '-' }}</td>
+              <td class="actions">
+                @if (c.needsNewOwner) {
+                  <button nz-button nzSize="small" nzType="primary" (click)="openTransfer(c)">
+                    <nz-icon nzType="swap"></nz-icon>Transfer
+                  </button>
+                }
+                <button nz-button nzSize="small" nzType="text" (click)="openHistory(c)" [attr.aria-label]="'History for ' + c.title">
+                  <nz-icon nzType="history"></nz-icon>History
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </div>
+    @if (!loading && !filtered.length) {
+      <nz-empty [nzNotFoundContent]="emptyText"></nz-empty>
+    }
+  </section>
+</div>
+
+<!-- Transfer a course whose owner account is abandoned (FR-20-06) -->
+<nz-modal [nzVisible]="!!transferTarget" nzTitle="Transfer course" [nzFooter]="transferFooter" [nzWidth]="520"
+          (nzOnCancel)="closeTransfer()">
+  <ng-container *nzModalContent>
+    @if (transferTarget; as course) {
+      @let status = statusOf(course);
+      <p class="dialog-person">
+        <strong>{{ course.title }}</strong>@if (course.version) { · v{{ course.version }} } · {{ course.ownerName || 'No owner' }}
+      </p>
+      <nz-alert nzType="warning" nzShowIcon class="dialog-alert" [nzMessage]="status.label" [nzDescription]="status.hint"></nz-alert>
+      <div class="field">
+        <span>New owner <em>(required)</em></span>
+        @if (candidates.length) {
+          <nz-select nzShowSearch nzPlaceHolder="Choose someone with Trainer access" [(ngModel)]="newOwnerId"
+                     aria-label="New owner">
+            @for (s of candidates; track s.staffId) {
+              <nz-option [nzValue]="s.staffId" [nzLabel]="s.name + ' · ' + (s.jobRole || 'No job role')"></nz-option>
+            }
+          </nz-select>
+          <small>Only active staff with Trainer access are listed. To choose someone else, grant them access on the Staff tab first.</small>
+        } @else {
+          <nz-alert nzType="error" nzShowIcon nzMessage="Nobody has Trainer access to take this course over. Grant someone access on the Staff tab first."></nz-alert>
+        }
+      </div>
+      <label class="field">
+        <span>Reason <em>(required)</em></span>
+        <textarea nz-input rows="3" [(ngModel)]="transferReason" [maxlength]="maxReason"
+                  placeholder="e.g. The owner left the company" aria-label="Reason"></textarea>
+        <small class="counter">{{ transferReason.length }}/{{ maxReason }}</small>
+      </label>
+      <p class="summary"><nz-icon nzType="info-circle"></nz-icon> {{ transferSummary }}</p>
+      @if (transferError) { <nz-alert nzType="error" nzShowIcon [nzMessage]="transferError" class="dialog-alert"></nz-alert> }
+    }
+  </ng-container>
+</nz-modal>
+<ng-template #transferFooter>
+  <button nz-button (click)="closeTransfer()" [disabled]="saving">Cancel</button>
+  <button nz-button nzType="primary" (click)="confirmTransfer()" [nzLoading]="saving" [disabled]="!candidates.length">
+    Confirm transfer
+  </button>
+</ng-template>
+
+<!-- Course ownership history (NFR-007) -->
+<nz-drawer [nzVisible]="!!historyTarget" nzPlacement="right" [nzWidth]="460"
+           [nzTitle]="historyTarget ? 'Course history · ' + historyTarget.title : ''" (nzOnClose)="closeHistory()">
+  <ng-container *nzDrawerContent>
+    @if (historyLoading) {
+      <div class="drawer-loading"><nz-spin nzSimple></nz-spin></div>
+    } @else if (!history.length) {
+      <nz-empty nzNotFoundContent="No transfers recorded"></nz-empty>
+    } @else {
+      <nz-timeline>
+        @for (e of history; track e.id) {
+          @let action = actionOf(e.action);
+          <nz-timeline-item [nzColor]="action.color">
+            <div class="entry">
+              <div class="entry-head">
+                <nz-tag [nzColor]="action.color === 'gray' ? 'default' : action.color">{{ action.label }}</nz-tag>
+                <span class="muted">{{ e.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+              </div>
+              <p class="entry-by">By {{ e.actorName || 'the system' }}</p>
+              @if (e.detail) { <p>{{ e.detail }}</p> }
+              @if (e.reason) { <p class="entry-reason">“{{ e.reason }}”</p> }
+            </div>
+          </nz-timeline-item>
+        }
+      </nz-timeline>
+    }
+  </ng-container>
+</nz-drawer>

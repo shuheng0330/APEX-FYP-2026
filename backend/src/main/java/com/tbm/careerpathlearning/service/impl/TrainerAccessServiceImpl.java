@@ -333,7 +333,10 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         return staff;
     }
 
-    /** Moves the courses to their new owner, logs each move, and tells the new owner once (FR-20-06). */
+    /**
+     * Moves the courses to their new owner, logs each move, and tells the new owner once (FR-20-06), unless the
+     * Super Admin took the courses over themselves.
+     */
     private void transfer(List<SopDocument> courses, Staff newOwner, String reason, UUID adminId) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         Map<UUID, String> names = new HashMap<>();
@@ -346,6 +349,9 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
             sopDocumentRepository.save(course);
             trainingAuditService.record(adminId, TrainingAuditAction.COURSE_TRANSFERRED, TrainingAuditTarget.COURSE,
                     course.getId().toString(), reason, "From " + from + " to " + newOwner.getName());
+        }
+        if (newOwner.getId().equals(adminId)) {
+            return;
         }
         String admin = staffRepository.findById(adminId).map(Staff::getName).orElse("The Super Admin");
         List<String> titles = courses.stream().map(SopDocument::getTitle).toList();
