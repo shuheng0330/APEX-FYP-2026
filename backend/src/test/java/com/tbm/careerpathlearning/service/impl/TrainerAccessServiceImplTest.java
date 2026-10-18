@@ -145,7 +145,7 @@ class TrainerAccessServiceImplTest {
     }
 
     @Test
-    @DisplayName("Revoking is refused while the person owns courses, naming them")
+    @DisplayName("Revoking someone who owns courses asks who takes them over, naming the courses")
     void revokeBlockedByOwnedCourses() {
         service.grant(aisyah.getId(), request(null, "Sharing session"), admin.getId());
         store.doc(1L, "Cash Handling", aisyah.getId());
@@ -154,6 +154,7 @@ class TrainerAccessServiceImplTest {
                 () -> service.revoke(aisyah.getId(), request(null, "Moved to another outlet"), admin.getId()));
 
         assertTrue(e.getMessage().contains("Cash Handling"), e.getMessage());
+        assertTrue(e.getMessage().contains("Choose who takes them over"), e.getMessage());
         assertTrue(service.hasActiveGrant(aisyah.getId()));
         assertEquals(1, service.history(aisyah.getId()).size(), "the refused revocation is not recorded");
     }
@@ -214,7 +215,7 @@ class TrainerAccessServiceImplTest {
         assertEquals("Trainer access ended: Nur Aisyah", alert.title());
         assertEquals("Nur Aisyah's Trainer access ended after 12 Oct 2026, but they still own 1 course: Cash Handling. "
                 + "Transfer them to another trainer.", alert.body());
-        assertEquals("/sop/trainer-access", alert.link());
+        assertEquals("/sop/trainer-access?tab=owners", alert.link(), "opens the Course owners tab");
 
         assertEquals(0, service.lapseExpiredGrants(), "a second run finds nothing to do");
         assertEquals(1, store.notifications.size());

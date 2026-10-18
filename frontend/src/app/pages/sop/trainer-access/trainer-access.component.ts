@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -15,29 +17,26 @@ import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { TrainerAccessService } from '../../../services/trainer-access.service';
 import { TrainerAccessStaff, TrainerOwnedCourse, TrainingAuditEntry } from '../../../models/trainer-access.model';
+import { CourseOwnersComponent } from './course-owners/course-owners.component';
+import { MAX_REASON, auditAction, errorMessage, reasonMissing, showRefusal } from './trainer-access.util';
 
 type AccessFilter = 'ALL' | 'ANY' | 'GRANT' | 'ROLE' | 'NONE';
 
-const MAX_REASON = 500;
 const ENDING_SOON_DAYS = 7;
 const NO_DEPARTMENT = 'No department';
-
-const ACTIONS: Record<string, { label: string; color: string }> = {
-  TRAINER_ACCESS_GRANTED: { label: 'Granted', color: 'green' },
-  TRAINER_ACCESS_END_DATE_CHANGED: { label: 'End date changed', color: 'blue' },
-  TRAINER_ACCESS_REVOKED: { label: 'Revoked', color: 'red' },
-  TRAINER_ACCESS_LAPSED: { label: 'Ended', color: 'gray' },
-};
+const STAFF_TAB = 0;
+const OWNERS_TAB = 1;
 
 /**
  * Manage Trainer Access (UC-43). The Super Admin gives individual staff Trainer access on top of their
  * job role, optionally until a last day, and revokes it; every change needs a reason and is recorded
- * (FR-20-01). Someone who owns courses cannot lose Trainer access until their courses are transferred
- * (FR-20-07).
+ * (FR-20-01). Revoking someone who owns courses hands them to a chosen trainer in the same step (FR-20-07),
+ * and the Course owners tab finds a new owner for courses whose owner has left or lost access (FR-20-06).
  */
 @Component({
   selector: 'app-trainer-access',
@@ -45,13 +44,16 @@ const ACTIONS: Record<string, { label: string; color: string }> = {
   imports: [
     CommonModule, FormsModule,
     NzAlertModule, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzInputModule,
-    NzModalModule, NzRadioModule, NzSelectModule, NzSpinModule, NzTableModule, NzTagModule, NzTimelineModule
+    NzModalModule, NzRadioModule, NzSelectModule, NzSpinModule, NzTableModule, NzTabsModule, NzTagModule, NzTimelineModule,
+    CourseOwnersComponent
   ],
   templateUrl: './trainer-access.component.html',
   styleUrls: ['./trainer-access.component.scss']
 })
 export class TrainerAccessComponent implements OnInit {
   readonly maxReason = MAX_REASON;
+  readonly actionOf = auditAction;
+  readonly ownersTab = OWNERS_TAB;
   readonly accessOptions: { value: AccessFilter; label: string }[] = [
     { value: 'ALL', label: 'Everyone' },
     { value: 'ANY', label: 'With access' },
@@ -70,6 +72,10 @@ export class TrainerAccessComponent implements OnInit {
   department: string | null = null;
   access: AccessFilter = 'ALL';
 
+  /** The open tab: Staff, or Course owners (?tab=owners, where the lapse alert links). */
+  tabIndex = STAFF_TAB;
+  @ViewChild(CourseOwnersComponent) private courseOwners?: CourseOwnersComponent;
+
   /** The person whose access is being granted or whose end date is being changed. */
   grantTarget: TrainerAccessStaff | null = null;
   grantEndDate: Date | null = null;
@@ -80,6 +86,8 @@ export class TrainerAccessComponent implements OnInit {
   revokeReason = '';
   revokeError = '';
   revokeCourses: TrainerOwnedCourse[] = [];
+  /** Who takes over the courses of someone losing Trainer access (FR-20-07). */
+  revokeTransferToId: string | null = null;
   coursesLoading = false;
 
   saving = false;
@@ -91,10 +99,29 @@ export class TrainerAccessComponent implements OnInit {
   /** The date picker refuses days before today. */
   readonly disabledDate = (d: Date): boolean => startOfDay(d) < startOfDay(new Date());
 
-  constructor(private trainerAccess: TrainerAccessService, private message: NzMessageService) {}
+  constructor(private trainerAccess: TrainerAccessService, private message: NzMessageService,
+              private route: ActivatedRoute, private router: Router, private destroyRef: DestroyRef) {}
 
   ngOnInit(): void {
     this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(params => this.tabIndex = params.get('tab') === 'owners' ? OWNERS_TAB : STAFF_TAB);
+  }
+
+  /** Keeps the open tab in the address, so a refresh or a shared link opens the same tab. */
+  onTabChange(index: number): void {
+    this.tabIndex = index;
+    this.router.navigate([], {
+      relativeTo: this.route, queryParams: { tab: index === OWNERS_TAB ? 'owners' : null }, replaceUrl: true
+    });
+  }
+
+  /** Reloads the staff list, and the course list when its tab is open. */
+  refresh(): void {
+    this.load();
+    if (this.tabIndex === OWNERS_TAB) {
+      this.courseOwners?.load();
+    }
   }
 
   load(): void {
@@ -188,7 +215,7 @@ export class TrainerAccessComponent implements OnInit {
 
   confirmGrant(): void {
     const target = this.grantTarget;
-    if (!target || this.reasonMissing(this.grantReason, e => this.grantError = e)) return;
+    if (!target || reasonMissing(this.grantReason, this.message, e => this.grantError = e)) return;
     this.saving = true;
     this.grantError = '';
     const endDate = this.grantEndDate ? formatDate(this.grantEndDate, 'yyyy-MM-dd', 'en') : null;
@@ -215,7 +242,8 @@ export class TrainerAccessComponent implements OnInit {
     this.revokeReason = '';
     this.revokeError = '';
     this.revokeCourses = [];
-    if (this.revokeBlocked) {
+    this.revokeTransferToId = null;
+    if (this.revokeNeedsTransfer) {
       this.coursesLoading = true;
       this.trainerAccess.ownedCourses(s.staffId).subscribe({
         next: courses => { this.revokeCourses = courses; this.coursesLoading = false; },
@@ -230,22 +258,55 @@ export class TrainerAccessComponent implements OnInit {
     }
   }
 
-  /** Revoking would leave courses without an owner who can manage them. */
-  get revokeBlocked(): boolean {
+  /** Revoking would leave their courses with nobody to look after them, so someone must take them over. */
+  get revokeNeedsTransfer(): boolean {
     const s = this.revokeTarget;
     return !!s && !s.viaRole && s.ownedCourses > 0;
   }
 
+  /** Who can take the courses over: active staff with Trainer access, other than the person losing it. */
+  get transferCandidates(): TrainerAccessStaff[] {
+    const leaving = this.revokeTarget?.staffId;
+    return this.staff.filter(s => (s.viaRole || s.viaGrant) && s.staffId !== leaving);
+  }
+
+  /** What confirming will do, in a sentence or two. */
+  get revokeSummary(): string {
+    const target = this.revokeTarget;
+    if (!target) return '';
+    if (target.viaRole) return 'Their grant ends now.';
+    const loses = `${target.name} loses Trainer access within 15 minutes.`;
+    if (!this.revokeNeedsTransfer) return loses;
+    const to = this.transferCandidates.find(s => s.staffId === this.revokeTransferToId);
+    if (!to) return `Choose who takes over their courses. ${loses}`;
+    const one = target.ownedCourses === 1;
+    return `${one ? 'Their course moves' : `Their ${target.ownedCourses} courses move`} to ${to.name}, `
+      + `who can then edit, review and assign ${one ? 'it' : 'them'}. ${loses}`;
+  }
 
   confirmRevoke(): void {
     const target = this.revokeTarget;
-    if (!target || this.revokeBlocked || this.reasonMissing(this.revokeReason, e => this.revokeError = e)) return;
+    if (!target) return;
+    const show = (error: string) => this.revokeError = error;
+    const transferTo = this.revokeNeedsTransfer
+      ? this.transferCandidates.find(s => s.staffId === this.revokeTransferToId) ?? null
+      : null;
+    if (this.revokeNeedsTransfer && !transferTo) {
+      showRefusal('Choose who takes over their courses.', this.message, show);
+      return;
+    }
+    if (reasonMissing(this.revokeReason, this.message, show)) return;
     this.saving = true;
     this.revokeError = '';
-    this.trainerAccess.revoke(target.staffId, this.revokeReason.trim()).subscribe({
+    this.trainerAccess.revoke(target.staffId, this.revokeReason.trim(), transferTo?.staffId ?? null).subscribe({
       next: updated => {
         this.saving = false;
         this.revokeTarget = null;
+        if (transferTo) {
+          this.load(); // the new owner's course count changed too
+          this.message.success(`Trainer access revoked for ${updated.name}. Their courses now belong to ${transferTo.name}.`);
+          return;
+        }
         this.replace(updated);
         this.message.success(updated.viaRole
           ? `Trainer access grant revoked for ${updated.name}. They keep access through their job role.`
@@ -276,21 +337,6 @@ export class TrainerAccessComponent implements OnInit {
 
   // === helpers ==============================================================
 
-  actionOf(action: string): { label: string; color: string } {
-    return ACTIONS[action] ?? { label: action, color: 'gray' };
-  }
-
-  /** Every change needs a reason (FR-20-01): says so in the dialog and in a pop-up, and stops the change. */
-  private reasonMissing(reason: string, show: (error: string) => void): boolean {
-    const error = !reason.trim() ? 'A reason is required. Say why you are making this change.'
-      : reason.length > MAX_REASON ? `Keep the reason under ${MAX_REASON} characters.` : '';
-    if (error) {
-      show(error);
-      this.message.warning(error);
-    }
-    return !!error;
-  }
-
   /** A grant in force whose last day is within the next 7 days. */
   endingSoon(s: TrainerAccessStaff): boolean {
     if (!s.viaGrant || !s.grantEndDate) return false;
@@ -313,8 +359,4 @@ function startOfDay(d: Date): Date {
 function parseDate(value: string): Date {
   const [y, m, d] = value.split('-').map(Number);
   return new Date(y, m - 1, d);
-}
-
-function errorMessage(e: HttpErrorResponse): string {
-  return e.error?.message || 'Something went wrong. Please try again.';
 }

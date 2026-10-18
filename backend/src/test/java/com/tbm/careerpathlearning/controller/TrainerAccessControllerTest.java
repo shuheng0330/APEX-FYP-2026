@@ -1,6 +1,8 @@
 package com.tbm.careerpathlearning.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tbm.careerpathlearning.dto.CourseOwnerDto;
+import com.tbm.careerpathlearning.dto.CourseTransferRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessStaffDto;
 import com.tbm.careerpathlearning.service.TokenService;
@@ -90,6 +92,25 @@ class TrainerAccessControllerTest {
     }
 
     @Test
+    @DisplayName("A course transfer is made in the name of the signed-in Super Admin")
+    void transferUsesTheSignedInAdmin() throws Exception {
+        CourseTransferRequest request = new CourseTransferRequest();
+        request.setNewOwnerId(staff);
+        request.setReason("The owner left");
+        CourseOwnerDto moved = new CourseOwnerDto();
+        moved.setTitle("Cash Handling");
+        when(trainerAccessService.transferCourse(eq(40L), any(), eq(admin))).thenReturn(moved);
+
+        mockMvc.perform(as(post("/api/trainer-access/courses/40/transfer"), "CAN_MANAGE_ACCESS_CONTROL")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Cash Handling"));
+
+        verify(trainerAccessService).transferCourse(eq(40L), any(), eq(admin));
+    }
+
+    @Test
     @DisplayName("Trainers, HR and other staff are refused every action")
     void othersAreRefused() throws Exception {
         String[] hr = {"ROLE_USER", "CAN_MANAGE_TRAINING", "CAN_ASSIGN_TRAINING", "CAN_VIEW_STAFF"};
@@ -102,6 +123,10 @@ class TrainerAccessControllerTest {
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
         mockMvc.perform(as(get("/api/trainer-access/" + staff + "/history"), hr)).andExpect(status().isForbidden());
         mockMvc.perform(as(get("/api/trainer-access/" + staff + "/courses"), hr)).andExpect(status().isForbidden());
+        mockMvc.perform(as(get("/api/trainer-access/courses"), hr)).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainer-access/courses/40/transfer"), hr)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
+        mockMvc.perform(as(get("/api/trainer-access/courses/40/history"), hr)).andExpect(status().isForbidden());
 
         verifyNoInteractions(trainerAccessService);
     }
