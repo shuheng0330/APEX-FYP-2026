@@ -61,6 +61,8 @@ export interface CourseOwner {
   createdAt?: string | null;
   /** Archived courses keep an owner, who can change them once restored. */
   archived: boolean;
+  /** The current version; transfers move every version of the course. */
+  versionNo: number;
 }
 
 /** Giving an abandoned course to someone with Trainer access; a reason is required. */

@@ -19,6 +19,8 @@
 .metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
 .metadata-grid label { display: flex; flex-direction: column; gap: 6px; color: var(--tbm-text); font-size: 12px; font-weight: 600; }
 .metadata-grid label:first-child { grid-column: 1 / -1; }
+.metadata-grid .version-of { display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1; color: var(--tbm-text); font-size: 12px; font-weight: 600; }
+.version-tag { margin-left: 6px; }
 .upload-btn { grid-column: 1 / -1; width: 100%; margin-top: 4px; }
 .document-heading { margin-bottom: 14px; }
 .document-heading h2 { margin-top: 4px; font-size: 18px; }

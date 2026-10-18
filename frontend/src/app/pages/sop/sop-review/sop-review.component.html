@@ -13,7 +13,7 @@
       <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
                  [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a completed SOP'">
         @for (s of completedSops; track s.id) {
-          <nz-option [nzValue]="s.id" [nzLabel]="s.title + ' (' + s.moduleCount + ' modules)'"></nz-option>
+          <nz-option [nzValue]="s.id" [nzLabel]="optionLabel(s)"></nz-option>
         }
       </nz-select>
     </div>
@@ -36,13 +36,16 @@
             <h2>{{ document.title }}</h2>
             @if (document.courseStatus === 'ARCHIVED') {
               <app-course-archived-note [document]="document" (restored)="onRestored($event)"></app-course-archived-note>
-            } @else if (!document.editable) {
+            } @else if (!document.editable && !document.draftId && document.courseStatus !== 'SUPERSEDED') {
               <p class="read-only-note"><nz-icon nzType="lock"></nz-icon>
                 Read only. Only {{ document.preparedByName || 'the course owner' }} can edit, approve or reject it.</p>
             }
+            <app-course-version-note [document]="document" [ready]="ready" (published)="onPublished($event)"
+                                     (discarded)="onDiscarded($event)" (openVersion)="onSelectSop($event)"></app-course-version-note>
             <dl>
               <div><dt>Department</dt><dd>{{ document.departmentTag || '-' }}</dd></div>
-              <div><dt>Version</dt><dd>{{ document.version || '-' }}</dd></div>
+              <div><dt>Course version</dt><dd>v{{ document.versionNo }}{{ document.courseStatus === 'DRAFT' ? ' (draft)' : '' }}</dd></div>
+              <div><dt>SOP version</dt><dd>{{ document.version || '-' }}</dd></div>
               <!-- FR-07-07: preparer and date shown on the material -->
               <div><dt>Prepared by</dt><dd>{{ document.preparedByName || '-' }}</dd></div>
               <div><dt>Date</dt><dd>{{ document.createdAt ? (document.createdAt | date: 'd MMM yyyy') : '-' }}</dd></div>

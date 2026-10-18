@@ -56,6 +56,11 @@ export class SopService {
     return this.http.post<SopDocument>(`${this.baseUrl}/${id}/archive`, {}, { withCredentials: true });
   }
 
+  /** Puts a draft version live; `redoCompleted` asks staff who completed an earlier version to complete it too (FR-07-18). */
+  publish(id: number, redoCompleted: boolean): Observable<SopDocument> {
+    return this.http.post<SopDocument>(`${this.baseUrl}/${id}/publish`, { redoCompleted }, { withCredentials: true });
+  }
+
   /** Makes an archived course Live again (FR-06-16). */
   restore(id: number): Observable<SopDocument> {
     return this.http.post<SopDocument>(`${this.baseUrl}/${id}/restore`, {}, { withCredentials: true });

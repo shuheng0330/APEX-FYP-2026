@@ -72,7 +72,7 @@
                 <span class="section-kicker">{{ d.course.category }}</span>
                 <h1>{{ d.course.title }}</h1>
                 <div class="hero-tags">
-                  @if (d.course.version) { <nz-tag>Version {{ d.course.version }}</nz-tag> }
+                  <nz-tag>Version {{ d.course.versionNo }}{{ d.course.version ? ' · SOP ' + d.course.version : '' }}</nz-tag>
                   @if (d.course.mandatory) { <nz-tag nzColor="red">Mandatory</nz-tag> }
                   <nz-tag [nzColor]="d.course.selfEnrolled ? 'blue' : d.course.mode === 'IMMEDIATE' ? 'volcano' : 'cyan'">{{ modeLabel }}</nz-tag>
                   @if (d.course.retraining) { <nz-tag nzColor="gold">Practice mode</nz-tag> }
@@ -89,12 +89,24 @@
                 @if (d.course.status === 'WITHDRAWN') {
                   <div class="notice info">
                     <nz-icon nzType="stop"></nz-icon>
-                    <span>You were withdrawn from this course{{ d.course.courseArchived ? ' when it was archived' : '' }}. Your progress so far is kept here.</span>
+                    <span>
+                      @if (d.course.courseSuperseded) {
+                        A new version of this course replaced this one, and you were moved to it: find it in My Learning.
+                      } @else {
+                        You were withdrawn from this course{{ d.course.courseArchived ? ' when it was archived' : '' }}.
+                      }
+                      Your progress so far is kept here.
+                    </span>
                   </div>
                 } @else if (d.course.courseArchived) {
                   <div class="notice info">
                     <nz-icon nzType="inbox"></nz-icon>
                     <span>This course has been archived, so it can't be taken any more. Your result{{ d.certificate ? ' and certificate are' : ' is' }} kept.</span>
+                  </div>
+                } @else if (d.course.courseSuperseded) {
+                  <div class="notice info">
+                    <nz-icon nzType="history"></nz-icon>
+                    <span>A newer version of this course is live, so this one can't be taken any more. Your result{{ d.certificate ? ' and certificate are' : ' is' }} kept.</span>
                   </div>
                 } @else if (!d.course.available) {
                   <div class="notice info">
@@ -133,7 +145,7 @@
                     <p>This certifies that</p>
                     <strong class="cert-name">{{ cert.learnerName }}</strong>
                     <p>has successfully completed the SOP course</p>
-                    <strong class="cert-course">{{ cert.courseTitle }}{{ cert.version ? ' (v' + cert.version + ')' : '' }}</strong>
+                    <strong class="cert-course">{{ cert.courseTitle }} (version {{ cert.versionNo }}{{ cert.version ? ', SOP ' + cert.version : '' }})</strong>
                     <span class="cert-score">Final score {{ cert.finalScore }}% · pass mark {{ cert.passMark }}%</span>
                     <div class="cert-meta">
                       <div><strong>{{ cert.completedAt | date: 'd MMM yyyy' }}</strong><span>Date issued</span></div>

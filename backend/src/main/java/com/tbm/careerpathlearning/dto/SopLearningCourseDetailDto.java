@@ -24,6 +24,8 @@ public class SopLearningCourseDetailDto {
         private String learnerName;
         private String courseTitle;
         private String version;
+        /** The course version the certificate is for (FR-18-05). */
+        private int versionNo;
         private Integer finalScore;
         private int passMark;
         private OffsetDateTime completedAt;

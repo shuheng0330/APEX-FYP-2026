@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.dto.TrainingAuditEntryDto;
 import com.tbm.careerpathlearning.enums.AuthorityName;
 import com.tbm.careerpathlearning.enums.CourseOwnerStatus;
+import com.tbm.careerpathlearning.enums.SopCourseStatus;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
@@ -254,6 +255,33 @@ class CourseTransferTest {
 
         assertEquals(CourseOwnerStatus.NO_TRAINER_ACCESS, service.courseOwners().get(0).getStatus());
         assertDoesNotThrow(() -> service.transferCourse(2L, transfer(weiMing.getId(), "Session over"), admin.getId()));
+    }
+
+    @Test
+    @DisplayName("A course with several versions is one row, and a transfer moves every version, its draft included")
+    void transferMovesEveryVersion() {
+        SopDocument v1 = store.doc(3L, "Forklift Safety", ravi.getId());
+        v1.setCourseStatus(SopCourseStatus.SUPERSEDED);
+        SopDocument v2 = store.doc(4L, "Forklift Safety", ravi.getId());
+        v2.setCourseId(3L);
+        v2.setVersionNo(2);
+        SopDocument v3 = store.doc(5L, "Forklift Safety", ravi.getId());
+        v3.setCourseId(3L);
+        v3.setVersionNo(3);
+        v3.setCourseStatus(SopCourseStatus.DRAFT);
+
+        List<CourseOwnerDto> rows = service.courseOwners();
+        assertEquals(List.of(4L), rows.stream().map(CourseOwnerDto::getCourseId).toList(), "one row, for the live version");
+        assertEquals(2, rows.get(0).getVersionNo());
+
+        service.transferCourse(4L, transfer(weiMing.getId(), "Ravi moved to the Sales team"), admin.getId());
+
+        assertEquals(List.of(weiMing.getId(), weiMing.getId(), weiMing.getId()),
+                List.of(v1.getUploadedBy(), v2.getUploadedBy(), v3.getUploadedBy()));
+        assertEquals("From Ravi Kumar to Tan Wei Ming", service.courseHistory(4L).get(0).getDetail());
+        assertEquals(service.courseHistory(4L), service.courseHistory(3L), "every version shares one history");
+        assertTrue(service.ownedCourses(ravi.getId()).isEmpty());
+        assertEquals(1, service.ownedCourses(weiMing.getId()).size(), "counted once, not once per version");
     }
 
     private static void assertRefused(String expected, Executable action) {

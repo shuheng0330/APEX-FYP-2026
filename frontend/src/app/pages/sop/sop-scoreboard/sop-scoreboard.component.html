@@ -34,7 +34,7 @@
     <nz-select class="filter wide" nzAllowClear nzShowSearch nzPlaceHolder="All courses" [(ngModel)]="courseId"
                (ngModelChange)="applyFilters()" aria-label="Course">
       @for (c of data?.courses ?? []; track c.id) {
-        <nz-option [nzValue]="c.id" [nzLabel]="c.title + (c.archived ? ' (archived)' : '')"></nz-option>
+        <nz-option [nzValue]="c.id" [nzLabel]="c.title + ' · v' + c.versionNo + (c.superseded ? ' (replaced)' : '') + (c.archived ? ' (archived)' : '')"></nz-option>
       }
     </nz-select>
     <nz-select class="filter" [(ngModel)]="status" (ngModelChange)="applyFilters()" aria-label="Status">
@@ -205,6 +205,8 @@
                   <span class="course-title" [title]="r.courseTitle">{{ r.courseTitle }}</span>
                   @if (r.mandatory) { <span class="flag">Mandatory</span> }
                   @if (r.courseArchived) { <span class="flag">Archived</span> }
+                  @if (r.versionNo > 1 || r.courseSuperseded) { <span class="flag">v{{ r.versionNo }}</span> }
+                  @if (r.courseSuperseded) { <span class="flag">Replaced</span> }
                 </td>
                 <td>
                   <span class="modules-cell">

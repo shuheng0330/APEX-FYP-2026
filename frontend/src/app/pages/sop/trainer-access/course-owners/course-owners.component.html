@@ -36,7 +36,7 @@
             <tr>
               <td>
                 <strong>{{ c.title }}</strong>
-                <small>@if (c.version) { v{{ c.version }} · }Uploaded {{ c.createdAt | date: 'd MMM yyyy' }}@if (c.archived) { · Archived }</small>
+                <small>@if (c.versionNo > 1) { Course v{{ c.versionNo }} · }@if (c.version) { SOP {{ c.version }} · }Uploaded {{ c.createdAt | date: 'd MMM yyyy' }}@if (c.archived) { · Archived }</small>
               </td>
               <td>@if (c.ownerName) { {{ c.ownerName }} } @else { <span class="muted">No owner</span> }</td>
               <td><nz-tag [nzColor]="status.color">{{ status.label }}</nz-tag></td>

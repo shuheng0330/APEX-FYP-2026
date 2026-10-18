@@ -44,4 +44,16 @@ public class SopDocumentDto {
 
     /** Staff still taking it, not started or in progress: archiving withdraws them (FR-06-15). */
     private int activeEnrollmentCount;
+
+    /** The id every version of this course shares (FR-07-16). */
+    private Long courseId;
+
+    /** 1, 2, 3 and so on. */
+    private int versionNo;
+
+    /** The draft of the course's next version, if one is in progress. */
+    private Long draftId;
+
+    /** The course's live version, if it has one. */
+    private Long liveVersionId;
 }

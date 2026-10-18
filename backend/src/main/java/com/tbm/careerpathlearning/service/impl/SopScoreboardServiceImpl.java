@@ -73,6 +73,8 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
                     c.setId(d.getId());
                     c.setTitle(d.getTitle());
                     c.setArchived(d.isArchived());
+                    c.setVersionNo(d.getVersionNo());
+                    c.setSuperseded(d.isSuperseded());
                     dto.getCourses().add(c);
                 });
         if (enrollments.isEmpty()) {
@@ -166,6 +168,8 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         r.setSopDocumentId(doc.getId());
         r.setCourseTitle(doc.getTitle());
         r.setCourseArchived(doc.isArchived());
+        r.setVersionNo(doc.getVersionNo());
+        r.setCourseSuperseded(doc.isSuperseded());
         r.setModuleCount(progress.modules().size());
         r.setModulesPassed(progress.passed());
         r.setStatus(status(e, progress));

@@ -19,7 +19,12 @@ import java.util.UUID;
 public interface SopService {
 
     // --- Module 1: upload + generation (FR-08) ---
-    SopDocumentDto upload(MultipartFile file, String title, String version, String departmentTag, UUID userId);
+    /**
+     * Uploads an SOP and generates its course. With {@code newVersionOf}, the revised SOP becomes the draft of that
+     * course's next version instead of a separate course (FR-06-06).
+     */
+    SopDocumentDto upload(MultipartFile file, String title, String version, String departmentTag, UUID userId,
+                          Long newVersionOf);
 
     /**
      * The courses the viewer may see, newest first.
@@ -51,6 +56,12 @@ public interface SopService {
      * re-enrolled (decision D3); the course can be assigned to them again.
      */
     SopDocumentDto restoreDocument(Long sopDocumentId, SopViewer viewer);
+
+    /**
+     * Puts a draft version live (FR-07-17, FR-07-18). Only its owner may, once every module's material and quiz is
+     * approved; they choose whether staff who completed an earlier version must complete it too.
+     */
+    SopDocumentDto publishDraft(Long sopDocumentId, boolean redoCompleted, SopViewer viewer);
 
     /**
      * Sets the course's own pass mark and estimated duration (FR-07-15). Only its owner may. Staff already

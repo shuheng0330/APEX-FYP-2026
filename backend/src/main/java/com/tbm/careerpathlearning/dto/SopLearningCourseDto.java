@@ -41,6 +41,10 @@ public class SopLearningCourseDto {
     private boolean available;
     /** The course was archived (FR-06-14): it can't be taken any more, but results and certificates are kept. */
     private boolean courseArchived;
+    /** The course version this enrolment is for (FR-18-05). */
+    private int versionNo;
+    /** A newer version replaced this one (FR-07-17): it can't be taken any more, but results are kept. */
+    private boolean courseSuperseded;
     private Integer finalScore;
     private OffsetDateTime startedAt;
     private OffsetDateTime completedAt;

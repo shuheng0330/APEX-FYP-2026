@@ -18,6 +18,9 @@ export interface ScoreboardRecord {
   courseTitle: string;
   /** The course was archived; its records stay here (FR-06-14). */
   courseArchived: boolean;
+  versionNo: number;
+  /** A newer version replaced this one; its records stay here (FR-07-17). */
+  courseSuperseded: boolean;
   moduleCount: number;
   modulesPassed: number;
   status: ScoreboardStatus;
@@ -40,7 +43,7 @@ export interface ScoreboardRecord {
 }
 
 export interface Scoreboard {
-  courses: { id: number; title: string; archived: boolean }[];
+  courses: { id: number; title: string; archived: boolean; versionNo: number; superseded: boolean }[];
   departments: string[];
   records: ScoreboardRecord[];
   generatedAt: string;
