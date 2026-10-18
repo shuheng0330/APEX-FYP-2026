@@ -149,6 +149,7 @@ export class CoursePlayerComponent implements OnInit {
     switch (c?.status) {
       case 'COMPLETED': return `Completed · ${c.finalScore ?? 0}%`;
       case 'IN_PROGRESS': return `In progress · ${this.progressPercent}%`;
+      case 'WITHDRAWN': return 'Withdrawn';
       default: return c?.available === false ? 'Not open yet' : 'Not started';
     }
   }
@@ -165,6 +166,9 @@ export class CoursePlayerComponent implements OnInit {
     }
     if (c.status === 'COMPLETED') {
       return 'Completed ' + formatDate(c.completedAt!, 'd MMM yyyy', 'en-US');
+    }
+    if (c.status === 'WITHDRAWN') {
+      return 'No longer due';
     }
     const left = this.daysLeft;
     if (!c.dueDate || left === null) {

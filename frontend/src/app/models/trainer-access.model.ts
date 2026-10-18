@@ -59,6 +59,8 @@ export interface CourseOwner {
   needsNewOwner: boolean;
   enrolledCount: number;
   createdAt?: string | null;
+  /** Archived courses keep an owner, who can change them once restored. */
+  archived: boolean;
 }
 
 /** Giving an abandoned course to someone with Trainer access; a reason is required. */

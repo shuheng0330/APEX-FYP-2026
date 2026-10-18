@@ -53,12 +53,12 @@ class SopServiceAccessTest {
     @Test
     @DisplayName("Each person's list shows only what they may see, marked editable only for the owner")
     void lists() {
-        assertEquals(Map.of(1L, true), editableById(service.listDocuments(trainer, false)));
-        assertTrue(service.listDocuments(otherTrainer, false).isEmpty());
-        assertEquals(Map.of(1L, false, 2L, false), editableById(service.listDocuments(hr, false)),
+        assertEquals(Map.of(1L, true), editableById(service.listDocuments(trainer, false, false)));
+        assertTrue(service.listDocuments(otherTrainer, false, false).isEmpty());
+        assertEquals(Map.of(1L, false, 2L, false), editableById(service.listDocuments(hr, false, false)),
                 "HR sees every owned course read-only, and not the ownerless one");
-        assertEquals(Map.of(1L, false, 2L, true), editableById(service.listDocuments(superAdmin, false)));
-        assertEquals(Map.of(2L, true), editableById(service.listDocuments(superAdmin, true)),
+        assertEquals(Map.of(1L, false, 2L, true), editableById(service.listDocuments(superAdmin, false, false)));
+        assertEquals(Map.of(2L, true), editableById(service.listDocuments(superAdmin, true, false)),
                 "the upload page lists only the Super Admin's own courses");
     }
 

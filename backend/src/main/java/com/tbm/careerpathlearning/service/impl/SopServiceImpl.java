@@ -12,7 +12,11 @@ import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.QuizReviewAction;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
+import com.tbm.careerpathlearning.enums.SopCourseStatus;
+import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
+import com.tbm.careerpathlearning.enums.TrainingAuditAction;
+import com.tbm.careerpathlearning.enums.TrainingAuditTarget;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
@@ -34,6 +38,7 @@ import com.tbm.careerpathlearning.service.SopAccess;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
 import com.tbm.careerpathlearning.service.SopViewer;
+import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class SopServiceImpl implements SopService {
@@ -63,6 +69,7 @@ public class SopServiceImpl implements SopService {
     @Autowired private SopGenerationService sopGenerationService;
     @Autowired private StaffRepository staffRepository;
     @Autowired private NotificationService notificationService;
+    @Autowired private TrainingAuditService trainingAuditService;
     @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -103,15 +110,21 @@ public class SopServiceImpl implements SopService {
         // Kick off parse + AI generation in the background (FR-08-04/05).
         startGenerationAfterCommit(saved.getId());
 
-        return toDocDto(saved, 0, true);
+        return toDocDto(saved, 0, true, List.of());
     }
 
     @Override
-    public List<SopDocumentDto> listDocuments(SopViewer viewer, boolean mineOnly) {
-        return sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
+    public List<SopDocumentDto> listDocuments(SopViewer viewer, boolean mineOnly, boolean archived) {
+        List<SopDocument> docs = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
+                .filter(d -> archived ? d.isArchived() : d.isLive())
                 .filter(d -> mineOnly ? SopAccess.isOwner(d, viewer) : SopAccess.canView(d, viewer))
+                .toList();
+        Map<Long, List<SopEnrollment>> enrollments = docs.isEmpty() ? Map.of()
+                : sopEnrollmentRepository.findAllBySopDocumentIdIn(docs.stream().map(SopDocument::getId).toList()).stream()
+                .collect(Collectors.groupingBy(SopEnrollment::getSopDocumentId));
+        return docs.stream()
                 .map(d -> toDocDto(d, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(d.getId()).size(),
-                        SopAccess.canEdit(d, viewer)))
+                        editable(d, viewer), enrollments.getOrDefault(d.getId(), List.of())))
                 .toList();
     }
 
@@ -121,7 +134,8 @@ public class SopServiceImpl implements SopService {
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
 
         SopDetailDto detail = new SopDetailDto();
-        detail.setDocument(toDocDto(doc, modules.size(), SopAccess.canEdit(doc, viewer)));
+        detail.setDocument(toDocDto(doc, modules.size(), editable(doc, viewer),
+                sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId)));
         detail.setModules(modules.stream().map(this::toModuleDto).toList());
         return detail;
     }
@@ -130,7 +144,7 @@ public class SopServiceImpl implements SopService {
     public SopDocumentDto getStatus(Long sopDocumentId, SopViewer viewer) {
         SopDocument doc = viewableDoc(sopDocumentId, viewer);
         int moduleCount = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size();
-        return toDocDto(doc, moduleCount, SopAccess.canEdit(doc, viewer));
+        return toDocDto(doc, moduleCount, editable(doc, viewer), sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
     }
 
     @Override
@@ -142,7 +156,7 @@ public class SopServiceImpl implements SopService {
         doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
         startGenerationAfterCommit(sopDocumentId);
-        return toDocDto(doc, 0, true);
+        return toDocDto(doc, 0, true, sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
     }
 
     @Override
@@ -161,7 +175,8 @@ public class SopServiceImpl implements SopService {
         doc.setDurationMinutes(request.getDurationMinutes());
         doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
-        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), true);
+        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), true,
+                sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
     }
 
     /**
@@ -340,6 +355,10 @@ public class SopServiceImpl implements SopService {
     @Transactional
     public void deleteDocument(Long sopDocumentId, SopViewer viewer) {
         SopDocument doc = editableDoc(sopDocumentId, viewer);
+        if (!sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId).isEmpty()) {
+            throw new BadRequestException("Staff have enrolled in this course, so it can't be deleted. Archive it instead: "
+                    + "it disappears for staff, and their results and certificates are kept.");
+        }
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
         if (!modules.isEmpty()) {
             List<Long> moduleIds = modules.stream().map(SopModule::getId).toList();
@@ -356,6 +375,57 @@ public class SopServiceImpl implements SopService {
         sopEnrollmentRepository.deleteAllBySopDocumentId(sopDocumentId);
         sopAssignmentRepository.deleteAllBySopDocumentId(sopDocumentId);
         sopDocumentRepository.delete(doc);
+    }
+
+    @Override
+    @Transactional
+    public SopDocumentDto archiveDocument(Long sopDocumentId, SopViewer viewer) {
+        SopDocument doc = getDocOrThrow(sopDocumentId);
+        SopAccess.requireEdit(doc, viewer);
+        if (!doc.isLive()) {
+            throw new BadRequestException(doc.isArchived() ? "This course is already archived." : "Only a live course can be archived.");
+        }
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        doc.setCourseStatus(SopCourseStatus.ARCHIVED);
+        doc.setArchivedAt(now);
+        doc.setUpdatedAt(now);
+        sopDocumentRepository.save(doc);
+
+        // FR-06-15: staff still taking it are withdrawn and told. Their quiz attempts stay, and completed records are kept.
+        List<SopEnrollment> enrollments = sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId);
+        List<SopEnrollment> withdrawn = enrollments.stream().filter(SopEnrollment::isActive).toList();
+        for (SopEnrollment e : withdrawn) {
+            e.setStatus(SopEnrollmentStatus.WITHDRAWN);
+            e.setUpdatedAt(now);
+            notificationService.notify(e.getStaffId(), NotificationType.COURSE_WITHDRAWN, "Course withdrawn: " + doc.getTitle(),
+                    "\"" + doc.getTitle() + "\" has been archived, so you have been withdrawn from it. "
+                            + "Your progress so far is kept in My Learning.",
+                    "/my-learning/course/" + doc.getId());
+        }
+        sopEnrollmentRepository.saveAll(withdrawn);
+        long completed = enrollments.stream().filter(e -> e.getStatus() == SopEnrollmentStatus.COMPLETED).count();
+        trainingAuditService.record(viewer.userId(), TrainingAuditAction.COURSE_ARCHIVED, TrainingAuditTarget.COURSE,
+                doc.getId().toString(), null, "Staff withdrawn: " + withdrawn.size() + ". Completed records kept: " + completed + ".");
+        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), false,
+                enrollments);
+    }
+
+    @Override
+    @Transactional
+    public SopDocumentDto restoreDocument(Long sopDocumentId, SopViewer viewer) {
+        SopDocument doc = viewableDoc(sopDocumentId, viewer); // its owner, HR or the Super Admin (FR-06-16)
+        if (!doc.isArchived()) {
+            throw new BadRequestException("This course is not archived.");
+        }
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        doc.setCourseStatus(SopCourseStatus.LIVE);
+        doc.setArchivedAt(null);
+        doc.setUpdatedAt(now);
+        sopDocumentRepository.save(doc);
+        trainingAuditService.record(viewer.userId(), TrainingAuditAction.COURSE_RESTORED, TrainingAuditTarget.COURSE,
+                doc.getId().toString(), null, "Live again. Staff who were withdrawn were not re-enrolled.");
+        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(),
+                editable(doc, viewer), sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
     }
 
     // === helpers ============================================================
@@ -389,11 +459,19 @@ public class SopServiceImpl implements SopService {
         return doc;
     }
 
-    /** The course, if the viewer may change it: only its owner can. */
+    /** The course, if the viewer may change it: only its owner can, and not while it is archived (FR-06-14). */
     private SopDocument editableDoc(Long id, SopViewer viewer) {
         SopDocument doc = getDocOrThrow(id);
         SopAccess.requireEdit(doc, viewer);
+        if (doc.isArchived()) {
+            throw new BadRequestException("This course is archived. Restore it before changing it.");
+        }
         return doc;
+    }
+
+    /** Whether the viewer may change the course now: its owner, while it is not archived. */
+    private static boolean editable(SopDocument doc, SopViewer viewer) {
+        return SopAccess.canEdit(doc, viewer) && !doc.isArchived();
     }
 
     private SopModule viewableModule(Long moduleId, SopViewer viewer) {
@@ -430,7 +508,7 @@ public class SopServiceImpl implements SopService {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, boolean editable) {
+    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, boolean editable, List<SopEnrollment> enrollments) {
         SopDocumentDto dto = new SopDocumentDto();
         dto.setId(d.getId());
         dto.setTitle(d.getTitle());
@@ -446,6 +524,10 @@ public class SopServiceImpl implements SopService {
         dto.setPassMark(d.getPassMark());
         dto.setDurationMinutes(d.effectiveDurationMinutes());
         dto.setDurationSet(d.getDurationMinutes() != null);
+        dto.setCourseStatus(d.getCourseStatus());
+        dto.setArchivedAt(d.getArchivedAt());
+        dto.setEnrolledCount(enrollments.size());
+        dto.setActiveEnrollmentCount((int) enrollments.stream().filter(SopEnrollment::isActive).count());
         return dto;
     }
 

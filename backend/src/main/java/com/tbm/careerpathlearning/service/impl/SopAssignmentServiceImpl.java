@@ -119,7 +119,8 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         SopAssignmentPreviewDto dto = new SopAssignmentPreviewDto();
         for (Staff s : recipients(request, staffRepository.findAllActiveWithRole())) {
             SopEnrollment e = enrolled.get(s.getId());
-            String outcome = e == null ? "NEW" : e.getStatus() == SopEnrollmentStatus.COMPLETED ? "COMPLETED" : "UPDATE";
+            String outcome = e == null || e.getStatus() == SopEnrollmentStatus.WITHDRAWN ? "NEW"
+                    : e.getStatus() == SopEnrollmentStatus.COMPLETED ? "COMPLETED" : "UPDATE";
             switch (outcome) {
                 case "NEW" -> dto.setNewCount(dto.getNewCount() + 1);
                 case "UPDATE" -> dto.setUpdateCount(dto.getUpdateCount() + 1);
@@ -166,8 +167,8 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         assignment.setCreatedAt(now);
         assignment = sopAssignmentRepository.save(assignment);
 
-        // One enrollment per person: new staff are enrolled, enrolled staff get the new terms,
-        // and anyone who already completed the course is left as they are.
+        // One enrollment per person: new staff are enrolled, enrolled staff get the new terms, anyone withdrawn
+        // starts again, and anyone who already completed the course is left as they are.
         Map<UUID, SopEnrollment> enrolled = enrollmentsByStaff(doc.getId());
         List<SopEnrollment> changed = new ArrayList<>();
         Set<UUID> newcomers = new HashSet<>();
@@ -180,11 +181,16 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
                 skipped++;
                 continue;
             }
-            if (e == null) {
-                e = new SopEnrollment();
-                e.setSopDocumentId(doc.getId());
-                e.setStaffId(s.getId());
+            if (e == null || e.getStatus() == SopEnrollmentStatus.WITHDRAWN) {
+                if (e == null) {
+                    e = new SopEnrollment();
+                    e.setSopDocumentId(doc.getId());
+                    e.setStaffId(s.getId());
+                }
+                // New to the course, or assigned again after being withdrawn (FR-06-16): a fresh start on these
+                // terms. Quiz attempts already made still count.
                 e.setStatus(SopEnrollmentStatus.NOT_STARTED);
+                e.setStartedAt(null);
                 e.setAssignedAt(now);
                 newcomers.add(s.getId());
                 assigned++;
@@ -288,9 +294,13 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
                 .orElse("Your trainer");
     }
 
-    /** Generated courses the user may assign: their own, or every course with CAN_ASSIGN_TRAINING. */
+    /**
+     * Live generated courses the user may assign: their own, or every course with CAN_ASSIGN_TRAINING. Archived
+     * courses can't be assigned (FR-06-14).
+     */
     private List<SopDocument> assignableDocs(UUID userId, boolean canAssignAny) {
         return sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
+                .filter(SopDocument::isLive)
                 .filter(d -> d.getGenerationStatus() == SopGenerationStatus.COMPLETED)
                 .filter(d -> canAssignAny || userId.equals(d.getUploadedBy()))
                 .toList();
@@ -306,6 +316,10 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         SopDocument doc = id == null ? null : sopDocumentRepository.findById(id).orElse(null);
         if (doc == null || doc.isDeleted()) {
             throw new BadRequestException("Select a course to assign.");
+        }
+        if (!doc.isLive()) {
+            throw new BadRequestException(doc.isArchived() ? "This course is archived. Restore it first."
+                    : "Only the live version of a course can be assigned.");
         }
         return doc;
     }

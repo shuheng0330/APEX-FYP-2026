@@ -1,8 +1,11 @@
 import { SopAssignmentMode } from './sop-assignment.model';
 import { LearningModuleState } from './sop-learning.model';
 
-/** COMPLETED means certified: every module's quiz passed. RETRAINING: a failed quiz not passed yet. */
-export type ScoreboardStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'RETRAINING' | 'COMPLETED';
+/**
+ * COMPLETED means certified: every module's quiz passed. RETRAINING: a failed quiz not passed yet. WITHDRAWN: the
+ * course was archived before they finished (FR-06-15).
+ */
+export type ScoreboardStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'RETRAINING' | 'COMPLETED' | 'WITHDRAWN';
 
 /** One staff member's enrolment in one course (FR-10-01). */
 export interface ScoreboardRecord {
@@ -13,6 +16,8 @@ export interface ScoreboardRecord {
   department?: string | null;
   sopDocumentId: number;
   courseTitle: string;
+  /** The course was archived; its records stay here (FR-06-14). */
+  courseArchived: boolean;
   moduleCount: number;
   modulesPassed: number;
   status: ScoreboardStatus;
@@ -35,7 +40,7 @@ export interface ScoreboardRecord {
 }
 
 export interface Scoreboard {
-  courses: { id: number; title: string }[];
+  courses: { id: number; title: string; archived: boolean }[];
   departments: string[];
   records: ScoreboardRecord[];
   generatedAt: string;

@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.model;
 
+import com.tbm.careerpathlearning.enums.SopCourseStatus;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import com.tbm.careerpathlearning.enums.SopVisibility;
 import jakarta.persistence.*;
@@ -75,6 +76,18 @@ public class SopDocument {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
+    /**
+     * Live, Draft, Superseded or Archived (FR-06-14, NFR-010). The column default makes existing courses Live when
+     * the column is added.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "course_status", nullable = false, columnDefinition = "varchar(20) default 'LIVE' not null")
+    private SopCourseStatus courseStatus = SopCourseStatus.LIVE;
+
+    /** When the course was archived; null unless it is archived. */
+    @Column(name = "archived_at")
+    private OffsetDateTime archivedAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -84,5 +97,14 @@ public class SopDocument {
     /** The duration that counts: the trainer's estimate, or the default until they set one. */
     public int effectiveDurationMinutes() {
         return durationMinutes != null ? durationMinutes : DEFAULT_DURATION_MINUTES;
+    }
+
+    /** The version staff are assigned, join and take. */
+    public boolean isLive() {
+        return courseStatus == SopCourseStatus.LIVE;
+    }
+
+    public boolean isArchived() {
+        return courseStatus == SopCourseStatus.ARCHIVED;
     }
 }

@@ -45,6 +45,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
     static final String IN_PROGRESS = "IN_PROGRESS";
     static final String RETRAINING = "RETRAINING";
     static final String COMPLETED = "COMPLETED";
+    static final String WITHDRAWN = "WITHDRAWN";
 
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
@@ -71,6 +72,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
                     SopScoreboardDto.Course c = new SopScoreboardDto.Course();
                     c.setId(d.getId());
                     c.setTitle(d.getTitle());
+                    c.setArchived(d.isArchived());
                     dto.getCourses().add(c);
                 });
         if (enrollments.isEmpty()) {
@@ -163,12 +165,13 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         r.setDepartment(department == null ? null : department.getName());
         r.setSopDocumentId(doc.getId());
         r.setCourseTitle(doc.getTitle());
+        r.setCourseArchived(doc.isArchived());
         r.setModuleCount(progress.modules().size());
         r.setModulesPassed(progress.passed());
         r.setStatus(status(e, progress));
         LocalDate due = e.dueDate();
         r.setDueDate(due);
-        r.setOverdue(e.getStatus() != SopEnrollmentStatus.COMPLETED && due != null && due.isBefore(LocalDate.now(clock)));
+        r.setOverdue(e.isActive() && due != null && due.isBefore(LocalDate.now(clock)));
         r.setMandatory(e.isMandatory());
         r.setMode(e.getMode());
         r.setSelfEnrolled(e.getAssignmentId() == null);
@@ -186,10 +189,16 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         return r;
     }
 
-    /** Completed, in retraining after a failed quiz (FR-10-04), in progress, or not started. */
+    /**
+     * Completed, withdrawn from an archived course (FR-06-15), in retraining after a failed quiz (FR-10-04), in
+     * progress, or not started.
+     */
     static String status(SopEnrollment e, SopProgress progress) {
         if (e.getStatus() == SopEnrollmentStatus.COMPLETED) {
             return COMPLETED;
+        }
+        if (e.getStatus() == SopEnrollmentStatus.WITHDRAWN) {
+            return WITHDRAWN;
         }
         if (progress.retraining()) {
             return RETRAINING;

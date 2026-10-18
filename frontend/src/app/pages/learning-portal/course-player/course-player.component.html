@@ -77,6 +77,7 @@
                   <nz-tag [nzColor]="d.course.selfEnrolled ? 'blue' : d.course.mode === 'IMMEDIATE' ? 'volcano' : 'cyan'">{{ modeLabel }}</nz-tag>
                   @if (d.course.retraining) { <nz-tag nzColor="gold">Practice mode</nz-tag> }
                   @if (d.course.overdue) { <nz-tag nzColor="red">Overdue</nz-tag> }
+                  @if (d.course.courseArchived) { <nz-tag>Archived</nz-tag> }
                 </div>
                 <dl class="facts">
                   <div><dt>Progress</dt><dd>{{ d.course.modulesPassed }} of {{ d.course.moduleCount }} modules passed</dd></div>
@@ -85,7 +86,17 @@
                   <div><dt>Status</dt><dd>{{ statusText }}</dd></div>
                 </dl>
 
-                @if (!d.course.available) {
+                @if (d.course.status === 'WITHDRAWN') {
+                  <div class="notice info">
+                    <nz-icon nzType="stop"></nz-icon>
+                    <span>You were withdrawn from this course{{ d.course.courseArchived ? ' when it was archived' : '' }}. Your progress so far is kept here.</span>
+                  </div>
+                } @else if (d.course.courseArchived) {
+                  <div class="notice info">
+                    <nz-icon nzType="inbox"></nz-icon>
+                    <span>This course has been archived, so it can't be taken any more. Your result{{ d.certificate ? ' and certificate are' : ' is' }} kept.</span>
+                  </div>
+                } @else if (!d.course.available) {
                   <div class="notice info">
                     <nz-icon nzType="calendar"></nz-icon>
                     <span>This course opens on {{ d.course.effectiveDate | date: 'd MMM yyyy' }}.</span>

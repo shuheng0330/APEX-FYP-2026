@@ -13,6 +13,8 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { SopService } from '../../../services/sop.service';
+import { CourseView } from '../sop.util';
+import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 import {
   QuizDifficulty, QuizQuestionType, QuizReviewAction, QuizReviewEvent, SopDocument, SopModule, SopQuizQuestion
 } from '../../../models/sop.model';
@@ -57,7 +59,7 @@ const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = 
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzTagModule, NzSelectModule, NzRadioModule,
-    NzIconModule, NzSpinModule, NzEmptyModule
+    NzIconModule, NzSpinModule, NzEmptyModule, CourseArchivedNoteComponent
   ],
   templateUrl: './sop-quiz-review.component.html',
   styleUrls: ['./sop-quiz-review.component.scss']
@@ -65,6 +67,8 @@ const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = 
 export class SopQuizReviewComponent implements OnInit {
 
   completedSops: SopDocument[] = [];
+  /** The picker lists current courses, or archived ones (FR-06-14, FR-06-16). */
+  view: CourseView = 'CURRENT';
   selectedSopId: number | null = null;
   document?: SopDocument;
   modules: SopModule[] = [];
@@ -102,14 +106,36 @@ export class SopQuizReviewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.sopService.list().subscribe(docs => {
+    this.loadList();
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {
+      this.selectedSopId = +idParam;
+      this.loadDetail(this.selectedSopId);
+    }
+  }
+
+  private loadList(): void {
+    this.sopService.list(false, this.view === 'ARCHIVED').subscribe(docs => {
       this.completedSops = docs.filter(d => d.generationStatus === 'COMPLETED');
-      const idParam = this.route.snapshot.paramMap.get('id');
-      if (idParam) {
-        this.selectedSopId = +idParam;
-        this.loadDetail(this.selectedSopId);
-      }
     });
+  }
+
+  setView(view: CourseView): void {
+    if (view === this.view || this.regenerating) return;
+    this.view = view;
+    this.document = undefined;
+    this.modules = [];
+    this.selectedSopId = null;
+    this.selectedModuleId = null;
+    this.router.navigate(['/sop/quiz-review']);
+    this.loadList();
+  }
+
+  /** A restored course is current again, and its owner can change it. */
+  onRestored(doc: SopDocument): void {
+    this.view = 'CURRENT';
+    this.loadList();
+    this.loadDetail(doc.id);
   }
 
   /**
@@ -141,6 +167,12 @@ export class SopQuizReviewComponent implements OnInit {
         this.document = detail.document;
         this.modules = detail.modules;
         this.loading = false;
+        // A link to an archived course opens it under the Archived list, and a restored one under Current.
+        const view: CourseView = detail.document.courseStatus === 'ARCHIVED' ? 'ARCHIVED' : 'CURRENT';
+        if (view !== this.view) {
+          this.view = view;
+          this.loadList();
+        }
         const keep = this.modules.find(m => m.id === this.selectedModuleId);
         const first = keep ?? this.modules[0];
         if (first) {

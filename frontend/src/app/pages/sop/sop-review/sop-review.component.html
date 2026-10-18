@@ -5,16 +5,25 @@
       <h1>Generated Material Review</h1>
       <p>Review and approve AI-generated training material before it becomes a course.</p>
     </div>
-    <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)" nzPlaceHolder="Select a completed SOP">
-      @for (s of completedSops; track s.id) {
-        <nz-option [nzValue]="s.id" [nzLabel]="s.title + ' (' + s.moduleCount + ' modules)'"></nz-option>
-      }
-    </nz-select>
+    <div class="course-picker">
+      <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" aria-label="Which courses">
+        <label nz-radio-button nzValue="CURRENT">Current</label>
+        <label nz-radio-button nzValue="ARCHIVED">Archived</label>
+      </nz-radio-group>
+      <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
+                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a completed SOP'">
+        @for (s of completedSops; track s.id) {
+          <nz-option [nzValue]="s.id" [nzLabel]="s.title + ' (' + s.moduleCount + ' modules)'"></nz-option>
+        }
+      </nz-select>
+    </div>
   </div>
 
   <nz-spin [nzSpinning]="loading">
     @if (!loading && !document) {
-      <div class="empty-workbench surface-panel"><nz-empty nzNotFoundContent="Select a completed SOP to begin reviewing"></nz-empty></div>
+      <div class="empty-workbench surface-panel">
+        <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'Select an archived course to view or restore it' : 'Select a completed SOP to begin reviewing'"></nz-empty>
+      </div>
     }
 
     @if (document) {
@@ -25,7 +34,9 @@
           <div class="document-summary">
             <span class="section-kicker">Selected SOP</span>
             <h2>{{ document.title }}</h2>
-            @if (!document.editable) {
+            @if (document.courseStatus === 'ARCHIVED') {
+              <app-course-archived-note [document]="document" (restored)="onRestored($event)"></app-course-archived-note>
+            } @else if (!document.editable) {
               <p class="read-only-note"><nz-icon nzType="lock"></nz-icon>
                 Read only. Only {{ document.preparedByName || 'the course owner' }} can edit, approve or reject it.</p>
             }

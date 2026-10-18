@@ -98,6 +98,11 @@ public class SopEnrollment {
         return deadline != null && deadline.isBefore(window) ? deadline : window;
     }
 
+    /** Still to be finished: not started or in progress, rather than completed or withdrawn (FR-06-15). */
+    public boolean isActive() {
+        return status == SopEnrollmentStatus.NOT_STARTED || status == SopEnrollmentStatus.IN_PROGRESS;
+    }
+
     /** The SOP certificate's number (FR-11-03), stable for this enrolment. */
     public String certificateNo() {
         return String.format("APEX-SOP-%d-%05d", sopDocumentId, id);

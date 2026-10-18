@@ -1,0 +1,11 @@
+<div class="archived-note" role="status">
+  <nz-icon nzType="inbox" class="archived-icon"></nz-icon>
+  <div class="archived-copy">
+    <strong>Archived{{ document.archivedAt ? ' on ' + (document.archivedAt | date: 'd MMM yyyy') : '' }}</strong>
+    <span>Staff can't see, join or be assigned this course. Its certificates and scores are kept, and it can't be changed until it is restored.</span>
+  </div>
+  <button nz-button nzSize="small" nz-popconfirm [nzPopconfirmTitle]="restoreQuestion" nzOkText="Restore"
+          (nzOnConfirm)="restore()" [nzLoading]="restoring">
+    <nz-icon nzType="rollback"></nz-icon>Restore
+  </button>
+</div>

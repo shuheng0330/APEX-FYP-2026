@@ -60,8 +60,9 @@ public class SopController {
     /** @param mine only the signed-in person's own courses, as on the upload page */
     @GetMapping
     public ResponseEntity<?> list(@RequestParam(value = "mine", defaultValue = "false") boolean mine,
+                                  @RequestParam(value = "archived", defaultValue = "false") boolean archived,
                                   Authentication authentication) {
-        return ResponseEntity.ok(sopService.listDocuments(viewer(authentication), mine));
+        return ResponseEntity.ok(sopService.listDocuments(viewer(authentication), mine, archived));
     }
 
     @GetMapping("/{id}")
@@ -85,6 +86,19 @@ public class SopController {
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication authentication) {
         sopService.deleteDocument(id, viewer(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    /** Archives a course staff have enrolled in, instead of deleting it (FR-06-14, FR-06-15). Only its owner may. */
+    @PostMapping("/{id}/archive")
+    @PreAuthorize(CHANGE)
+    public ResponseEntity<?> archive(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(sopService.archiveDocument(id, viewer(authentication)));
+    }
+
+    /** Makes an archived course Live again (FR-06-16): its owner, HR or the Super Admin. */
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<?> restore(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(sopService.restoreDocument(id, viewer(authentication)));
     }
 
     /** The course's own pass mark and estimated duration (FR-07-15); its owner only. */

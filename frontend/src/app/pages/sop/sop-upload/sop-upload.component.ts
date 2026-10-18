@@ -15,8 +15,11 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
+import { CourseView, RESTORE_QUESTION } from '../sop.util';
 
 @Component({
   selector: 'app-sop-upload',
@@ -24,7 +27,8 @@ import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzFormModule, NzTableModule,
-    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule, NzAlertModule
+    NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule, NzAlertModule,
+    NzModalModule, NzRadioModule
   ],
   templateUrl: './sop-upload.component.html',
   styleUrls: ['./sop-upload.component.scss']
@@ -40,9 +44,17 @@ export class SopUploadComponent implements OnInit, OnDestroy {
   documents: SopDocument[] = [];
   private pollSub?: Subscription;
 
+  /** Your current courses, or the ones you archived (FR-06-14). */
+  view: CourseView = 'CURRENT';
+  archived: SopDocument[] = [];
+  loadingArchived = false;
+  busy: Record<number, boolean> = {};
+  readonly restoreQuestion = RESTORE_QUESTION;
+
   constructor(
     private sopService: SopService,
     private message: NzMessageService,
+    private modal: NzModalService,
     private router: Router
   ) {}
 
@@ -118,6 +130,77 @@ export class SopUploadComponent implements OnInit, OnDestroy {
         this.message.success('SOP deleted.');
       },
       error: err => this.message.error(err?.error?.message || 'Delete failed.')
+    });
+  }
+
+  // --- archive and restore (FR-06-14 to FR-06-16) ---
+
+  get shown(): SopDocument[] {
+    return this.view === 'ARCHIVED' ? this.archived : this.documents;
+  }
+
+  setView(view: CourseView): void {
+    this.view = view;
+    if (view === 'ARCHIVED') {
+      this.loadArchived();
+    }
+  }
+
+  private loadArchived(): void {
+    this.loadingArchived = true;
+    this.sopService.list(true, true).subscribe({
+      next: docs => { this.archived = docs; this.loadingArchived = false; },
+      error: () => { this.loadingArchived = false; }
+    });
+  }
+
+  /** What archiving does to the course's staff, for the confirmation (FR-06-14, FR-06-15). */
+  archiveSummary(doc: SopDocument): string {
+    const active = doc.activeEnrollmentCount;
+    const others = doc.enrolledCount - active;
+    const withdrawn = active
+      ? `${active} ${active === 1 ? 'person' : 'people'} still taking it will be withdrawn and notified; their progress is kept. `
+      : 'Nobody is part-way through it. ';
+    const kept = others ? `Records for the ${others} other${others === 1 ? '' : 's'} enrolled stay, with any certificates. ` : '';
+    return withdrawn + kept + 'It disappears from the Learning Portal, Assign Training and the review lists. You can restore it later.';
+  }
+
+  archive(doc: SopDocument): void {
+    this.modal.confirm({
+      nzTitle: `Archive "${doc.title}"?`,
+      nzContent: this.archiveSummary(doc),
+      nzOkText: 'Archive',
+      nzOkDanger: true,
+      nzCancelText: 'Cancel',
+      nzOnOk: () => this.confirmArchive(doc)
+    });
+  }
+
+  private confirmArchive(doc: SopDocument): void {
+    this.busy[doc.id] = true;
+    this.sopService.archive(doc.id).subscribe({
+      next: archived => {
+        this.busy[doc.id] = false;
+        this.documents = this.documents.filter(d => d.id !== doc.id);
+        this.archived = [archived, ...this.archived.filter(d => d.id !== doc.id)];
+        const withdrawn = doc.activeEnrollmentCount;
+        this.message.success(`"${doc.title}" archived.` + (withdrawn
+          ? ` ${withdrawn} ${withdrawn === 1 ? 'person was' : 'people were'} withdrawn and notified.` : ''));
+      },
+      error: () => { this.busy[doc.id] = false; }
+    });
+  }
+
+  restore(doc: SopDocument): void {
+    this.busy[doc.id] = true;
+    this.sopService.restore(doc.id).subscribe({
+      next: live => {
+        this.busy[doc.id] = false;
+        this.archived = this.archived.filter(d => d.id !== doc.id);
+        this.documents = [live, ...this.documents.filter(d => d.id !== doc.id)];
+        this.message.success(`"${live.title}" is Live again.`);
+      },
+      error: () => { this.busy[doc.id] = false; }
     });
   }
 

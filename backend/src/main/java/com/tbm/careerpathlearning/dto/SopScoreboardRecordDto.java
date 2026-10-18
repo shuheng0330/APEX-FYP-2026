@@ -17,11 +17,13 @@ public class SopScoreboardRecordDto {
     private String department;
     private Long sopDocumentId;
     private String courseTitle;
+    /** The course was archived; its records stay on the Scoreboard (FR-06-14). */
+    private boolean courseArchived;
     private int moduleCount;
     private int modulesPassed;
     /**
      * NOT_STARTED, IN_PROGRESS, RETRAINING (a module's quiz was failed and is not passed yet,
-     * FR-10-04) or COMPLETED.
+     * FR-10-04), COMPLETED, or WITHDRAWN (the course was archived before they finished, FR-06-15).
      */
     private String status;
     private boolean overdue;

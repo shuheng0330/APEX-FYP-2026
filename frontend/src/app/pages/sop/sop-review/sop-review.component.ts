@@ -15,6 +15,7 @@ import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SopService } from '../../../services/sop.service';
 import {
@@ -22,7 +23,8 @@ import {
 } from '../../../models/sop.model';
 import { environment } from '../../../../environments/environment';
 import { SopContentViewComponent, parseRichContent } from '../../../components/sop-content-view/sop-content-view.component';
-import { MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, formatDuration } from '../sop.util';
+import { CourseView, MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, formatDuration } from '../sop.util';
+import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 
 @Component({
   selector: 'app-sop-review',
@@ -30,7 +32,8 @@ import { MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, formatDuration } from '../s
   imports: [
     CommonModule, FormsModule, RouterModule, DragDropModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
-    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, NzInputNumberModule, SopContentViewComponent
+    NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, NzInputNumberModule, SopContentViewComponent,
+    NzRadioModule, CourseArchivedNoteComponent
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']
@@ -38,6 +41,8 @@ import { MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, formatDuration } from '../s
 export class SopReviewComponent implements OnInit {
 
   completedSops: SopDocument[] = [];
+  /** The picker lists current courses, or archived ones (FR-06-14, FR-06-16). */
+  view: CourseView = 'CURRENT';
   selectedSopId: number | null = null;
   document?: SopDocument;
   modules: SopModule[] = [];
@@ -66,14 +71,35 @@ export class SopReviewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.sopService.list().subscribe(docs => {
+    this.loadList();
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {
+      this.selectedSopId = +idParam;
+      this.loadDetail(this.selectedSopId);
+    }
+  }
+
+  private loadList(): void {
+    this.sopService.list(false, this.view === 'ARCHIVED').subscribe(docs => {
       this.completedSops = docs.filter(d => d.generationStatus === 'COMPLETED');
-      const idParam = this.route.snapshot.paramMap.get('id');
-      if (idParam) {
-        this.selectedSopId = +idParam;
-        this.loadDetail(this.selectedSopId);
-      }
     });
+  }
+
+  setView(view: CourseView): void {
+    if (view === this.view) return;
+    this.view = view;
+    this.document = undefined;
+    this.modules = [];
+    this.selectedSopId = null;
+    this.router.navigate(['/sop/review']);
+    this.loadList();
+  }
+
+  /** A restored course is current again, and its owner can change it. */
+  onRestored(doc: SopDocument): void {
+    this.view = 'CURRENT';
+    this.loadList();
+    this.loadDetail(doc.id);
   }
 
   onSelectSop(id: number): void {
@@ -89,6 +115,12 @@ export class SopReviewComponent implements OnInit {
         this.document = detail.document;
         this.modules = detail.modules;
         this.resetSettings();
+        // A link to an archived course opens it under the Archived list, and a restored one under Current.
+        const view: CourseView = detail.document.courseStatus === 'ARCHIVED' ? 'ARCHIVED' : 'CURRENT';
+        if (view !== this.view) {
+          this.view = view;
+          this.loadList();
+        }
         if (!this.selectedModuleId || !this.modules.some(m => m.id === this.selectedModuleId)) {
           this.selectedModuleId = this.modules[0]?.id ?? null;
         }

@@ -25,8 +25,9 @@ public interface SopService {
      * The courses the viewer may see, newest first.
      *
      * @param mineOnly only the viewer's own courses, as on the upload page
+     * @param archived  the archived courses instead of the current ones (FR-06-14, FR-06-16)
      */
-    List<SopDocumentDto> listDocuments(SopViewer viewer, boolean mineOnly);
+    List<SopDocumentDto> listDocuments(SopViewer viewer, boolean mineOnly, boolean archived);
 
     SopDetailDto getDetail(Long sopDocumentId, SopViewer viewer);
 
@@ -35,7 +36,21 @@ public interface SopService {
     /** Re-run parse + AI generation for an existing document (e.g. after a transient failure). */
     SopDocumentDto regenerateDocument(Long sopDocumentId, SopViewer viewer);
 
+    /** Deletes a course nobody has enrolled in, with everything generated for it (FR-06-14). Only its owner may. */
     void deleteDocument(Long sopDocumentId, SopViewer viewer);
+
+    /**
+     * Archives a live course (FR-06-14): it leaves the Learning Portal, Assign Training and the review lists, and
+     * staff still taking it are withdrawn and told (FR-06-15). Completed records and certificates are kept. Only
+     * its owner may.
+     */
+    SopDocumentDto archiveDocument(Long sopDocumentId, SopViewer viewer);
+
+    /**
+     * Makes an archived course Live again (FR-06-16): its owner, HR or the Super Admin may. Withdrawn staff are not
+     * re-enrolled (decision D3); the course can be assigned to them again.
+     */
+    SopDocumentDto restoreDocument(Long sopDocumentId, SopViewer viewer);
 
     /**
      * Sets the course's own pass mark and estimated duration (FR-07-15). Only its owner may. Staff already

@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.dto;
 
+import com.tbm.careerpathlearning.enums.SopCourseStatus;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import lombok.Data;
 
@@ -31,4 +32,16 @@ public class SopDocumentDto {
 
     /** Whether the trainer has set the estimated duration; until then the default counts and they are reminded. */
     private boolean durationSet;
+
+    /** Live or Archived (FR-06-14); Draft and Superseded arrive with versions. */
+    private SopCourseStatus courseStatus;
+
+    /** When it was archived; null unless it is archived. */
+    private OffsetDateTime archivedAt;
+
+    /** Everyone ever enrolled, in any status. A course anyone has enrolled in is archived, never deleted. */
+    private int enrolledCount;
+
+    /** Staff still taking it, not started or in progress: archiving withdraws them (FR-06-15). */
+    private int activeEnrollmentCount;
 }

@@ -25,8 +25,9 @@ export class SopService {
    * The courses you may see: your own, plus (for HR and the Super Admin) everyone else's read-only.
    * @param mine only your own courses, as on the upload page
    */
-  list(mine = false): Observable<SopDocument[]> {
-    return this.http.get<SopDocument[]>(this.baseUrl, { params: { mine }, withCredentials: true });
+  /** `archived` lists the archived courses instead of the current ones (FR-06-14, FR-06-16). */
+  list(mine = false, archived = false): Observable<SopDocument[]> {
+    return this.http.get<SopDocument[]>(this.baseUrl, { params: { mine, archived }, withCredentials: true });
   }
 
   /** The course's own pass mark and estimated duration (FR-07-15); its owner only. */
@@ -48,6 +49,16 @@ export class SopService {
 
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`, { withCredentials: true });
+  }
+
+  /** Archives a course staff have enrolled in; those still taking it are withdrawn and told (FR-06-14, FR-06-15). */
+  archive(id: number): Observable<SopDocument> {
+    return this.http.post<SopDocument>(`${this.baseUrl}/${id}/archive`, {}, { withCredentials: true });
+  }
+
+  /** Makes an archived course Live again (FR-06-16). */
+  restore(id: number): Observable<SopDocument> {
+    return this.http.post<SopDocument>(`${this.baseUrl}/${id}/restore`, {}, { withCredentials: true });
   }
 
   // --- Module 2: material review (FR-09) ---

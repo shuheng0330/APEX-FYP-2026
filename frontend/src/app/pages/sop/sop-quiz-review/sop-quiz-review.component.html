@@ -5,19 +5,32 @@
       <h1>Quiz Review</h1>
       <p>Approve each module's quiz before staff can take it, or reject it with a reason so the AI rewrites it.</p>
     </div>
-    <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)" nzPlaceHolder="Select a course" [nzDisabled]="regenerating">
-      @for (s of completedSops; track s.id) {
-        <nz-option [nzValue]="s.id" [nzLabel]="s.title + ' (' + s.moduleCount + ' modules)'"></nz-option>
-      }
-    </nz-select>
+    <div class="course-picker">
+      <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" [nzDisabled]="regenerating"
+                      aria-label="Which courses">
+        <label nz-radio-button nzValue="CURRENT">Current</label>
+        <label nz-radio-button nzValue="ARCHIVED">Archived</label>
+      </nz-radio-group>
+      <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
+                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a course'" [nzDisabled]="regenerating">
+        @for (s of completedSops; track s.id) {
+          <nz-option [nzValue]="s.id" [nzLabel]="s.title + ' (' + s.moduleCount + ' modules)'"></nz-option>
+        }
+      </nz-select>
+    </div>
   </div>
 
   <nz-spin [nzSpinning]="loading">
     @if (!loading && !document) {
-      <div class="empty-workbench surface-panel"><nz-empty nzNotFoundContent="Select a course to review its quizzes"></nz-empty></div>
+      <div class="empty-workbench surface-panel">
+        <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'Select an archived course to view or restore it' : 'Select a course to review its quizzes'"></nz-empty>
+      </div>
     }
 
     @if (document) {
+      @if (document.courseStatus === 'ARCHIVED') {
+        <app-course-archived-note [document]="document" (restored)="onRestored($event)"></app-course-archived-note>
+      }
       <div class="quiz-workbench">
 
         <!-- Left: one quiz per module -->
@@ -144,7 +157,11 @@
               </div>
             } @else if (!document.editable) {
               <p class="muted read-only-note"><nz-icon nzType="lock"></nz-icon>
-                Read only. Only {{ document.preparedByName || 'the course owner' }} can approve or reject this quiz.</p>
+                @if (document.courseStatus === 'ARCHIVED') {
+                  Archived. Restore the course before changing its quizzes.
+                } @else {
+                  Read only. Only {{ document.preparedByName || 'the course owner' }} can approve or reject this quiz.
+                }</p>
             } @else {
               <p class="muted">Staff cannot see this quiz until you approve it.</p>
               <button nz-button nzType="primary" nzBlock [nzLoading]="busy && !regenerating"

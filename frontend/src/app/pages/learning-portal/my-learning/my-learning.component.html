@@ -253,10 +253,12 @@
       <div class="card-foot">
         <span class="badge" [style.color]="th.ink" [style.background]="th.tint">{{ c.category }}</span>
         <span class="due" [class.late]="c.overdue">
-          @if (!c.available) {
-            Opens {{ c.effectiveDate | date: 'd MMM' }}
+          @if (c.status === 'WITHDRAWN') {
+            Withdrawn
           } @else if (c.status === 'COMPLETED') {
-            Done {{ c.completedAt | date: 'd MMM' }}
+            Done {{ c.completedAt | date: 'd MMM' }}{{ c.courseArchived ? ' · Archived' : '' }}
+          } @else if (!c.available) {
+            Opens {{ c.effectiveDate | date: 'd MMM' }}
           } @else if (c.overdue) {
             Overdue
           } @else if (c.dueDate) {
