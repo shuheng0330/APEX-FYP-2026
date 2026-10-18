@@ -1,7 +1,8 @@
 import { QuizDifficulty, QuizQuestionType } from './sop.model';
 import { SopAssignmentMode } from './sop-assignment.model';
 
-export type SopEnrollmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+/** WITHDRAWN: the course was archived before they finished it; their progress is kept (FR-06-15). */
+export type SopEnrollmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'WITHDRAWN';
 
 /**
  * A module's state for the learner: LOCKED until the previous module is passed, AVAILABLE to
@@ -32,8 +33,10 @@ export interface LearningCourse {
   modulesPassed: number;
   retraining: boolean;
   overdue: boolean;
-  /** False until the effective date. */
+  /** Whether it can be worked on: false until the effective date, and once withdrawn or archived. */
   available: boolean;
+  /** The course was archived (FR-06-14): results and certificates are kept, but it can't be taken. */
+  courseArchived?: boolean;
   finalScore?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;

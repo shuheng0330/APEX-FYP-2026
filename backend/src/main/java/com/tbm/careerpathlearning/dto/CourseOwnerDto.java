@@ -20,4 +20,6 @@ public class CourseOwnerDto {
     private boolean needsNewOwner;
     private int enrolledCount;
     private OffsetDateTime createdAt;
+    /** Archived courses still have an owner, who can change them once restored. */
+    private boolean archived;
 }

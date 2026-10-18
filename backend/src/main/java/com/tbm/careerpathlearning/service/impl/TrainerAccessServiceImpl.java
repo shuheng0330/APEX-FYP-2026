@@ -311,6 +311,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         dto.setNeedsNewOwner(status.needsNewOwner());
         dto.setEnrolledCount(enrolledCount);
         dto.setCreatedAt(course.getCreatedAt());
+        dto.setArchived(course.isArchived());
         return dto;
     }
 

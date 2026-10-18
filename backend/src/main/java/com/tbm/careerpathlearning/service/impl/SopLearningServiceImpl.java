@@ -80,14 +80,16 @@ public class SopLearningServiceImpl implements SopLearningService {
             if (doc == null || doc.isDeleted()) {
                 continue;
             }
-            enrolled.add(doc.getId());
+            if (e.getStatus() != SopEnrollmentStatus.WITHDRAWN) {
+                enrolled.add(doc.getId()); // someone withdrawn can join an Open course again once it is restored
+            }
             dto.getCourses().add(toCourseDto(progress(e, doc)));
         }
         dto.getCourses().sort(Comparator
                 .comparing((SopLearningCourseDto c) -> c.getDueDate() == null ? LocalDate.MAX : c.getDueDate())
                 .thenComparing(SopLearningCourseDto::getTitle, String.CASE_INSENSITIVE_ORDER));
         for (SopDocument doc : sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc()) {
-            if (doc.getVisibility() == SopVisibility.OPEN && !enrolled.contains(doc.getId())) {
+            if (doc.isLive() && doc.getVisibility() == SopVisibility.OPEN && !enrolled.contains(doc.getId())) {
                 SopCourseReadiness.Readiness readiness = sopCourseReadiness.of(doc);
                 if (readiness.ready()) {
                     dto.getOpenCourses().add(openCourseDto(doc, readiness.modules()));
@@ -101,21 +103,29 @@ public class SopLearningServiceImpl implements SopLearningService {
     @Transactional
     public SopLearningCourseDto enrol(Long sopDocumentId, UUID staffId) {
         SopDocument doc = docOrThrow(sopDocumentId);
-        if (doc.getVisibility() != SopVisibility.OPEN || !sopCourseReadiness.of(doc).ready()) {
+        if (!doc.isLive() || doc.getVisibility() != SopVisibility.OPEN || !sopCourseReadiness.of(doc).ready()) {
             throw new BadRequestException("This course is not open for enrolment.");
         }
         SopEnrollment e = sopEnrollmentRepository.findBySopDocumentIdAndStaffId(sopDocumentId, staffId).orElse(null);
-        if (e == null) {
+        if (e == null || e.getStatus() == SopEnrollmentStatus.WITHDRAWN) {
             OffsetDateTime now = OffsetDateTime.now(clock);
-            e = new SopEnrollment();
-            e.setSopDocumentId(sopDocumentId);
-            e.setStaffId(staffId);
+            if (e == null) {
+                e = new SopEnrollment();
+                e.setSopDocumentId(sopDocumentId);
+                e.setStaffId(staffId);
+            }
+            // Joining, or joining again after being withdrawn: Open-course terms and a fresh start. Quiz attempts
+            // already made still count (FR-06-15).
+            e.setAssignmentId(null);
             e.setMode(SopAssignmentMode.PORTAL);
             e.setMandatory(false);
             e.setEffectiveDate(LocalDate.now(clock));
+            e.setDeadline(null);
+            e.setDaysToComplete(null);
             e.setPassMark(doc.getPassMark());
             e.setDurationMinutes(doc.effectiveDurationMinutes());
             e.setStatus(SopEnrollmentStatus.NOT_STARTED);
+            e.setStartedAt(null);
             e.setAssignedAt(now);
             e.setUpdatedAt(now);
             e = sopEnrollmentRepository.save(e);
@@ -136,7 +146,7 @@ public class SopLearningServiceImpl implements SopLearningService {
     public SopLearningCourseDetailDto start(Long sopDocumentId, UUID staffId) {
         SopDocument doc = docOrThrow(sopDocumentId);
         SopEnrollment e = enrollmentOrThrow(sopDocumentId, staffId);
-        checkAvailable(e);
+        checkAvailable(e, doc);
         ensureStarted(e);
         return detail(progress(e, doc), staffId);
     }
@@ -285,7 +295,7 @@ public class SopLearningServiceImpl implements SopLearningService {
                 .orElseThrow(() -> new BadRequestException("Module not found."));
         SopDocument doc = docOrThrow(module.getSopDocumentId());
         SopEnrollment e = enrollmentOrThrow(doc.getId(), staffId);
-        checkAvailable(e);
+        checkAvailable(e, doc);
         SopProgress.Module current = progress(e, doc).course().of(moduleId);
         if (SopProgress.LOCKED.equals(current.state())) {
             throw new BadRequestException("Pass the previous module's quiz to unlock this module.");
@@ -302,7 +312,14 @@ public class SopLearningServiceImpl implements SopLearningService {
         }
     }
 
-    private void checkAvailable(SopEnrollment e) {
+    /** The learner can work on the course: not withdrawn, the course not archived, and its effective date reached. */
+    private void checkAvailable(SopEnrollment e, SopDocument doc) {
+        if (e.getStatus() == SopEnrollmentStatus.WITHDRAWN) {
+            throw new BadRequestException("You were withdrawn from this course, so it can't be continued.");
+        }
+        if (doc.isArchived()) {
+            throw new BadRequestException("This course has been archived, so it can't be taken any more.");
+        }
         if (e.getEffectiveDate() != null && e.getEffectiveDate().isAfter(LocalDate.now(clock))) {
             throw new BadRequestException("This course opens on "
                     + e.getEffectiveDate().format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)) + ".");
@@ -391,8 +408,10 @@ public class SopLearningServiceImpl implements SopLearningService {
         dto.setPassMark(e.getPassMark());
         dto.setModulesPassed(p.course().passed());
         dto.setRetraining(p.course().retraining());
-        dto.setOverdue(e.getStatus() != SopEnrollmentStatus.COMPLETED && due != null && due.isBefore(today));
-        dto.setAvailable(e.getEffectiveDate() == null || !e.getEffectiveDate().isAfter(today));
+        dto.setOverdue(e.isActive() && due != null && due.isBefore(today));
+        dto.setAvailable(e.getStatus() != SopEnrollmentStatus.WITHDRAWN && !p.doc().isArchived()
+                && (e.getEffectiveDate() == null || !e.getEffectiveDate().isAfter(today)));
+        dto.setCourseArchived(p.doc().isArchived());
         dto.setFinalScore(e.getFinalScore());
         dto.setStartedAt(e.getStartedAt());
         dto.setCompletedAt(e.getCompletedAt());

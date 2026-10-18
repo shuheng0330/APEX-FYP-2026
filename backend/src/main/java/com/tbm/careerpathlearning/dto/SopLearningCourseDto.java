@@ -34,8 +34,13 @@ public class SopLearningCourseDto {
     private boolean retraining;
     /** Not completed and past its due date. */
     private boolean overdue;
-    /** The effective date has arrived, so the course can be started. */
+    /**
+     * The course can be worked on: its effective date has arrived, the learner was not withdrawn, and the course
+     * is not archived.
+     */
     private boolean available;
+    /** The course was archived (FR-06-14): it can't be taken any more, but results and certificates are kept. */
+    private boolean courseArchived;
     private Integer finalScore;
     private OffsetDateTime startedAt;
     private OffsetDateTime completedAt;

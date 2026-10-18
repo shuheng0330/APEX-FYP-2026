@@ -52,6 +52,7 @@ const STATUS_TAGS: Record<ScoreboardStatus, { label: string; color: string; icon
   IN_PROGRESS: { label: 'In progress', color: 'blue', icon: 'sync' },
   RETRAINING: { label: 'Retraining', color: 'orange', icon: 'redo' },
   NOT_STARTED: { label: 'Not started', color: 'default', icon: 'minus-circle' },
+  WITHDRAWN: { label: 'Withdrawn', color: 'default', icon: 'stop' },
 };
 
 const MODULE_TAGS: Record<LearningModuleState, { label: string; color: string }> = {
@@ -89,6 +90,7 @@ export class SopScoreboardComponent implements OnInit {
     { value: 'IN_PROGRESS', label: 'In progress' },
     { value: 'RETRAINING', label: 'Retraining' },
     { value: 'NOT_STARTED', label: 'Not started' },
+    { value: 'WITHDRAWN', label: 'Withdrawn' },
     { value: 'OVERDUE', label: 'Overdue' },
   ];
 
@@ -180,6 +182,8 @@ export class SopScoreboardComponent implements OnInit {
   private kpisOf(records: ScoreboardRecord[]): Kpis {
     const count = (status: ScoreboardStatus) => records.filter(r => r.status === status).length;
     const certified = count('COMPLETED');
+    // Withdrawn staff can no longer be certified, so they don't count against the rate (FR-06-15).
+    const certifiable = records.length - count('WITHDRAWN');
     return {
       enrolled: records.length,
       certified,
@@ -189,7 +193,7 @@ export class SopScoreboardComponent implements OnInit {
       overdue: records.filter(r => r.overdue).length,
       failedAttempts: records.reduce((sum, r) => sum + r.retrainingAttempts, 0),
       courses: new Set(records.map(r => r.sopDocumentId)).size,
-      certificationRate: records.length ? Math.round(100 * certified / records.length) : 0,
+      certificationRate: certifiable ? Math.round(100 * certified / certifiable) : 0,
     };
   }
 

@@ -62,13 +62,13 @@ class SopControllerTest {
     @Test
     @DisplayName("HR can open courses, as a viewer who sees every course")
     void hrCanRead() throws Exception {
-        when(sopService.listDocuments(any(), eq(false))).thenReturn(List.of());
+        when(sopService.listDocuments(any(), eq(false), eq(false))).thenReturn(List.of());
 
         mockMvc.perform(as(get("/api/sop"), hr)).andExpect(status().isOk());
         mockMvc.perform(as(get("/api/sop/1"), hr)).andExpect(status().isOk());
         mockMvc.perform(as(get("/api/sop/module/5/quiz/history"), hr)).andExpect(status().isOk());
 
-        verify(sopService).listDocuments(new SopViewer(me, true), false);
+        verify(sopService).listDocuments(new SopViewer(me, true), false, false);
         verify(sopService).getDetail(1L, new SopViewer(me, true));
     }
 
@@ -80,7 +80,7 @@ class SopControllerTest {
                 put("/api/sop/module/5"), post("/api/sop/module/5/approve"), post("/api/sop/module/5/reject"),
                 put("/api/sop/quiz/9"), post("/api/sop/module/5/quiz"), post("/api/sop/module/5/quiz/approve"),
                 post("/api/sop/module/5/quiz/reject"), post("/api/sop/1/generate"), delete("/api/sop/1"),
-                put("/api/sop/1/settings"))) {
+                put("/api/sop/1/settings"), post("/api/sop/1/archive"))) {
             mockMvc.perform(as(change, hr).contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isForbidden());
         }
@@ -89,6 +89,19 @@ class SopControllerTest {
         verify(sopService, never()).approveModule(any(), any());
         verify(sopService, never()).deleteDocument(any(), any());
         verify(sopService, never()).updateSettings(any(), any(), any());
+        verify(sopService, never()).archiveDocument(any(), any());
+    }
+
+    @Test
+    @DisplayName("HR can list archived courses and restore one (FR-06-16); archiving is for the course's trainer")
+    void hrRestores() throws Exception {
+        mockMvc.perform(as(get("/api/sop").param("archived", "true"), hr)).andExpect(status().isOk());
+        mockMvc.perform(as(post("/api/sop/1/restore"), hr)).andExpect(status().isOk());
+        mockMvc.perform(as(post("/api/sop/1/archive"), trainer)).andExpect(status().isOk());
+
+        verify(sopService).listDocuments(new SopViewer(me, true), false, true);
+        verify(sopService).restoreDocument(1L, new SopViewer(me, true));
+        verify(sopService).archiveDocument(1L, new SopViewer(me, false));
     }
 
     @Test
@@ -100,7 +113,7 @@ class SopControllerTest {
         mockMvc.perform(as(get("/api/sop").param("mine", "true"), trainer)).andExpect(status().isOk());
 
         verify(sopService).updateModule(eq(5L), eq("Handling Cash"), anyString(), eq(new SopViewer(me, false)));
-        verify(sopService).listDocuments(new SopViewer(me, false), true);
+        verify(sopService).listDocuments(new SopViewer(me, false), true, false);
     }
 
     @Test

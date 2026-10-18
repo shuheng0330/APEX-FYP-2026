@@ -54,10 +54,18 @@
   <section class="document-section surface-panel">
     <div class="section-toolbar document-heading">
       <div><span class="section-kicker">Automation queue</span><h2>SOP Documents</h2></div>
-      <span class="polling-note"><nz-icon nzType="sync" [nzSpin]="processingDocuments > 0"></nz-icon> Live status updates</span>
+      <div class="toolbar-right">
+        <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" aria-label="Which courses">
+          <label nz-radio-button nzValue="CURRENT">Current</label>
+          <label nz-radio-button nzValue="ARCHIVED">Archived</label>
+        </nz-radio-group>
+        @if (view === 'CURRENT') {
+          <span class="polling-note"><nz-icon nzType="sync" [nzSpin]="processingDocuments > 0"></nz-icon> Live status updates</span>
+        }
+      </div>
     </div>
     <div class="table-scroll">
-      <nz-table #table [nzData]="documents" [nzShowPagination]="false" nzSize="middle">
+      <nz-table #table [nzData]="shown" [nzLoading]="view === 'ARCHIVED' && loadingArchived" [nzShowPagination]="false" nzSize="middle">
         <thead>
           <tr><th>Document</th><th>Department</th><th>Version</th><th>Generation progress</th><th>Modules</th><th>Actions</th></tr>
         </thead>
@@ -68,6 +76,10 @@
               <td>{{ doc.departmentTag || '-' }}</td>
               <td>{{ doc.version || '-' }}</td>
               <td class="progress-cell">
+                @if (doc.courseStatus === 'ARCHIVED') {
+                  <nz-tag>Archived</nz-tag>
+                  <small>{{ doc.archivedAt | date: 'd MMM yyyy' }} · {{ doc.enrolledCount }} enrolment{{ doc.enrolledCount === 1 ? '' : 's' }} kept</small>
+                } @else {
                 <div class="progress-label">
                   <nz-tag [nzColor]="statusColor(doc.generationStatus)">
                     @if (isInProgress(doc.generationStatus)) { <nz-icon nzType="loading"></nz-icon> }
@@ -82,27 +94,45 @@
                 } @else if (doc.statusMessage) {
                   <div class="note" [title]="doc.statusMessage">{{ doc.statusMessage }}</div>
                 }
+                }
               </td>
               <td><strong>{{ doc.moduleCount }}</strong></td>
               <td class="actions">
                 <button nz-button nzType="primary" [disabled]="doc.generationStatus !== 'COMPLETED'" (click)="openReview(doc)">
                   <nz-icon nzType="audit"></nz-icon> Review
                 </button>
-                @if (doc.generationStatus === 'FAILED') {
-                  <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
+                @if (doc.courseStatus === 'ARCHIVED') {
+                  <button nz-button nz-popconfirm [nzPopconfirmTitle]="restoreQuestion" nzOkText="Restore"
+                    (nzOnConfirm)="restore(doc)" [nzLoading]="busy[doc.id]">
+                    <nz-icon nzType="rollback"></nz-icon> Restore
+                  </button>
+                } @else {
+                  @if (doc.generationStatus === 'FAILED') {
+                    <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
+                  }
+                  <!-- FR-06-14: once anyone has enrolled, the course is archived rather than deleted -->
+                  @if (doc.enrolledCount > 0) {
+                    <button nz-button (click)="archive(doc)" [nzLoading]="busy[doc.id]"
+                      title="Staff have enrolled, so this course can be archived but not deleted">
+                      <nz-icon nzType="inbox"></nz-icon> Archive
+                    </button>
+                  } @else {
+                    <button nz-button nzDanger
+                      nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content? Nobody has enrolled yet."
+                      nzOkText="Delete" nzOkType="primary" nzOkDanger
+                      (nzOnConfirm)="delete(doc)" aria-label="Delete">
+                      <nz-icon nzType="delete"></nz-icon>
+                    </button>
+                  }
                 }
-                <button nz-button nzDanger
-                  nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content?"
-                  nzOkText="Delete" nzOkType="primary" nzOkDanger
-                  (nzOnConfirm)="delete(doc)">
-                  <nz-icon nzType="delete"></nz-icon>
-                </button>
               </td>
             </tr>
           }
         </tbody>
       </nz-table>
     </div>
-    @if (documents.length === 0) { <nz-empty nzNotFoundContent="No SOPs uploaded yet"></nz-empty> }
+    @if (shown.length === 0 && !(view === 'ARCHIVED' && loadingArchived)) {
+      <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'No archived courses' : 'No SOPs uploaded yet'"></nz-empty>
+    }
   </section>
 </div>

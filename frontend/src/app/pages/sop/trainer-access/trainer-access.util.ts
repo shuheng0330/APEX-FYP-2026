@@ -11,6 +11,8 @@ const AUDIT_ACTIONS: Record<string, { label: string; color: string }> = {
   TRAINER_ACCESS_REVOKED: { label: 'Revoked', color: 'red' },
   TRAINER_ACCESS_LAPSED: { label: 'Ended', color: 'gray' },
   COURSE_TRANSFERRED: { label: 'Transferred', color: 'blue' },
+  COURSE_ARCHIVED: { label: 'Archived', color: 'gray' },
+  COURSE_RESTORED: { label: 'Restored', color: 'green' },
 };
 
 export function auditAction(action: string): { label: string; color: string } {

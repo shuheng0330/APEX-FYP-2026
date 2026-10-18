@@ -19,5 +19,6 @@ public class SopScoreboardDto {
     public static class Course {
         private Long id;
         private String title;
+        private boolean archived;
     }
 }

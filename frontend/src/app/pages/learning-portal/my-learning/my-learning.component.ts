@@ -14,7 +14,7 @@ import { categoryTheme, daysUntil, CategoryTheme } from '../learning-portal.util
 
 type Source = 'all' | 'assigned' | 'open';
 type StatusFilter = 'All' | 'Mandatory' | 'Optional' | 'In Progress' | 'Completed';
-type StatusGroup = 'Mandatory' | 'In Progress' | 'Optional' | 'Completed';
+type StatusGroup = 'Mandatory' | 'In Progress' | 'Optional' | 'Completed' | 'Withdrawn';
 
 interface CourseGroup {
   key: string;
@@ -29,7 +29,13 @@ const STATUS_GROUPS: { key: StatusGroup; note: string; tone: string }[] = [
   { key: 'In Progress', note: 'Pick up where you left off', tone: 'warning' },
   { key: 'Optional', note: 'Take these any time', tone: 'muted' },
   { key: 'Completed', note: 'Finished and recorded', tone: 'positive' },
+  { key: 'Withdrawn', note: 'Archived courses you were taking; your progress is kept', tone: 'muted' },
 ];
+
+/** A course the learner is still expected to finish: not completed, and not withdrawn (FR-06-15). */
+function isActive(c: LearningCourse): boolean {
+  return c.status === 'NOT_STARTED' || c.status === 'IN_PROGRESS';
+}
 
 /** Cards shown per group before "See all". */
 const PREVIEW = 4;
@@ -133,7 +139,7 @@ export class MyLearningComponent implements OnInit {
     const courses = this.home.courses;
     this.tiles = [
       { label: 'Start now', value: this.startNowOf(courses).length, tone: 'danger' },
-      { label: 'Mandatory pending', value: courses.filter(c => c.mandatory && c.status !== 'COMPLETED').length, tone: 'warning' },
+      { label: 'Mandatory pending', value: courses.filter(c => c.mandatory && isActive(c)).length, tone: 'warning' },
       { label: 'In progress', value: courses.filter(c => c.status === 'IN_PROGRESS').length, tone: 'info' },
       { label: 'Completed', value: courses.filter(c => c.status === 'COMPLETED').length, tone: 'positive' },
       { label: 'Open courses', value: this.home.openCourses.length, tone: 'primary' },
@@ -168,7 +174,7 @@ export class MyLearningComponent implements OnInit {
   /** Courses assigned to start immediately (FR-11-08), soonest due first. */
   private startNowOf(courses: LearningCourse[]): LearningCourse[] {
     return courses
-      .filter(c => c.mode === 'IMMEDIATE' && c.status !== 'COMPLETED' && c.available)
+      .filter(c => c.mode === 'IMMEDIATE' && isActive(c) && c.available)
       .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'));
   }
 
@@ -192,6 +198,7 @@ export class MyLearningComponent implements OnInit {
   }
 
   statusGroup(c: LearningCourse): StatusGroup {
+    if (c.status === 'WITHDRAWN') { return 'Withdrawn'; }
     if (c.status === 'COMPLETED') { return 'Completed'; }
     if (c.status === 'IN_PROGRESS') { return 'In Progress'; }
     return c.mandatory ? 'Mandatory' : 'Optional';

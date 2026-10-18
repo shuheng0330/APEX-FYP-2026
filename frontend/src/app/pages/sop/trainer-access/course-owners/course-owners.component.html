@@ -36,7 +36,7 @@
             <tr>
               <td>
                 <strong>{{ c.title }}</strong>
-                <small>@if (c.version) { v{{ c.version }} · }Uploaded {{ c.createdAt | date: 'd MMM yyyy' }}</small>
+                <small>@if (c.version) { v{{ c.version }} · }Uploaded {{ c.createdAt | date: 'd MMM yyyy' }}@if (c.archived) { · Archived }</small>
               </td>
               <td>@if (c.ownerName) { {{ c.ownerName }} } @else { <span class="muted">No owner</span> }</td>
               <td><nz-tag [nzColor]="status.color">{{ status.label }}</nz-tag></td>
@@ -111,7 +111,7 @@
     @if (historyLoading) {
       <div class="drawer-loading"><nz-spin nzSimple></nz-spin></div>
     } @else if (!history.length) {
-      <nz-empty nzNotFoundContent="No transfers recorded"></nz-empty>
+      <nz-empty nzNotFoundContent="No transfers, archiving or restoring recorded"></nz-empty>
     } @else {
       <nz-timeline>
         @for (e of history; track e.id) {

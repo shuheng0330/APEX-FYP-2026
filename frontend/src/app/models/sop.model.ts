@@ -1,4 +1,6 @@
 export type SopGenerationStatus = 'PENDING' | 'PARSING' | 'GENERATING' | 'COMPLETED' | 'FAILED';
+/** Where a course is in its life (NFR-010); Draft and Superseded arrive with versions. */
+export type SopCourseStatus = 'LIVE' | 'DRAFT' | 'SUPERSEDED' | 'ARCHIVED';
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REGENERATED';
 export type QuizQuestionType = 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'FILL_IN_THE_BLANK';
 export type QuizDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
@@ -66,6 +68,13 @@ export interface SopDocument {
   durationMinutes: number;
   /** Whether the trainer has set the estimated duration; until then they are reminded. */
   durationSet: boolean;
+  courseStatus: SopCourseStatus;
+  /** When it was archived; null unless it is archived. */
+  archivedAt?: string | null;
+  /** Everyone ever enrolled. A course anyone has enrolled in can be archived, not deleted (FR-06-14). */
+  enrolledCount: number;
+  /** Staff still taking it: archiving withdraws them (FR-06-15). */
+  activeEnrollmentCount: number;
 }
 
 /** A course's own settings, set by its owner (FR-07-15). */
