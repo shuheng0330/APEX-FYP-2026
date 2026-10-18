@@ -75,6 +75,8 @@ export interface SopDocument {
   enrolledCount: number;
   /** Staff still taking it: archiving withdraws them (FR-06-15). */
   activeEnrollmentCount: number;
+  /** Its place among the documents waiting to be generated, 1 for the next; 0 when it isn't waiting (FR-06-11). */
+  queuePosition: number;
   /** The id every version of this course shares (FR-07-16). */
   courseId: number;
   /** 1, 2, 3 and so on. */

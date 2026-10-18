@@ -1,5 +1,12 @@
 import { SopDocument, SopModule } from '../../models/sop.model';
 
+/** The SOP files accepted, for the file picker; the same list as the server's (FR-06-01, FR-06-08). */
+export const SOP_FILE_ACCEPT = '.doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx,.txt';
+/** How the accepted SOP files are described, the same way on every upload screen (FR-06-01). */
+export const SOP_FILE_TYPES = 'Word, PDF, PowerPoint, Excel or plain-text file (.doc, .docx, .pdf, .ppt, .pptx, .xls, .xlsx or .txt)';
+/** The largest SOP file accepted, matching the server (FR-06-12). */
+export const MAX_UPLOAD_MB = 20;
+
 /** The limits on a course's estimated duration, matching the server (FR-07-15). */
 export const MIN_DURATION_MINUTES = 30;
 export const MAX_DURATION_MINUTES = 24 * 60;

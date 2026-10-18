@@ -9,7 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
  */
 @SpringBootTest(properties = {
 		"training.daily-jobs.enabled=false",
-		"training.notifications.email-enabled=false"
+		"training.notifications.email-enabled=false",
+		"training.generation.resume-on-startup=false"
 })
 class CareerPathLearningBackendApplicationTests {
 

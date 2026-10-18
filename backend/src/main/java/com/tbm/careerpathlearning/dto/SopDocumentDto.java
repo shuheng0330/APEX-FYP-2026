@@ -45,6 +45,9 @@ public class SopDocumentDto {
     /** Staff still taking it, not started or in progress: archiving withdraws them (FR-06-15). */
     private int activeEnrollmentCount;
 
+    /** Its place among the documents waiting to be generated, 1 for the next; 0 when it isn't waiting (FR-06-11). */
+    private int queuePosition;
+
     /** The id every version of this course shares (FR-07-16). */
     private Long courseId;
 

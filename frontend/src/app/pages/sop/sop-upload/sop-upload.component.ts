@@ -20,7 +20,7 @@ import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
-import { CourseView, RESTORE_QUESTION } from '../sop.util';
+import { CourseView, MAX_UPLOAD_MB, RESTORE_QUESTION, SOP_FILE_ACCEPT, SOP_FILE_TYPES } from '../sop.util';
 
 @Component({
   selector: 'app-sop-upload',
@@ -53,6 +53,9 @@ export class SopUploadComponent implements OnInit, OnDestroy {
   loadingArchived = false;
   busy: Record<number, boolean> = {};
   readonly restoreQuestion = RESTORE_QUESTION;
+  readonly fileAccept = SOP_FILE_ACCEPT;
+  readonly fileTypes = SOP_FILE_TYPES;
+  readonly maxUploadMb = MAX_UPLOAD_MB;
 
   constructor(
     private sopService: SopService,
@@ -88,12 +91,20 @@ export class SopUploadComponent implements OnInit, OnDestroy {
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files && input.files.length ? input.files[0] : null;
+    const file = input.files && input.files.length ? input.files[0] : null;
+    // FR-06-12: refused here as well as on the server, so a large file isn't sent for nothing.
+    if (file && file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      this.message.warning(`This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. SOP files can be up to ${MAX_UPLOAD_MB} MB.`);
+      input.value = '';
+      this.selectedFile = null;
+      return;
+    }
+    this.selectedFile = file;
   }
 
   upload(): void {
     if (!this.selectedFile) {
-      this.message.warning('Please choose a .doc, .docx, .pdf, .ppt, .pptx, .xls or .xlsx file first.');
+      this.message.warning(`Please choose a ${SOP_FILE_TYPES} first.`);
       return;
     }
     const form = new FormData();
@@ -108,8 +119,8 @@ export class SopUploadComponent implements OnInit, OnDestroy {
       next: doc => {
         this.uploading = false;
         this.message.success(doc.courseStatus === 'DRAFT'
-          ? `Uploaded as draft v${doc.versionNo} of "${doc.title}". AI generation has started; staff keep the live version until you publish it.`
-          : 'Uploaded. AI generation has started.');
+          ? `Uploaded as draft v${doc.versionNo} of "${doc.title}" and queued for AI generation. Staff keep the live version until you publish it.`
+          : 'Uploaded and queued for AI generation.');
         this.title = ''; this.version = ''; this.departmentTag = ''; this.newVersionOf = null;
         this.selectedFile = null;
         this.documents = [doc, ...this.documents.filter(d => d.id !== doc.id)];
@@ -262,9 +273,10 @@ export class SopUploadComponent implements OnInit, OnDestroy {
     }
   }
 
-  generationLabel(status: SopGenerationStatus): string {
-    switch (status) {
-      case 'PENDING': return 'Uploaded';
+  /** The document's stage; a waiting one shows its place in the generation queue (FR-06-11). */
+  generationLabel(doc: SopDocument): string {
+    switch (doc.generationStatus) {
+      case 'PENDING': return doc.queuePosition > 0 ? `Queued, position ${doc.queuePosition}` : 'Uploaded';
       case 'PARSING': return 'Parsing';
       case 'GENERATING': return 'Generating';
       case 'COMPLETED': return 'Ready for Review';

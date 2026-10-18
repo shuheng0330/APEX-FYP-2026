@@ -33,9 +33,11 @@ import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.service.DocumentParserService;
 import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopAccess;
+import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
 import com.tbm.careerpathlearning.service.SopVersionService;
@@ -48,10 +50,13 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -73,6 +78,8 @@ public class SopServiceImpl implements SopService {
     @Autowired private NotificationService notificationService;
     @Autowired private TrainingAuditService trainingAuditService;
     @Autowired private SopVersionService sopVersionService;
+    @Autowired private DocumentParserService documentParserService;
+    @Autowired private SopGenerationQueue sopGenerationQueue;
     @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -80,6 +87,12 @@ public class SopServiceImpl implements SopService {
     /** A course's estimated duration is between 30 minutes and 24 hours (FR-07-15). */
     static final int MIN_DURATION_MINUTES = 30;
     static final int MAX_DURATION_MINUTES = 24 * 60;
+
+    /** The largest SOP file accepted (FR-06-12). */
+    static final int MAX_UPLOAD_MB = 20;
+    private static final long MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024L * 1024L;
+    /** A PDF with fewer letters and digits than this is a scanned image, not text (FR-06-12, decision G). */
+    static final int MIN_READABLE_CHARACTERS = 200;
 
     // === Module 1: upload + generation ======================================
 
@@ -91,15 +104,24 @@ public class SopServiceImpl implements SopService {
             throw new BadRequestException("Please select a document to upload.");
         }
         String filename = file.getOriginalFilename();
-        String lower = filename == null ? "" : filename.toLowerCase();
-        if (!lower.endsWith(".doc") && !lower.endsWith(".docx") && !lower.endsWith(".pdf")) {
-            throw new BadRequestException("Only Word (.doc, .docx) or PDF (.pdf) documents are supported.");
+        if (!DocumentParserService.isSupported(filename)) { // FR-06-01, FR-06-08
+            throw new BadRequestException("Upload a Word, PDF, PowerPoint, Excel or plain-text file ("
+                    + DocumentParserService.SUPPORTED + ").");
+        }
+        if (file.getSize() > MAX_UPLOAD_BYTES) { // FR-06-12
+            throw new BadRequestException("This file is " + String.format(Locale.ENGLISH, "%.1f", file.getSize() / (1024.0 * 1024.0))
+                    + " MB. SOP files can be up to " + MAX_UPLOAD_MB + " MB.");
         }
 
         // FR-06-06: a revised SOP becomes the draft of the course's next version; checked before the file is stored.
         SopViewer owner = new SopViewer(userId, false);
         SopDocument doc = newVersionOf == null ? new SopDocument()
                 : sopVersionService.newDraftOf(editableDoc(newVersionOf, owner));
+        // FR-06-12: a PDF needs readable text to build training from. Read before the file is stored, and kept so
+        // generation doesn't read it again.
+        if (filename.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            doc.setExtractedText(readablePdfText(file));
+        }
 
         String storedPath = fileService.uploadFile(file, "sop");
 
@@ -207,7 +229,7 @@ public class SopServiceImpl implements SopService {
     }
 
     /**
-     * Starts background generation only once the current transaction has committed.
+     * Queues generation (FR-06-11) only once the current transaction has committed.
      * Starting it earlier races the commit: the async thread can look the document up
      * before the row is visible, find nothing, and leave it stuck at PENDING.
      */
@@ -215,7 +237,7 @@ public class SopServiceImpl implements SopService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                sopGenerationService.generateForDocument(sopDocumentId);
+                sopGenerationQueue.enqueue(sopDocumentId);
             }
         });
     }
@@ -403,6 +425,7 @@ public class SopServiceImpl implements SopService {
     public void deleteDocument(Long sopDocumentId, SopViewer viewer) {
         SopDocument doc = editableDoc(sopDocumentId, viewer);
         if (doc.isDraft()) {
+            sopGenerationQueue.cancel(sopDocumentId);
             sopVersionService.discard(doc, viewer.userId()); // the live version stays as it is
             return;
         }
@@ -410,6 +433,7 @@ public class SopServiceImpl implements SopService {
             throw new BadRequestException("Staff have enrolled in this course, so it can't be deleted. Archive it instead: "
                     + "it disappears for staff, and their results and certificates are kept.");
         }
+        sopGenerationQueue.cancel(sopDocumentId);
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
         if (!modules.isEmpty()) {
             List<Long> moduleIds = modules.stream().map(SopModule::getId).toList();
@@ -500,6 +524,22 @@ public class SopServiceImpl implements SopService {
                 .ifPresent(doc -> notificationService.notify(doc.getUploadedBy(), type, title + ": " + doc.getTitle(),
                         "Module " + module.getModuleOrder() + ", \"" + module.getTitle() + "\", " + what + ".",
                         page + doc.getId()));
+    }
+
+    /** A PDF's text, refused when there's too little to read: a scanned image rather than text (FR-06-12, decision G). */
+    private String readablePdfText(MultipartFile file) {
+        String text;
+        try (InputStream in = file.getInputStream()) {
+            text = documentParserService.extractText(in, file.getOriginalFilename());
+        } catch (IOException | RuntimeException e) {
+            throw new BadRequestException("This PDF can't be opened. Check that it isn't damaged or password-protected, "
+                    + "then upload it again.");
+        }
+        if (DocumentParserService.readableCharacters(text) < MIN_READABLE_CHARACTERS) {
+            throw new BadRequestException("This PDF has no readable text, so it looks like a scanned image. Upload a PDF "
+                    + "with selectable text, or the original Word document.");
+        }
+        return text;
     }
 
     private SopDocument getDocOrThrow(Long id) {
@@ -636,6 +676,7 @@ public class SopServiceImpl implements SopService {
         dto.setArchivedAt(d.getArchivedAt());
         dto.setEnrolledCount(enrollments.size());
         dto.setActiveEnrollmentCount((int) enrollments.stream().filter(SopEnrollment::isActive).count());
+        dto.setQueuePosition(d.getGenerationStatus() == SopGenerationStatus.PENDING ? sopGenerationQueue.positionOf(d.getId()) : 0);
         dto.setCourseId(d.courseKey());
         dto.setVersionNo(d.getVersionNo());
         // Only the owner sees a draft (FR-07-16); everyone else just sees the live version.

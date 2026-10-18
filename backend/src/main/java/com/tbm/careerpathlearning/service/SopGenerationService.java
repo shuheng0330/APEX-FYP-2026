@@ -20,16 +20,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Orchestrates AI generation for an SOP: parse -> prompt Gemini -> persist
@@ -43,6 +44,9 @@ public class SopGenerationService {
 
     /** Safety bound on how many modules a single SOP can expand into. */
     private static final int MAX_MODULES = 25;
+
+    /** The question formats generated for staff (FR-08-01): multiple choice and true/false. */
+    private static final Set<QuizQuestionType> GENERATED_TYPES = EnumSet.of(QuizQuestionType.MULTIPLE_CHOICE, QuizQuestionType.TRUE_FALSE);
 
     /** Marks a module's content as built offline, so the review page can flag it. */
     private static final String OFFLINE_SOURCE = "offline";
@@ -70,10 +74,9 @@ public class SopGenerationService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Runs the full generation pipeline on a background thread (FR-08-05).
-     * Called after the document row is created so the upload request returns fast.
+     * Runs the full generation pipeline (FR-08-05). {@link SopGenerationQueue} calls it on its own thread, one
+     * document at a time (FR-06-11), so the upload request returns fast.
      */
-    @Async
     public void generateForDocument(Long sopDocumentId) {
         SopDocument doc = sopDocumentRepository.findById(sopDocumentId).orElse(null);
         if (doc == null) {
@@ -240,11 +243,16 @@ public class SopGenerationService {
         saveQuestions(module.getId(), gm.getQuiz(), now, ReviewStatus.REGENERATED);
     }
 
-    /** The AI's quiz, topped up from the module's own text when it has fewer than QUIZ_SIZE questions. */
+    /**
+     * The AI's quiz in the formats staff take, multiple choice and true/false (FR-08-01), dropping any other the AI
+     * returned, and topped up from the module's own text when fewer than QUIZ_SIZE questions are left.
+     */
     private List<GeneratedSopContent.GeneratedQuestion> fullQuiz(List<GeneratedSopContent.ContentSection> sections,
                                                                List<GeneratedSopContent.GeneratedQuestion> quiz,
                                                                String title) {
-        return localSopGenerator.topUpQuiz(sections, quiz, title, LocalSopGenerator.QUIZ_SIZE);
+        List<GeneratedSopContent.GeneratedQuestion> kept = quiz == null ? List.of()
+                : quiz.stream().filter(q -> GENERATED_TYPES.contains(parseType(q.getType()))).toList();
+        return localSopGenerator.topUpQuiz(sections, kept, title, LocalSopGenerator.QUIZ_SIZE);
     }
 
     /** The content sections stored for a module, or none when its content is not structured JSON. */
@@ -337,9 +345,11 @@ public class SopGenerationService {
         return """
                 You are an instructional designer. Read the ENTIRE SOP below and break it into a
                 sequence of training modules that, TOGETHER, COVER EVERY SECTION, STEP, RULE AND
-                DETAIL of the SOP. Do not skip, merge away, or omit any section. Create as many
-                modules as needed for full coverage (typically one per major numbered section or
-                sub-section). Keep the modules in the same logical order as the SOP.
+                DETAIL of the SOP. Do not skip or omit any section. Create as many modules as needed
+                for full coverage (typically one per major numbered section or sub-section), but each
+                module needs enough content for a quiz of at least %d questions: fold any section too short
+                for that into a neighbouring module, and name it in that module's "covers". Keep the
+                modules in the same logical order as the SOP.
 
                 For each module return:
                 - "title": a short module title.
@@ -354,7 +364,7 @@ public class SopGenerationService {
 
                 SOP content:
                 %s
-                """.formatted(safe(title, "Untitled SOP"), truncate(sopText));
+                """.formatted(LocalSopGenerator.QUIZ_SIZE, safe(title, "Untitled SOP"), truncate(sopText));
     }
 
     /** Phase B: expand ONE planned module into structured rich content + quiz. */
@@ -391,8 +401,8 @@ public class SopGenerationService {
                 - learningObjectives: 2-4 items each starting with an action verb.
                 - tools: only if there are physical tools or materials; otherwise empty [].
                 - keyTerms: key technical terms with definitions; otherwise [].
-                - quiz: exactly 4 questions, types MULTIPLE_CHOICE or TRUE_FALSE only, with at
-                  least one of each type.
+                - quiz: at least %d questions, more where this module's content supports them, of types
+                  MULTIPLE_CHOICE or TRUE_FALSE only, with at least one of each type.
                 - difficulty of each question: EASY (recall one stated fact), MEDIUM (apply a step
                   or rule), HARD (combine several rules or judge a scenario).
 
@@ -402,7 +412,7 @@ public class SopGenerationService {
                 SOP title: %s
                 Full SOP content:
                 %s
-                """.formatted(order, total, safe(moduleTitle, "Module " + order),
+                """.formatted(order, total, LocalSopGenerator.QUIZ_SIZE, safe(moduleTitle, "Module " + order),
                 safe(covers, "the relevant section"), safe(sopTitle, ""), truncate(sopText));
     }
 
@@ -431,7 +441,8 @@ public class SopGenerationService {
                     {"type":"TRUE_FALSE","question":"...","options":["True","False"],"answer":"True","explanation":"...","difficulty":"EASY"}
                   ]
                 }
-                The quiz must have exactly 4 questions. Give every quiz question a "difficulty": EASY
+                The quiz must have at least %d questions, more where the content supports them, of types
+                MULTIPLE_CHOICE or TRUE_FALSE only. Give every quiz question a "difficulty": EASY
                 (recall one stated fact), MEDIUM (apply a step or rule) or HARD (combine several rules
                 or judge a scenario).
 
@@ -439,16 +450,17 @@ public class SopGenerationService {
                 Module to regenerate: %s
                 SOP content:
                 %s
-                """.formatted(safe(reason, "no reason given"), safe(sopTitle, ""), safe(moduleTitle, ""), truncate(sopText));
+                """.formatted(safe(reason, "no reason given"), LocalSopGenerator.QUIZ_SIZE, safe(sopTitle, ""),
+                safe(moduleTitle, ""), truncate(sopText));
     }
 
     private String buildQuizRegenerationPrompt(String sopTitle, String moduleTitle, String moduleContent, String reason) {
         return """
                 Regenerate ONLY the quiz for the training module below. The trainer rejected the
                 previous quiz for this reason: "%s". Address that feedback. Keep the same "title"
-                and "content" exactly as given, and produce a new quiz of exactly 4 questions (types:
-                MULTIPLE_CHOICE with 4 options, TRUE_FALSE with ["True","False"], FILL_IN_THE_BLANK
-                using ___) with exact "answer", one-sentence "explanation" and a "difficulty" of
+                and "content" exactly as given, and produce a new quiz of at least %d questions, more where
+                the content supports them (types: MULTIPLE_CHOICE with 4 options, or TRUE_FALSE with
+                ["True","False"]; no other types) with exact "answer", one-sentence "explanation" and a "difficulty" of
                 EASY (recall one stated fact), MEDIUM (apply a step or rule) or HARD (combine several
                 rules or judge a scenario).
 
@@ -459,7 +471,8 @@ public class SopGenerationService {
                 Module title: %s
                 Module content:
                 %s
-                """.formatted(safe(reason, "no reason given"), safe(sopTitle, ""), safe(moduleTitle, ""), truncate(moduleContent));
+                """.formatted(safe(reason, "no reason given"), LocalSopGenerator.QUIZ_SIZE, safe(sopTitle, ""),
+                safe(moduleTitle, ""), truncate(moduleContent));
     }
 
     // --- helpers -------------------------------------------------------------

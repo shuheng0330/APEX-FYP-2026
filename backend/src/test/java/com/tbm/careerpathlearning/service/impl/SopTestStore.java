@@ -42,6 +42,7 @@ import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
 import com.tbm.careerpathlearning.repository.TrainingAuditLogRepository;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
+import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopVersionService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -107,6 +108,7 @@ class SopTestStore {
     private SopCourseReadiness readiness;
     private TrainingAuditService audit;
     private SopVersionService versions;
+    private SopGenerationQueue queue;
     private final NotificationService notifier = new RecordingNotifications();
 
     /** Sets the service's repositories, clock and course readiness check to this store's. */
@@ -118,6 +120,7 @@ class SopTestStore {
                         : f.getType() == SopCourseReadiness.class ? readiness()
                         : f.getType() == TrainingAuditService.class ? audit()
                         : f.getType() == SopVersionService.class ? versions()
+                        : f.getType() == SopGenerationQueue.class ? queue()
                         : f.getType() == NotificationService.class ? notifier
                         : null;
                 if (value != null) {
@@ -148,6 +151,14 @@ class SopTestStore {
             versions = wire(new SopVersionServiceImpl());
         }
         return versions;
+    }
+
+    /** The generation queue, without a generation service: tests that run it set one. */
+    SopGenerationQueue queue() {
+        if (queue == null) {
+            queue = wire(new SopGenerationQueue());
+        }
+        return queue;
     }
 
     LocalDate today() {
@@ -329,6 +340,10 @@ class SopTestStore {
         if (type == SopDocumentRepository.class && method.equals("findAllByIsDeletedFalseOrderByCreatedAtDesc")) {
             return docs.values().stream().filter(d -> !d.isDeleted())
                     .sorted(Comparator.comparing(SopDocument::getCreatedAt).reversed()).toList();
+        }
+        if (type == SopDocumentRepository.class && method.equals("findAllByIsDeletedFalseAndGenerationStatusInOrderByCreatedAtAsc")) {
+            return docs.values().stream().filter(d -> !d.isDeleted() && ((Collection<?>) a[0]).contains(d.getGenerationStatus()))
+                    .sorted(Comparator.comparing(SopDocument::getCreatedAt)).toList();
         }
         if (type == SopDocumentRepository.class && method.equals("findVersions")) {
             return docs.values().stream().filter(d -> !d.isDeleted() && (a[0].equals(d.getCourseId()) || a[0].equals(d.getId())))

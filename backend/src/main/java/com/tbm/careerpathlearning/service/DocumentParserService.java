@@ -23,27 +23,52 @@ import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Locale;
 import java.util.StringJoiner;
 
 /**
  * Extracts plain text from uploaded SOP documents (FR-08-04 parsing step).
  *
- * Supported: .docx/.doc (Word), .pdf, .pptx/.ppt (PowerPoint, FR-06-01) and
- * .xlsx/.xls (Excel, FR-06-01). Slides and sheets are flattened to headed text
+ * Supported: .docx/.doc (Word), .pdf, .pptx/.ppt (PowerPoint) and .xlsx/.xls (Excel), FR-06-01, and .txt
+ * (plain text, FR-06-08). Slides and sheets are flattened to headed text
  * blocks so the generation prompts see the same shape as a Word document.
  */
 @Service
 public class DocumentParserService {
 
-    /** Accepted extensions, surfaced in the error message and mirrored by the upload UI. */
-    public static final String SUPPORTED = ".doc, .docx, .pdf, .ppt, .pptx, .xls, .xlsx";
+    /** Accepted extensions, surfaced in the error message and mirrored by the upload UI (FR-06-01, FR-06-08). */
+    public static final String SUPPORTED = ".doc, .docx, .pdf, .ppt, .pptx, .xls, .xlsx, .txt";
+    private static final List<String> EXTENSIONS = List.of(".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".txt");
+
+    /** Whether the parser reads this type of file, judged by its name. */
+    public static boolean isSupported(String filename) {
+        String name = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
+        return EXTENSIONS.stream().anyMatch(name::endsWith);
+    }
+
+    /** Letters and digits in the text: how much of it a person could read (FR-06-12). */
+    public static int readableCharacters(String text) {
+        return text == null ? 0 : (int) text.codePoints().filter(Character::isLetterOrDigit).count();
+    }
 
     public String extractText(Path filePath, String originalFilename) {
-        String name = originalFilename == null ? "" : originalFilename.toLowerCase();
         try (InputStream in = Files.newInputStream(filePath)) {
+            return extractText(in, originalFilename);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to parse document: " + e.getMessage(), e);
+        }
+    }
+
+    /** The document's text, read from a stream, such as an upload that isn't stored yet. */
+    public String extractText(InputStream in, String originalFilename) {
+        String name = originalFilename == null ? "" : originalFilename.toLowerCase();
+        try {
             if (name.endsWith(".docx")) {
                 try (XWPFDocument doc = new XWPFDocument(in);
                      XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
@@ -74,6 +99,9 @@ public class DocumentParserService {
                 try (Workbook wb = new HSSFWorkbook(in)) {
                     return clean(extractWorkbook(wb));
                 }
+            } else if (name.endsWith(".txt")) {
+                String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                return clean(text.startsWith("\uFEFF") ? text.substring(1) : text); // a Windows editor's byte-order mark
             }
             throw new BadRequestException("Unsupported file type. Please upload one of: " + SUPPORTED);
         } catch (BadRequestException e) {
