@@ -18,6 +18,7 @@ import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import com.tbm.careerpathlearning.enums.TrainingAuditAction;
 import com.tbm.careerpathlearning.enums.TrainingAuditTarget;
 import com.tbm.careerpathlearning.exception.BadRequestException;
+import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
 import com.tbm.careerpathlearning.model.SopModule;
@@ -37,6 +38,7 @@ import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopAccess;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
+import com.tbm.careerpathlearning.service.SopVersionService;
 import com.tbm.careerpathlearning.service.SopViewer;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +72,7 @@ public class SopServiceImpl implements SopService {
     @Autowired private StaffRepository staffRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private TrainingAuditService trainingAuditService;
+    @Autowired private SopVersionService sopVersionService;
     @Autowired private Clock clock;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -82,7 +85,8 @@ public class SopServiceImpl implements SopService {
 
     @Override
     @Transactional
-    public SopDocumentDto upload(MultipartFile file, String title, String version, String departmentTag, UUID userId) {
+    public SopDocumentDto upload(MultipartFile file, String title, String version, String departmentTag, UUID userId,
+                                 Long newVersionOf) {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("Please select a document to upload.");
         }
@@ -92,39 +96,58 @@ public class SopServiceImpl implements SopService {
             throw new BadRequestException("Only Word (.doc, .docx) or PDF (.pdf) documents are supported.");
         }
 
+        // FR-06-06: a revised SOP becomes the draft of the course's next version; checked before the file is stored.
+        SopViewer owner = new SopViewer(userId, false);
+        SopDocument doc = newVersionOf == null ? new SopDocument()
+                : sopVersionService.newDraftOf(editableDoc(newVersionOf, owner));
+
         String storedPath = fileService.uploadFile(file, "sop");
 
         OffsetDateTime now = OffsetDateTime.now(clock);
-        SopDocument doc = new SopDocument();
-        doc.setTitle(resolveTitle(title, filename)); // FR-08-03: filename as title when blank
+        if (newVersionOf == null || (title != null && !title.isBlank())) {
+            doc.setTitle(resolveTitle(title, filename)); // FR-08-03: filename as title when blank
+        }
         doc.setVersion(version);
         doc.setOriginalFilename(filename);
         doc.setFilePath(storedPath);
-        doc.setDepartmentTag(departmentTag);
+        if (newVersionOf == null || (departmentTag != null && !departmentTag.isBlank())) {
+            doc.setDepartmentTag(departmentTag);
+        }
         doc.setUploadedBy(userId);
         doc.setGenerationStatus(SopGenerationStatus.PENDING);
         doc.setCreatedAt(now);
         doc.setUpdatedAt(now);
         SopDocument saved = sopDocumentRepository.save(doc);
+        if (saved.getCourseId() == null) {
+            saved.setCourseId(saved.getId()); // a new course is its own first version
+            saved = sopDocumentRepository.save(saved);
+        } else {
+            trainingAuditService.record(userId, TrainingAuditAction.COURSE_DRAFT_CREATED, TrainingAuditTarget.COURSE,
+                    saved.courseKey().toString(), null,
+                    "Draft v" + saved.getVersionNo() + " started from a revised SOP, " + filename + ".");
+        }
 
         // Kick off parse + AI generation in the background (FR-08-04/05).
         startGenerationAfterCommit(saved.getId());
 
-        return toDocDto(saved, 0, true, List.of());
+        return toDocDto(saved, 0, owner, List.of(), versionsOf(saved));
     }
 
     @Override
     public List<SopDocumentDto> listDocuments(SopViewer viewer, boolean mineOnly, boolean archived) {
-        List<SopDocument> docs = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
-                .filter(d -> archived ? d.isArchived() : d.isLive())
+        List<SopDocument> all = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc();
+        // Current courses are the live versions plus the owner's own drafts (FR-07-16); replaced versions never show.
+        List<SopDocument> docs = all.stream()
+                .filter(d -> archived ? d.isArchived() : d.isLive() || (d.isDraft() && SopAccess.isOwner(d, viewer)))
                 .filter(d -> mineOnly ? SopAccess.isOwner(d, viewer) : SopAccess.canView(d, viewer))
                 .toList();
+        Map<Long, List<SopDocument>> versions = all.stream().collect(Collectors.groupingBy(SopDocument::courseKey));
         Map<Long, List<SopEnrollment>> enrollments = docs.isEmpty() ? Map.of()
                 : sopEnrollmentRepository.findAllBySopDocumentIdIn(docs.stream().map(SopDocument::getId).toList()).stream()
                 .collect(Collectors.groupingBy(SopEnrollment::getSopDocumentId));
         return docs.stream()
                 .map(d -> toDocDto(d, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(d.getId()).size(),
-                        editable(d, viewer), enrollments.getOrDefault(d.getId(), List.of())))
+                        viewer, enrollments.getOrDefault(d.getId(), List.of()), versions.getOrDefault(d.courseKey(), List.of(d))))
                 .toList();
     }
 
@@ -134,8 +157,8 @@ public class SopServiceImpl implements SopService {
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId);
 
         SopDetailDto detail = new SopDetailDto();
-        detail.setDocument(toDocDto(doc, modules.size(), editable(doc, viewer),
-                sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId)));
+        detail.setDocument(toDocDto(doc, modules.size(), viewer, sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId),
+                versionsOf(doc)));
         detail.setModules(modules.stream().map(this::toModuleDto).toList());
         return detail;
     }
@@ -144,19 +167,23 @@ public class SopServiceImpl implements SopService {
     public SopDocumentDto getStatus(Long sopDocumentId, SopViewer viewer) {
         SopDocument doc = viewableDoc(sopDocumentId, viewer);
         int moduleCount = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size();
-        return toDocDto(doc, moduleCount, editable(doc, viewer), sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
+        return toDocDto(doc, moduleCount, viewer, sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId), versionsOf(doc));
     }
 
     @Override
     @Transactional
     public SopDocumentDto regenerateDocument(Long sopDocumentId, SopViewer viewer) {
         SopDocument doc = editableDoc(sopDocumentId, viewer);
+        if (sopVersionService.hasLearners(doc)) {
+            throw new BadRequestException("Staff have enrolled in this course, so it can't be generated again from scratch. "
+                    + "Upload the revised SOP as a new version instead.");
+        }
         doc.setGenerationStatus(SopGenerationStatus.PENDING);
         doc.setStatusMessage(null);
         doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
         startGenerationAfterCommit(sopDocumentId);
-        return toDocDto(doc, 0, true, sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
+        return toDocDto(doc, 0, viewer, List.of(), versionsOf(doc));
     }
 
     @Override
@@ -175,8 +202,8 @@ public class SopServiceImpl implements SopService {
         doc.setDurationMinutes(request.getDurationMinutes());
         doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
-        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), true,
-                sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
+        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), viewer,
+                sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId), versionsOf(doc));
     }
 
     /**
@@ -227,11 +254,18 @@ public class SopServiceImpl implements SopService {
         if (reason == null || reason.isBlank()) {
             throw new BadRequestException("A reason is required to reject and regenerate the module."); // FR-09-05
         }
-        sopGenerationService.regenerateModule(module, reason); // sets status REGENERATED + refreshes quiz
-        recordQuizEvent(moduleId, QuizReviewAction.REGENERATED, "Regenerated together with the rejected module material.", null);
-        notifyOwner(module, NotificationType.MATERIAL_REGENERATED, "Material regenerated",
+        Target target = changeTarget(module, viewer, "module " + module.getModuleOrder() + "'s material was rejected");
+        try {
+            sopGenerationService.regenerateModule(target.module(), reason); // sets status REGENERATED + refreshes quiz
+        } catch (RuntimeException e) {
+            target.undo(sopVersionService, viewer);
+            throw e;
+        }
+        Long subject = target.module().getId();
+        recordQuizEvent(subject, QuizReviewAction.REGENERATED, "Regenerated together with the rejected module material.", null);
+        notifyOwner(target.module(), NotificationType.MATERIAL_REGENERATED, "Material regenerated",
                 "now has new material and a new quiz to review", "/sop/review/");
-        return toModuleDto(getModuleOrThrow(moduleId));
+        return toModuleDto(getModuleOrThrow(subject));
     }
 
     // === Module 2: quiz review (FR-10) ======================================
@@ -241,8 +275,12 @@ public class SopServiceImpl implements SopService {
     public SopQuizQuestionDto updateQuestion(Long questionId, SopQuizQuestionDto dto, SopViewer viewer) {
         SopQuizQuestion q = sopQuizQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new BadRequestException("Quiz question not found."));
-        editableModule(q.getSopModuleId(), viewer);
+        SopModule module = editableModule(q.getSopModuleId(), viewer);
         validateQuestion(dto);
+        Target target = changeTarget(module, viewer, "a question in module " + module.getModuleOrder() + "'s quiz was edited");
+        if (target.copy() != null) {
+            q = sopQuizQuestionRepository.findById(target.copy().questionIds().get(questionId)).orElseThrow();
+        }
         if (dto.getQuestionType() != null) {
             q.setQuestionType(dto.getQuestionType());
         }
@@ -264,11 +302,13 @@ public class SopServiceImpl implements SopService {
     @Override
     @Transactional
     public SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, SopViewer viewer) {
-        editableModule(moduleId, viewer);
+        SopModule module = editableModule(moduleId, viewer);
         validateQuestion(dto);
+        Long target = changeTarget(module, viewer, "a question was added to module " + module.getModuleOrder() + "'s quiz")
+                .module().getId();
         OffsetDateTime now = OffsetDateTime.now(clock);
         SopQuizQuestion q = new SopQuizQuestion();
-        q.setSopModuleId(moduleId);
+        q.setSopModuleId(target);
         q.setQuestionType(dto.getQuestionType());
         q.setQuestionText(dto.getQuestionText().trim());
         q.setOptions(writeOptions(dto.getOptions()));
@@ -280,7 +320,7 @@ public class SopServiceImpl implements SopService {
         q.setUpdatedAt(now);
         SopQuizQuestion saved = sopQuizQuestionRepository.save(q);
         // Logged as EDITED: the quiz changed, and the action column only accepts the existing values.
-        recordQuizEvent(moduleId, QuizReviewAction.EDITED, "Added: " + saved.getQuestionText(), viewer.userId());
+        recordQuizEvent(target, QuizReviewAction.EDITED, "Added: " + saved.getQuestionText(), viewer.userId());
         return toQuizDto(saved);
     }
 
@@ -324,13 +364,20 @@ public class SopServiceImpl implements SopService {
         if (reason == null || reason.isBlank()) {
             throw new BadRequestException("A reason is required to reject and regenerate the quiz."); // FR-10-03
         }
-        sopGenerationService.regenerateQuiz(module, reason);
+        Target target = changeTarget(module, viewer, "module " + module.getModuleOrder() + "'s quiz was rejected");
+        try {
+            sopGenerationService.regenerateQuiz(target.module(), reason);
+        } catch (RuntimeException e) {
+            target.undo(sopVersionService, viewer);
+            throw e;
+        }
+        Long subject = target.module().getId();
         // Recorded only once the regeneration succeeded; a failed attempt leaves the quiz untouched.
-        recordQuizEvent(moduleId, QuizReviewAction.REJECTED, reason, viewer.userId());
-        recordQuizEvent(moduleId, QuizReviewAction.REGENERATED, "Regenerated from the trainer's feedback.", null);
-        notifyOwner(module, NotificationType.QUIZ_REGENERATED, "Quiz regenerated", "has a new quiz to review",
+        recordQuizEvent(subject, QuizReviewAction.REJECTED, reason, viewer.userId());
+        recordQuizEvent(subject, QuizReviewAction.REGENERATED, "Regenerated from the trainer's feedback.", null);
+        notifyOwner(target.module(), NotificationType.QUIZ_REGENERATED, "Quiz regenerated", "has a new quiz to review",
                 "/sop/quiz-review/");
-        return toModuleDto(getModuleOrThrow(moduleId));
+        return toModuleDto(getModuleOrThrow(subject));
     }
 
     @Override
@@ -355,6 +402,10 @@ public class SopServiceImpl implements SopService {
     @Transactional
     public void deleteDocument(Long sopDocumentId, SopViewer viewer) {
         SopDocument doc = editableDoc(sopDocumentId, viewer);
+        if (doc.isDraft()) {
+            sopVersionService.discard(doc, viewer.userId()); // the live version stays as it is
+            return;
+        }
         if (!sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId).isEmpty()) {
             throw new BadRequestException("Staff have enrolled in this course, so it can't be deleted. Archive it instead: "
                     + "it disappears for staff, and their results and certificates are kept.");
@@ -385,6 +436,10 @@ public class SopServiceImpl implements SopService {
         if (!doc.isLive()) {
             throw new BadRequestException(doc.isArchived() ? "This course is already archived." : "Only a live course can be archived.");
         }
+        sopVersionService.draftOf(doc).ifPresent(draft -> { // decision D
+            throw new BadRequestException("Draft v" + draft.getVersionNo() + " of this course is in progress. "
+                    + "Publish or discard it before archiving the course.");
+        });
         OffsetDateTime now = OffsetDateTime.now(clock);
         doc.setCourseStatus(SopCourseStatus.ARCHIVED);
         doc.setArchivedAt(now);
@@ -405,9 +460,9 @@ public class SopServiceImpl implements SopService {
         sopEnrollmentRepository.saveAll(withdrawn);
         long completed = enrollments.stream().filter(e -> e.getStatus() == SopEnrollmentStatus.COMPLETED).count();
         trainingAuditService.record(viewer.userId(), TrainingAuditAction.COURSE_ARCHIVED, TrainingAuditTarget.COURSE,
-                doc.getId().toString(), null, "Staff withdrawn: " + withdrawn.size() + ". Completed records kept: " + completed + ".");
-        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), false,
-                enrollments);
+                doc.courseKey().toString(), null, "Staff withdrawn: " + withdrawn.size() + ". Completed records kept: " + completed + ".");
+        return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(), viewer,
+                enrollments, versionsOf(doc));
     }
 
     @Override
@@ -423,9 +478,17 @@ public class SopServiceImpl implements SopService {
         doc.setUpdatedAt(now);
         sopDocumentRepository.save(doc);
         trainingAuditService.record(viewer.userId(), TrainingAuditAction.COURSE_RESTORED, TrainingAuditTarget.COURSE,
-                doc.getId().toString(), null, "Live again. Staff who were withdrawn were not re-enrolled.");
+                doc.courseKey().toString(), null, "Live again. Staff who were withdrawn were not re-enrolled.");
         return toDocDto(doc, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(),
-                editable(doc, viewer), sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId));
+                viewer, sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId), versionsOf(doc));
+    }
+
+    @Override
+    @Transactional
+    public SopDocumentDto publishDraft(Long sopDocumentId, boolean redoCompleted, SopViewer viewer) {
+        SopDocument published = sopVersionService.publish(editableDoc(sopDocumentId, viewer), redoCompleted, viewer.userId());
+        return toDocDto(published, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(sopDocumentId).size(),
+                viewer, sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId), versionsOf(published));
     }
 
     // === helpers ============================================================
@@ -456,22 +519,66 @@ public class SopServiceImpl implements SopService {
     private SopDocument viewableDoc(Long id, SopViewer viewer) {
         SopDocument doc = getDocOrThrow(id);
         SopAccess.requireView(doc, viewer);
+        if (doc.isDraft() && !SopAccess.isOwner(doc, viewer)) {
+            throw new ForbiddenRequestException("Only the course's owner can open its draft.");
+        }
         return doc;
     }
 
-    /** The course, if the viewer may change it: only its owner can, and not while it is archived (FR-06-14). */
+    /**
+     * The course, if the viewer may change it: only its owner can, and not while it is archived (FR-06-14), once a
+     * newer version has replaced it, or while its draft is in progress, when changes go into the draft (P2-18).
+     */
     private SopDocument editableDoc(Long id, SopViewer viewer) {
         SopDocument doc = getDocOrThrow(id);
         SopAccess.requireEdit(doc, viewer);
         if (doc.isArchived()) {
             throw new BadRequestException("This course is archived. Restore it before changing it.");
         }
+        if (doc.isSuperseded()) {
+            throw new BadRequestException("This is version " + doc.getVersionNo() + ", which a newer version has replaced. "
+                    + "Change the live version instead.");
+        }
+        if (doc.isLive()) {
+            sopVersionService.draftOf(doc).ifPresent(draft -> {
+                throw new BadRequestException("Draft v" + draft.getVersionNo() + " of this course is in progress. "
+                        + "Make changes there, or discard it first.");
+            });
+        }
         return doc;
     }
 
-    /** Whether the viewer may change the course now: its owner, while it is not archived. */
-    private static boolean editable(SopDocument doc, SopViewer viewer) {
-        return SopAccess.canEdit(doc, viewer) && !doc.isArchived();
+    /** Whether the viewer may change this version now: its owner, unless it is archived, replaced, or has a draft. */
+    private static boolean editable(SopDocument doc, SopViewer viewer, List<SopDocument> versions) {
+        return SopAccess.canEdit(doc, viewer) && !doc.isArchived() && !doc.isSuperseded()
+                && !(doc.isLive() && versions.stream().anyMatch(SopDocument::isDraft));
+    }
+
+    /**
+     * Where a quiz change or a rejection lands (D2, FR-07-16): the module itself, unless staff have been assigned or
+     * joined this live version; then the same module in a new draft of the next version, which the change starts.
+     */
+    private Target changeTarget(SopModule module, SopViewer viewer, String reason) {
+        SopDocument doc = getDocOrThrow(module.getSopDocumentId());
+        if (!doc.isLive() || !sopVersionService.hasLearners(doc)) {
+            return new Target(module, null);
+        }
+        SopVersionService.DraftCopy copy = sopVersionService.createDraft(doc, viewer.userId(), reason);
+        return new Target(getModuleOrThrow(copy.moduleIds().get(module.getId())), copy);
+    }
+
+    /** Where a change landed: the module itself, or its copy in a draft made for the change. */
+    private record Target(SopModule module, SopVersionService.DraftCopy copy) {
+        /** A change that failed after making its draft leaves no draft behind. */
+        void undo(SopVersionService versions, SopViewer viewer) {
+            if (copy != null) {
+                versions.discard(copy.draft(), viewer.userId());
+            }
+        }
+    }
+
+    private List<SopDocument> versionsOf(SopDocument doc) {
+        return sopVersionService.versionsOf(doc);
     }
 
     private SopModule viewableModule(Long moduleId, SopViewer viewer) {
@@ -508,7 +615,8 @@ public class SopServiceImpl implements SopService {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, boolean editable, List<SopEnrollment> enrollments) {
+    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, SopViewer viewer, List<SopEnrollment> enrollments,
+                                    List<SopDocument> versions) {
         SopDocumentDto dto = new SopDocumentDto();
         dto.setId(d.getId());
         dto.setTitle(d.getTitle());
@@ -520,7 +628,7 @@ public class SopServiceImpl implements SopService {
         dto.setModuleCount(moduleCount);
         dto.setCreatedAt(d.getCreatedAt());
         dto.setPreparedByName(preparerName(d));
-        dto.setEditable(editable);
+        dto.setEditable(editable(d, viewer, versions));
         dto.setPassMark(d.getPassMark());
         dto.setDurationMinutes(d.effectiveDurationMinutes());
         dto.setDurationSet(d.getDurationMinutes() != null);
@@ -528,6 +636,12 @@ public class SopServiceImpl implements SopService {
         dto.setArchivedAt(d.getArchivedAt());
         dto.setEnrolledCount(enrollments.size());
         dto.setActiveEnrollmentCount((int) enrollments.stream().filter(SopEnrollment::isActive).count());
+        dto.setCourseId(d.courseKey());
+        dto.setVersionNo(d.getVersionNo());
+        // Only the owner sees a draft (FR-07-16); everyone else just sees the live version.
+        dto.setDraftId(!SopAccess.isOwner(d, viewer) ? null
+                : versions.stream().filter(SopDocument::isDraft).map(SopDocument::getId).findFirst().orElse(null));
+        dto.setLiveVersionId(versions.stream().filter(SopDocument::isLive).map(SopDocument::getId).findFirst().orElse(null));
         return dto;
     }
 

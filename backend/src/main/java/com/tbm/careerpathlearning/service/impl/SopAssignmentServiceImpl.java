@@ -226,8 +226,12 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
 
     @Override
     public List<SopAssignmentDto> history(Long sopDocumentId, UUID userId, boolean canAssignAny) {
-        Map<Long, String> titles = assignableDocs(userId, canAssignAny).stream()
+        // A course's history covers every version, so publishing a new one keeps its earlier assignments (FR-07-17).
+        Set<Long> courses = assignableDocs(userId, canAssignAny).stream()
                 .filter(d -> sopDocumentId == null || d.getId().equals(sopDocumentId))
+                .map(SopDocument::courseKey).collect(Collectors.toSet());
+        Map<Long, String> titles = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
+                .filter(d -> courses.contains(d.courseKey()))
                 .collect(Collectors.toMap(SopDocument::getId, SopDocument::getTitle));
         if (titles.isEmpty()) {
             return List.of();

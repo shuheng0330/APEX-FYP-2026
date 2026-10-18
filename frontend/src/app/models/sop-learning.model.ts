@@ -37,6 +37,10 @@ export interface LearningCourse {
   available: boolean;
   /** The course was archived (FR-06-14): results and certificates are kept, but it can't be taken. */
   courseArchived?: boolean;
+  /** The course version this enrolment is for (FR-18-05). */
+  versionNo: number;
+  /** A newer version replaced this one (FR-07-17): results are kept, but it can't be taken. */
+  courseSuperseded?: boolean;
   finalScore?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -65,6 +69,8 @@ export interface SopCertificate {
   learnerName: string;
   courseTitle: string;
   version?: string | null;
+  /** The course version the certificate is for (FR-18-05). */
+  versionNo: number;
   finalScore?: number | null;
   passMark: number;
   completedAt: string;

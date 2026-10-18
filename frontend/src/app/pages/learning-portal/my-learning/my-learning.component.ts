@@ -29,7 +29,7 @@ const STATUS_GROUPS: { key: StatusGroup; note: string; tone: string }[] = [
   { key: 'In Progress', note: 'Pick up where you left off', tone: 'warning' },
   { key: 'Optional', note: 'Take these any time', tone: 'muted' },
   { key: 'Completed', note: 'Finished and recorded', tone: 'positive' },
-  { key: 'Withdrawn', note: 'Archived courses you were taking; your progress is kept', tone: 'muted' },
+  { key: 'Withdrawn', note: 'Archived, or replaced by a new version; your progress is kept', tone: 'muted' },
 ];
 
 /** A course the learner is still expected to finish: not completed, and not withdrawn (FR-06-15). */

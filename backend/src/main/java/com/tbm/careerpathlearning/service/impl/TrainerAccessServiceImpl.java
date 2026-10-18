@@ -80,7 +80,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         Map<UUID, TrainerAccessGrant> grants = trainerAccessGrantRepository.findAll().stream()
                 .collect(Collectors.toMap(TrainerAccessGrant::getStaffId, Function.identity()));
         Map<UUID, Long> owned = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
-                .filter(d -> d.getUploadedBy() != null)
+                .filter(d -> d.getUploadedBy() != null && d.isCurrentVersion())
                 .collect(Collectors.groupingBy(SopDocument::getUploadedBy, Collectors.counting()));
         return staff.stream()
                 .sorted(Comparator.comparing(Staff::getName, String.CASE_INSENSITIVE_ORDER))
@@ -232,7 +232,8 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     @Override
     @Transactional(readOnly = true)
     public List<CourseOwnerDto> courseOwners() {
-        List<SopDocument> courses = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc();
+        List<SopDocument> courses = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
+                .filter(SopDocument::isCurrentVersion).toList(); // one row per course; its versions move with it
         Owners owners = owners(courses);
         Map<Long, Long> enrolled = courses.isEmpty() ? Map.of()
                 : sopEnrollmentRepository.findAllBySopDocumentIdIn(courses.stream().map(SopDocument::getId).toList()).stream()
@@ -246,7 +247,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     @Transactional
     public CourseOwnerDto transferCourse(Long courseId, CourseTransferRequest request, UUID adminId) {
         SopDocument course = sopDocumentRepository.findById(courseId)
-                .filter(c -> !c.isDeleted())
+                .filter(c -> !c.isDeleted() && c.isCurrentVersion())
                 .orElseThrow(() -> new BadRequestException("Course not found."));
         String reason = reason(request == null ? null : request.getReason());
         if (!owners(List.of(course)).status(course).needsNewOwner()) {
@@ -262,7 +263,9 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     @Override
     @Transactional(readOnly = true)
     public List<TrainingAuditEntryDto> courseHistory(Long courseId) {
-        return trainingAuditService.history(TrainingAuditTarget.COURSE, courseId.toString());
+        // Every version of a course shares one history, kept under the first version's id.
+        Long key = sopDocumentRepository.findById(courseId).map(SopDocument::courseKey).orElse(courseId);
+        return trainingAuditService.history(TrainingAuditTarget.COURSE, key.toString());
     }
 
     // === helpers ============================================================
@@ -312,6 +315,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         dto.setEnrolledCount(enrolledCount);
         dto.setCreatedAt(course.getCreatedAt());
         dto.setArchived(course.isArchived());
+        dto.setVersionNo(course.getVersionNo());
         return dto;
     }
 
@@ -345,11 +349,14 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
             String from = course.getUploadedBy() == null ? "no owner"
                     : names.computeIfAbsent(course.getUploadedBy(),
                     id -> staffRepository.findById(id).map(Staff::getName).orElse("a former staff member"));
-            course.setUploadedBy(newOwner.getId());
-            course.setUpdatedAt(now);
-            sopDocumentRepository.save(course);
+            // Every version moves together, so the new owner also gets any draft and the earlier versions' records.
+            for (SopDocument version : sopDocumentRepository.findVersions(course.courseKey())) {
+                version.setUploadedBy(newOwner.getId());
+                version.setUpdatedAt(now);
+                sopDocumentRepository.save(version);
+            }
             trainingAuditService.record(adminId, TrainingAuditAction.COURSE_TRANSFERRED, TrainingAuditTarget.COURSE,
-                    course.getId().toString(), reason, "From " + from + " to " + newOwner.getName());
+                    course.courseKey().toString(), reason, "From " + from + " to " + newOwner.getName());
         }
         if (newOwner.getId().equals(adminId)) {
             return;
@@ -372,7 +379,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
 
     private List<SopDocument> owned(UUID staffId) {
         return sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
-                .filter(d -> staffId.equals(d.getUploadedBy()))
+                .filter(d -> staffId.equals(d.getUploadedBy()) && d.isCurrentVersion())
                 .toList();
     }
 

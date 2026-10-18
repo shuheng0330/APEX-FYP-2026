@@ -7,5 +7,7 @@ public enum QuizReviewAction {
     APPROVED,
     REJECTED,
     REGENERATED,
-    EDITED
+    EDITED,
+    /** Copied into a new draft version of the course (FR-07-16). */
+    COPIED
 }

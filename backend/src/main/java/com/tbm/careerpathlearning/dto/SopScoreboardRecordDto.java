@@ -19,6 +19,9 @@ public class SopScoreboardRecordDto {
     private String courseTitle;
     /** The course was archived; its records stay on the Scoreboard (FR-06-14). */
     private boolean courseArchived;
+    private int versionNo;
+    /** A newer version replaced this one; its records stay on the Scoreboard (FR-07-17). */
+    private boolean courseSuperseded;
     private int moduleCount;
     private int modulesPassed;
     /**

@@ -14,7 +14,7 @@
       <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
                  [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a course'" [nzDisabled]="regenerating">
         @for (s of completedSops; track s.id) {
-          <nz-option [nzValue]="s.id" [nzLabel]="s.title + ' (' + s.moduleCount + ' modules)'"></nz-option>
+          <nz-option [nzValue]="s.id" [nzLabel]="optionLabel(s)"></nz-option>
         }
       </nz-select>
     </div>
@@ -31,6 +31,8 @@
       @if (document.courseStatus === 'ARCHIVED') {
         <app-course-archived-note [document]="document" (restored)="onRestored($event)"></app-course-archived-note>
       }
+      <app-course-version-note [document]="document" [ready]="ready" (published)="onPublished($event)"
+                               (discarded)="onDiscarded($event)" (openVersion)="onSelectSop($event)"></app-course-version-note>
       <div class="quiz-workbench">
 
         <!-- Left: one quiz per module -->
@@ -159,6 +161,10 @@
               <p class="muted read-only-note"><nz-icon nzType="lock"></nz-icon>
                 @if (document.courseStatus === 'ARCHIVED') {
                   Archived. Restore the course before changing its quizzes.
+                } @else if (document.draftId) {
+                  Draft v{{ document.versionNo + 1 }} is in progress. Change the quiz there.
+                } @else if (document.courseStatus === 'SUPERSEDED') {
+                  A newer version replaced this one, so its quizzes can't change.
                 } @else {
                   Read only. Only {{ document.preparedByName || 'the course owner' }} can approve or reject this quiz.
                 }</p>

@@ -16,6 +16,7 @@ import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SopService } from '../../../services/sop.service';
 import {
@@ -23,8 +24,11 @@ import {
 } from '../../../models/sop.model';
 import { environment } from '../../../../environments/environment';
 import { SopContentViewComponent, parseRichContent } from '../../../components/sop-content-view/sop-content-view.component';
-import { CourseView, MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, formatDuration } from '../sop.util';
+import {
+  CourseView, MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, courseOptionLabel, courseReady, draftQuestion, formatDuration, startsDraft
+} from '../sop.util';
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
+import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
 
 @Component({
   selector: 'app-sop-review',
@@ -33,7 +37,7 @@ import { CourseArchivedNoteComponent } from '../course-archived-note/course-arch
     CommonModule, FormsModule, RouterModule, DragDropModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
     NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, NzInputNumberModule, SopContentViewComponent,
-    NzRadioModule, CourseArchivedNoteComponent
+    NzRadioModule, NzModalModule, CourseArchivedNoteComponent, CourseVersionNoteComponent
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']
@@ -63,11 +67,16 @@ export class SopReviewComponent implements OnInit {
   savingSettings = false;
   busy: Record<number, boolean> = {};
 
+  readonly optionLabel = courseOptionLabel;
+  /** After a change moved to a new draft, the module to open there. */
+  private pendingModuleOrder: number | null = null;
+
   constructor(
     private sopService: SopService,
     private route: ActivatedRoute,
     private router: Router,
-    private message: NzMessageService
+    private message: NzMessageService,
+    private modal: NzModalService
   ) {}
 
   ngOnInit(): void {
@@ -93,6 +102,42 @@ export class SopReviewComponent implements OnInit {
     this.selectedSopId = null;
     this.router.navigate(['/sop/review']);
     this.loadList();
+  }
+
+  // --- versions (FR-07-16 to FR-07-18) ---
+
+  /** Every module's material and quiz is approved, so a draft can be published. */
+  get ready(): boolean {
+    return courseReady(this.modules);
+  }
+
+  /** The draft is live now; it stays open, as the course's live version. */
+  onPublished(doc: SopDocument): void {
+    this.loadList();
+    this.loadDetail(doc.id);
+  }
+
+  /** The draft is gone: back to the live version. */
+  onDiscarded(draft: SopDocument): void {
+    this.loadList();
+    if (draft.liveVersionId) {
+      this.onSelectSop(draft.liveVersionId);
+    } else {
+      this.document = undefined;
+      this.modules = [];
+      this.selectedSopId = null;
+      this.router.navigate(['/sop/review']);
+    }
+  }
+
+  /** After a change that started a new draft version, open the draft at the same module. */
+  private followDraft(draftId: number, moduleOrder: number, note: string): void {
+    this.message.success(note);
+    this.pendingModuleOrder = moduleOrder;
+    this.selectedSopId = draftId;
+    this.loadList();
+    this.router.navigate(['/sop/review', draftId]);
+    this.loadDetail(draftId);
   }
 
   /** A restored course is current again, and its owner can change it. */
@@ -121,7 +166,12 @@ export class SopReviewComponent implements OnInit {
           this.view = view;
           this.loadList();
         }
-        if (!this.selectedModuleId || !this.modules.some(m => m.id === this.selectedModuleId)) {
+        const order = this.pendingModuleOrder;
+        this.pendingModuleOrder = null;
+        const byOrder = order == null ? undefined : this.modules.find(m => m.moduleOrder === order);
+        if (byOrder) {
+          this.selectedModuleId = byOrder.id;
+        } else if (!this.selectedModuleId || !this.modules.some(m => m.id === this.selectedModuleId)) {
           this.selectedModuleId = this.modules[0]?.id ?? null;
         }
         this.loading = false;
@@ -241,15 +291,29 @@ export class SopReviewComponent implements OnInit {
   confirmRejectModule(m: SopModule): void {
     const reason = (this.moduleRejectReason[m.id] || '').trim();
     if (!reason) { this.message.warning('Please enter a reason to guide regeneration.'); return; }
+    if (startsDraft(this.document)) {
+      this.modal.confirm({ ...draftQuestion(this.document!), nzOkText: 'Start draft', nzOnOk: () => this.rejectModuleNow(m, reason) });
+      return;
+    }
+    this.rejectModuleNow(m, reason);
+  }
+
+  private rejectModuleNow(m: SopModule, reason: string): void {
     this.busy[m.id] = true;
     this.message.loading('Regenerating module with AI…', { nzDuration: 0 });
     this.sopService.rejectModule(m.id, reason).subscribe({
       next: updated => {
         this.message.remove();
-        this.replaceModule(updated);
         this.showModuleReject[m.id] = false;
         this.moduleRejectReason[m.id] = '';
         this.busy[m.id] = false;
+        if (updated.sopDocumentId !== this.document?.id) {
+          // Staff are taking the course, so the regenerated module is in a new draft version (FR-07-13).
+          this.followDraft(updated.sopDocumentId, updated.moduleOrder,
+            'Module regenerated in the new draft. Staff keep the live version until you publish it.');
+          return;
+        }
+        this.replaceModule(updated);
         this.message.success('Module regenerated.');
       },
       error: err => {

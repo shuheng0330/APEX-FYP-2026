@@ -17,6 +17,7 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
+import { NzSelectModule } from 'ng-zorro-antd/select';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
 import { CourseView, RESTORE_QUESTION } from '../sop.util';
@@ -28,7 +29,7 @@ import { CourseView, RESTORE_QUESTION } from '../sop.util';
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzFormModule, NzTableModule,
     NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule, NzAlertModule,
-    NzModalModule, NzRadioModule
+    NzModalModule, NzRadioModule, NzSelectModule
   ],
   templateUrl: './sop-upload.component.html',
   styleUrls: ['./sop-upload.component.scss']
@@ -38,6 +39,8 @@ export class SopUploadComponent implements OnInit, OnDestroy {
   title = '';
   version = '';
   departmentTag = '';
+  /** Upload as the next version of this course rather than as a new one (FR-06-06). */
+  newVersionOf: number | null = null;
   selectedFile: File | null = null;
   uploading = false;
 
@@ -98,13 +101,16 @@ export class SopUploadComponent implements OnInit, OnDestroy {
     if (this.title.trim()) form.append('title', this.title.trim());
     if (this.version.trim()) form.append('version', this.version.trim());
     if (this.departmentTag.trim()) form.append('departmentTag', this.departmentTag.trim());
+    if (this.newVersionOf) form.append('newVersionOf', String(this.newVersionOf));
 
     this.uploading = true;
     this.sopService.upload(form).subscribe({
       next: doc => {
         this.uploading = false;
-        this.message.success('Uploaded. AI generation has started.');
-        this.title = ''; this.version = ''; this.departmentTag = '';
+        this.message.success(doc.courseStatus === 'DRAFT'
+          ? `Uploaded as draft v${doc.versionNo} of "${doc.title}". AI generation has started; staff keep the live version until you publish it.`
+          : 'Uploaded. AI generation has started.');
+        this.title = ''; this.version = ''; this.departmentTag = ''; this.newVersionOf = null;
         this.selectedFile = null;
         this.documents = [doc, ...this.documents.filter(d => d.id !== doc.id)];
         this.startPolling(); // resume live updates for the new document
@@ -127,10 +133,19 @@ export class SopUploadComponent implements OnInit, OnDestroy {
     this.sopService.delete(doc.id).subscribe({
       next: () => {
         this.documents = this.documents.filter(d => d.id !== doc.id);
-        this.message.success('SOP deleted.');
+        this.message.success(doc.courseStatus === 'DRAFT'
+          ? `Draft v${doc.versionNo} discarded. The live version is unchanged.` : 'SOP deleted.');
+        if (doc.courseStatus === 'DRAFT') {
+          this.startPolling(); // the live version no longer has a draft
+        }
       },
       error: err => this.message.error(err?.error?.message || 'Delete failed.')
     });
+  }
+
+  /** Your live courses that can take a new version: those without a draft in progress (FR-06-06). */
+  get versionTargets(): SopDocument[] {
+    return this.documents.filter(d => d.courseStatus === 'LIVE' && !d.draftId && d.generationStatus === 'COMPLETED');
   }
 
   // --- archive and restore (FR-06-14 to FR-06-16) ---

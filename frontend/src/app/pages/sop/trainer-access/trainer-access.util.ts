@@ -13,6 +13,9 @@ const AUDIT_ACTIONS: Record<string, { label: string; color: string }> = {
   COURSE_TRANSFERRED: { label: 'Transferred', color: 'blue' },
   COURSE_ARCHIVED: { label: 'Archived', color: 'gray' },
   COURSE_RESTORED: { label: 'Restored', color: 'green' },
+  COURSE_DRAFT_CREATED: { label: 'Draft started', color: 'gold' },
+  COURSE_VERSION_PUBLISHED: { label: 'Version published', color: 'green' },
+  COURSE_DRAFT_DISCARDED: { label: 'Draft discarded', color: 'gray' },
 };
 
 export function auditAction(action: string): { label: string; color: string } {

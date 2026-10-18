@@ -88,6 +88,21 @@ public class SopDocument {
     @Column(name = "archived_at")
     private OffsetDateTime archivedAt;
 
+    /**
+     * The course this is a version of: the first version's id, shared by every version (FR-07-16). A patch filled
+     * it in for courses made before versions.
+     */
+    @Column(name = "course_id")
+    private Long courseId;
+
+    /** 1 for the first version, then 2, 3 and so on (FR-07-16). */
+    @Column(name = "version_no", nullable = false, columnDefinition = "integer default 1 not null")
+    private int versionNo = 1;
+
+    /** The version this one was made from; null for the first. */
+    @Column(name = "previous_version_id")
+    private Long previousVersionId;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -106,5 +121,23 @@ public class SopDocument {
 
     public boolean isArchived() {
         return courseStatus == SopCourseStatus.ARCHIVED;
+    }
+
+    public boolean isDraft() {
+        return courseStatus == SopCourseStatus.DRAFT;
+    }
+
+    public boolean isSuperseded() {
+        return courseStatus == SopCourseStatus.SUPERSEDED;
+    }
+
+    /** The version that stands for the course: the live one, or the archived one; not a draft or a replaced one. */
+    public boolean isCurrentVersion() {
+        return isLive() || isArchived();
+    }
+
+    /** The id every version of this course shares: the first version's. */
+    public Long courseKey() {
+        return courseId != null ? courseId : id;
     }
 }

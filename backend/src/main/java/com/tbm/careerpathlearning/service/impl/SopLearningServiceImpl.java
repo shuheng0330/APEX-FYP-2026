@@ -81,7 +81,9 @@ public class SopLearningServiceImpl implements SopLearningService {
                 continue;
             }
             if (e.getStatus() != SopEnrollmentStatus.WITHDRAWN) {
-                enrolled.add(doc.getId()); // someone withdrawn can join an Open course again once it is restored
+                // Any version counts: someone taking or finished with a course isn't offered it again. Someone
+                // withdrawn can join an Open course again once it is restored.
+                enrolled.add(doc.courseKey());
             }
             dto.getCourses().add(toCourseDto(progress(e, doc)));
         }
@@ -89,7 +91,7 @@ public class SopLearningServiceImpl implements SopLearningService {
                 .comparing((SopLearningCourseDto c) -> c.getDueDate() == null ? LocalDate.MAX : c.getDueDate())
                 .thenComparing(SopLearningCourseDto::getTitle, String.CASE_INSENSITIVE_ORDER));
         for (SopDocument doc : sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc()) {
-            if (doc.isLive() && doc.getVisibility() == SopVisibility.OPEN && !enrolled.contains(doc.getId())) {
+            if (doc.isLive() && doc.getVisibility() == SopVisibility.OPEN && !enrolled.contains(doc.courseKey())) {
                 SopCourseReadiness.Readiness readiness = sopCourseReadiness.of(doc);
                 if (readiness.ready()) {
                     dto.getOpenCourses().add(openCourseDto(doc, readiness.modules()));
@@ -320,6 +322,9 @@ public class SopLearningServiceImpl implements SopLearningService {
         if (doc.isArchived()) {
             throw new BadRequestException("This course has been archived, so it can't be taken any more.");
         }
+        if (!doc.isLive()) {
+            throw new BadRequestException("A newer version has replaced this one, so it can't be taken any more.");
+        }
         if (e.getEffectiveDate() != null && e.getEffectiveDate().isAfter(LocalDate.now(clock))) {
             throw new BadRequestException("This course opens on "
                     + e.getEffectiveDate().format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)) + ".");
@@ -379,6 +384,7 @@ public class SopLearningServiceImpl implements SopLearningService {
             cert.setLearnerName(learner);
             cert.setCourseTitle(p.doc().getTitle());
             cert.setVersion(p.doc().getVersion());
+            cert.setVersionNo(p.doc().getVersionNo());
             cert.setFinalScore(e.getFinalScore());
             cert.setPassMark(e.getPassMark());
             cert.setCompletedAt(e.getCompletedAt());
@@ -409,9 +415,10 @@ public class SopLearningServiceImpl implements SopLearningService {
         dto.setModulesPassed(p.course().passed());
         dto.setRetraining(p.course().retraining());
         dto.setOverdue(e.isActive() && due != null && due.isBefore(today));
-        dto.setAvailable(e.getStatus() != SopEnrollmentStatus.WITHDRAWN && !p.doc().isArchived()
+        dto.setAvailable(e.getStatus() != SopEnrollmentStatus.WITHDRAWN && p.doc().isLive()
                 && (e.getEffectiveDate() == null || !e.getEffectiveDate().isAfter(today)));
         dto.setCourseArchived(p.doc().isArchived());
+        dto.setCourseSuperseded(p.doc().isSuperseded());
         dto.setFinalScore(e.getFinalScore());
         dto.setStartedAt(e.getStartedAt());
         dto.setCompletedAt(e.getCompletedAt());
@@ -430,6 +437,7 @@ public class SopLearningServiceImpl implements SopLearningService {
         dto.setSopDocumentId(doc.getId());
         dto.setTitle(doc.getTitle());
         dto.setVersion(doc.getVersion());
+        dto.setVersionNo(doc.getVersionNo());
         dto.setCategory(doc.getDepartmentTag() == null || doc.getDepartmentTag().isBlank() ? "General" : doc.getDepartmentTag());
         dto.setModuleCount(moduleCount);
         return dto;

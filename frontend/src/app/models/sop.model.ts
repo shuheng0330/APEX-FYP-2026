@@ -4,7 +4,7 @@ export type SopCourseStatus = 'LIVE' | 'DRAFT' | 'SUPERSEDED' | 'ARCHIVED';
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REGENERATED';
 export type QuizQuestionType = 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'FILL_IN_THE_BLANK';
 export type QuizDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
-export type QuizReviewAction = 'APPROVED' | 'REJECTED' | 'REGENERATED' | 'EDITED';
+export type QuizReviewAction = 'APPROVED' | 'REJECTED' | 'REGENERATED' | 'EDITED' | 'COPIED';
 
 export type ContentBlockType = 'paragraph' | 'steps' | 'table' | 'warnings' | 'image' | 'video';
 
@@ -75,6 +75,14 @@ export interface SopDocument {
   enrolledCount: number;
   /** Staff still taking it: archiving withdraws them (FR-06-15). */
   activeEnrollmentCount: number;
+  /** The id every version of this course shares (FR-07-16). */
+  courseId: number;
+  /** 1, 2, 3 and so on. */
+  versionNo: number;
+  /** The draft of the course's next version, if one is in progress; only its owner is told. */
+  draftId?: number | null;
+  /** The course's live version, if it has one. */
+  liveVersionId?: number | null;
 }
 
 /** A course's own settings, set by its owner (FR-07-15). */

@@ -22,4 +22,6 @@ public class CourseOwnerDto {
     private OffsetDateTime createdAt;
     /** Archived courses still have an owner, who can change them once restored. */
     private boolean archived;
+    /** The current version; transfers move every version of the course. */
+    private int versionNo;
 }

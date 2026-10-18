@@ -12,9 +12,11 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { SopService } from '../../../services/sop.service';
-import { CourseView } from '../sop.util';
+import { CourseView, courseOptionLabel, courseReady, draftQuestion, startsDraft } from '../sop.util';
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
+import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
 import {
   QuizDifficulty, QuizQuestionType, QuizReviewAction, QuizReviewEvent, SopDocument, SopModule, SopQuizQuestion
 } from '../../../models/sop.model';
@@ -45,7 +47,8 @@ const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = 
   APPROVED:    { label: 'Approved',       color: 'green' },
   REJECTED:    { label: 'Rejected',       color: 'red' },
   REGENERATED: { label: 'AI regenerated', color: 'cyan' },
-  EDITED:      { label: 'Edited',         color: 'blue' }
+  EDITED:      { label: 'Edited',         color: 'blue' },
+  COPIED:      { label: 'Copied to draft', color: 'purple' }
 };
 
 /**
@@ -59,7 +62,7 @@ const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = 
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzTagModule, NzSelectModule, NzRadioModule,
-    NzIconModule, NzSpinModule, NzEmptyModule, CourseArchivedNoteComponent
+    NzIconModule, NzSpinModule, NzEmptyModule, NzModalModule, CourseArchivedNoteComponent, CourseVersionNoteComponent
   ],
   templateUrl: './sop-quiz-review.component.html',
   styleUrls: ['./sop-quiz-review.component.scss']
@@ -98,11 +101,16 @@ export class SopQuizReviewComponent implements OnInit {
     { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank' }
   ];
 
+  readonly optionLabel = courseOptionLabel;
+  /** After a change moved to a new draft, the module to open there. */
+  private pendingModuleOrder: number | null = null;
+
   constructor(
     private sopService: SopService,
     private route: ActivatedRoute,
     private router: Router,
-    private message: NzMessageService
+    private message: NzMessageService,
+    private modal: NzModalService
   ) {}
 
   ngOnInit(): void {
@@ -129,6 +137,43 @@ export class SopQuizReviewComponent implements OnInit {
     this.selectedModuleId = null;
     this.router.navigate(['/sop/quiz-review']);
     this.loadList();
+  }
+
+  // --- versions (FR-07-16 to FR-07-18) ---
+
+  /** Every module's material and quiz is approved, so a draft can be published. */
+  get ready(): boolean {
+    return courseReady(this.modules);
+  }
+
+  /** The draft is live now; it stays open, as the course's live version. */
+  onPublished(doc: SopDocument): void {
+    this.loadList();
+    this.loadDetail(doc.id);
+  }
+
+  /** The draft is gone: back to the live version. */
+  onDiscarded(draft: SopDocument): void {
+    this.loadList();
+    if (draft.liveVersionId) {
+      this.onSelectSop(draft.liveVersionId);
+    } else {
+      this.document = undefined;
+      this.modules = [];
+      this.selectedSopId = null;
+      this.router.navigate(['/sop/quiz-review']);
+    }
+  }
+
+  /** After a change that started a new draft version, open the draft at the same module. */
+  private followDraft(draftId: number, moduleOrder: number, note: string): void {
+    this.message.success(note);
+    this.pendingModuleOrder = moduleOrder;
+    this.selectedSopId = draftId;
+    this.selectedModuleId = null;
+    this.loadList();
+    this.router.navigate(['/sop/quiz-review', draftId]);
+    this.loadDetail(draftId);
   }
 
   /** A restored course is current again, and its owner can change it. */
@@ -173,7 +218,9 @@ export class SopQuizReviewComponent implements OnInit {
           this.view = view;
           this.loadList();
         }
-        const keep = this.modules.find(m => m.id === this.selectedModuleId);
+        const order = this.pendingModuleOrder;
+        this.pendingModuleOrder = null;
+        const keep = this.modules.find(m => order != null ? m.moduleOrder === order : m.id === this.selectedModuleId);
         const first = keep ?? this.modules[0];
         if (first) {
           this.selectModule(first);
@@ -256,6 +303,15 @@ export class SopQuizReviewComponent implements OnInit {
   }
 
   submitReject(): void {
+    if (!this.selectedModule || !this.rejectReason.trim()) return;
+    if (startsDraft(this.document)) {
+      this.modal.confirm({ ...draftQuestion(this.document!), nzOkText: 'Start draft', nzOnOk: () => this.rejectNow() });
+      return;
+    }
+    this.rejectNow();
+  }
+
+  private rejectNow(): void {
     const module = this.selectedModule;
     const reason = this.rejectReason.trim();
     if (!module || !reason) return;
@@ -264,11 +320,17 @@ export class SopQuizReviewComponent implements OnInit {
     this.cancelEdit();
     this.sopService.rejectQuiz(module.id, reason).subscribe({
       next: updated => {
-        this.replaceModule(updated);
         this.busy = false;
         this.regenerating = false;
         this.showReject = false;
         this.rejectReason = '';
+        if (updated.sopDocumentId !== this.document?.id) {
+          // Staff are taking the course, so the rewritten quiz is in a new draft version (FR-08-10).
+          this.followDraft(updated.sopDocumentId, updated.moduleOrder,
+            'The AI has rewritten the quiz in the new draft. Staff keep the live version until you publish it.');
+          return;
+        }
+        this.replaceModule(updated);
         // FR-08-04: tell the trainer the regenerated quiz is ready.
         this.message.success('The AI has rewritten the quiz. The new version is ready for review.');
         this.loadHistory(updated.id);
@@ -366,6 +428,15 @@ export class SopQuizReviewComponent implements OnInit {
 
   /** Saves the draft: a new question when adding, otherwise the question being edited. */
   saveDraft(): void {
+    if (!this.selectedModule || !this.canSave) return;
+    if (startsDraft(this.document)) {
+      this.modal.confirm({ ...draftQuestion(this.document!), nzOkText: 'Start draft', nzOnOk: () => this.persistQuestion() });
+      return;
+    }
+    this.persistQuestion();
+  }
+
+  private persistQuestion(): void {
     const d = this.draft;
     const module = this.selectedModule;
     if (!d || !module || !this.canSave) return;
@@ -387,6 +458,15 @@ export class SopQuizReviewComponent implements OnInit {
     this.saving = true;
     request.subscribe({
       next: saved => {
+        if (!this.modules.some(m => m.id === saved.sopModuleId)) {
+          // Staff are taking the course, so the question was saved in a new draft version (FR-07-16).
+          this.saving = false;
+          this.cancelEdit();
+          this.sopService.status(this.document!.id).subscribe(live => live.draftId
+            ? this.followDraft(live.draftId, module.moduleOrder, 'Saved in the new draft. Staff keep the live version until you publish it.')
+            : this.loadDetail(live.id));
+          return;
+        }
         this.modules = this.modules.map(m => m.id !== saved.sopModuleId ? m : {
           ...m,
           quiz: added ? [...m.quiz, saved] : m.quiz.map(x => (x.id === saved.id ? saved : x))

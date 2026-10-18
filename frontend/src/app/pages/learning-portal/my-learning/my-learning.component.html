@@ -249,12 +249,12 @@
     </div>
     <div class="card-body">
       <strong class="card-title">{{ c.title }}</strong>
-      <span class="meta">{{ c.modulesPassed }}/{{ c.moduleCount }} modules · pass mark {{ c.passMark }}%</span>
+      <span class="meta">{{ c.modulesPassed }}/{{ c.moduleCount }} modules · pass mark {{ c.passMark }}%@if (c.versionNo > 1 || c.courseSuperseded) { · v{{ c.versionNo }} }</span>
       <div class="card-foot">
         <span class="badge" [style.color]="th.ink" [style.background]="th.tint">{{ c.category }}</span>
         <span class="due" [class.late]="c.overdue">
           @if (c.status === 'WITHDRAWN') {
-            Withdrawn
+            {{ c.courseSuperseded ? 'Replaced by a new version' : 'Withdrawn' }}
           } @else if (c.status === 'COMPLETED') {
             Done {{ c.completedAt | date: 'd MMM' }}{{ c.courseArchived ? ' · Archived' : '' }}
           } @else if (!c.available) {

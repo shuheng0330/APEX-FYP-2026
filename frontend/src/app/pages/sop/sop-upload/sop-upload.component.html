@@ -41,7 +41,16 @@
       </label>
 
       <div class="metadata-grid">
-        <label><span>SOP title</span><input nz-input placeholder="Use file name when blank" [(ngModel)]="title" /></label>
+        <label><span>SOP title</span><input nz-input [placeholder]="newVersionOf ? 'Keeps the course\'s title when blank' : 'Use file name when blank'" [(ngModel)]="title" /></label>
+        <!-- FR-06-06: a revised SOP can become the next version of a course instead of a new course -->
+        <div class="version-of">
+          <span>Upload as</span>
+          <nz-select [(ngModel)]="newVersionOf" nzAllowClear nzPlaceHolder="A new course" aria-label="Upload as">
+            @for (c of versionTargets; track c.id) {
+              <nz-option [nzValue]="c.id" [nzLabel]="'A new version of ' + c.title + ' (now v' + c.versionNo + ')'"></nz-option>
+            }
+          </nz-select>
+        </div>
         <label><span>Version</span><input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" /></label>
         <label><span>Department</span><input nz-input placeholder="e.g. Operations" [(ngModel)]="departmentTag" /></label>
         <button nz-button nzType="primary" nzSize="large" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()" class="upload-btn">
@@ -72,7 +81,15 @@
         <tbody>
           @for (doc of table.data; track doc.id) {
             <tr>
-              <td><strong>{{ doc.title }}</strong><small>{{ doc.originalFilename || 'SOP document' }}</small></td>
+              <td>
+                <strong>{{ doc.title }}</strong>
+                @if (doc.courseStatus === 'DRAFT') {
+                  <nz-tag nzColor="gold" class="version-tag">v{{ doc.versionNo }} draft</nz-tag>
+                } @else if (doc.versionNo > 1) {
+                  <nz-tag class="version-tag">v{{ doc.versionNo }}</nz-tag>
+                }
+                <small>{{ doc.originalFilename || 'SOP document' }}</small>
+              </td>
               <td>{{ doc.departmentTag || '-' }}</td>
               <td>{{ doc.version || '-' }}</td>
               <td class="progress-cell">
@@ -111,13 +128,20 @@
                     <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
                   }
                   <!-- FR-06-14: once anyone has enrolled, the course is archived rather than deleted -->
-                  @if (doc.enrolledCount > 0) {
-                    <button nz-button (click)="archive(doc)" [nzLoading]="busy[doc.id]"
-                      title="Staff have enrolled, so this course can be archived but not deleted">
+                  @if (doc.courseStatus === 'DRAFT') {
+                    <button nz-button nzDanger
+                      nz-popconfirm [nzPopconfirmTitle]="'Discard draft v' + doc.versionNo + '? Its changes are lost; the live version stays as it is.'"
+                      nzOkText="Discard" nzOkType="primary" nzOkDanger
+                      (nzOnConfirm)="delete(doc)" aria-label="Discard draft">
+                      <nz-icon nzType="delete"></nz-icon>
+                    </button>
+                  } @else if (doc.enrolledCount > 0) {
+                    <button nz-button (click)="archive(doc)" [nzLoading]="busy[doc.id]" [disabled]="!!doc.draftId"
+                      [title]="doc.draftId ? 'Publish or discard draft v' + (doc.versionNo + 1) + ' first' : 'Staff have enrolled, so this course can be archived but not deleted'">
                       <nz-icon nzType="inbox"></nz-icon> Archive
                     </button>
                   } @else {
-                    <button nz-button nzDanger
+                    <button nz-button nzDanger [disabled]="!!doc.draftId"
                       nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content? Nobody has enrolled yet."
                       nzOkText="Delete" nzOkType="primary" nzOkDanger
                       (nzOnConfirm)="delete(doc)" aria-label="Delete">

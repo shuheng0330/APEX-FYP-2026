@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.controller;
 
 import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopModuleEditRequest;
+import com.tbm.careerpathlearning.dto.SopPublishRequest;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopRejectRequest;
 import com.tbm.careerpathlearning.enums.AuthorityName;
@@ -53,8 +54,9 @@ public class SopController {
                                     @RequestParam(value = "title", required = false) String title,
                                     @RequestParam(value = "version", required = false) String version,
                                     @RequestParam(value = "departmentTag", required = false) String departmentTag,
+                                    @RequestParam(value = "newVersionOf", required = false) Long newVersionOf,
                                     Authentication authentication) {
-        return ResponseEntity.ok(sopService.upload(file, title, version, departmentTag, userId(authentication)));
+        return ResponseEntity.ok(sopService.upload(file, title, version, departmentTag, userId(authentication), newVersionOf));
     }
 
     /** @param mine only the signed-in person's own courses, as on the upload page */
@@ -93,6 +95,14 @@ public class SopController {
     @PreAuthorize(CHANGE)
     public ResponseEntity<?> archive(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(sopService.archiveDocument(id, viewer(authentication)));
+    }
+
+    /** Puts a draft version live (FR-07-17, FR-07-18). Only its owner may. */
+    @PostMapping("/{id}/publish")
+    @PreAuthorize(CHANGE)
+    public ResponseEntity<?> publish(@PathVariable Long id, @RequestBody(required = false) SopPublishRequest request,
+                                     Authentication authentication) {
+        return ResponseEntity.ok(sopService.publishDraft(id, request != null && request.isRedoCompleted(), viewer(authentication)));
     }
 
     /** Makes an archived course Live again (FR-06-16): its owner, HR or the Super Admin. */

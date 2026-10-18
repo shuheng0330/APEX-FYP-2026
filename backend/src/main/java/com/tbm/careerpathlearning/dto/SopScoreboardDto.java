@@ -20,5 +20,7 @@ public class SopScoreboardDto {
         private Long id;
         private String title;
         private boolean archived;
+        private int versionNo;
+        private boolean superseded;
     }
 }

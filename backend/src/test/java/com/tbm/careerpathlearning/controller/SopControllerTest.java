@@ -13,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -80,7 +81,7 @@ class SopControllerTest {
                 put("/api/sop/module/5"), post("/api/sop/module/5/approve"), post("/api/sop/module/5/reject"),
                 put("/api/sop/quiz/9"), post("/api/sop/module/5/quiz"), post("/api/sop/module/5/quiz/approve"),
                 post("/api/sop/module/5/quiz/reject"), post("/api/sop/1/generate"), delete("/api/sop/1"),
-                put("/api/sop/1/settings"), post("/api/sop/1/archive"))) {
+                put("/api/sop/1/settings"), post("/api/sop/1/archive"), post("/api/sop/1/publish"))) {
             mockMvc.perform(as(change, hr).contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isForbidden());
         }
@@ -90,6 +91,21 @@ class SopControllerTest {
         verify(sopService, never()).deleteDocument(any(), any());
         verify(sopService, never()).updateSettings(any(), any(), any());
         verify(sopService, never()).archiveDocument(any(), any());
+        verify(sopService, never()).publishDraft(any(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("A trainer publishes their draft with the redo choice, and uploads a revised SOP as a new version (FR-06-06, FR-07-18)")
+    void trainerVersions() throws Exception {
+        mockMvc.perform(as(post("/api/sop/1/publish"), trainer).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"redoCompleted\":true}")).andExpect(status().isOk());
+        mockMvc.perform(as(multipart("/api/sop/upload")
+                        .file(new MockMultipartFile("file", "cash_v2.pdf", "application/pdf", new byte[]{1}))
+                        .param("newVersionOf", "7"), trainer))
+                .andExpect(status().isOk());
+
+        verify(sopService).publishDraft(1L, true, new SopViewer(me, false));
+        verify(sopService).upload(any(), any(), any(), any(), eq(me), eq(7L));
     }
 
     @Test
