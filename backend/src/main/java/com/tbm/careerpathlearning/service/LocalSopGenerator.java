@@ -26,21 +26,16 @@ import java.util.regex.Pattern;
 /**
  * Offline fallback for SOP generation, used when the AI is unreachable, out of quota or
  * returns something unusable.
- *
- * Builds modules and quizzes from the SOP's own text: the document is split at its
- * headings, lists become steps or rule cards, and quiz questions are written from the
- * SOP's own sentences. Nothing is invented, but the result is plainer than the AI's,
- * so callers flag these modules for the trainer to review carefully.
  */
 @Service
 public class LocalSopGenerator {
 
-    /** Questions every module quiz should have, from the AI or written here. */
-    public static final int QUIZ_SIZE = 4;
+    /** Questions every module quiz should have, from the AI or written here (FR-06-13). */
+    public static final int QUIZ_SIZE = 5;
 
     /** Same bound as the AI pipeline. */
     private static final int MAX_MODULES = 25;
-    /** Modules shorter than this (in characters) are folded into a neighbour. */
+    /** Modules shorter than this (in characters), or too short for a full quiz, are folded into a neighbour. */
     private static final int MIN_MODULE_CHARS = 200;
     /** Top-level sections longer than this are split at their sub-sections. */
     private static final int SPLIT_MODULE_CHARS = 2500;
@@ -539,11 +534,12 @@ public class LocalSopGenerator {
         return units;
     }
 
+    /** Folds each module too short to support a full quiz into a neighbour (FR-06-13). */
     private static void foldSmall(List<Unit> units) {
         int i = 0;
         while (i < units.size() && units.size() > 1) {
             Unit unit = units.get(i);
-            if (unit.chars() >= MIN_MODULE_CHARS) {
+            if (unit.chars() >= MIN_MODULE_CHARS && supportsQuiz(unit)) {
                 i++;
                 continue;
             }
@@ -554,6 +550,11 @@ public class LocalSopGenerator {
             }
             units.remove(i);
         }
+    }
+
+    /** Whether the module's own text gives a quiz of QUIZ_SIZE questions. */
+    private static boolean supportsQuiz(Unit unit) {
+        return build(unit.title(), unit.leaves).module().getQuiz().size() >= QUIZ_SIZE;
     }
 
     private static void mergeSmallestPair(List<Unit> units) {

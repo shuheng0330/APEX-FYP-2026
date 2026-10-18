@@ -34,10 +34,11 @@
 
     <div class="upload-layout">
       <label class="drop-zone">
-        <input type="file" accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx" (change)="onFileSelected($event)" />
+        <input type="file" [accept]="fileAccept" (change)="onFileSelected($event)" />
         <nz-icon nzType="inbox" nzTheme="outline"></nz-icon>
-        <strong>{{ selectedFile?.name || 'Choose a Word, PDF, PowerPoint or Excel SOP' }}</strong>
-        <span>{{ selectedFile ? 'Document ready to upload' : 'Select a document from your device' }}</span>
+        <strong>{{ selectedFile?.name || 'Choose an SOP file' }}</strong>
+        <!-- FR-06-01, FR-06-12: the accepted files, described the same way everywhere -->
+        <span>{{ selectedFile ? 'Document ready to upload' : fileTypes + ', up to ' + maxUploadMb + ' MB' }}</span>
       </label>
 
       <div class="metadata-grid">
@@ -100,7 +101,7 @@
                 <div class="progress-label">
                   <nz-tag [nzColor]="statusColor(doc.generationStatus)">
                     @if (isInProgress(doc.generationStatus)) { <nz-icon nzType="loading"></nz-icon> }
-                    {{ generationLabel(doc.generationStatus) }}
+                    {{ generationLabel(doc) }}
                   </nz-tag>
                   <span>{{ generationPercent(doc.generationStatus) }}%</span>
                 </div>
