@@ -60,7 +60,7 @@ public class CentralKpiResultsUat {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length == 0) throw new IllegalArgumentException("clone|bootstrap|seed|verify|check-source|check-uat|probe|enable-attitude-setup [local API origin]");
+        if (args.length == 0) throw new IllegalArgumentException("clone|bootstrap|seed|verify|check-source|check-uat|probe|enable-attitude-setup|enable-attitude-review [local API origin]");
         Files.createDirectories(STATE);
         CentralKpiResultsUat uat = new CentralKpiResultsUat(args.length > 1 ? args[1] : "http://localhost:8082");
         switch (args[0]) {
@@ -71,7 +71,10 @@ public class CentralKpiResultsUat {
             case "check-source" -> uat.checkSource();
             case "check-uat" -> uat.checkUat();
             case "probe" -> uat.probe();
-            case "enable-attitude-setup" -> uat.enableAttitudeSetup();
+            case "enable-attitude-setup" -> uat.enableAttitudeAccess("setup", "Setup",
+                    "CAN_MANAGE_ATTITUDE_CONFIGURATION", "/api/attitude-configurations/options");
+            case "enable-attitude-review" -> uat.enableAttitudeAccess("superior", "Superior",
+                    "CAN_REVIEW_ATTITUDE_EVALUATION", "/api/attitude-assessments/reviews");
             default -> throw new IllegalArgumentException("Unknown UAT action");
         }
     }
@@ -82,35 +85,38 @@ public class CentralKpiResultsUat {
         return c;
     }
 
-    private void enableAttitudeSetup() throws Exception {
+    private void enableAttitudeAccess(String actor, String roleName, String permission, String verificationPath) throws Exception {
         checkSource();
-        token("setup");
-        Path backup = STATE.resolve("before-attitude-setup-" + System.currentTimeMillis() + ".dump").toAbsolutePath();
+        token(actor);
+        Path backup = STATE.resolve("before-attitude-" + actor + "-" + System.currentTimeMillis() + ".dump").toAbsolutePath();
         Path pg = Path.of(System.getenv().getOrDefault("APEX_UAT_PG_BIN", "C:/Program Files/PostgreSQL/18/bin"));
         pg(pg.resolve("pg_dump.exe"), List.of("--format=custom", "--no-owner", "--no-acl",
                 "--file=" + backup, "--dbname=" + DATABASE));
         if (Files.size(backup) == 0) throw new IllegalStateException("UAT backup is empty");
         try (Connection c = target()) {
-            Map<String, String> before = fingerprints(c);
+            List<String> preserved = new ArrayList<>(PROTECTED);
+            preserved.addAll(List.of("attitude_assessment", "attitude_assessment_item"));
+            Map<String, String> before = fingerprints(c, preserved);
             c.setAutoCommit(false);
             try {
                 long role = Long.parseLong(scalar(c, "SELECT r.id FROM role r JOIN staff s ON s.role_id=r.id "
-                        + "WHERE s.email='uat.central.setup@example.test' AND r.name='UAT Central Setup' "
-                        + "AND r.is_deleted=false AND s.is_deleted=false AND s.account_status='ACTIVE' FOR UPDATE OF r"));
+                        + "WHERE s.email=? AND r.name=? "
+                        + "AND r.is_deleted=false AND s.is_deleted=false AND s.account_status='ACTIVE' FOR UPDATE OF r",
+                        "uat.central." + actor + "@example.test", "UAT Central " + roleName));
                 if (!"1".equals(scalar(c, "SELECT count(*) FROM staff WHERE role_id=?", role))) {
-                    throw new IllegalStateException("UAT setup Role is shared; refusing to broaden permissions");
+                    throw new IllegalStateException("UAT Role is shared; refusing to broaden permissions");
                 }
-                if (!"1".equals(scalar(c, "SELECT count(*) FROM authority WHERE name='CAN_MANAGE_ATTITUDE_CONFIGURATION'"))) {
-                    throw new IllegalStateException("Attitude setup authority is missing");
+                if (!"1".equals(scalar(c, "SELECT count(*) FROM authority WHERE name=?", permission))) {
+                    throw new IllegalStateException("Required Attitude authority is missing");
                 }
                 execute(c, "INSERT INTO role_authority(role_id,authority_id,created_at,updated_at) "
-                        + "SELECT ?,a.id,now(),now() FROM authority a WHERE a.name='CAN_MANAGE_ATTITUDE_CONFIGURATION' "
-                        + "AND NOT EXISTS(SELECT 1 FROM role_authority ra WHERE ra.role_id=? AND ra.authority_id=a.id)", role, role);
-                if (!before.equals(fingerprints(c))) throw new IllegalStateException("Existing UAT performance data changed");
+                        + "SELECT ?,a.id,now(),now() FROM authority a WHERE a.name=? "
+                        + "AND NOT EXISTS(SELECT 1 FROM role_authority ra WHERE ra.role_id=? AND ra.authority_id=a.id)", role, permission, role);
+                if (!before.equals(fingerprints(c, preserved))) throw new IllegalStateException("Existing UAT performance data changed");
                 c.commit();
-                JSON.writerWithDefaultPrettyPrinter().writeValue(STATE.resolve("attitude-setup-grant.json").toFile(),
-                        Map.of("database", DATABASE, "email", "uat.central.setup@example.test", "roleId", role,
-                                "permission", "CAN_MANAGE_ATTITUDE_CONFIGURATION", "backup", backup.toString(),
+                JSON.writerWithDefaultPrettyPrinter().writeValue(STATE.resolve("attitude-" + actor + "-grant.json").toFile(),
+                        Map.of("database", DATABASE, "email", "uat.central." + actor + "@example.test", "roleId", role,
+                                "permission", permission, "backup", backup.toString(),
                                 "recordedAt", java.time.Instant.now().toString(),
                                 "reason", "User-authorised disposable Attitude opening-date UAT setup"));
             } catch (Exception e) {
@@ -118,10 +124,10 @@ public class CentralKpiResultsUat {
                 throw e;
             }
         }
-        tokens.remove("setup");
-        call("GET", "/api/attitude-configurations/options", null, token("setup"), 200);
+        tokens.remove(actor);
+        call("GET", verificationPath, null, token(actor), 200);
         checkSource();
-        System.out.println("PASS: UAT setup account can administer Attitude Configuration; existing data preserved");
+        System.out.println("PASS: UAT " + actor + " account has " + permission + "; existing data preserved");
         System.out.println("UAT backup: " + backup);
     }
 
@@ -140,8 +146,12 @@ public class CentralKpiResultsUat {
     }
 
     private Map<String, String> fingerprints(Connection c) throws Exception {
+        return fingerprints(c, PROTECTED);
+    }
+
+    private Map<String, String> fingerprints(Connection c, List<String> tables) throws Exception {
         Map<String, String> result = new LinkedHashMap<>();
-        for (String table : PROTECTED) result.put(table, scalar(c,
+        for (String table : tables) result.put(table, scalar(c,
                 "SELECT md5(COALESCE(string_agg(row_data, E'\\n' ORDER BY row_data),'')) "
                         + "FROM (SELECT row_to_json(t)::text AS row_data FROM public." + table + " t) rows"));
         return result;
