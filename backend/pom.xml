@@ -235,6 +235,15 @@
 
     <profiles>
         <profile>
+            <id>backend-review</id>
+            <properties>
+                <review.artifact.suffix>review</review.artifact.suffix>
+            </properties>
+            <build>
+                <finalName>${project.artifactId}-${project.version}-${review.artifact.suffix}</finalName>
+            </build>
+        </profile>
+        <profile>
             <id>dev</id>
             <properties>
                 <spring-boot.run.profiles>dev</spring-boot.run.profiles>

@@ -1,5 +1,11 @@
 # Annual KPI Foundation And KPI Plans
 
+V48 adds independent annual KPI/Attitude appraisal records, append-only activity,
+submission snapshots and two explicitly assigned authorities. It does not modify
+legacy competency appraisals, assessment results or Role grants. The isolated
+runner verifies the new structures and preserves existing application-row digests.
+See `backend/docs/annual-appraisal-backend.md` for the API and staged rollout.
+
 V47 adds the configurable Attitude Self-Assessment opening date. Existing published
 periods retain their previous availability through a Start Date backfill; Drafts
 remain incomplete/saveable. Use the backed-up isolated runner before starting new

@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 47;
+    private static final int LATEST_VERSION = 48;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -240,6 +240,17 @@ public class ApplyAnnualReviewPeriodFoundation {
                     + "WHERE status<>'DRAFT' AND attitude_self_assessment_start_date IS NOT NULL "
                     + "AND attitude_self_assessment_start_date IS DISTINCT FROM start_date")!=0)
                 throw new IllegalStateException("Untracked published Attitude opening dates require review before migration");
+            long annualAppraisalTables=scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                    +"AND table_name IN ('annual_appraisal','annual_appraisal_activity')");
+            long annualAppraisalPermissions=scalar(connection,"SELECT count(*) FROM authority WHERE name IN "
+                    +"('CAN_SUBMIT_ANNUAL_APPRAISAL','CAN_REVIEW_ANNUAL_APPRAISAL')");
+            long annualAppraisalFunctions=scalar(connection,"SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+                    +"WHERE n.nspname='public' AND p.proname IN ('guard_annual_appraisal','guard_annual_appraisal_activity')");
+            long annualAppraisalOwnerKey=scalar(connection,"SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace "
+                    +"WHERE n.nspname='public' AND c.conname='uq_annual_appraisal_owner'");
+            if(annualAppraisalTables!=(extraApplied>=18?2:0) || annualAppraisalPermissions!=(extraApplied>=18?2:0)
+                    || annualAppraisalFunctions!=(extraApplied>=18?2:0) || annualAppraisalOwnerKey!=(extraApplied>=18?1:0))
+                throw new IllegalStateException("Partial/untracked V48 annual appraisal schema; reconcile before migration");
             if(extraApplied>=15) {
                 // Snapshot every existing application table, not only the KPI subset. The new
                 // model/Attitude opening columns and explicitly added authority are excluded.
@@ -327,6 +338,15 @@ public class ApplyAnnualReviewPeriodFoundation {
                     if(scalar(connection,"SELECT count(*) FROM public."+table)!=0)
                         throw new IllegalStateException("V46 unexpectedly populated "+table+"; investigate using the backup");
             }
+            if(scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                    +"AND table_name IN ('annual_appraisal','annual_appraisal_activity')")!=2
+                    || scalar(connection,"SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid "
+                    +"JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal "
+                    +"AND t.tgname IN ('guard_annual_appraisal','guard_annual_appraisal_activity')")!=2)
+                throw new IllegalStateException("V48 annual appraisal tables or history guards are missing");
+            if(extraApplied<18 && (scalar(connection,"SELECT count(*) FROM annual_appraisal")!=0
+                    || scalar(connection,"SELECT count(*) FROM annual_appraisal_activity")!=0))
+                throw new IllegalStateException("V48 unexpectedly populated annual appraisals");
             if (scalar(connection, "SELECT count(*) FROM public.employee_level") != 6)
                 throw new IllegalStateException("Expected six Employee Levels after V30");
             if (scalar(connection, "SELECT count(*) FROM public.role WHERE LOWER(TRIM(name))='superadmin' "
@@ -361,7 +381,8 @@ public class ApplyAnnualReviewPeriodFoundation {
         String row=table.equals("annual_kpi_review_period")
                 ?"(to_jsonb(t)-ARRAY['assessment_model','attitude_self_assessment_start_date'])::text":
                 table.equals("kpi_assessment")?"(to_jsonb(t)-'assessment_model')::text":"to_jsonb(t)::text";
-        String filter=table.equals("authority")?" WHERE name<>'CAN_ENTER_COMPANY_KPI_RESULTS'":"";
+        String filter=table.equals("authority")?" WHERE name NOT IN ('CAN_ENTER_COMPANY_KPI_RESULTS',"
+                +"'CAN_SUBMIT_ANNUAL_APPRAISAL','CAN_REVIEW_ANNUAL_APPRAISAL')":"";
         try(var statement=connection.createStatement();var rows=statement.executeQuery(
                 "SELECT md5(coalesce(string_agg("+row+",',' ORDER BY "+row+"),'')) FROM public."+quotedTable+" t"+filter)) {
             rows.next();return rows.getString(1);

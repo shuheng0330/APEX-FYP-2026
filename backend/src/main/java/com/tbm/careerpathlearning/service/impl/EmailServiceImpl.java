@@ -194,6 +194,19 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override @Async
+    public void sendAnnualAppraisalReviewedEmail(String to, String employee, String period, String decision, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.annual.appraisal.reviewed.title",null,locale));
+            helper.setText(messageSource.getMessage("email.annual.appraisal.reviewed.body",
+                    new Object[]{employee,period,decision},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send annual appraisal review notification",e);}
+    }
+
+    @Override @Async
     public void sendAttitudeAssessmentReviewedEmail(String to, String employee, String period, Locale locale) {
         try {
             var message=mailSender.createMimeMessage();
