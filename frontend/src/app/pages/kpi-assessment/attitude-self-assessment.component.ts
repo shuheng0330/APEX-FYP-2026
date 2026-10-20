@@ -47,6 +47,12 @@ export class AttitudeSelfAssessmentComponent implements OnChanges {
   get dirty() { return !this.readonly && this.signature() !== this.savedAnswers; }
   get completed() { return this.items.filter(item => !assessmentPointError(item.selfPoint, true)).length; }
   get progress() { return this.items.length ? this.completed / this.items.length * 100 : 0; }
+  get reviewed() { return this.assessment?.status === 'REVIEWED'; }
+  get superiorTotal() { return this.items.reduce((total, item) => total + (item.superiorPoint ?? 0), 0); }
+  contribution(item: AttitudeAssessmentItem) {
+    return this.reviewed && item.superiorPoint != null && this.items.length
+      ? item.superiorPoint * 100 / (5 * this.items.length) : null;
+  }
   get employeeContext() { return [this.assessment?.employeeName, this.assessment?.roleName, this.assessment?.departmentName].filter(Boolean).join(' · '); }
   get submissionReasons() {
     if (this.readonly || !this.assessment) return [];

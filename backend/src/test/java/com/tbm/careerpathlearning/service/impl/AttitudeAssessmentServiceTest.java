@@ -330,6 +330,18 @@ class AttitudeAssessmentServiceTest {
         assertEquals(4,service.get(20L,owner).getItems().get(0).getSuperiorPoint());
         verify(email).sendAttitudeAssessmentReviewedEmail("employee@example.test","Amir","Annual Review",Locale.ENGLISH);
     }
+    @Test void onlyCompletedSuperiorCommentsAreReleasedToTheOwner() {
+        submitted();var request=superiorRequest(4,3);
+        request.getItems().get(0).setSuperiorComment("Respectful collaboration");
+        service.saveSuperiorDraft(20L,request,superiorId);
+        assertNull(service.get(20L,owner).getItems().get(0).getSuperiorComment());
+        service.completeReview(20L,superiorId);
+        var ownerView=service.get(20L,owner);
+        assertEquals("Respectful collaboration",ownerView.getItems().get(0).getSuperiorComment());
+        assertEquals(new BigDecimal("70.0000"),ownerView.getAttitudeScore());
+        assertFalse(ownerView.isCanSaveSuperiorDraft());
+        assertThrows(AccessDeniedException.class,()->service.get(20L,outsider));
+    }
     @Test void equalAverageHasDecimalPrecisionAndDoesNotDependOnEmployeeLevelOrFormat() {
         submitted();var criterion=configuration.getCriteria().get(1);criterion.setEvaluationFormat(null);
         criterion.setCriterionType(AttitudeCriterionType.SHARED_CORE_VALUE);

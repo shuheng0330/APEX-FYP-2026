@@ -32,6 +32,8 @@ export interface ReviewTask {
 
 // Workspace visibility only: record scope and available actions still come from the backend.
 const tasks: readonly ReviewTask[] = [
+  { id: 'ANNUAL_RECOMMENDATION', path: '/team-performance/team-appraisals', destination: 'ANNUAL_APPRAISAL.TEAM_TITLE', permissions: ['CAN_SUBMIT_ANNUAL_APPRAISAL'] },
+  { id: 'ANNUAL_REVIEW', path: '/appraisals/review', destination: 'ANNUAL_APPRAISAL.HR_TITLE', permissions: ['CAN_REVIEW_ANNUAL_APPRAISAL'] },
   { id: 'COMPANY', path: '/kpi-management/company-kpis', destination: 'KPI_PLAN.COMPANY_TITLE', permissions: ['CAN_MANAGE_COMPANY_KPI'] },
   { id: 'COMPANY_REVISION', path: organisationReviewPath, tab: 'revisions', destination: 'KPI_REVISIONS.TITLE', permissions: ['CAN_REVISE_COMPANY_KPI'] },
   { id: 'DEPARTMENT', path: '/kpi-management/department-kpis', destination: 'DEPARTMENT_KPI.TITLE', permissions: ['CAN_MANAGE_DEPARTMENT_KPI'] },

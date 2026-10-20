@@ -46,8 +46,11 @@ export class SideMenuComponent {
       ]
     },
     {
-      key: 'NAV.TEAM_PERFORMANCE', icon: 'team', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'],
-      children: [{ key: 'TEAM_REVIEWS.TITLE', route: '/team-performance/team-reviews', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'] }]
+      key: 'NAV.TEAM_PERFORMANCE', icon: 'team', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION', 'CAN_SUBMIT_ANNUAL_APPRAISAL'],
+      children: [
+        { key: 'TEAM_REVIEWS.TITLE', route: '/team-performance/team-reviews', requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'] },
+        { key: 'ANNUAL_APPRAISAL.TEAM_TITLE', route: '/team-performance/team-appraisals', requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'] }
+      ]
     },
     {
       key: 'NAV.KPI_ADMINISTRATION', icon: 'calendar',
@@ -80,6 +83,13 @@ export class SideMenuComponent {
     },
     {
       key: 'NAV.PERFORMANCE_APPRAISAL', icon: 'fund-projection-screen',
+      children: [
+        { key: 'ANNUAL_APPRAISAL.HR_TITLE', route: '/appraisals/review', requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'] }
+      ],
+      requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL']
+    },
+    {
+      key: 'NAV.LEGACY_COMPETENCY_PERFORMANCE', icon: 'history',
       children: [
         {
           key: 'NAV.TEAM_PERFORMANCE',

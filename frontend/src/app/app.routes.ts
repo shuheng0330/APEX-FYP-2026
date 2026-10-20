@@ -40,6 +40,32 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'team-performance/team-appraisals/:reviewPeriodId/:participantId', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        runGuardsAndResolvers: 'always',
+        data: { requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'], hrReview: false },
+        loadComponent: () => import('./pages/annual-appraisal/annual-appraisal-detail.component').then(m => m.AnnualAppraisalDetailComponent)
+      },
+      {
+        path: 'appraisals/review/:appraisalId', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        runGuardsAndResolvers: 'always',
+        data: { requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'], hrReview: true },
+        loadComponent: () => import('./pages/annual-appraisal/annual-appraisal-detail.component').then(m => m.AnnualAppraisalDetailComponent)
+      },
+      {
+        path: 'team-performance/team-appraisals', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'], hrReview: false },
+        loadComponent: () => import('./pages/annual-appraisal/annual-appraisals.component').then(m => m.AnnualAppraisalsComponent)
+      },
+      {
+        path: 'appraisals/review', canActivate: [PermissionGuard],
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'], hrReview: true },
+        loadComponent: () => import('./pages/annual-appraisal/annual-appraisals.component').then(m => m.AnnualAppraisalsComponent)
+      },
+      {
         path: 'my-performance/my-assessments', canActivate: [PermissionGuard],
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         data: { requiredRoles: ['ROLE_USER'] },

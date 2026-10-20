@@ -37,11 +37,34 @@
   } @else if (current.reviewPeriodStatus === 'CLOSED') {
     <p class="notice">{{ 'MY_ASSESSMENTS.CLOSED_HELP' | translate }}</p>
   }
-  @if (current.status === 'PENDING_REVIEW' || current.status === 'REVIEWED') {
+  @if (current.status === 'PENDING_REVIEW') {
     <p class="notice" role="status">{{ 'ATTITUDE_ASSESSMENT.SUBMITTED_HELP' | translate }}
       @if (current.submittedAt) { <span>{{ 'MY_ASSESSMENTS.SUBMITTED_ON' | translate }} {{ current.submittedAt | date:'dd MMM yyyy, h:mm a' }}.</span> }
     </p>
   } @else if (current.overdue && !readonly) { <p class="help warning overdue-help">{{ 'MY_ASSESSMENTS.LATE_HELP' | translate }}</p> }
+  @if (reviewed) {
+    <section class="card attitude-results" aria-labelledby="attitude-results-title">
+      <div class="card-head assessment-heading"><div><h3 id="attitude-results-title">{{ 'ATTITUDE_RESULTS.TITLE' | translate }}</h3>
+        <p class="help">{{ 'ATTITUDE_RESULTS.HELP' | translate }}</p></div>
+        <button nz-button type="button" [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button>
+      </div>
+      <div class="card-body">
+        <dl class="summary-grid"><div><dt>{{ 'ATTITUDE_RESULTS.FINAL_SCORE' | translate }}</dt>
+          <dd class="attitude-final-score">{{ current.attitudeScore == null ? '-' : (current.attitudeScore | number:'1.2-2') }} / 100</dd></div>
+          <div><dt>{{ 'ATTITUDE_RESULTS.COMPLETED_ON' | translate }}</dt><dd>{{ (current.reviewedAt | date:'dd MMM yyyy, h:mm a') || '-' }}</dd></div>
+        </dl>
+        <p class="help">{{ 'ATTITUDE_RESULTS.FORMULA' | translate:{ total: superiorTotal, maximum: items.length * 5 } }}</p>
+      </div>
+      <div class="table-scroll"><table class="data-table">
+        <thead><tr><th>{{ 'ATTITUDE_RESULTS.CRITERION' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }}</th>
+          <th>{{ 'ATTITUDE_RESULTS.SUPERIOR_POINT' | translate }}</th><th>{{ 'ATTITUDE_RESULTS.CONTRIBUTION' | translate }}</th></tr></thead>
+        <tbody>@for (item of items; track item.criterionId) {
+          <tr><td>{{ item.name }}</td><td>{{ item.selfPoint ?? '-' }} / 5</td><td>{{ item.superiorPoint ?? '-' }} / 5</td>
+            <td>{{ contribution(item) == null ? '-' : (contribution(item) | number:'1.2-2') }}</td></tr>
+        }</tbody>
+      </table></div>
+    </section>
+  }
   @if (!readonly && submissionReasons.length) {
     <div class="submission-readiness" role="status"><strong>{{ 'MY_ASSESSMENTS.BEFORE_SUBMIT' | translate }}</strong>
       <ul>@for (reason of submissionReasons; track reason) { <li>{{ reason }}</li> }</ul>
@@ -50,13 +73,13 @@
   @if (items.length && !current.openingPending) {
     <section class="card attitude-criteria">
       <div class="card-head assessment-heading">
-        <div><h3>{{ 'ATTITUDE_ASSESSMENT.TITLE' | translate }}</h3><p class="help">{{ 'ATTITUDE_ASSESSMENT.INSTRUCTIONS' | translate }}</p></div>
+        <div><h3>{{ (reviewed ? 'ATTITUDE_RESULTS.RATINGS_FEEDBACK' : 'ATTITUDE_ASSESSMENT.TITLE') | translate }}</h3><p class="help">{{ (reviewed ? 'ATTITUDE_RESULTS.FEEDBACK_HELP' : 'ATTITUDE_ASSESSMENT.INSTRUCTIONS') | translate }}</p></div>
         @if (current.ratingDefinitions.length) { <app-kpi-scoring-guide [ratings]="current.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" /> }
-        <div class="assessment-progress">
+        @if (!reviewed) { <div class="assessment-progress">
           <span>{{ 'ATTITUDE_ASSESSMENT.PROGRESS' | translate:{ completed, total: items.length } }}</span>
           <div class="progress-track" role="progressbar" [attr.aria-label]="'ATTITUDE_ASSESSMENT.PROGRESS_LABEL' | translate"
             aria-valuemin="0" [attr.aria-valuemax]="items.length" [attr.aria-valuenow]="completed"><span [style.width.%]="progress"></span></div>
-        </div>
+        </div> }
       </div>
       @for (item of items; track item.criterionId) {
         <article class="attitude-criterion">
@@ -87,6 +110,15 @@
               [attr.aria-invalid]="!!commentError(item.selfComment)" [attr.aria-describedby]="commentError(item.selfComment) ? 'attitude-comment-error-' + item.criterionId : null"
               [placeholder]="'ATTITUDE_ASSESSMENT.COMMENT_PLACEHOLDER' | translate"></textarea>
             @if (commentError(item.selfComment); as validation) { <span class="field-error" [id]="'attitude-comment-error-' + item.criterionId">{{ validation | translate }}</span> }
+          }
+          @if (reviewed) {
+            <section class="submitted-superior-feedback">
+              <h4>{{ 'ATTITUDE_RESULTS.SUPERIOR_POINT' | translate }}</h4>
+              <strong class="saved-point">{{ item.superiorPoint ?? '-' }} / 5</strong>
+              @if (rating(item.superiorPoint ?? null); as scale) { <span class="selected-point-label">{{ scale.label }}</span> }
+              <h4>{{ 'ATTITUDE_RESULTS.SUPERIOR_FEEDBACK' | translate }}</h4>
+              <p class="saved-comment">{{ item.superiorComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p>
+            </section>
           }
         </article>
       }

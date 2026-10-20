@@ -85,6 +85,7 @@
               @if (rating(item.superiorPoint); as scale) { <span class="selected-point-label" role="status">{{ scale.label }}</span> }
               @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'attitude-superior-error-' + item.id">{{ validation | translate }}</span> }
               <div class="field"><label [for]="'attitude-superior-comment-' + item.id">{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_COMMENT' | translate }}</label>
+                @if (!readonly) { <p class="help">{{ 'ATTITUDE_RESULTS.SHARING_HELP' | translate }}</p> }
                 @if (readonly) { <p class="saved-comment">{{ item.superiorComment || '-' }}</p> }
                 @else { <textarea [id]="'attitude-superior-comment-' + item.id" rows="3" maxlength="10000" [disabled]="busy" [(ngModel)]="item.superiorComment" [attr.aria-invalid]="!!commentError(item.superiorComment)" [attr.aria-describedby]="commentError(item.superiorComment) ? 'attitude-comment-error-' + item.id : null" [placeholder]="'KPI_ASSESSMENT_REVIEW.COMMENT_PLACEHOLDER' | translate"></textarea>
                   @if (commentError(item.superiorComment); as validation) { <span class="field-error" [id]="'attitude-comment-error-' + item.id">{{ validation | translate }}</span> }

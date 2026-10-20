@@ -28,6 +28,12 @@ describe('SideMenuComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('clearly separates legacy competency pages from annual appraisal review without retiring their routes', () => {
+    const annual = component.navItems.find(item => item.key === 'NAV.PERFORMANCE_APPRAISAL')!;
+    expect(annual.children?.map(item => item.route)).toEqual(['/appraisals/review']);
+    const legacy = component.navItems.find(item => item.key === 'NAV.LEGACY_COMPETENCY_PERFORMANCE');
+    expect(legacy?.children?.map(item => item.route)).toEqual(['/evaluation/overview', '/evaluation/org-overview', '/evaluation/my-evaluation']);
+  });
   it('exposes Team Reviews with any review authority, but not ROLE_USER alone', () => {
     const item = component.navItems.find(item => item.key === 'NAV.TEAM_PERFORMANCE')!;
     const auth = TestBed.inject(AuthService);

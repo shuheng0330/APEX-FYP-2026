@@ -59,6 +59,27 @@ describe('Annual Attitude Self-Assessment', () => {
     expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(5);
     expect(fixture.nativeElement.querySelector('input[type=file]')).toBeNull();
   });
+  it('shows completed Superior ratings, employee feedback and the stored score with equal-weight contributions', () => {
+    api.mine.and.returnValue(of(assessment({ id: 20, status: 'REVIEWED', canSaveDraft: false, canSubmit: false,
+      attitudeScore: 70, reviewedAt: '2026-10-20T02:00:00Z',
+      items: [{ ...row(7), selfPoint: 5, selfComment: 'My reflection', superiorPoint: 4, superiorComment: 'Respectful collaboration' },
+        { ...row(8), selfPoint: 4, superiorPoint: 3, superiorComment: 'Build consistent initiative' }] })));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attitude-results').textContent).toContain('70.00 / 100');
+    expect(fixture.nativeElement.querySelectorAll('.submitted-superior-feedback').length).toBe(2);
+    expect(fixture.nativeElement.textContent).toContain('Respectful collaboration'); expect(fixture.nativeElement.textContent).toContain('My reflection');
+    expect(page.contribution(page.items[0])).toBe(40); expect(page.contribution(page.items[1])).toBe(30);
+    expect(fixture.nativeElement.querySelector('textarea')).toBeNull(); expect(fixture.nativeElement.querySelector('.assessment-actions')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.assessment-progress')).toBeNull();
+  });
+  it('never renders Superior drafts, comments or official results before review completion', () => {
+    api.mine.and.returnValue(of(assessment({ id: 20, status: 'PENDING_REVIEW', canSaveDraft: false,
+      items: [{ ...row(), selfPoint: 4, superiorPoint: 5, superiorComment: 'Unfinished private draft' }], attitudeScore: 100 })));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attitude-results')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.submitted-superior-feedback')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Unfinished private draft');
+  });
   it('shows the scheduled opening clearly and prevents editing or writes before it opens', () => {
     const translate = TestBed.inject(TranslateService);
     translate.setTranslation('en', { ATTITUDE_ASSESSMENT: { OPENS_ON: 'Attitude Self-Assessment Opens on {{date}}',

@@ -35,6 +35,8 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
 
   private readonly pageMap: Array<{ prefix: string; page: PageContext }> = [
+    { prefix: '/team-performance/team-appraisals', page: { title: 'ANNUAL_APPRAISAL.TEAM_TITLE', group: 'NAV.TEAM_PERFORMANCE' } },
+    { prefix: '/appraisals/review', page: { title: 'ANNUAL_APPRAISAL.HR_TITLE', group: 'NAV.PERFORMANCE_APPRAISAL' } },
     { prefix: '/my-performance/my-assessments', page: { title: 'MY_ASSESSMENTS.TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/my-performance/my-kpi-plan', page: { title: 'INDIVIDUAL_KPI.TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/team-performance/team-reviews', page: { title: 'TEAM_REVIEWS.TITLE', group: 'NAV.TEAM_PERFORMANCE' } },
@@ -44,11 +46,11 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
     { prefix: '/kpi-management/kpi-review', page: { title: 'KPI_ASSISTANCE.REVIEW_TITLE', group: 'NAV.KPI_MANAGEMENT' } },
     { prefix: '/kpi-administration/review-periods', page: { title: 'REVIEW_PERIOD.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
     { prefix: '/kpi-administration/attitude-evaluation-setup', page: { title: 'ATTITUDE_SETUP.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
-    { prefix: '/evaluation/org-overview', page: { title: 'Organisation-Wide Performance', group: 'Performance and Appraisal' } },
-    { prefix: '/evaluation/overview', page: { title: 'Team Performance', group: 'Performance and Appraisal' } },
-    { prefix: '/evaluation/my-evaluation', page: { title: 'My Performance', group: 'Performance and Appraisal' } },
-    { prefix: '/evaluation', page: { title: 'Perform Evaluation', group: 'Performance and Appraisal' } },
-    { prefix: '/performance', page: { title: 'Staff Performance', group: 'Performance and Appraisal' } },
+    { prefix: '/evaluation/org-overview', page: { title: 'Organisation-Wide Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
+    { prefix: '/evaluation/overview', page: { title: 'Team Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
+    { prefix: '/evaluation/my-evaluation', page: { title: 'My Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
+    { prefix: '/evaluation', page: { title: 'Perform Evaluation', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
+    { prefix: '/performance', page: { title: 'Staff Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
     { prefix: '/sop/upload', page: { title: 'SOP Automation Workspace', group: 'Training Automation' } },
     { prefix: '/sop/review', page: { title: 'Generated Training Review', group: 'Training Automation' } },
     { prefix: '/roles-competencies', page: { title: 'Roles and Competencies', group: 'Organisation Management' } },
@@ -98,6 +100,13 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
   }
 
   private updatePage(url: string): void {
+    const path = url.split(/[?#]/)[0];
+    if (/^\/team-performance\/team-appraisals\/[^/]+\/[^/]+\/?$/.test(path)) {
+      this.page = { title: 'ANNUAL_APPRAISAL.DETAIL_TITLE', group: 'NAV.TEAM_PERFORMANCE' }; return;
+    }
+    if (/^\/appraisals\/review\/[^/]+\/?$/.test(path)) {
+      this.page = { title: 'ANNUAL_APPRAISAL.REVIEW_DETAIL_TITLE', group: 'NAV.PERFORMANCE_APPRAISAL' }; return;
+    }
     this.page = this.pageMap.find(item => url.startsWith(item.prefix))?.page
       ?? { title: 'TBM Staff Platform', group: 'Workspace' };
   }

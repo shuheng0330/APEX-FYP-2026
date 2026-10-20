@@ -1,4 +1,8 @@
 :host { display: block; }
+.attitude-final-score { font-size: 26px; color: var(--tbm-primary); }
+.submitted-superior-feedback { margin-top: 18px; padding: 16px; border-radius: 8px; background: var(--tbm-surface-subtle); }
+.submitted-superior-feedback h4 { font-size: 13px; margin: 10px 0 6px; }
+.submitted-superior-feedback .selected-point-label { margin-left: 10px; }
 .attitude-context { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .attitude-context .help { margin: 0; }
 .attitude-toolbar { gap: 14px; }
