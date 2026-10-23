@@ -121,6 +121,10 @@
               </div>
               <div class="heading-actions">
                 <nz-tag [nzColor]="statusColor(module.reviewStatus)">{{ module.reviewStatus }}</nz-tag>
+                <!-- FR-07-14: anyone who can open the course sees how its material was reviewed -->
+                <button nz-button nzSize="small" (click)="openHistory(module)">
+                  <nz-icon nzType="history"></nz-icon> History
+                </button>
                 @if (document.editable) {
                   <button nz-button nzSize="small" (click)="toggleEdit(module)">
                     <nz-icon [nzType]="editMode[module.id] ? 'eye' : 'edit'"></nz-icon>
@@ -418,4 +422,33 @@
       </div>
     }
   </nz-spin>
+
+  <!-- Material review history (FR-07-14) -->
+  <nz-drawer [nzVisible]="historyOpen" nzPlacement="right" [nzWidth]="'min(420px, 100vw)'" nzTitle="Material history"
+             (nzOnClose)="closeHistory()">
+    <ng-container *nzDrawerContent>
+      @if (historyModule; as hm) {
+        <p class="history-module">Module {{ hm.moduleOrder }}: {{ hm.title }}</p>
+      }
+      <nz-spin [nzSpinning]="historyLoading" nzSize="small">
+        @if (!history.length && !historyLoading) {
+          <p class="history-empty">No review history yet.</p>
+        }
+        @for (e of history; track e.id) {
+          <div class="history-item" [attr.data-action]="e.action">
+            <div class="history-top">
+              <nz-tag [nzColor]="historyColor(e.action)">{{ historyLabel(e.action) }}</nz-tag>
+              <span>{{ e.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+            </div>
+            @if (historyBy(e); as by) {
+              <p class="by">{{ by }}</p>
+            }
+            @if (e.detail) {
+              <p class="detail">{{ e.detail }}</p>
+            }
+          </div>
+        }
+      </nz-spin>
+    </ng-container>
+  </nz-drawer>
 </div>

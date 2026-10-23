@@ -180,6 +180,12 @@ public class SopController {
         return ResponseEntity.ok(sopService.getQuizHistory(moduleId, viewer(authentication)));
     }
 
+    /** How a module's material was generated, and who edited, approved or rejected it (FR-07-14). */
+    @GetMapping("/module/{moduleId}/history")
+    public ResponseEntity<?> materialHistory(@PathVariable Long moduleId, Authentication authentication) {
+        return ResponseEntity.ok(sopService.getMaterialHistory(moduleId, viewer(authentication)));
+    }
+
     private UUID userId(Authentication authentication) {
         return UUID.fromString(authentication.getPrincipal().toString());
     }

@@ -287,3 +287,18 @@ dt { color: var(--tbm-muted); font-size: 11px; } dd { margin: 0; font-size: 11px
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
 }
+
+/* Material history drawer (FR-07-14) */
+.history-module { margin: 0 0 14px; font-size: 12px; font-weight: 600; color: var(--tbm-text); }
+.history-empty { margin: 0; color: var(--tbm-muted); font-size: 12px; }
+.history-item { padding: 10px 12px; margin-bottom: 8px; border-left: 2px solid var(--tbm-border); border-radius: 0 6px 6px 0; background: var(--tbm-surface-subtle); font-size: 12px; }
+.history-item[data-action='GENERATED'] { border-left-color: #2f54eb; }
+.history-item[data-action='EDITED'] { border-left-color: #1677ff; }
+.history-item[data-action='APPROVED'] { border-left-color: #52c41a; }
+.history-item[data-action='REJECTED'] { border-left-color: #ff4d4f; }
+.history-item[data-action='REGENERATED'] { border-left-color: #13c2a8; }
+.history-item[data-action='COPIED'] { border-left-color: #722ed1; }
+.history-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--tbm-muted); }
+.history-top nz-tag { margin: 0; }
+.history-item .by { margin: 6px 0 0; color: var(--tbm-muted); }
+.history-item .detail { margin: 4px 0 0; color: var(--tbm-text); line-height: 1.5; overflow-wrap: anywhere; }

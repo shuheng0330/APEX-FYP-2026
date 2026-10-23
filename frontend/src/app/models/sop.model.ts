@@ -5,6 +5,8 @@ export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REGENERATED';
 export type QuizQuestionType = 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'FILL_IN_THE_BLANK';
 export type QuizDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type QuizReviewAction = 'APPROVED' | 'REJECTED' | 'REGENERATED' | 'EDITED' | 'COPIED';
+/** What happened to a module's material, in its review history (FR-07-14). */
+export type MaterialReviewAction = 'GENERATED' | 'EDITED' | 'APPROVED' | 'REJECTED' | 'REGENERATED' | 'COPIED';
 
 export type ContentBlockType = 'paragraph' | 'steps' | 'table' | 'warnings' | 'image' | 'video';
 
@@ -113,6 +115,16 @@ export interface QuizReviewEvent {
   /** The rejection reason, or what was edited or regenerated. */
   detail?: string | null;
   /** Null when the AI regenerated the quiz. */
+  actorName?: string | null;
+  createdAt: string;
+}
+
+export interface MaterialReviewEvent {
+  id: number;
+  action: MaterialReviewAction;
+  /** How it was generated, what was edited, or the rejection reason. */
+  detail?: string | null;
+  /** Null when the AI acted. */
   actorName?: string | null;
   createdAt: string;
 }

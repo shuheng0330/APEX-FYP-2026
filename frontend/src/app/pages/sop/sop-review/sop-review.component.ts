@@ -17,10 +17,11 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SopService } from '../../../services/sop.service';
 import {
-  ContentBlockType, ContentSection, ReviewStatus, RichContent, SopDocument, SopModule
+  ContentBlockType, ContentSection, MaterialReviewAction, MaterialReviewEvent, ReviewStatus, RichContent, SopDocument, SopModule
 } from '../../../models/sop.model';
 import { environment } from '../../../../environments/environment';
 import { SopContentViewComponent, parseRichContent } from '../../../components/sop-content-view/sop-content-view.component';
@@ -30,6 +31,16 @@ import {
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
 
+/** How each entry in a module's material history is shown (FR-07-14). */
+const HISTORY_META: Record<MaterialReviewAction, { label: string; color: string }> = {
+  GENERATED:   { label: 'Generated',       color: 'geekblue' },
+  EDITED:      { label: 'Edited',          color: 'blue' },
+  APPROVED:    { label: 'Approved',        color: 'green' },
+  REJECTED:    { label: 'Rejected',        color: 'red' },
+  REGENERATED: { label: 'AI regenerated',  color: 'cyan' },
+  COPIED:      { label: 'Copied to draft', color: 'purple' }
+};
+
 @Component({
   selector: 'app-sop-review',
   standalone: true,
@@ -37,7 +48,7 @@ import { CourseVersionNoteComponent } from '../course-version-note/course-versio
     CommonModule, FormsModule, RouterModule, DragDropModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
     NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, NzInputNumberModule, SopContentViewComponent,
-    NzRadioModule, NzModalModule, CourseArchivedNoteComponent, CourseVersionNoteComponent
+    NzRadioModule, NzModalModule, NzDrawerModule, CourseArchivedNoteComponent, CourseVersionNoteComponent
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']
@@ -66,6 +77,12 @@ export class SopReviewComponent implements OnInit {
   settingsMinutes = 0;
   savingSettings = false;
   busy: Record<number, boolean> = {};
+
+  // material review history (FR-07-14)
+  historyOpen = false;
+  historyModule?: SopModule;
+  history: MaterialReviewEvent[] = [];
+  historyLoading = false;
 
   readonly optionLabel = courseOptionLabel;
   /** After a change moved to a new draft, the module to open there. */
@@ -322,6 +339,42 @@ export class SopReviewComponent implements OnInit {
         this.message.error(err?.error?.message || 'Regeneration failed.');
       }
     });
+  }
+
+  // --- material history (FR-07-14) ---
+
+  openHistory(m: SopModule): void {
+    this.historyModule = m;
+    this.history = [];
+    this.historyOpen = true;
+    this.historyLoading = true;
+    this.sopService.materialHistory(m.id).subscribe({
+      next: events => {
+        if (this.historyModule?.id === m.id) {
+          this.history = events;
+          this.historyLoading = false;
+        }
+      },
+      // The error pop-up gives the server's reason.
+      error: () => {
+        if (this.historyModule?.id === m.id) {
+          this.historyLoading = false;
+        }
+      }
+    });
+  }
+
+  closeHistory(): void {
+    this.historyOpen = false;
+  }
+
+  historyLabel(action: MaterialReviewAction): string { return HISTORY_META[action]?.label ?? action; }
+  historyColor(action: MaterialReviewAction): string | undefined { return HISTORY_META[action]?.color; }
+
+  /** Who acted: a person, or the AI for a regeneration. A generation's detail says how it was made. */
+  historyBy(e: MaterialReviewEvent): string | null {
+    if (e.actorName) return 'by ' + e.actorName;
+    return e.action === 'REGENERATED' ? 'by the AI' : null;
   }
 
   // --- block editing (FR-07-06) ---

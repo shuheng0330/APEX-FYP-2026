@@ -3,15 +3,18 @@ package com.tbm.careerpathlearning.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tbm.careerpathlearning.dto.GeneratedSopContent;
 import com.tbm.careerpathlearning.dto.GeneratedSopPlan;
+import com.tbm.careerpathlearning.enums.MaterialReviewAction;
 import com.tbm.careerpathlearning.enums.QuizDifficulty;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import com.tbm.careerpathlearning.exception.InternalServerException;
 import com.tbm.careerpathlearning.model.SopDocument;
+import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
@@ -55,6 +58,7 @@ public class SopGenerationService {
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopQuizQuestionRepository sopQuizQuestionRepository;
     @Autowired private SopQuizReviewEventRepository sopQuizReviewEventRepository;
+    @Autowired private SopMaterialReviewEventRepository sopMaterialReviewEventRepository;
     @Autowired private DocumentParserService documentParserService;
     @Autowired private FileService fileService;
     @Autowired private GeminiClient geminiClient;
@@ -170,6 +174,7 @@ public class SopGenerationService {
             List<Long> moduleIds = existing.stream().map(SopModule::getId).toList();
             sopQuizQuestionRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopQuizReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
+            sopMaterialReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopModuleRepository.deleteAllBySopDocumentId(sopDocumentId);
         }
     }
@@ -187,6 +192,10 @@ public class SopGenerationService {
         module.setCreatedAt(now);
         module.setUpdatedAt(now);
         SopModule savedModule = sopModuleRepository.save(module);
+        // The first entry in the module's material history (FR-07-14).
+        sopMaterialReviewEventRepository.save(SopMaterialReviewEvent.of(savedModule.getId(), MaterialReviewAction.GENERATED,
+                offline ? "Built from the SOP text because the AI was unavailable. Review it carefully."
+                        : "Written by the AI from the uploaded SOP.", null, now));
 
         saveQuestions(savedModule.getId(), gm.getQuiz(), now, ReviewStatus.PENDING);
     }
