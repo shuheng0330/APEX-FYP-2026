@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.service.impl;
 
+import com.tbm.careerpathlearning.enums.MaterialReviewAction;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizReviewAction;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
@@ -11,11 +12,13 @@ import com.tbm.careerpathlearning.enums.TrainingAuditTarget;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
+import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
@@ -47,6 +50,7 @@ public class SopVersionServiceImpl implements SopVersionService {
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopQuizQuestionRepository sopQuizQuestionRepository;
     @Autowired private SopQuizReviewEventRepository sopQuizReviewEventRepository;
+    @Autowired private SopMaterialReviewEventRepository sopMaterialReviewEventRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private SopCourseReadiness sopCourseReadiness;
     @Autowired private NotificationService notificationService;
@@ -113,20 +117,23 @@ public class SopVersionServiceImpl implements SopVersionService {
         Map<Long, Long> questionIds = new HashMap<>();
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(live.getId());
         Map<Long, List<SopQuizQuestion>> quizzes = sopCourseReadiness.quizzesOf(modules);
+        String copiedNote = "Copied from v" + live.getVersionNo() + " into draft v" + draft.getVersionNo() + ".";
         for (SopModule module : modules) {
             SopModule copy = sopModuleRepository.save(copyOf(module, draft.getId(), now));
             moduleIds.put(module.getId(), copy.getId());
             for (SopQuizQuestion question : quizzes.getOrDefault(module.getId(), List.of())) {
                 questionIds.put(question.getId(), sopQuizQuestionRepository.save(copyOf(question, copy.getId(), now)).getId());
             }
-            // The draft's quiz history starts here; the live version keeps its own.
+            // The draft's material and quiz histories start here; the live version keeps its own.
             SopQuizReviewEvent copied = new SopQuizReviewEvent();
             copied.setSopModuleId(copy.getId());
             copied.setAction(QuizReviewAction.COPIED);
-            copied.setDetail("Copied from v" + live.getVersionNo() + " into draft v" + draft.getVersionNo() + ".");
+            copied.setDetail(copiedNote);
             copied.setActorId(actorId);
             copied.setCreatedAt(now);
             sopQuizReviewEventRepository.save(copied);
+            sopMaterialReviewEventRepository.save(
+                    SopMaterialReviewEvent.of(copy.getId(), MaterialReviewAction.COPIED, copiedNote, actorId, now));
         }
         trainingAuditService.record(actorId, TrainingAuditAction.COURSE_DRAFT_CREATED, TrainingAuditTarget.COURSE,
                 live.courseKey().toString(), null,
@@ -199,6 +206,7 @@ public class SopVersionServiceImpl implements SopVersionService {
         if (!moduleIds.isEmpty()) {
             sopQuizQuestionRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopQuizReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
+            sopMaterialReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopModuleRepository.deleteAllBySopDocumentId(draft.getId());
         }
         sopDocumentRepository.delete(draft);

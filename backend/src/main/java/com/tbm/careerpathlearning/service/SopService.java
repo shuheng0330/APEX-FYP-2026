@@ -3,6 +3,7 @@ package com.tbm.careerpathlearning.service;
 import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
+import com.tbm.careerpathlearning.dto.SopMaterialReviewEventDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
@@ -90,4 +91,7 @@ public interface SopService {
 
     /** Review history of a module's quiz, newest first (FR-08-09). */
     List<SopQuizReviewEventDto> getQuizHistory(Long moduleId, SopViewer viewer);
+
+    /** Review history of a module's material, newest first (FR-07-14). */
+    List<SopMaterialReviewEventDto> getMaterialHistory(Long moduleId, SopViewer viewer);
 }

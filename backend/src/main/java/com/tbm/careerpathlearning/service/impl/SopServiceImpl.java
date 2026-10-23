@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
+import com.tbm.careerpathlearning.dto.SopMaterialReviewEventDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
+import com.tbm.careerpathlearning.enums.MaterialReviewAction;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.QuizReviewAction;
@@ -21,6 +23,7 @@ import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
+import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
@@ -28,6 +31,7 @@ import com.tbm.careerpathlearning.repository.SopAssignmentRepository;
 import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
@@ -54,10 +58,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -68,6 +74,7 @@ public class SopServiceImpl implements SopService {
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopQuizQuestionRepository sopQuizQuestionRepository;
     @Autowired private SopQuizReviewEventRepository sopQuizReviewEventRepository;
+    @Autowired private SopMaterialReviewEventRepository sopMaterialReviewEventRepository;
     @Autowired private SopAssignmentRepository sopAssignmentRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private SopQuizAttemptRepository sopQuizAttemptRepository;
@@ -253,21 +260,54 @@ public class SopServiceImpl implements SopService {
     @Transactional
     public SopModuleDto updateModule(Long moduleId, String title, String content, SopViewer viewer) {
         SopModule module = editableModule(moduleId, viewer);
+        String oldTitle = module.getTitle();
+        boolean contentChanged = !sameContent(module.getContent(), content);
         if (title != null && !title.isBlank()) {
             module.setTitle(title);
         }
         module.setContent(content);
         module.setUpdatedAt(OffsetDateTime.now(clock));
-        return toModuleDto(sopModuleRepository.save(module));
+        SopModule saved = sopModuleRepository.save(module);
+        List<String> changes = new ArrayList<>();
+        if (!Objects.equals(oldTitle, saved.getTitle())) {
+            changes.add("Title changed from \"" + oldTitle + "\" to \"" + saved.getTitle() + "\".");
+        }
+        if (contentChanged) {
+            changes.add("Content edited.");
+        }
+        if (!changes.isEmpty()) {
+            recordMaterialEvent(saved.getId(), MaterialReviewAction.EDITED, String.join(" ", changes), viewer.userId());
+        }
+        return toModuleDto(saved);
+    }
+
+    /** Whether two versions of a module's content say the same, ignoring how the JSON is laid out. */
+    private boolean sameContent(String a, String b) {
+        if (Objects.equals(a, b)) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        try {
+            return objectMapper.readTree(a).equals(objectMapper.readTree(b));
+        } catch (Exception e) {
+            return false; // not JSON: plain text that differs
+        }
     }
 
     @Override
     @Transactional
     public SopModuleDto approveModule(Long moduleId, SopViewer viewer) {
         SopModule module = editableModule(moduleId, viewer);
+        boolean wasApproved = module.getReviewStatus() == ReviewStatus.APPROVED;
         module.setReviewStatus(ReviewStatus.APPROVED);
         module.setUpdatedAt(OffsetDateTime.now(clock));
-        return toModuleDto(sopModuleRepository.save(module));
+        SopModule saved = sopModuleRepository.save(module);
+        if (!wasApproved) {
+            recordMaterialEvent(saved.getId(), MaterialReviewAction.APPROVED, null, viewer.userId());
+        }
+        return toModuleDto(saved);
     }
 
     @Override
@@ -284,6 +324,10 @@ public class SopServiceImpl implements SopService {
             throw e;
         }
         Long subject = target.module().getId();
+        // Recorded only once the regeneration succeeded; a failed attempt leaves the material untouched.
+        recordMaterialEvent(subject, MaterialReviewAction.REJECTED, reason.trim(), viewer.userId());
+        recordMaterialEvent(subject, MaterialReviewAction.REGENERATED,
+                "Rewritten by the AI from the trainer's feedback, with a new quiz to match.", null);
         recordQuizEvent(subject, QuizReviewAction.REGENERATED, "Regenerated together with the rejected module material.", null);
         notifyOwner(target.module(), NotificationType.MATERIAL_REGENERATED, "Material regenerated",
                 "now has new material and a new quiz to review", "/sop/review/");
@@ -412,12 +456,34 @@ public class SopServiceImpl implements SopService {
                     dto.setId(e.getId());
                     dto.setAction(e.getAction());
                     dto.setDetail(e.getDetail());
-                    dto.setActorName(e.getActorId() == null ? null : names.computeIfAbsent(e.getActorId(),
-                            id -> staffRepository.findById(id).map(s -> s.getName()).orElse("Unknown user")));
+                    dto.setActorName(actorName(names, e.getActorId()));
                     dto.setCreatedAt(e.getCreatedAt());
                     return dto;
                 })
                 .toList();
+    }
+
+    @Override
+    public List<SopMaterialReviewEventDto> getMaterialHistory(Long moduleId, SopViewer viewer) {
+        viewableModule(moduleId, viewer);
+        Map<UUID, String> names = new HashMap<>();
+        return sopMaterialReviewEventRepository.findAllBySopModuleIdOrderByCreatedAtDescIdDesc(moduleId).stream()
+                .map(e -> {
+                    SopMaterialReviewEventDto dto = new SopMaterialReviewEventDto();
+                    dto.setId(e.getId());
+                    dto.setAction(e.getAction());
+                    dto.setDetail(e.getDetail());
+                    dto.setActorName(actorName(names, e.getActorId()));
+                    dto.setCreatedAt(e.getCreatedAt());
+                    return dto;
+                })
+                .toList();
+    }
+
+    /** Who acted, looked up once per person; null when the AI did. */
+    private String actorName(Map<UUID, String> names, UUID actorId) {
+        return actorId == null ? null : names.computeIfAbsent(actorId,
+                id -> staffRepository.findById(id).map(s -> s.getName()).orElse("Unknown user"));
     }
 
     @Override
@@ -439,6 +505,7 @@ public class SopServiceImpl implements SopService {
             List<Long> moduleIds = modules.stream().map(SopModule::getId).toList();
             sopQuizQuestionRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopQuizReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
+            sopMaterialReviewEventRepository.deleteAllBySopModuleIdIn(moduleIds);
             sopModuleRepository.deleteAllBySopDocumentId(sopDocumentId);
         }
         List<Long> enrollmentIds = sopEnrollmentRepository.findAllBySopDocumentId(sopDocumentId).stream()
@@ -642,6 +709,12 @@ public class SopServiceImpl implements SopService {
         event.setActorId(actorId);
         event.setCreatedAt(OffsetDateTime.now(clock));
         sopQuizReviewEventRepository.save(event);
+    }
+
+    /** Adds an entry to a module's material review history (FR-07-14, NFR-007); actorId null means the AI. */
+    private void recordMaterialEvent(Long moduleId, MaterialReviewAction action, String detail, UUID actorId) {
+        sopMaterialReviewEventRepository.save(
+                SopMaterialReviewEvent.of(moduleId, action, detail, actorId, OffsetDateTime.now(clock)));
     }
 
     private String resolveTitle(String title, String filename) {

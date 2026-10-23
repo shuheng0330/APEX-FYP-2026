@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  QuizReviewEvent, SopCourseSettings, SopDetail, SopDocument, SopModule, SopQuizQuestion, UploadedMedia
+  MaterialReviewEvent, QuizReviewEvent, SopCourseSettings, SopDetail, SopDocument, SopModule, SopQuizQuestion, UploadedMedia
 } from '../models/sop.model';
 
 /**
@@ -100,6 +100,11 @@ export class SopService {
   /** Who approved, rejected or edited a module's quiz, and each AI regeneration (FR-08-09). */
   quizHistory(moduleId: number): Observable<QuizReviewEvent[]> {
     return this.http.get<QuizReviewEvent[]>(`${this.baseUrl}/module/${moduleId}/quiz/history`, { withCredentials: true });
+  }
+
+  /** How a module's material was generated, and who edited, approved or rejected it (FR-07-14). */
+  materialHistory(moduleId: number): Observable<MaterialReviewEvent[]> {
+    return this.http.get<MaterialReviewEvent[]>(`${this.baseUrl}/module/${moduleId}/history`, { withCredentials: true });
   }
 
   /** Uploads an image or video for a content block (FR-07-06). */

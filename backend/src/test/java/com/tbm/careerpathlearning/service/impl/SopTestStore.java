@@ -20,6 +20,7 @@ import com.tbm.careerpathlearning.model.SopAssignment;
 import com.tbm.careerpathlearning.model.SopCourseFeedback;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
+import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizAttempt;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
@@ -33,6 +34,7 @@ import com.tbm.careerpathlearning.repository.SopAssignmentRepository;
 import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
@@ -81,7 +83,8 @@ class SopTestStore {
     static final Instant NOW = Instant.parse("2026-10-12T02:00:00Z");
 
     private static final Set<Class<?>> REPOSITORIES = Set.of(SopDocumentRepository.class, SopModuleRepository.class,
-            SopQuizQuestionRepository.class, SopQuizReviewEventRepository.class, SopAssignmentRepository.class,
+            SopQuizQuestionRepository.class, SopQuizReviewEventRepository.class, SopMaterialReviewEventRepository.class,
+            SopAssignmentRepository.class,
             SopEnrollmentRepository.class, SopQuizAttemptRepository.class, SopCourseFeedbackRepository.class,
             StaffRepository.class, TrainerAccessGrantRepository.class, TrainingAuditLogRepository.class,
             AuthorityRepository.class, RoleAuthorityRepository.class);
@@ -90,6 +93,7 @@ class SopTestStore {
     final Map<Long, SopModule> modules = new LinkedHashMap<>();
     final Map<Long, SopQuizQuestion> questions = new LinkedHashMap<>();
     final Map<Long, SopQuizReviewEvent> events = new LinkedHashMap<>();
+    final Map<Long, SopMaterialReviewEvent> materialEvents = new LinkedHashMap<>();
     final Map<Long, SopAssignment> assignments = new LinkedHashMap<>();
     final Map<Long, SopEnrollment> enrollments = new LinkedHashMap<>();
     final Map<Long, SopQuizAttempt> attempts = new LinkedHashMap<>();
@@ -386,6 +390,18 @@ class SopTestStore {
                 default:
             }
         }
+        if (type == SopMaterialReviewEventRepository.class) {
+            switch (method) {
+                case "findAllBySopModuleIdOrderByCreatedAtDescIdDesc":
+                    return materialEvents.values().stream().filter(e -> e.getSopModuleId().equals(a[0]))
+                            .sorted(Comparator.comparing(SopMaterialReviewEvent::getCreatedAt)
+                                    .thenComparing(SopMaterialReviewEvent::getId).reversed()).toList();
+                case "deleteAllBySopModuleIdIn":
+                    materialEvents.values().removeIf(e -> ((Collection<Long>) a[0]).contains(e.getSopModuleId()));
+                    return null;
+                default:
+            }
+        }
         if (type == SopAssignmentRepository.class) {
             switch (method) {
                 case "findAllBySopDocumentIdInOrderByCreatedAtDesc":
@@ -479,6 +495,7 @@ class SopTestStore {
         if (type == SopModuleRepository.class) return modules;
         if (type == SopQuizQuestionRepository.class) return questions;
         if (type == SopQuizReviewEventRepository.class) return events;
+        if (type == SopMaterialReviewEventRepository.class) return materialEvents;
         if (type == SopAssignmentRepository.class) return assignments;
         if (type == SopEnrollmentRepository.class) return enrollments;
         if (type == SopQuizAttemptRepository.class) return attempts;
@@ -501,6 +518,9 @@ class SopTestStore {
         } else if (entity instanceof SopQuizReviewEvent x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             events.put(x.getId(), x);
+        } else if (entity instanceof SopMaterialReviewEvent x) {
+            if (x.getId() == null) x.setId(ids.incrementAndGet());
+            materialEvents.put(x.getId(), x);
         } else if (entity instanceof SopAssignment x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             assignments.put(x.getId(), x);
