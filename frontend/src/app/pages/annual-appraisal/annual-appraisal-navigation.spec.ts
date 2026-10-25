@@ -36,9 +36,38 @@ describe('Annual appraisal navigation', () => {
       expect(route.data!['requiredRoles']).toEqual([permission]); expect(route.data!['hrReview']).toBe(hrReview);
       expect(route.canDeactivate?.length).toBe(1); expect(route.canActivate?.length).toBe(1);
     }
-    for (const path of ['evaluation/overview', 'evaluation/org-overview', 'evaluation/my-evaluation', 'performance/:staffId']) {
-      expect(children.some(r => r.path === path)).toBeTrue();
+    for (const path of ['evaluation', 'evaluation/overview', 'evaluation/org-overview', 'evaluation/my-evaluation', 'performance/:staffId']) {
+      expect(children.some(r => r.path === path)).toBeFalse();
     }
+  });
+  it('sends retired bookmarks to the existing safe fallback instead of another employee record', async () => {
+    const children = routes.find(r => r.path === '')!.children!;
+    const router = TestBed.inject(Router);
+    router.resetConfig([
+      { path: 'org-chart', children: [] },
+      ...children.filter(r => r.path?.startsWith('evaluation') || r.path?.startsWith('performance/')),
+      children.find(r => r.path === '**')!
+    ]);
+    for (const url of ['/evaluation', '/evaluation/overview', '/evaluation/org-overview', '/evaluation/my-evaluation', '/performance/old-employee?cycle=1']) {
+      await router.navigateByUrl(url);
+      expect(router.url).toBe('/org-chart');
+    }
+  });
+  it('retains training and shared competency routes with their existing permissions', () => {
+    const children = routes.find(r => r.path === '')!.children!;
+    for (const path of ['competencies', 'roles-competencies', 'career-pathway', 'sop/review', 'sop/assign', 'sop/scoreboard', 'sop/trainer-access', 'my-learning', 'my-learning/course/:id']) {
+      expect(children.find(r => r.path === path)?.canActivate?.length).toBe(1);
+    }
+  });
+  it('keeps notifications but hides legacy cycle controls for cycle administrators', () => {
+    grants.push('CAN_MANAGE_EVALUATION_CYCLE');
+    const cycles = { getCurrentCycle: jasmine.createSpy('getCurrentCycle') };
+    TestBed.overrideProvider(EvaluationCycleService, { useValue: cycles });
+    const fixture = TestBed.createComponent(AppTopHeaderComponent); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.cycle-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-notification-bell')).not.toBeNull();
+    expect(cycles.getCurrentCycle).not.toHaveBeenCalled();
+    fixture.destroy();
   });
   it('shows each granted workspace and both when combined, without role-name inference', () => {
     const component = TestBed.createComponent(SideMenuComponent).componentInstance;

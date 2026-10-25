@@ -21,7 +21,7 @@ describe('Company KPI navigation', () => {
     const router = jasmine.createSpyObj<Router>('router', ['navigate'], { url: '/kpi-management/company-kpis', events: new Subject() });
     const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.returnValue(false);
     const cycles = jasmine.createSpyObj<EvaluationCycleService>('cycles', ['getCurrentCycle']);
-    const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
+    const header = new AppTopHeaderComponent(router, auth); header.ngOnInit();
     expect(header.page).toEqual({ title: 'KPI_PLAN.COMPANY_TITLE', group: 'NAV.KPI_MANAGEMENT' });
     expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
   });
@@ -49,7 +49,7 @@ describe('Department KPI navigation', () => {
     const router = jasmine.createSpyObj<Router>('router', ['navigate'], { url: '/kpi-management/kpi-review', events: new Subject() });
     const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.returnValue(false);
     const cycles = jasmine.createSpyObj<EvaluationCycleService>('cycles', ['getCurrentCycle']);
-    const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
+    const header = new AppTopHeaderComponent(router, auth); header.ngOnInit();
     expect(header.page).toEqual({ title: 'KPI_ASSISTANCE.REVIEW_TITLE', group: 'NAV.KPI_MANAGEMENT' });
     expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
   });
@@ -117,7 +117,7 @@ describe('Individual KPI navigation', () => {
       const router = jasmine.createSpyObj<Router>('router', ['navigate'], { url, events: new Subject() });
       const auth = jasmine.createSpyObj<AuthService>('auth', ['hasRole']); auth.hasRole.and.returnValue(false);
       const cycles = jasmine.createSpyObj<EvaluationCycleService>('cycles', ['getCurrentCycle']);
-      const header = new AppTopHeaderComponent(router, auth, cycles); header.ngOnInit();
+      const header = new AppTopHeaderComponent(router, auth); header.ngOnInit();
       expect(header.page).toEqual({ title, group }); expect(cycles.getCurrentCycle).not.toHaveBeenCalled(); header.ngOnDestroy();
     }
   });

@@ -2,15 +2,11 @@ import { Routes } from '@angular/router';
 
 import { OrgchartPage } from './pages/orgchart-page/orgchart-page';
 import { TrainingManagementPageComponent } from './pages/training/training-management/training-management-page';
-import { EvaluationPageComponent } from './pages/evaluation-page/evaluation-page.component';
 import { RoleTabComponent } from './pages/role-tab/role-tab.component';
 import { CompetencyTabComponent } from './pages/competency-tab/competency-tab.component';
 import { RolesCompetenciesTabComponent } from './pages/roles-competencies-tab/roles-competencies-tab.component';
 import { CareerPathwayTabComponent } from './pages/career-pathway-tab/career-pathway-tab.component';
 import { TrainingEngagementPageComponent } from './pages/training/training-engagement/training-engagement-page.component';
-import { PerformanceDashboardPage } from './pages/evaluation-page/performance-dashboard/performance-dashboard.page';
-import { EvaluationOverviewPageComponent } from './pages/evaluation-page/evaluation-overview-page/evaluation-overview-page.component';
-import { OrgWideEvaluationComponent } from './pages/evaluation-page/org-wide-evaluation/org-wide-evaluation.component';
 import { LoginComponent } from './pages/login-page/login/login.component';
 import { FirstTimeLoginComponent } from './pages/login-page/first-time-login/first-time-login.component';
 import { ForgotPasswordComponent } from './pages/login-page/forgot-password/forgot-password.component';
@@ -228,27 +224,6 @@ export const routes: Routes = [
         component: LearningMaterialPreviewComponent,
         data: { viewMode: 'admin' }
       },
-      {
-        path: 'evaluation', component: EvaluationPageComponent,
-        canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_EVALUATION'] },
-      },
-      {
-        path: 'evaluation/overview', component: EvaluationOverviewPageComponent,
-        canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_EVALUATION', 'CAN_MANAGE_EVALUATION_CYCLE'] },
-      },
-      {
-        path: 'evaluation/org-overview', component: OrgWideEvaluationComponent,
-        canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_EVALUATION_CYCLE'] },
-      },
-      {
-        path: 'evaluation/my-evaluation', component: PerformanceDashboardPage,
-        canActivate: [PermissionGuard],
-        data: { requiredRoles: ['ROLE_USER'] },
-      },
-      { path: 'performance/:staffId', component: PerformanceDashboardPage },
       {
         path: 'profile', component: StaffProfileComponent,
         canActivate: [PermissionGuard],

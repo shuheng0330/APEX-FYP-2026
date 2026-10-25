@@ -1,15 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { catchError, filter, of, Subscription } from 'rxjs';
-import { NzBadgeModule } from 'ng-zorro-antd/badge';
+import { filter, Subscription } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzTagModule } from 'ng-zorro-antd/tag';
 import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../services/auth.service';
-import { EvaluationCycleDto, EvaluationCycleService } from '../../services/evaluation-cycle.service';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 interface PageContext {
@@ -21,18 +18,16 @@ interface PageContext {
   selector: 'app-top-header',
   standalone: true,
   imports: [
-    CommonModule, NzBadgeModule, NzButtonModule, NzDropDownModule,
-    NzIconModule, NzTagModule, TranslateModule, NotificationBellComponent
+    CommonModule, NzButtonModule, NzDropDownModule,
+    NzIconModule, TranslateModule, NotificationBellComponent
   ],
   templateUrl: './app-top-header.component.html',
   styleUrl: './app-top-header.component.scss'
 })
 export class AppTopHeaderComponent implements OnInit, OnDestroy {
   @Output() toggleDrawer = new EventEmitter<void>();
-  @Output() openEvaluation = new EventEmitter<void>();
 
   page: PageContext = { title: 'Organisation Chart', group: 'Organisation Management' };
-  currentCycle: EvaluationCycleDto | null = null;
   private routerSubscription?: Subscription;
 
   private readonly pageMap: Array<{ prefix: string; page: PageContext }> = [
@@ -47,11 +42,6 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
     { prefix: '/kpi-management/kpi-review', page: { title: 'KPI_ASSISTANCE.REVIEW_TITLE', group: 'NAV.KPI_MANAGEMENT' } },
     { prefix: '/kpi-administration/review-periods', page: { title: 'REVIEW_PERIOD.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
     { prefix: '/kpi-administration/attitude-evaluation-setup', page: { title: 'ATTITUDE_SETUP.TITLE', group: 'NAV.KPI_ADMINISTRATION' } },
-    { prefix: '/evaluation/org-overview', page: { title: 'Organisation-Wide Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
-    { prefix: '/evaluation/overview', page: { title: 'Team Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
-    { prefix: '/evaluation/my-evaluation', page: { title: 'My Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
-    { prefix: '/evaluation', page: { title: 'Perform Evaluation', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
-    { prefix: '/performance', page: { title: 'Staff Performance', group: 'NAV.LEGACY_COMPETENCY_PERFORMANCE' } },
     { prefix: '/sop/upload', page: { title: 'SOP Automation Workspace', group: 'Training Automation' } },
     { prefix: '/sop/review', page: { title: 'Generated Training Review', group: 'Training Automation' } },
     { prefix: '/roles-competencies', page: { title: 'Roles and Competencies', group: 'Organisation Management' } },
@@ -64,8 +54,7 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
 
   constructor(
     private router: Router,
-    private authService: AuthService,
-    private evaluationCycleService: EvaluationCycleService
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -74,11 +63,6 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
       filter(event => event instanceof NavigationEnd)
     ).subscribe(event => this.updatePage((event as NavigationEnd).urlAfterRedirects));
 
-    if (this.authService.hasRole('CAN_MANAGE_EVALUATION_CYCLE')) {
-      this.evaluationCycleService.getCurrentCycle().pipe(
-        catchError(() => of(null))
-      ).subscribe(cycle => this.currentCycle = cycle);
-    }
   }
 
   ngOnDestroy(): void {
@@ -94,10 +78,6 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
       next: () => this.router.navigate(['/login']),
       error: () => this.router.navigate(['/login'])
     });
-  }
-
-  get canManageCycles(): boolean {
-    return this.authService.hasRole('CAN_MANAGE_EVALUATION_CYCLE');
   }
 
   private updatePage(url: string): void {

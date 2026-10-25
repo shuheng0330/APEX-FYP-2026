@@ -10,13 +10,6 @@
   </div>
 
   <div class="header-actions">
-    @if (canManageCycles) {
-      <button nz-button class="cycle-button" (click)="openEvaluation.emit()">
-        <span class="cycle-dot" [class.open]="currentCycle?.status === 'OPEN'"></span>
-        <span class="cycle-label">{{ currentCycle?.status || 'No active cycle' }}</span>
-        <nz-icon nzType="calendar"></nz-icon>
-      </button>
-    }
     <app-notification-bell></app-notification-bell>
     <button nz-button nz-dropdown [nzDropdownMenu]="accountMenu" nzTrigger="click" class="account-button">
       <span class="avatar">TB</span>

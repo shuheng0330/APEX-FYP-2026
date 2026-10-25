@@ -14,7 +14,6 @@ interface NavItem {
   key: string;
   route?: string;
   icon?: string;
-  action?: 'evaluation-cycle';
   children?: NavItem[];
   requiredRoles?: string[];
   excludedRoles?: string[];
@@ -31,7 +30,6 @@ export class SideMenuComponent {
   @Input() isMobile = false;
   @Input() isCollapsed = true;
   @Output() isCollapsedChange = new EventEmitter<boolean>();
-  @Output() openEvaluation = new EventEmitter<void>();
 
   @HostBinding('class.collapsed') get collapsedClass() {
     return this.isCollapsed;
@@ -87,20 +85,6 @@ export class SideMenuComponent {
         { key: 'ANNUAL_APPRAISAL.HR_TITLE', route: '/appraisals/review', requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'] }
       ],
       requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL']
-    },
-    {
-      key: 'NAV.LEGACY_COMPETENCY_PERFORMANCE', icon: 'history',
-      children: [
-        {
-          key: 'NAV.TEAM_PERFORMANCE',
-          route: '/evaluation/overview',
-          requiredRoles: ['CAN_MANAGE_EVALUATION'],
-          excludedRoles: ['CAN_MANAGE_EVALUATION_CYCLE']
-        },
-        { key: 'NAV.ORG_WIDE_PERFORMANCE', route: '/evaluation/org-overview', requiredRoles: ['CAN_MANAGE_EVALUATION_CYCLE'] },
-        { key: 'NAV.MY_PERFORMANCE', route: '/evaluation/my-evaluation', requiredRoles: ['ROLE_USER'] }
-      ],
-      requiredRoles: ['ROLE_USER']
     },
     {
       key: 'NAV.TRAINING_AUTOMATION', icon: 'solution',
@@ -166,22 +150,10 @@ export class SideMenuComponent {
   }
 
   onNavClick(item: NavItem): void {
-    if (item.action === 'evaluation-cycle') {
-      this.openEvaluationDrawer();
-      return;
-    }
-
     if (this.isMobile) {
       this.isCollapsed = true;
       this.isCollapsedChange.emit(this.isCollapsed);
     }
   }
 
-  openEvaluationDrawer(): void {
-    if (this.isMobile) {
-      this.isCollapsed = true;
-      this.isCollapsedChange.emit(this.isCollapsed);
-    }
-    this.openEvaluation.emit();
-  }
 }
