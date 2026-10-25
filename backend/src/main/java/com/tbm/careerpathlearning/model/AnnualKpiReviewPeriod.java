@@ -3,6 +3,7 @@ package com.tbm.careerpathlearning.model;
 import com.tbm.careerpathlearning.enums.AnnualKpiConsolidationMethod;
 import com.tbm.careerpathlearning.enums.AnnualKpiReviewPeriodStatus;
 import com.tbm.careerpathlearning.enums.KpiAssessmentModel;
+import com.tbm.careerpathlearning.enums.KpiFrequencyPolicy;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -44,6 +45,14 @@ public class AnnualKpiReviewPeriod {
     @Enumerated(EnumType.STRING)
     @Column(name = "assessment_model", nullable = false, length = 24)
     private KpiAssessmentModel assessmentModel = KpiAssessmentModel.LEGACY_ALL_LEVELS;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "frequency_policy", nullable = false, length = 24)
+    private KpiFrequencyPolicy frequencyPolicy = KpiFrequencyPolicy.ROLE_BASED;
+
+    @OneToMany(mappedBy = "reviewPeriod", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private java.util.List<ReviewPeriodDepartmentConfiguration> departmentConfigurations = new java.util.ArrayList<>();
 
     @Column(name = "kpi_performance_weight", precision = 5, scale = 2)
     private BigDecimal kpiPerformanceWeight = new BigDecimal("50.00");

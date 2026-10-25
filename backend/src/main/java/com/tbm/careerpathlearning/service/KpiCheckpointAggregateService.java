@@ -23,20 +23,23 @@ public class KpiCheckpointAggregateService {
     private final EmployeeKpiAssignmentRepository assignments;
     private final Clock clock;
     private final KpiPlanMapper kpis;
+    private final CompanyKpiCheckpointResolver companyCheckpoints;
 
     public KpiCheckpointAggregateService(KpiCheckpointResultRepository aggregates,
             KpiCentralResultRepository centralResults,KpiAssessmentRepository assessments,
             EmployeeKpiAssignmentRepository assignments,@Qualifier("annualKpiReviewClock") Clock clock,
-            KpiPlanMapper kpis) {
+            KpiPlanMapper kpis,CompanyKpiCheckpointResolver companyCheckpoints) {
         this.aggregates=aggregates;this.centralResults=centralResults;this.assessments=assessments;
         this.assignments=assignments;this.clock=clock;
         this.kpis=kpis;
+        this.companyCheckpoints=companyCheckpoints;
     }
 
     public KpiScoreBreakdownDto breakdown(KpiAssessment assessment) {
         var weights=weights(assessment);
         var versions=versions(assessment,false);
         var levels=new ArrayList<KpiScoreBreakdownDto.Level>();
+        var companyCheckpoint=companyCheckpoints.resolve(assessment);
         for(var level:KpiLevel.values()) {
             var allocation=weights.get(level);
             var version=versions.get(level);
@@ -47,7 +50,7 @@ public class KpiCheckpointAggregateService {
                 continue;
             }
             var publication=level==KpiLevel.INDIVIDUAL?Optional.<KpiCentralResult>empty():
-                    published(version,assessment.getCheckpoint().getId());
+                    published(version,(level==KpiLevel.COMPANY?companyCheckpoint:assessment.getCheckpoint()).getId());
             boolean available=level==KpiLevel.INDIVIDUAL?assessment.getStatus()==KpiAssessmentStatus.REVIEWED:
                     publication.isPresent();
             List<KpiScoreBreakdownDto.Item> items=List.of();
@@ -67,7 +70,8 @@ public class KpiCheckpointAggregateService {
                     level==KpiLevel.INDIVIDUAL && available?assessment.getReviewedAt():
                             publication.map(KpiCentralResult::getPublishedAt).orElse(null),
                     available?KpiScoreBreakdownDto.Availability.AVAILABLE:KpiScoreBreakdownDto.Availability.PENDING,
-                    contribution,items));
+                    contribution,items,level==KpiLevel.COMPANY?new KpiScoreBreakdownDto.ReportingCheckpoint(
+                            companyCheckpoint.getId(),companyCheckpoint.getReviewFrequency(),companyCheckpoint.getStartDate(),companyCheckpoint.getEndDate()):null));
         }
         return new KpiScoreBreakdownDto(assessment.getId(),assessment.getCheckpointScore(),levels);
     }
@@ -81,7 +85,8 @@ public class KpiCheckpointAggregateService {
             if(weights.get(level).signum()==0) continue;
             if(level==KpiLevel.INDIVIDUAL) {
                 if(assessment.getStatus()!=KpiAssessmentStatus.REVIEWED) pending.add(level);
-            } else if(published(versions.get(level),assessment.getCheckpoint().getId()).isEmpty()) pending.add(level);
+            } else if(published(versions.get(level),(level==KpiLevel.COMPANY
+                    ?companyCheckpoints.resolve(assessment):assessment.getCheckpoint()).getId()).isEmpty()) pending.add(level);
         }
         return pending;
     }
@@ -91,12 +96,14 @@ public class KpiCheckpointAggregateService {
                 || assessment.getStatus()!=KpiAssessmentStatus.REVIEWED) return;
         var weights=weights(assessment);
         var versions=versions(assessment,true);
-        var company=published(versions.get(KpiLevel.COMPANY),assessment.getCheckpoint().getId());
+        var companyCheckpoint=companyCheckpoints.resolve(assessment);
+        var company=published(versions.get(KpiLevel.COMPANY),companyCheckpoint.getId());
         var department=published(versions.get(KpiLevel.DEPARTMENT),assessment.getCheckpoint().getId());
         var aggregate=aggregates.lockByScope(assessment.getParticipant().getId(),assessment.getCheckpoint().getId())
                 .orElseGet(()->{
                     var row=new KpiCheckpointResult();row.setParticipantId(assessment.getParticipant().getId());
                     row.setReviewPeriodId(assessment.getReviewPeriodId());row.setCheckpointId(assessment.getCheckpoint().getId());
+                    row.setCompanyCheckpointId(companyCheckpoint.getId());
                     row.setReviewFrequency(assessment.getReviewFrequency());return row;
                 });
         putVersion(aggregate,KpiLevel.COMPANY,versions.get(KpiLevel.COMPANY));
@@ -127,8 +134,16 @@ public class KpiCheckpointAggregateService {
     }
 
     public void refreshForPublication(KpiCentralResult result,UUID actor) {
-        for(var assessment:assessments.findAllByReviewPeriodIdAndCheckpointIdAndStatus(
-                result.getReviewPeriodId(),result.getCheckpoint().getId(),KpiAssessmentStatus.REVIEWED)) {
+        var period=result.getCheckpoint().getReviewPeriod();
+        var affected=result.getLevel()==KpiLevel.COMPANY && period!=null
+                && period.getFrequencyPolicy()==KpiFrequencyPolicy.DEPARTMENT_BASED
+                ?assessments.findAllByReviewPeriodIdAndCheckpointEndDateAndStatus(
+                        result.getReviewPeriodId(),result.getCheckpoint().getEndDate(),KpiAssessmentStatus.REVIEWED)
+                :assessments.findAllByReviewPeriodIdAndCheckpointIdAndStatus(
+                        result.getReviewPeriodId(),result.getCheckpoint().getId(),KpiAssessmentStatus.REVIEWED);
+        for(var assessment:affected) {
+            if(result.getLevel()==KpiLevel.COMPANY
+                    && !Objects.equals(companyCheckpoints.resolve(assessment).getId(),result.getCheckpoint().getId())) continue;
             var version=versions(assessment,false).get(result.getLevel());
             if(version!=null && Objects.equals(version.getId(),result.getPlanVersion().getId()))
                 refresh(assessment,actor,"Central "+result.getLevel()+" KPI results published");

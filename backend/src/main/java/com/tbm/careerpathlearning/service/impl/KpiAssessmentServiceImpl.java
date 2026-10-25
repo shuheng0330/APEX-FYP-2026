@@ -39,6 +39,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     private final EmailService email;
     private final KpiCheckpointScoreCalculator scores;
     private final KpiCheckpointAggregateService aggregates;
+    private final CompanyKpiCheckpointResolver companyCheckpoints;
     private final Clock clock;
 
     public KpiAssessmentServiceImpl(KpiAssessmentRepository assessments,KpiAssessmentItemRepository items,
@@ -46,12 +47,12 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             ReviewCheckpointRepository checkpoints,EmployeeKpiAssignmentRepository assignments,
             AnnualKpiReviewPeriodRepository periods,StaffRepository staff,KpiPlanMapper kpis,
             KpiAssessmentMapper mapper,KpiAssessmentEvidenceStorage storage,EmailService email,KpiCheckpointScoreCalculator scores,
-            KpiCheckpointAggregateService aggregates,
+            KpiCheckpointAggregateService aggregates,CompanyKpiCheckpointResolver companyCheckpoints,
             @Qualifier("annualKpiReviewClock") Clock clock) {
         this.assessments=assessments;this.items=items;this.files=files;this.participants=participants;
         this.checkpoints=checkpoints;this.assignments=assignments;this.periods=periods;this.staff=staff;
         this.kpis=kpis;this.mapper=mapper;this.storage=storage;this.email=email;this.scores=scores;
-        this.aggregates=aggregates;this.clock=clock;
+        this.aggregates=aggregates;this.companyCheckpoints=companyCheckpoints;this.clock=clock;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
     public List<KpiPeriodContextDto> periods(UUID actor) {
@@ -338,6 +339,17 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             dto.setPlanVersionIds(versions);
         } else dto.setPlanVersionIds(selectedVersions(included.stream().map(KpiAssessmentItem::getAssignment).toList()));
         dto.setAssessmentModel(a.getAssessmentModel());
+        dto.setFrequencyPolicy(period.getFrequencyPolicy());
+        if(a.getAssessmentModel()==KpiAssessmentModel.CENTRAL_RESULTS) {
+            // Optional display metadata must not gate Individual assessment work.
+            try {
+                var source=companyCheckpoints.resolve(a);
+                dto.setCompanyReportingCheckpoint(new KpiScoreBreakdownDto.ReportingCheckpoint(
+                        source.getId(),source.getReviewFrequency(),source.getStartDate(),source.getEndDate()));
+            } catch(BadRequestException unavailable) {
+                dto.setCompanyReportingCheckpoint(null);
+            }
+        }
         dto.setPendingResultLevels(aggregates.pendingLevels(a));
         dto.setItems(included.stream().map(i->{
             var row=new KpiAssessmentItemDto();row.setId(i.getId());row.setAssignmentId(i.getAssignment().getId());

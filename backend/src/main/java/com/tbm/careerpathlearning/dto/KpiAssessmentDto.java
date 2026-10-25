@@ -15,6 +15,8 @@ public class KpiAssessmentDto {
     private String reviewPeriodName;
     private AnnualKpiReviewPeriodStatus reviewPeriodStatus;
     private KpiAssessmentModel assessmentModel;
+    private KpiFrequencyPolicy frequencyPolicy;
+    private KpiScoreBreakdownDto.ReportingCheckpoint companyReportingCheckpoint;
     private KpiAssessmentCheckpointDto checkpoint;
     private KpiAssessmentStatus status;
     private List<KpiAssessmentItemDto> items=new ArrayList<>();

@@ -9,6 +9,13 @@ public record KpiScoreBreakdownDto(Long assessmentId, BigDecimal checkpointScore
     public enum Availability { PENDING, AVAILABLE, NOT_APPLICABLE }
     public record Level(KpiLevel level, BigDecimal allocation, Integer versionNumber,
             Integer resultEditionNumber, OffsetDateTime publishedAt, Availability status,
-            BigDecimal contribution, List<Item> items) {}
+            BigDecimal contribution, List<Item> items, ReportingCheckpoint reportingCheckpoint) {
+        public Level(KpiLevel level, BigDecimal allocation, Integer versionNumber, Integer resultEditionNumber,
+                OffsetDateTime publishedAt, Availability status, BigDecimal contribution, List<Item> items) {
+            this(level, allocation, versionNumber, resultEditionNumber, publishedAt, status, contribution, items, null);
+        }
+    }
+    public record ReportingCheckpoint(Long id, com.tbm.careerpathlearning.enums.ReviewFrequency reviewFrequency,
+            java.time.LocalDate startDate, java.time.LocalDate endDate) {}
     public record Item(KpiItemDto kpi, String actualAchievement, Integer point) {}
 }

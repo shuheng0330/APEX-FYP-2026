@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 48;
+    private static final int LATEST_VERSION = 49;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -252,6 +252,14 @@ public class ApplyAnnualReviewPeriodFoundation {
                     || annualAppraisalFunctions!=(extraApplied>=18?2:0) || annualAppraisalOwnerKey!=(extraApplied>=18?1:0))
                 throw new IllegalStateException("Partial/untracked V48 annual appraisal schema; reconcile before migration");
             if(extraApplied>=15) {
+                long frequencyColumns=scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND "
+                        +"((table_name='annual_kpi_review_period' AND column_name='frequency_policy') OR "
+                        +"(table_name='review_period_participant' AND column_name='department_configuration_id') OR "
+                        +"(table_name='kpi_checkpoint_result' AND column_name='company_checkpoint_id'))");
+                long departmentTables=scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' "
+                        +"AND table_name='review_period_department_configuration'");
+                if(frequencyColumns!=(extraApplied>=19?3:0) || departmentTables!=(extraApplied>=19?1:0))
+                    throw new IllegalStateException("Partial/untracked V49 frequency schema; reconcile before migration");
                 // Snapshot every existing application table, not only the KPI subset. The new
                 // model/Attitude opening columns and explicitly added authority are excluded.
                 try(var statement=connection.createStatement();var tables=statement.executeQuery(
@@ -347,6 +355,16 @@ public class ApplyAnnualReviewPeriodFoundation {
             if(extraApplied<18 && (scalar(connection,"SELECT count(*) FROM annual_appraisal")!=0
                     || scalar(connection,"SELECT count(*) FROM annual_appraisal_activity")!=0))
                 throw new IllegalStateException("V48 unexpectedly populated annual appraisals");
+            if(extraApplied<19 && (scalar(connection,"SELECT count(*) FROM annual_kpi_review_period WHERE frequency_policy<>'ROLE_BASED'")!=0
+                    || scalar(connection,"SELECT count(*) FROM review_period_department_configuration")!=0
+                    || scalar(connection,"SELECT count(*) FROM review_period_participant WHERE department_configuration_id IS NOT NULL")!=0
+                    || scalar(connection,"SELECT count(*) FROM kpi_checkpoint_result WHERE company_checkpoint_id IS DISTINCT FROM checkpoint_id")!=0))
+                throw new IllegalStateException("V49 compatibility backfill failed; investigate using the backup");
+            if(scalar(connection,"SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid "
+                    +"JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal "
+                    +"AND t.tgname IN ('guard_period_frequency_policy','guard_period_department_configuration',"
+                    +"'guard_participant_department_frequency','guard_department_checkpoint_schedule','guard_company_checkpoint_source')")!=5)
+                throw new IllegalStateException("V49 frequency protection triggers are missing");
             if (scalar(connection, "SELECT count(*) FROM public.employee_level") != 6)
                 throw new IllegalStateException("Expected six Employee Levels after V30");
             if (scalar(connection, "SELECT count(*) FROM public.role WHERE LOWER(TRIM(name))='superadmin' "
@@ -379,7 +397,9 @@ public class ApplyAnnualReviewPeriodFoundation {
     private static String centralRowDigest(Connection connection,String table) throws SQLException {
         String quotedTable="\""+table.replace("\"","\"\"")+"\"";
         String row=table.equals("annual_kpi_review_period")
-                ?"(to_jsonb(t)-ARRAY['assessment_model','attitude_self_assessment_start_date'])::text":
+                ?"(to_jsonb(t)-ARRAY['assessment_model','attitude_self_assessment_start_date','frequency_policy'])::text":
+                table.equals("review_period_participant")?"(to_jsonb(t)-'department_configuration_id')::text":
+                table.equals("kpi_checkpoint_result")?"(to_jsonb(t)-'company_checkpoint_id')::text":
                 table.equals("kpi_assessment")?"(to_jsonb(t)-'assessment_model')::text":"to_jsonb(t)::text";
         String filter=table.equals("authority")?" WHERE name NOT IN ('CAN_ENTER_COMPANY_KPI_RESULTS',"
                 +"'CAN_SUBMIT_ANNUAL_APPRAISAL','CAN_REVIEW_ANNUAL_APPRAISAL')":"";

@@ -15,6 +15,8 @@ public class AnnualKpiReviewPeriodDto {
     private String referenceNumber;
     private AnnualKpiReviewPeriodStatus status;
     private KpiAssessmentModel assessmentModel;
+    private KpiFrequencyPolicy frequencyPolicy;
+    private List<ReviewPeriodDepartmentConfigurationDto> departmentConfigurations = new ArrayList<>();
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
@@ -49,6 +51,7 @@ public class AnnualKpiReviewPeriodDto {
         private Long roleId;
         private String roleName;
         private String departmentName;
+        private Long departmentId;
         private ReviewFrequency reviewFrequency;
         private Long employeeLevelId;
         private String employeeLevelName;

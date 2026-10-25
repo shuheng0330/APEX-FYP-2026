@@ -41,12 +41,17 @@ public interface AnnualKpiReviewPeriodMapper {
 
     @Mapping(target = "roleId", source = "role.id")
     @Mapping(target = "roleName", source = "role.name")
+    @Mapping(target = "departmentId", ignore = true)
     @Mapping(target = "departmentName", source = "role.orgChart.name")
     @Mapping(target = "employeeLevelId", source = "employeeLevelConfiguration.employeeLevel.id")
     @Mapping(target = "employeeLevelName", source = "employeeLevelConfiguration.employeeLevel.name")
     AnnualKpiReviewPeriodDto.RoleConfiguration toDto(ReviewPeriodRoleConfiguration configuration);
 
     AnnualKpiReviewPeriodDto.Checkpoint toDto(ReviewCheckpoint checkpoint);
+
+    @Mapping(target = "departmentId", source = "department.id")
+    com.tbm.careerpathlearning.dto.ReviewPeriodDepartmentConfigurationDto toDto(
+            com.tbm.careerpathlearning.model.ReviewPeriodDepartmentConfiguration configuration);
 
     EmployeeLevelDto toDto(EmployeeLevel level);
 

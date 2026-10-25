@@ -40,6 +40,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
     private final ReviewPeriodEnrolmentService enrolment = mock(ReviewPeriodEnrolmentService.class);
     private final KpiPlanRepository kpiPlans = mock(KpiPlanRepository.class);
     private final AttitudeConfigurationRepository attitudeConfigurations = mock(AttitudeConfigurationRepository.class);
+    private final OrgChartRepository departmentNodes = mock(OrgChartRepository.class);
+    private final PerformanceDepartmentResolver departmentResolver = mock(PerformanceDepartmentResolver.class);
     private AnnualKpiReviewPeriodServiceImpl service;
     private Role sales;
     private Role manager;
@@ -48,7 +50,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
     void setup() {
         service = new AnnualKpiReviewPeriodServiceImpl(periods, configurations, checkpoints, participants, roles,
                 Mappers.getMapper(AnnualKpiReviewPeriodMapper.class), new AnnualReviewPeriodConfigurationValidator(),
-                new ReviewCheckpointGenerator(), clock, levels, weights, enrolment, kpiPlans, new AttitudeConfigurationBinding(attitudeConfigurations));
+                new ReviewCheckpointGenerator(), clock, levels, weights, enrolment, kpiPlans, new AttitudeConfigurationBinding(attitudeConfigurations),
+                new DepartmentKpiScheduleService(departmentNodes, departmentResolver));
         doAnswer(i -> { ((AnnualKpiReviewPeriod)i.getArgument(0)).setParticipantsSnapshottedAt(OffsetDateTime.now(clock)); return null; }).when(enrolment).enrol(any(), any());
         when(levels.findAllByOrderByDisplayOrderAsc()).thenReturn(EmployeeLevelFixtures.levels());
         when(weights.saveAllAndFlush(any())).thenAnswer(i -> {
@@ -683,8 +686,79 @@ class AnnualKpiReviewPeriodServiceImplTest {
         service.openDuePeriods();assertThat(period.getAttitudeConfiguration()).isSameAs(first);
     }
 
+    @Test void quarterlyDepartmentsStillGenerateMonthlyCompanyScheduleAndPreserveAverage() {
+        var request = departmentRequest(); request.setAnnualKpiConsolidationMethod(AnnualKpiConsolidationMethod.AVERAGE);
+        var result = service.create(request, true, actor);
+        assertThat(result.getFrequencyPolicy()).isEqualTo(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        assertThat(result.getCheckpoints()).hasSize(16);
+        assertThat(result.getCheckpoints().stream().filter(c -> c.getReviewFrequency()==ReviewFrequency.MONTHLY)).hasSize(12);
+        assertThat(result.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
+        assertThat(result.getAnnualKpiConsolidationMethod()).isEqualTo(AnnualKpiConsolidationMethod.AVERAGE);
+        assertThat(result.getDepartmentConfigurations().get(0).getDepartmentName()).isEqualTo("IT");
+        when(periods.findFirstByStatusInOrderByEndDateDescStartDateDescIdDesc(any()))
+                .thenReturn(Optional.of(stored.get(result.getId())));
+        var defaults=service.creationDefaults(LocalDate.of(2028,1,1));
+        assertThat(defaults.getAnnualKpiConsolidationMethod()).isEqualTo(AnnualKpiConsolidationMethod.AVERAGE);
+        assertThat(defaults.getDepartmentConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
+    }
+
+    @Test void departmentPublicationRejectsMissingSchedulesAndLevelsButAllowsDraft() {
+        var request=departmentRequest();request.setDepartmentConfigurations(List.of());
+        var draft=service.create(request,false,actor);
+        assertThatThrownBy(()->service.publish(draft.getId(),actor)).hasMessageContaining("Department schedule");
+        request=departmentRequest();sales.setEmployeeLevel(null);
+        var missingLevel=request;
+        assertThatThrownBy(()->service.create(missingLevel,true,actor)).hasMessageContaining("Employee Level");
+    }
+
+    @Test void publishedDepartmentSchedulesIgnoreLaterRoleChangesAndRejectDateChanges() {
+        var request=departmentRequest();var result=service.create(request,true,actor);
+        sales.setDefaultReviewFrequency(ReviewFrequency.ANNUALLY);
+        when(departmentResolver.resolve(sales)).thenThrow(new BadRequestException("Changed organisation"));
+        clearInvocations(checkpoints);
+        request.setName("Renamed period");request.setRoleConfigurations(List.of(frequency(1L,null)));
+        var updated=service.update(result.getId(),request,actor);
+        assertThat(updated.getRoleConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
+        verify(checkpoints,never()).deleteAllByReviewPeriodId(anyLong());
+        verify(checkpoints,never()).saveAllAndFlush(any());
+        request.setEndDate(request.getEndDate().minusDays(1));
+        assertThatThrownBy(()->service.update(result.getId(),request,actor)).hasMessageContaining("checkpoint dates");
+    }
+
+    @Test void legacyDraftChangesPolicyOnlyThroughExplicitConfiguration() {
+        var draft=service.create(validRequest(),false,actor);
+        assertThat(draft.getFrequencyPolicy()).isEqualTo(KpiFrequencyPolicy.ROLE_BASED);
+        stored.get(draft.getId()).setAssessmentModel(KpiAssessmentModel.LEGACY_ALL_LEVELS);
+        var request=departmentRequest();
+        var updated=service.update(draft.getId(),request,actor);
+        assertThat(updated.getFrequencyPolicy()).isEqualTo(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        assertThat(updated.getAssessmentModel()).isEqualTo(KpiAssessmentModel.CENTRAL_RESULTS);
+        var published=service.publish(draft.getId(),actor);
+        assertThat(published.getCheckpoints()).hasSize(16);
+    }
+
+    @Test void departmentPreviewHasSameScheduleWithoutPersistingOrChangingSavedConfiguration() {
+        var request=departmentRequest();var draft=service.create(request,false,actor);
+        request.getDepartmentConfigurations().get(0).setReviewFrequency(ReviewFrequency.MONTHLY);
+        var preview=service.preview(request,draft.getId());
+        assertThat(preview.getCheckpoints()).hasSize(12);
+        assertThat(stored.get(draft.getId()).getDepartmentConfigurations().get(0).getReviewFrequency()).isEqualTo(ReviewFrequency.QUARTERLY);
+    }
+
+    private AnnualKpiReviewPeriodRequest departmentRequest() {
+        var department=new OrgChart();department.setId(7L);department.setName("IT");department.setType(OrgChartType.D);
+        when(departmentNodes.findById(7L)).thenReturn(Optional.of(department));
+        when(departmentResolver.resolve(sales)).thenReturn(department);
+        var request=validRequest();request.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        var setting=new ReviewPeriodDepartmentConfigurationDto();setting.setDepartmentId(7L);
+        setting.setReviewFrequency(ReviewFrequency.QUARTERLY);setting.setDepartmentName("Untrusted label");
+        request.setDepartmentConfigurations(List.of(setting));
+        return request;
+    }
+
     static AnnualKpiReviewPeriodRequest validRequest() {
         var request = new AnnualKpiReviewPeriodRequest();
+        request.setFrequencyPolicy(KpiFrequencyPolicy.ROLE_BASED);
         request.setName("2027 Annual KPI Review");
         request.setStartDate(LocalDate.of(2027, 1, 1));
         request.setEndDate(LocalDate.of(2027, 12, 31));

@@ -14,6 +14,7 @@ public class KpiCheckpointResult {
     @Column(nullable=false,updatable=false) private Long participantId;
     @Column(nullable=false,updatable=false) private Long reviewPeriodId;
     @Column(nullable=false,updatable=false) private Long checkpointId;
+    @Column(nullable=false,updatable=false) private Long companyCheckpointId;
     @Enumerated(EnumType.STRING) @Column(nullable=false,updatable=false,length=20) private ReviewFrequency reviewFrequency;
     private Long companyVersionId;
     private Long departmentVersionId;

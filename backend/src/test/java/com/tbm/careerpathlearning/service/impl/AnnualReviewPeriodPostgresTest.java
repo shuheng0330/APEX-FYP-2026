@@ -248,7 +248,10 @@ class AnnualReviewPeriodPostgresTest {
                         new ReviewPeriodParticipantFactory(), new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(
                                 factory.getRepository(OrgChartRepository.class),org.mockito.Mockito.mock(ParentChildNodeRepository.class)),clock),
                 factory.getRepository(KpiPlanRepository.class),new com.tbm.careerpathlearning.service.AttitudeConfigurationBinding(
-                        factory.getRepository(AttitudeConfigurationRepository.class)));
+                        factory.getRepository(AttitudeConfigurationRepository.class)),
+                new com.tbm.careerpathlearning.service.DepartmentKpiScheduleService(factory.getRepository(OrgChartRepository.class),
+                        new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),
+                                org.mockito.Mockito.mock(ParentChildNodeRepository.class))));
         var request = AnnualKpiReviewPeriodServiceImplTest.validRequest();
         request.setName("Application workflow 2028");
         request.setStartDate(LocalDate.of(2028, 1, 1));

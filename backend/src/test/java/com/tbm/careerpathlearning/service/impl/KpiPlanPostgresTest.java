@@ -227,7 +227,8 @@ class KpiPlanPostgresTest {
                         Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssessmentMapper.class),
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.class),
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),new com.tbm.careerpathlearning.service.KpiCheckpointScoreCalculator(),
-                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiCheckpointAggregateService.class),assessmentClock);
+                        org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiCheckpointAggregateService.class),
+                        new com.tbm.careerpathlearning.service.CompanyKpiCheckpointResolver(factory.getRepository(ReviewCheckpointRepository.class)),assessmentClock);
                     assertNull(assessmentService.mine(checkpoint.getId(),owner.getId()).getId());
                     assertEquals(0L,scalar(c,"SELECT count(*) FROM kpi_assessment"));
                     var assessmentRequest=new KpiAssessmentRequest();assessmentRequest.setCheckpointId(checkpoint.getId());

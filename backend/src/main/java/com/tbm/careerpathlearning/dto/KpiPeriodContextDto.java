@@ -9,6 +9,7 @@ public class KpiPeriodContextDto {
     private String name;
     private AnnualKpiReviewPeriodStatus status;
     private KpiAssessmentModel assessmentModel;
+    private com.tbm.careerpathlearning.enums.KpiFrequencyPolicy frequencyPolicy;
     private LocalDate startDate;
     private LocalDate endDate;
     private LocalDate kpiSetupDeadline;

@@ -10,6 +10,8 @@ public interface KpiAssessmentRepository extends JpaRepository<KpiAssessment,Lon
     Optional<KpiAssessment> findByParticipantIdAndCheckpointId(Long participantId,Long checkpointId);
     List<KpiAssessment> findAllByParticipantId(Long participantId);
     List<KpiAssessment> findAllByReviewPeriodIdAndCheckpointIdAndStatus(Long reviewPeriodId,Long checkpointId,KpiAssessmentStatus status);
+    List<KpiAssessment> findAllByReviewPeriodIdAndCheckpointEndDateAndStatus(
+            Long reviewPeriodId,java.time.LocalDate endDate,KpiAssessmentStatus status);
     @EntityGraph(attributePaths={"participant","participant.staff","participant.staff.manager","participant.reviewPeriod","checkpoint"})
     @Query("select a from KpiAssessment a where a.submittedToSuperiorId=:superiorId "
             + "and a.participant.staff.manager.id=:superiorId "

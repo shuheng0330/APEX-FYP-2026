@@ -37,6 +37,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     private final ReviewPeriodEnrolmentService enrolment;
     private final KpiPlanRepository kpiPlans;
     private final AttitudeConfigurationBinding attitudeBinding;
+    private final DepartmentKpiScheduleService departmentSchedules;
 
     public AnnualKpiReviewPeriodServiceImpl(AnnualKpiReviewPeriodRepository periods,
             ReviewPeriodRoleConfigurationRepository configurations, ReviewCheckpointRepository checkpoints,
@@ -44,7 +45,8 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             AnnualReviewPeriodConfigurationValidator validator, ReviewCheckpointGenerator generator,
             @Qualifier("annualKpiReviewClock") Clock clock, EmployeeLevelRepository levels,
             ReviewPeriodEmployeeLevelConfigurationRepository levelConfigurations,
-            ReviewPeriodEnrolmentService enrolment, KpiPlanRepository kpiPlans, AttitudeConfigurationBinding attitudeBinding) {
+            ReviewPeriodEnrolmentService enrolment, KpiPlanRepository kpiPlans, AttitudeConfigurationBinding attitudeBinding,
+            DepartmentKpiScheduleService departmentSchedules) {
         this.periods = periods;
         this.configurations = configurations;
         this.checkpoints = checkpoints;
@@ -59,6 +61,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         this.enrolment = enrolment;
         this.kpiPlans = kpiPlans;
         this.attitudeBinding = attitudeBinding;
+        this.departmentSchedules = departmentSchedules;
     }
 
     @Override
@@ -66,6 +69,8 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         periods.lockConfiguration();
         AnnualKpiReviewPeriod period = new AnnualKpiReviewPeriod();
         period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        period.setFrequencyPolicy(request != null && request.getFrequencyPolicy() != null
+                ? request.getFrequencyPolicy() : KpiFrequencyPolicy.DEPARTMENT_BASED);
         apply(request, period);
         List<ReviewPeriodEmployeeLevelConfiguration> weights = resolveWeights(period, request, null);
         List<ReviewPeriodRoleConfiguration> selected = resolveRoles(period, request, previousRoles(period));
@@ -163,6 +168,13 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             configuration.setRole(role);
             configuration.setReviewFrequency(ReviewPeriodRoleConfiguration.resolveFrequency(role, null));
             var dto = mapper.toDto(configuration);
+            try {
+                var department = departmentSchedules.department(role);
+                dto.setDepartmentId(department == null ? null : department.getId());
+                dto.setDepartmentName(department == null ? null : department.getName());
+            } catch (BadRequestException ex) {
+                dto.setDepartmentId(null);
+            }
             if (role.getEmployeeLevel() != null) {
                 dto.setEmployeeLevelId(role.getEmployeeLevel().getId());
                 dto.setEmployeeLevelName(role.getEmployeeLevel().getName());
@@ -175,11 +187,20 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     @Transactional(readOnly = true)
     public AnnualKpiReviewPeriodDto preview(AnnualKpiReviewPeriodRequest request, Long excludedPeriodId) {
         AnnualKpiReviewPeriod period = new AnnualKpiReviewPeriod();
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        period.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
         List<ReviewPeriodRoleConfiguration> old = List.of();
         if (excludedPeriodId != null) {
             AnnualKpiReviewPeriod existing = requirePeriod(excludedPeriodId);
             requireEditable(existing);
             period.setStatus(existing.getStatus());
+            period.setFrequencyPolicy(existing.getFrequencyPolicy());
+            period.setAssessmentModel(existing.getAssessmentModel());
+            period.setDepartmentConfigurations(existing.getDepartmentConfigurations().stream().map(source -> {
+                var copy = new ReviewPeriodDepartmentConfiguration(); copy.setReviewPeriod(period);
+                copy.setDepartment(source.getDepartment()); copy.setDepartmentName(source.getDepartmentName());
+                copy.setReviewFrequency(source.getReviewFrequency()); return copy;
+            }).collect(java.util.stream.Collectors.toCollection(ArrayList::new)));
             old = configurations.findAllByReviewPeriodIdOrderByIdAsc(excludedPeriodId);
             period.setId(excludedPeriodId);
             if (existing.getStatus() == AnnualKpiReviewPeriodStatus.UPCOMING) requireFrozenConfiguration(existing, request);
@@ -242,6 +263,11 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             throw new BadRequestException("Use the single KPI Setup Deadline; separate KPI setup deadlines are no longer supported");
         }
         mapper.updateConfiguration(request, period);
+        if (period.getStatus() == AnnualKpiReviewPeriodStatus.DRAFT) {
+            if (request.getFrequencyPolicy() == KpiFrequencyPolicy.DEPARTMENT_BASED)
+                period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+            departmentSchedules.apply(period, request);
+        }
         if (period.getName() != null) period.setName(period.getName().strip());
     }
 
@@ -284,6 +310,8 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
 
     private void validate(AnnualKpiReviewPeriod period, List<ReviewPeriodRoleConfiguration> selected,
             List<ReviewPeriodEmployeeLevelConfiguration> weights, boolean publish) {
+        if (period.getStatus() == AnnualKpiReviewPeriodStatus.DRAFT)
+            departmentSchedules.bindRoleFrequencies(period, selected, publish);
         if (selected.stream().anyMatch(c -> !c.getRole().isPerformanceReviewEligible())) {
             throw new BadRequestException("System administrative roles do not participate in performance reviews");
         }
@@ -321,7 +349,10 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
     private List<ReviewCheckpoint> generate(AnnualKpiReviewPeriod period,
             List<ReviewPeriodRoleConfiguration> selected) {
         try {
-            return selected.stream().map(ReviewPeriodRoleConfiguration::getReviewFrequency).distinct()
+            var frequencies = new LinkedHashSet<ReviewFrequency>();
+            if (period.getFrequencyPolicy() == KpiFrequencyPolicy.DEPARTMENT_BASED) frequencies.add(ReviewFrequency.MONTHLY);
+            selected.forEach(c -> frequencies.add(c.getReviewFrequency()));
+            return frequencies.stream()
                     .flatMap(frequency -> generator.generate(period, frequency).stream()).toList();
         } catch (IllegalArgumentException | DateTimeException ex) {
             throw new BadRequestException("Invalid assessment schedule: " + ex.getMessage());
@@ -385,15 +416,18 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         if(request.getAttitudeSelfAssessmentStartDate()==null)
             period.setAttitudeSelfAssessmentStartDate(existingAttitudeStart);
         validate(period, selected, weights, true);
-        var schedule = generate(period, selected);
-        checkpoints.deleteAllByReviewPeriodId(period.getId()); checkpoints.flush();
-        checkpoints.saveAllAndFlush(schedule);
+        if (period.getFrequencyPolicy() != KpiFrequencyPolicy.DEPARTMENT_BASED) {
+            var schedule = generate(period, selected);
+            checkpoints.deleteAllByReviewPeriodId(period.getId()); checkpoints.flush();
+            checkpoints.saveAllAndFlush(schedule);
+        }
         markPublished(period); period.setUpdatedBy(actor); periods.saveAndFlush(period);
         return details(period);
     }
 
     private void requireFrozenConfiguration(AnnualKpiReviewPeriod period, AnnualKpiReviewPeriodRequest request) {
         if (request == null) throw new BadRequestException("Review period configuration is required");
+        departmentSchedules.requireUnchanged(period, request);
         var selected = configurations.findAllByReviewPeriodIdOrderByIdAsc(period.getId());
         var requested = request.getRoleConfigurations();
         boolean unchanged = requested != null && requested.size() == selected.size() &&
@@ -437,6 +471,11 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             if (frequencies.containsKey(c.getRoleId())) c.setReviewFrequency(frequencies.get(c.getRoleId()));
         });
         dto.setRoleConfigurations(options);
+        dto.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        dto.setDepartmentConfigurations(source != null && source.getFrequencyPolicy() == KpiFrequencyPolicy.DEPARTMENT_BASED
+                ? source.getDepartmentConfigurations().stream().map(mapper::toDto).toList() : List.of());
+        dto.setAnnualKpiConsolidationMethod(source != null && source.getAnnualKpiConsolidationMethod() != null
+                ? source.getAnnualKpiConsolidationMethod() : AnnualKpiConsolidationMethod.FINAL_CHECKPOINT);
         return dto;
     }
 

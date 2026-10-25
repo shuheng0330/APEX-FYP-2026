@@ -17,6 +17,9 @@ import java.util.List;
 
 @Data
 public class AnnualKpiReviewPeriodRequest {
+    private com.tbm.careerpathlearning.enums.KpiFrequencyPolicy frequencyPolicy;
+    @Valid
+    private List<@NotNull ReviewPeriodDepartmentConfigurationDto> departmentConfigurations;
     @Size(max = 255)
     private String name;
     private LocalDate startDate;

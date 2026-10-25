@@ -41,6 +41,15 @@ public class ReviewPeriodParticipantFactory {
         participant.setSuperior(staff.getManager());
         participant.setSuperiorName(staff.getManager() == null ? null : staff.getManager().getName());
         participant.setReviewFrequency(configuration.getReviewFrequency());
+        if (period.getFrequencyPolicy() == com.tbm.careerpathlearning.enums.KpiFrequencyPolicy.DEPARTMENT_BASED) {
+            if (department == null) throw new IllegalArgumentException("A Department is required for this employee");
+            var schedule = period.getDepartmentConfigurations().stream()
+                    .filter(d -> d.getDepartment().getId().equals(department.getId())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("The employee's Department schedule is missing"));
+            participant.setDepartmentConfiguration(schedule);
+            participant.setDepartmentName(schedule.getDepartmentName());
+            participant.setReviewFrequency(schedule.getReviewFrequency());
+        }
         participant.setEmployeeLevelConfiguration(configuration.getEmployeeLevelConfiguration());
         participant.setEmployeeLevelConfigurationId(configuration.getEmployeeLevelConfigurationId());
         return participant;

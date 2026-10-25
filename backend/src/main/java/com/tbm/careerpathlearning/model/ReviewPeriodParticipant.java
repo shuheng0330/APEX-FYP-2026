@@ -64,6 +64,10 @@ public class ReviewPeriodParticipant {
     @Column(name = "review_frequency", nullable = false, length = 20, updatable = false)
     private ReviewFrequency reviewFrequency;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_configuration_id", updatable = false)
+    private ReviewPeriodDepartmentConfiguration departmentConfiguration;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumns(value = {
         @JoinColumn(name = "review_period_id", referencedColumnName = "review_period_id", insertable = false, updatable = false),

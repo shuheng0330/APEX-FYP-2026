@@ -15,11 +15,12 @@ class KpiCheckpointAggregateServiceTest {
     private final KpiCentralResultRepository central=mock(KpiCentralResultRepository.class);
     private final KpiAssessmentRepository assessments=mock(KpiAssessmentRepository.class);
     private final EmployeeKpiAssignmentRepository assignments=mock(EmployeeKpiAssignmentRepository.class);
+    private final ReviewCheckpointRepository checkpoints=mock(ReviewCheckpointRepository.class);
     private final UUID actor=UUID.randomUUID();
     private final Clock clock=Clock.fixed(Instant.parse("2027-02-02T12:00:00Z"),ZoneOffset.UTC);
     private final KpiCheckpointAggregateService service=new KpiCheckpointAggregateService(
             aggregateRows,central,assessments,assignments,clock,
-            org.mapstruct.factory.Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiPlanMapper.class));
+            org.mapstruct.factory.Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiPlanMapper.class),new CompanyKpiCheckpointResolver(checkpoints));
     private final KpiCheckpointResult[] stored={null};
     private final Map<Long,KpiCentralResult> publications=new HashMap<>();
 
@@ -67,6 +68,41 @@ class KpiCheckpointAggregateServiceTest {
         when(central.findByPlanVersionIdAndCheckpointIdAndStatus(anyLong(),eq(5L),eq(KpiCentralResultStatus.PUBLISHED)))
                 .thenAnswer(i->Optional.ofNullable(publications.get(i.getArgument(0))));
         return assessment;
+    }
+
+    @Test void quarterlyAssessmentUsesOnlyMarchCompanyResultAndRefreshesOnCorrection() {
+        var assessment=reviewed(new BigDecimal("50"),BigDecimal.ZERO,new BigDecimal("50"));
+        var period=assessment.getParticipant().getReviewPeriod();period.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        assessment.setReviewFrequency(ReviewFrequency.QUARTERLY);
+        assessment.getCheckpoint().setReviewFrequency(ReviewFrequency.QUARTERLY);
+        assessment.getCheckpoint().setEndDate(LocalDate.of(2027,3,31));
+        var march=new ReviewCheckpoint();march.setId(30L);march.setReviewPeriod(period);march.setReviewFrequency(ReviewFrequency.MONTHLY);
+        march.setStartDate(LocalDate.of(2027,3,1));march.setEndDate(LocalDate.of(2027,3,31));
+        when(checkpoints.findByReviewPeriodIdAndReviewFrequencyAndEndDate(1L,ReviewFrequency.MONTHLY,march.getEndDate())).thenReturn(Optional.of(march));
+        var version=assessment.getPlanVersions().get(0).getVersion();
+        when(central.findByPlanVersionIdAndCheckpointIdAndStatus(version.getId(),30L,KpiCentralResultStatus.PUBLISHED))
+                .thenAnswer(i->Optional.ofNullable(publications.get(version.getId())));
+        service.refresh(assessment,actor,"Review");assertNull(assessment.getCheckpointScore());
+        assertEquals(30L,stored[0].getCompanyCheckpointId());assertEquals(5L,stored[0].getCheckpointId());
+        assertEquals(List.of(KpiLevel.COMPANY),service.pendingLevels(assessment));
+        when(assessments.findAllByReviewPeriodIdAndCheckpointEndDateAndStatus(1L,march.getEndDate(),KpiAssessmentStatus.REVIEWED))
+                .thenReturn(List.of(assessment));
+        var result=publication(version,300L,4);result.setCheckpoint(march);publications.put(version.getId(),result);
+        service.refreshForPublication(result,actor);assertEquals(new BigDecimal("90.0000"),assessment.getCheckpointScore());
+        var breakdown=service.breakdown(assessment).levels().get(0);
+        assertEquals(30L,breakdown.reportingCheckpoint().id());assertEquals(march.getEndDate(),breakdown.reportingCheckpoint().endDate());
+        var correction=publication(version,301L,5);correction.setCheckpoint(march);publications.put(version.getId(),correction);
+        service.refreshForPublication(correction,actor);assertEquals(new BigDecimal("100.0000"),assessment.getCheckpointScore());
+        assertEquals(1,assessment.getItems().get(0).getSelfPoint());
+        assertEquals(2,stored[0].getCalculationHistory().size());
+        verify(central,never()).findByPlanVersionIdAndCheckpointIdAndStatus(version.getId(),5L,KpiCentralResultStatus.PUBLISHED);
+    }
+
+    @Test void missingMatchingMonthlyCheckpointDoesNotFallBackToQuarterlyOrEarlierResult() {
+        var assessment=reviewed(new BigDecimal("50"),BigDecimal.ZERO,new BigDecimal("50"));
+        assessment.getParticipant().getReviewPeriod().setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.refresh(assessment,actor,"Review"));
+        verify(aggregateRows,never()).saveAndFlush(any());
     }
 
     @Test void pendingIsNullThenPublishesAndCorrectsWithoutChangingIndividualAnswers() {

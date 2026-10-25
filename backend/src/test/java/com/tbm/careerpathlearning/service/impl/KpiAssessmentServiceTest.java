@@ -46,7 +46,7 @@ class KpiAssessmentServiceTest {
     void date(String day) {
         service=new KpiAssessmentServiceImpl(assessments,items,files,participants,checkpoints,assignments,periods,staff,
                 Mappers.getMapper(KpiPlanMapper.class),Mappers.getMapper(KpiAssessmentMapper.class),storage,email,new KpiCheckpointScoreCalculator(),
-                aggregates,
+                aggregates,new CompanyKpiCheckpointResolver(checkpoints),
                 Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC));
     }
     @BeforeEach void setup() {
@@ -98,6 +98,32 @@ class KpiAssessmentServiceTest {
         verify(aggregates,times(1)).breakdown(assessment);
         employee.setAccountStatus(StaffAccountStatus.INACTIVE);
         assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,owner));
+    }
+
+    @Test void authorisedDetailsExposeMonthlyCompanySourceWithoutWritesOrExpandedScoreAccess() {
+        complete();service.submit(20L,owner);
+        period.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        assessment.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        checkpoint.setReviewFrequency(ReviewFrequency.QUARTERLY);checkpoint.setEndDate(LocalDate.of(2027,3,31));
+        var march=new ReviewCheckpoint();march.setId(13L);march.setReviewFrequency(ReviewFrequency.MONTHLY);
+        march.setStartDate(LocalDate.of(2027,3,1));march.setEndDate(checkpoint.getEndDate());
+        when(checkpoints.findByReviewPeriodIdAndReviewFrequencyAndEndDate(1L,ReviewFrequency.MONTHLY,checkpoint.getEndDate())).thenReturn(Optional.of(march));
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");clearInvocations(assessments,aggregates,email);
+        var dto=service.get(20L,superiorId);
+        assertEquals(KpiFrequencyPolicy.DEPARTMENT_BASED,dto.getFrequencyPolicy());
+        assertEquals(13L,dto.getCompanyReportingCheckpoint().id());
+        assertEquals(LocalDate.of(2027,3,1),dto.getCompanyReportingCheckpoint().startDate());
+        assertThrows(AccessDeniedException.class,()->service.get(20L,outsider));
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,superiorId));
+        verify(assessments,never()).saveAndFlush(any());verify(aggregates,never()).refresh(any(),any(),any());verifyNoInteractions(email);
+        assertEquals(KpiFrequencyPolicy.DEPARTMENT_BASED,Mappers.getMapper(KpiPlanMapper.class).toContext(period).getFrequencyPolicy());
+    }
+
+    @Test void displayMetadataIsOptionalAndDoesNotCreateAReportingSource() {
+        complete();assessment.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        period.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        var dto=service.get(20L,owner);assertNull(dto.getCompanyReportingCheckpoint());
+        verify(checkpoints,never()).save(any());
     }
 
     @Test void scoreBreakdownDoesNotChangeLegacyAssessments() {
