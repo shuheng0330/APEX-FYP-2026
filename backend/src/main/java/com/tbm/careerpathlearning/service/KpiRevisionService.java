@@ -37,16 +37,18 @@ public class KpiRevisionService {
     private final RoleAuthorityRepository roleAuthorities;
     private final EmailService email;
     private final Clock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
 
     public KpiRevisionService(KpiPlanVersionRepository versions,KpiPlanRepository plans,AnnualKpiReviewPeriodRepository periods,
             StaffRepository staff,ReviewPeriodParticipantRepository participants,EmployeeKpiAssignmentRepository employeeAssignments,
             PerformanceDepartmentResolver departments,KpiPlanMapper items,KpiRevisionMapper mapper,KpiPlanValidator validator,
             KpiAssignmentService assignments,RoleAuthorityRepository roleAuthorities,EmailService email,
-            @Qualifier("annualKpiReviewClock") Clock clock) {
+            @Qualifier("annualKpiReviewClock") Clock clock,org.springframework.context.ApplicationEventPublisher events) {
         this.versions=versions;this.plans=plans;this.periods=periods;this.staff=staff;this.participants=participants;
         this.employeeAssignments=employeeAssignments;this.departments=departments;this.items=items;this.mapper=mapper;
         this.validator=validator;this.assignments=assignments;this.roleAuthorities=roleAuthorities;this.email=email;this.clock=clock;
+        this.events=events;
     }
     @Transactional(readOnly=true)
     @PreAuthorize("hasAnyAuthority('CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_PREPARE_DEPARTMENT_KPI_REVISION','CAN_APPROVE_DEPARTMENT_KPI','CAN_MANAGE_DEPARTMENT_KPI','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS','CAN_REVIEW_INDIVIDUAL_KPI')")
@@ -138,6 +140,7 @@ public class KpiRevisionService {
             copy.setVersion(v);copy.setPredecessorId(k.getId());items.update(items.toDto(k),copy);v.getItems().add(copy);
         }
         event(v,"CREATED",actor,null,v.getStatus(),reason);versions.saveAndFlush(v);
+        events.publishEvent(new KpiNotificationEvents.Revision(v,actor));
         if(superior!=null) notifySuperior(v,superior,false);
         return details(v,actor,true);
     }
@@ -177,6 +180,7 @@ public class KpiRevisionService {
         complete(v);v.setSubmittedAt(now());transition(v,"SUBMITTED",actor,
             v.getLevel()==KpiLevel.INDIVIDUAL?KpiVersionStatus.PENDING_APPROVAL:KpiVersionStatus.PENDING_MD_APPROVAL,null);
         var result=save(v,actor);
+        events.publishEvent(new KpiNotificationEvents.Revision(v,actor));
         if(v.getLevel()==KpiLevel.INDIVIDUAL) notifySuperior(v,currentSuperior(v.getPlan()),true);
         return result;
     }
@@ -191,7 +195,8 @@ public class KpiRevisionService {
         permission(MD);requireState(v,KpiVersionStatus.PENDING_MD_APPROVAL);
         if(v.getLevel()!=KpiLevel.DEPARTMENT || actor.equals(v.getPreparedBy()) || actor.equals(v.getRequestedBy())) deny();
         complete(v);v.setApprovedBy(actor);v.setApprovedAt(now());
-        transition(v,"MD_APPROVED",actor,KpiVersionStatus.PENDING_HOD_CONFIRMATION,null);return save(v,actor);
+        transition(v,"MD_APPROVED",actor,KpiVersionStatus.PENDING_HOD_CONFIRMATION,null);var result=save(v,actor);
+        events.publishEvent(new KpiNotificationEvents.Revision(v,actor));return result;
     }
     @PreAuthorize("hasAnyAuthority('CAN_APPROVE_DEPARTMENT_KPI','CAN_MANAGE_DEPARTMENT_KPI','CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiRevisionDto returnToHr(Long id,KpiRevisionRequest request,UUID actor) {
@@ -206,7 +211,8 @@ public class KpiRevisionService {
         v.setLatestReturnReason(reason);v.setLatestReturnedBy(actor);v.setLatestReturnedAt(now());
         v.setLatestReturnItems(v.getItems().stream().map(items::toDto).toList());v.setRevisionRequired(true);
         v.setApprovedBy(null);v.setApprovedAt(null);
-        transition(v,"RETURNED",actor,KpiVersionStatus.RETURNED,reason);return save(v,actor);
+        transition(v,"RETURNED",actor,KpiVersionStatus.RETURNED,reason);var result=save(v,actor);
+        events.publishEvent(new KpiNotificationEvents.Revision(v,actor));return result;
     }
     @PreAuthorize("hasAnyAuthority('CAN_REVISE_COMPANY_KPI','CAN_MANAGE_DEPARTMENT_KPI','CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiRevisionDto confirm(Long id,KpiRevisionRequest request,UUID actor) {
@@ -228,7 +234,7 @@ public class KpiRevisionService {
         if(superiorApproval) {v.setApprovedBy(actor);v.setApprovedAt(at);}
         transition(v,superiorApproval?"SUPERIOR_APPROVED":"CONFIRMED",actor,KpiVersionStatus.EFFECTIVE,null);versions.saveAndFlush(v);
         plan.setCurrentVersion(v);plan.setUpdatedAt(now());plan.setUpdatedBy(actor);plans.saveAndFlush(plan);
-        assignments.cascade(plan);return details(v,actor,true);
+        assignments.cascade(plan);events.publishEvent(new KpiNotificationEvents.Revision(v,actor));return details(v,actor,true);
     }
     @PreAuthorize("hasAnyAuthority('CAN_MANAGE_KPI_AMENDMENTS','CAN_REVISE_COMPANY_KPI','CAN_MANAGE_DEPARTMENT_KPI','CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS')")
     public KpiRevisionDto cancel(Long id,KpiRevisionRequest request,UUID actor) {

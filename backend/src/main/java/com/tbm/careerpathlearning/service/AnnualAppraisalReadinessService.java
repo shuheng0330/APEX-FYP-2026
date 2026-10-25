@@ -26,6 +26,15 @@ public class AnnualAppraisalReadinessService {
         this.aggregates=aggregates;this.plans=plans;
     }
 
+    /** An unavailable historical source must not prevent a different result from being saved. */
+    public boolean readyForNotification(ReviewPeriodParticipant participant) {
+        try {
+            return evaluate(participant).ready();
+        } catch (com.tbm.careerpathlearning.exception.BadRequestException unavailable) {
+            return false;
+        }
+    }
+
     public AnnualAppraisalReadinessDto evaluate(ReviewPeriodParticipant participant) {
         var period=participant.getReviewPeriod();
         List<String> blockers=new ArrayList<>();

@@ -36,16 +36,18 @@ public class AnnualAppraisalServiceImpl implements AnnualAppraisalService {
     private final ObjectMapper json;
     private final EmailService email;
     private final Clock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     public AnnualAppraisalServiceImpl(AnnualAppraisalRepository appraisals,AnnualAppraisalActivityRepository activity,
             ReviewPeriodParticipantRepository participants,AnnualKpiReviewPeriodRepository periods,StaffRepository staff,
             AnnualAppraisalReadinessService readiness,AnnualAppraisalMapper mapper,KpiPlanMapper plans,
             ObjectMapper json,EmailService email,@Qualifier("annualKpiReviewClock") Clock clock,
-            AnnualPerformanceHistoryService performanceHistory) {
+            AnnualPerformanceHistoryService performanceHistory,org.springframework.context.ApplicationEventPublisher events) {
         this.appraisals=appraisals;this.activity=activity;this.participants=participants;this.periods=periods;
         this.staff=staff;this.readiness=readiness;this.mapper=mapper;this.plans=plans;this.json=json;
         this.email=email;this.clock=clock;
         this.performanceHistory=performanceHistory;
+        this.events=events;
     }
 
     @Override @Transactional(readOnly=true)
@@ -263,6 +265,7 @@ public class AnnualAppraisalServiceImpl implements AnnualAppraisalService {
         event.setFinalDecision(a.getFinalDecision());
         if(!action.startsWith("DRAFT")) event.setSnapshot(a.getSnapshot());
         activity.save(event);
+        if(!action.startsWith("DRAFT")) events.publishEvent(new KpiNotificationEvents.Appraisal(a,event,actor));
     }
     private void reviewed(AnnualAppraisal a,UUID actor) {
         a.setReviewedAt(now());a.setReviewedBy(actor);a.setReviewedLate(overdue(a.getParticipant().getReviewPeriod().getHrFinalisationDeadline()));

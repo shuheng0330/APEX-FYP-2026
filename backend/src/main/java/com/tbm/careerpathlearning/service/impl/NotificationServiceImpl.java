@@ -28,18 +28,29 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void notify(UUID recipientId, NotificationType type, String title, String body, String link) {
-        create(null, recipientId, type, title, body, link);
+        create(null, recipientId, type, title, body, link, true);
     }
 
     @Override
     @Transactional
     public boolean notifyOnce(String dedupeKey, UUID recipientId, NotificationType type, String title, String body,
                               String link) {
-        if (userNotificationRepository.existsByDedupeKey(dedupeKey)) {
-            return false;
-        }
-        create(dedupeKey, recipientId, type, title, body, link);
-        return true;
+        requireKey(dedupeKey);
+        return create(dedupeKey, recipientId, type, title, body, link, true);
+    }
+
+    @Override
+    @Transactional
+    public void notifyInApp(UUID recipientId, NotificationType type, String title, String body, String link) {
+        create(null, recipientId, type, title, body, link, false);
+    }
+
+    @Override
+    @Transactional
+    public boolean notifyInAppOnce(String dedupeKey, UUID recipientId, NotificationType type, String title,
+                                   String body, String link) {
+        requireKey(dedupeKey);
+        return create(dedupeKey, recipientId, type, title, body, link, false);
     }
 
     @Override
@@ -77,7 +88,8 @@ public class NotificationServiceImpl implements NotificationService {
         userNotificationRepository.markAllRead(userId, OffsetDateTime.now(clock));
     }
 
-    private void create(String dedupeKey, UUID recipientId, NotificationType type, String title, String body, String link) {
+    private boolean create(String dedupeKey, UUID recipientId, NotificationType type, String title, String body,
+                           String link, boolean email) {
         UserNotification n = new UserNotification();
         n.setRecipientId(recipientId);
         n.setType(type.name());
@@ -86,9 +98,26 @@ public class NotificationServiceImpl implements NotificationService {
         n.setLink(link);
         n.setDedupeKey(dedupeKey);
         n.setCreatedAt(OffsetDateTime.now(clock));
-        n.setEmailStatus(NotificationEmailStatus.PENDING.name());
-        userNotificationRepository.save(n);
-        eventPublisher.publishEvent(new NotificationCreatedEvent(n.getId()));
+        n.setEmailStatus((email ? NotificationEmailStatus.PENDING : NotificationEmailStatus.SKIPPED).name());
+        if (dedupeKey == null) {
+            userNotificationRepository.save(n);
+        } else {
+            Long id = userNotificationRepository.insertOnce(n);
+            if (id == null) {
+                return false;
+            }
+            n.setId(id);
+        }
+        if (email) {
+            eventPublisher.publishEvent(new NotificationCreatedEvent(n.getId()));
+        }
+        return true;
+    }
+
+    private void requireKey(String key) {
+        if (key == null || key.isBlank() || key.length() > 200) {
+            throw new BadRequestException("A notification key of 1 to 200 characters is required.");
+        }
     }
 
     private static NotificationDto toDto(UserNotification n) {

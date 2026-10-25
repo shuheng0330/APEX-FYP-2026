@@ -227,7 +227,7 @@ class CentralKpiResultPublicationPostgresTest {
                 repositories.getRepository(KpiAssessmentRepository.class),
                 repositories.getRepository(EmployeeKpiAssignmentRepository.class), CLOCK,
                 org.mapstruct.factory.Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiPlanMapper.class),
-                new com.tbm.careerpathlearning.service.CompanyKpiCheckpointResolver(repositories.getRepository(ReviewCheckpointRepository.class)));
+                new com.tbm.careerpathlearning.service.CompanyKpiCheckpointResolver(repositories.getRepository(ReviewCheckpointRepository.class)),mock(org.springframework.context.ApplicationEventPublisher.class));
         service = service(CLOCK, aggregateService);
         var companyDraft = service.create(request(company, null, 4, "80 units"), owner.getId());
         var first = service.publish(companyDraft.getId(), decision(companyDraft, null), owner.getId());

@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 49;
+    private static final int LATEST_VERSION = 50;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -260,6 +260,8 @@ public class ApplyAnnualReviewPeriodFoundation {
                         +"AND table_name='review_period_department_configuration'");
                 if(frequencyColumns!=(extraApplied>=19?3:0) || departmentTables!=(extraApplied>=19?1:0))
                     throw new IllegalStateException("Partial/untracked V49 frequency schema; reconcile before migration");
+                if(extraApplied>=20 && scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='user_notification'")!=1)
+                    throw new IllegalStateException("Applied V50 notification table is missing");
                 // Snapshot every existing application table, not only the KPI subset. The new
                 // model/Attitude opening columns and explicitly added authority are excluded.
                 try(var statement=connection.createStatement();var tables=statement.executeQuery(
@@ -365,6 +367,12 @@ public class ApplyAnnualReviewPeriodFoundation {
                     +"AND t.tgname IN ('guard_period_frequency_policy','guard_period_department_configuration',"
                     +"'guard_participant_department_frequency','guard_department_checkpoint_schedule','guard_company_checkpoint_source')")!=5)
                 throw new IllegalStateException("V49 frequency protection triggers are missing");
+            if(scalar(connection,"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='user_notification' "
+                    +"AND column_name IN ('id','recipient_id','type','title','body','link','dedupe_key','created_at','read_at','email_status','email_attempts','email_error','emailed_at')")!=13
+                    || scalar(connection,"SELECT count(*) FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=i.indkey[0] "
+                    +"WHERE i.indrelid='public.user_notification'::regclass AND i.indisunique AND i.indisvalid AND i.indimmediate "
+                    +"AND i.indpred IS NULL AND i.indexprs IS NULL AND i.indnkeyatts=1 AND a.attname='dedupe_key'")!=1)
+                throw new IllegalStateException("V50 notification columns or atomic dedupe index are missing");
             if (scalar(connection, "SELECT count(*) FROM public.employee_level") != 6)
                 throw new IllegalStateException("Expected six Employee Levels after V30");
             if (scalar(connection, "SELECT count(*) FROM public.role WHERE LOWER(TRIM(name))='superadmin' "

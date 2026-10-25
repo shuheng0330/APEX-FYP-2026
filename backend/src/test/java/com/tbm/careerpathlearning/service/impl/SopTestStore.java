@@ -568,6 +568,17 @@ class SopTestStore {
         }
 
         @Override
+        public void notifyInApp(UUID recipientId, NotificationType type, String title, String body, String link) {
+            notify(recipientId, type, title, body, link);
+        }
+
+        @Override
+        public boolean notifyInAppOnce(String dedupeKey, UUID recipientId, NotificationType type, String title,
+                                       String body, String link) {
+            return notifyOnce(dedupeKey, recipientId, type, title, body, link);
+        }
+
+        @Override
         public NotificationListDto mine(UUID userId) {
             throw new UnsupportedOperationException();
         }

@@ -47,7 +47,7 @@ class KpiAssessmentServiceTest {
         service=new KpiAssessmentServiceImpl(assessments,items,files,participants,checkpoints,assignments,periods,staff,
                 Mappers.getMapper(KpiPlanMapper.class),Mappers.getMapper(KpiAssessmentMapper.class),storage,email,new KpiCheckpointScoreCalculator(),
                 aggregates,new CompanyKpiCheckpointResolver(checkpoints),
-                Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC));
+                Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC),mock(org.springframework.context.ApplicationEventPublisher.class));
     }
     @BeforeEach void setup() {
         date("2027-02-01");
@@ -168,6 +168,28 @@ class KpiAssessmentServiceTest {
         var dto=service.mine(11L,owner);assertNull(dto.getId());assertNull(dto.getCreatedAt());
         assertTrue(dto.isCanSaveDraft());assertFalse(dto.isCanSubmit());assertEquals(3,dto.getMissingLevels().size());
         assertTrue(dto.getItems().isEmpty());verify(assessments,never()).saveAndFlush(any());
+    }
+
+    @Test void notificationAvailabilityReusesRecordedFrequencyAndAssignedIndividualKpisWithoutCentralResultsOrDraftWrites() {
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        assertTrue(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        var draft=new KpiAssessment();draft.setParticipant(participant);draft.setCheckpoint(checkpoint);draft.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        assertTrue(service.actionableSelfAssessmentForNotification(participant,checkpoint,draft));
+        assertTrue(draft.getItems().isEmpty());assertTrue(draft.getPlanVersions().isEmpty());
+        date("2027-01-31");assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        date("2027-02-01");checkpoint.setReviewFrequency(ReviewFrequency.QUARTERLY);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        checkpoint.setReviewFrequency(ReviewFrequency.MONTHLY);draft.setStatus(KpiAssessmentStatus.PENDING_REVIEW);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,draft));
+        checkpoint.setSelfAssessmentDeadline(null);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        verify(assessments,never()).saveAndFlush(any());verifyNoInteractions(aggregates,email);
+    }
+
+    @Test void notificationAvailabilitySkipsMissingPlansUpcomingAndClosedPeriodsAndMissingSuperior() {
+        assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        period.setStatus(AnnualKpiReviewPeriodStatus.UPCOMING);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);employee.setManager(null);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        verify(assessments,never()).saveAndFlush(any());
     }
     void versionAssignments() {
         for(var assignment:assigned) {

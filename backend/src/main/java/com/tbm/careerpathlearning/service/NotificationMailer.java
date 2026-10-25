@@ -79,7 +79,7 @@ public class NotificationMailer {
     /** Sends one notification's email and records the result on it. */
     public void deliver(Long notificationId) {
         UserNotification n = userNotificationRepository.findById(notificationId).orElse(null);
-        if (n == null) {
+        if (n == null || NotificationEmailStatus.SKIPPED.name().equals(n.getEmailStatus())) {
             return;
         }
         String inbox = redirectTo == null ? "" : redirectTo.strip();

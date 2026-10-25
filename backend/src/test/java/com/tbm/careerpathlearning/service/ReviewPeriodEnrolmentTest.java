@@ -12,7 +12,7 @@ class ReviewPeriodEnrolmentTest {
     ReviewPeriodParticipantRepository participants=mock(ReviewPeriodParticipantRepository.class);
     ReviewPeriodParticipantFactory factory=mock(ReviewPeriodParticipantFactory.class);
     PerformanceDepartmentResolver resolver=mock(PerformanceDepartmentResolver.class);
-    ReviewPeriodEnrolmentService service=new ReviewPeriodEnrolmentService(staff,participants,factory,resolver,Clock.systemUTC());
+    ReviewPeriodEnrolmentService service=new ReviewPeriodEnrolmentService(staff,participants,factory,resolver,Clock.systemUTC(),mock(org.springframework.context.ApplicationEventPublisher.class));
     @Test void excludesInactiveDeletedAndSystemAccountsAndMarksEmptySnapshot() {
         var period=new AnnualKpiReviewPeriod();period.setId(1L);
         var role=new Role();role.setId(2L);

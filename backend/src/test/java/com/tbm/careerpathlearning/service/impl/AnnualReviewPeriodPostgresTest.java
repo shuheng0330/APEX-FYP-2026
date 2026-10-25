@@ -246,7 +246,7 @@ class AnnualReviewPeriodPostgresTest {
                 factory.getRepository(ReviewPeriodEmployeeLevelConfigurationRepository.class),
                 new com.tbm.careerpathlearning.service.ReviewPeriodEnrolmentService(factory.getRepository(StaffRepository.class), participants,
                         new ReviewPeriodParticipantFactory(), new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(
-                                factory.getRepository(OrgChartRepository.class),org.mockito.Mockito.mock(ParentChildNodeRepository.class)),clock),
+                                factory.getRepository(OrgChartRepository.class),org.mockito.Mockito.mock(ParentChildNodeRepository.class)),clock,org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)),
                 factory.getRepository(KpiPlanRepository.class),new com.tbm.careerpathlearning.service.AttitudeConfigurationBinding(
                         factory.getRepository(AttitudeConfigurationRepository.class)),
                 new com.tbm.careerpathlearning.service.DepartmentKpiScheduleService(factory.getRepository(OrgChartRepository.class),

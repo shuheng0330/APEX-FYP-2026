@@ -7,6 +7,7 @@ import com.tbm.careerpathlearning.mapper.*;
 import com.tbm.careerpathlearning.model.*;
 import com.tbm.careerpathlearning.repository.*;
 import com.tbm.careerpathlearning.service.EmailService;
+import com.tbm.careerpathlearning.service.AttitudeAssessmentAvailability;
 import org.junit.jupiter.api.*;
 import org.mapstruct.factory.Mappers;
 import org.springframework.security.access.AccessDeniedException;
@@ -40,7 +41,7 @@ class AttitudeAssessmentServiceTest {
     void businessClock(Clock clock) {
         service=new AttitudeAssessmentServiceImpl(assessments,participants,periods,staff,
                 Mappers.getMapper(AttitudeAssessmentMapper.class),Mappers.getMapper(AttitudeConfigurationMapper.class),
-                Mappers.getMapper(KpiPlanMapper.class),email,clock);
+                Mappers.getMapper(KpiPlanMapper.class),email,clock,mock(org.springframework.context.ApplicationEventPublisher.class));
     }
     @BeforeEach void setup() {
         date("2027-01-01");
@@ -152,6 +153,24 @@ class AttitudeAssessmentServiceTest {
         assertEquals(List.of(11L,12L),dto.getItems().stream().map(AttitudeAssessmentDto.Item::getCriterionId).toList());
         assertEquals(List.of(5,4,3,2,1),dto.getRatingDefinitions().stream().map(AttitudeConfigurationRequest.Rating::getPoint).toList());
         assertTrue(dto.isCanSaveDraft());assertFalse(dto.isCanSubmit());verify(assessments,never()).saveAndFlush(any());
+    }
+
+    @Test void notificationAvailabilityUsesBoundFormatAndInclusiveOpeningWithoutCreatingDrafts() {
+        period.setAttitudeSelfAssessmentStartDate(LocalDate.of(2027,10,1));date("2027-09-30");
+        assertFalse(AttitudeAssessmentAvailability.actionable(participant,null,LocalDate.of(2027,9,30)));
+        date("2027-10-01");assertTrue(AttitudeAssessmentAvailability.actionable(participant,null,LocalDate.of(2027,10,1)));
+        for(var frequency:ReviewFrequency.values()) {participant.setReviewFrequency(frequency);assertTrue(AttitudeAssessmentAvailability.actionable(participant,null,LocalDate.of(2027,10,1)));}
+        configuration.getRoleMappings().clear();assertFalse(AttitudeAssessmentAvailability.actionable(participant,null,LocalDate.of(2027,10,1)));
+        verify(assessments,never()).saveAndFlush(any());verifyNoInteractions(email);
+    }
+
+    @Test void notificationAvailabilityDoesNotChangeExistingAnswersOrAlertForSubmittedOrClosedAssessments() {
+        complete();clearInvocations(assessments);var before=assessment.getItems().stream().map(AttitudeAssessmentItem::getSelfPoint).toList();
+        assertTrue(AttitudeAssessmentAvailability.actionable(participant,assessment,LocalDate.of(2027,1,1)));
+        assertEquals(before,assessment.getItems().stream().map(AttitudeAssessmentItem::getSelfPoint).toList());
+        assessment.setStatus(AttitudeAssessmentStatus.PENDING_REVIEW);assertFalse(AttitudeAssessmentAvailability.actionable(participant,assessment,LocalDate.of(2027,1,1)));
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);assertFalse(AttitudeAssessmentAvailability.actionable(participant,null,LocalDate.of(2027,1,1)));
+        assertNull(assessment.getAttitudeScore());verify(assessments,never()).saveAndFlush(any());
     }
     @Test void annualAssessmentAvailableOnOpeningRegardlessOfKpiFrequency() {
         for(var frequency:ReviewFrequency.values()) {participant.setReviewFrequency(frequency);assertTrue(service.mine(1L,owner).isAvailable());}

@@ -5,7 +5,7 @@ import com.tbm.careerpathlearning.enums.NotificationType;
 
 import java.util.UUID;
 
-/** In-app notifications, each also emailed once the action that caused it is saved (NFR-016). */
+/** Personal notifications saved in the caller's transaction; existing methods also queue email. */
 public interface NotificationService {
 
     /**
@@ -22,6 +22,12 @@ public interface NotificationService {
      * @return false when a notification with this key already exists
      */
     boolean notifyOnce(String dedupeKey, UUID recipientId, NotificationType type, String title, String body, String link);
+
+    /** Saves an unread notification without queueing email. */
+    void notifyInApp(UUID recipientId, NotificationType type, String title, String body, String link);
+
+    /** Saves an in-app-only notification at most once per nonblank key, including concurrent requests. */
+    boolean notifyInAppOnce(String dedupeKey, UUID recipientId, NotificationType type, String title, String body, String link);
 
     /** The person's unread count and newest notifications. */
     NotificationListDto mine(UUID userId);

@@ -24,15 +24,17 @@ public class KpiCheckpointAggregateService {
     private final Clock clock;
     private final KpiPlanMapper kpis;
     private final CompanyKpiCheckpointResolver companyCheckpoints;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     public KpiCheckpointAggregateService(KpiCheckpointResultRepository aggregates,
             KpiCentralResultRepository centralResults,KpiAssessmentRepository assessments,
             EmployeeKpiAssignmentRepository assignments,@Qualifier("annualKpiReviewClock") Clock clock,
-            KpiPlanMapper kpis,CompanyKpiCheckpointResolver companyCheckpoints) {
+            KpiPlanMapper kpis,CompanyKpiCheckpointResolver companyCheckpoints,org.springframework.context.ApplicationEventPublisher events) {
         this.aggregates=aggregates;this.centralResults=centralResults;this.assessments=assessments;
         this.assignments=assignments;this.clock=clock;
         this.kpis=kpis;
         this.companyCheckpoints=companyCheckpoints;
+        this.events=events;
     }
 
     public KpiScoreBreakdownDto breakdown(KpiAssessment assessment) {
@@ -107,6 +109,7 @@ public class KpiCheckpointAggregateService {
                     row.setReviewFrequency(assessment.getReviewFrequency());return row;
                 });
         putVersion(aggregate,KpiLevel.COMPANY,versions.get(KpiLevel.COMPANY));
+        BigDecimal previousScore=aggregate.getScore();
         putVersion(aggregate,KpiLevel.DEPARTMENT,versions.get(KpiLevel.DEPARTMENT));
         putVersion(aggregate,KpiLevel.INDIVIDUAL,versions.get(KpiLevel.INDIVIDUAL));
         var companyId=weights.get(KpiLevel.COMPANY).signum()>0?company.map(KpiCentralResult::getId).orElse(null):null;
@@ -131,6 +134,9 @@ public class KpiCheckpointAggregateService {
         aggregate.setCompanyResultId(companyId);aggregate.setDepartmentResultId(departmentId);
         aggregate.setScore(score);aggregates.saveAndFlush(aggregate);
         assessment.setCheckpointScore(score);assessments.saveAndFlush(assessment);
+        if(score!=null && (previousScore==null || score.compareTo(previousScore)!=0))
+            events.publishEvent(new KpiNotificationEvents.Score(assessment,previousScore,aggregate.getCalculationHistory().size(),
+                    actor,"Individual KPI review completed".equals(reason)));
     }
 
     public void refreshForPublication(KpiCentralResult result,UUID actor) {

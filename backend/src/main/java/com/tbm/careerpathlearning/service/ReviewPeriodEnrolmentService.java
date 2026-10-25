@@ -15,9 +15,12 @@ public class ReviewPeriodEnrolmentService {
     private final ReviewPeriodParticipantFactory factory;
     private final PerformanceDepartmentResolver departments;
     private final Clock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
     public ReviewPeriodEnrolmentService(StaffRepository staff,ReviewPeriodParticipantRepository participants,
-            ReviewPeriodParticipantFactory factory,PerformanceDepartmentResolver departments,@Qualifier("annualKpiReviewClock") Clock clock) {
+            ReviewPeriodParticipantFactory factory,PerformanceDepartmentResolver departments,@Qualifier("annualKpiReviewClock") Clock clock,
+            org.springframework.context.ApplicationEventPublisher events) {
         this.staff=staff;this.participants=participants;this.factory=factory;this.departments=departments;this.clock=clock;
+        this.events=events;
     }
     public void enrol(AnnualKpiReviewPeriod period,List<ReviewPeriodRoleConfiguration> selected) {
         if(period.getParticipantsSnapshottedAt()!=null || participants.existsByReviewPeriodId(period.getId()))
@@ -34,5 +37,6 @@ public class ReviewPeriodEnrolmentService {
         }
         participants.saveAllAndFlush(roster);
         period.setParticipantsSnapshottedAt(now);
+        events.publishEvent(new KpiNotificationEvents.Enrolled(roster,period.getUpdatedBy()));
     }
 }

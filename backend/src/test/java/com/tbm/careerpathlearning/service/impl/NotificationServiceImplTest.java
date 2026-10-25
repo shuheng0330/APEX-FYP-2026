@@ -75,13 +75,54 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("A keyed notification is sent only once, however many times it is asked for")
     void notifyOnce() {
-        when(userNotificationRepository.existsByDedupeKey("due-3d:enrollment:5")).thenReturn(false, true);
+        when(userNotificationRepository.insertOnce(any())).thenReturn(7L, (Long) null);
 
         assertTrue(service.notifyOnce("due-3d:enrollment:5", aisyah, NotificationType.COURSE_ASSIGNED, "t", "b", null));
         assertFalse(service.notifyOnce("due-3d:enrollment:5", aisyah, NotificationType.COURSE_ASSIGNED, "t", "b", null));
 
-        verify(userNotificationRepository, times(1)).save(any());
-        verify(eventPublisher, times(1)).publishEvent(any(NotificationCreatedEvent.class));
+        verify(userNotificationRepository, times(2)).insertOnce(any());
+        verify(userNotificationRepository, never()).save(any());
+        verify(userNotificationRepository, never()).existsByDedupeKey(any());
+        verify(eventPublisher).publishEvent(new NotificationCreatedEvent(7L));
+    }
+
+    @Test
+    void inAppNotificationIsUnreadAndNeverQueuesEmail() {
+        service.notifyInApp(aisyah, NotificationType.COURSE_ASSIGNED, "A task is ready", "Open to review.", "/my-learning");
+
+        var saved = ArgumentCaptor.forClass(UserNotification.class);
+        verify(userNotificationRepository).save(saved.capture());
+        assertEquals("SKIPPED", saved.getValue().getEmailStatus());
+        assertNull(saved.getValue().getReadAt());
+        assertEquals(0, saved.getValue().getEmailAttempts());
+        assertEquals(aisyah, saved.getValue().getRecipientId());
+        assertEquals(now, saved.getValue().getCreatedAt().toInstant());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void inAppOnceUsesAtomicInsertionWithoutPublishingMailEvents() {
+        when(userNotificationRepository.insertOnce(any())).thenReturn(8L, (Long) null);
+
+        assertTrue(service.notifyInAppOnce("event:1:recipient", aisyah, NotificationType.COURSE_ASSIGNED, "t", "b", null));
+        assertFalse(service.notifyInAppOnce("event:1:recipient", aisyah, NotificationType.COURSE_ASSIGNED, "t", "b", null));
+
+        var inserted = ArgumentCaptor.forClass(UserNotification.class);
+        verify(userNotificationRepository, times(2)).insertOnce(inserted.capture());
+        assertTrue(inserted.getAllValues().stream().allMatch(n -> "SKIPPED".equals(n.getEmailStatus())));
+        assertEquals("event:1:recipient", inserted.getValue().getDedupeKey());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void onceMethodsRejectMissingBlankAndOversizedKeysBeforeWriting() {
+        for (String key : new String[] { null, " ", "x".repeat(201) }) {
+            assertThrows(BadRequestException.class, () -> service.notifyOnce(key, aisyah,
+                    NotificationType.COURSE_ASSIGNED, "t", "b", null));
+            assertThrows(BadRequestException.class, () -> service.notifyInAppOnce(key, aisyah,
+                    NotificationType.COURSE_ASSIGNED, "t", "b", null));
+        }
+        verifyNoInteractions(userNotificationRepository, eventPublisher);
     }
 
     @Test

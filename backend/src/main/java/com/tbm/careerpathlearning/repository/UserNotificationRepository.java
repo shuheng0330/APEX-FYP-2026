@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface UserNotificationRepository extends JpaRepository<UserNotification, Long> {
+public interface UserNotificationRepository extends JpaRepository<UserNotification, Long>, UserNotificationInsert {
 
     List<UserNotification> findTop30ByRecipientIdOrderByCreatedAtDescIdDesc(UUID recipientId);
 

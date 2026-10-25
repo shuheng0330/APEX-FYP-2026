@@ -62,6 +62,15 @@ class AnnualAppraisalReadinessServiceTest {
         assertEquals(new BigDecimal("89.3333"),service.evaluate(participant).performance().finalScore());
         verify(assessments,never()).saveAndFlush(any());
     }
+
+    @Test void unavailableHistoricalSourceSkipsNotificationWithoutChangingNormalValidationOrWritingResults() {
+        assertTrue(service.readyForNotification(participant));
+        when(aggregates.pendingLevels(records.get(0))).thenThrow(new com.tbm.careerpathlearning.exception.BadRequestException("Recorded allocation unavailable"));
+        assertFalse(service.readyForNotification(participant));
+        assertThrows(com.tbm.careerpathlearning.exception.BadRequestException.class,()->service.evaluate(participant));
+        verify(assessments,never()).saveAndFlush(any());
+        verify(aggregates,never()).refresh(any(),any(),any());
+    }
     @ParameterizedTest @EnumSource(ReviewFrequency.class)
     void readinessFollowsTheRecordedEmployeeFrequency(ReviewFrequency frequency) {
         int count=switch(frequency) {case MONTHLY->12;case QUARTERLY->4;case ANNUALLY->1;};
