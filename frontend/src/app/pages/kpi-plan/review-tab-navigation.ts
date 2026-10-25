@@ -70,7 +70,9 @@ export class ReviewTabNavigation<T extends string> {
 
   private write(tab: T | null, replaceUrl: boolean) {
     this.pending = true;
-    void this.router.navigate([], { relativeTo: this.route, queryParams: { tab }, queryParamsHandling: 'merge', replaceUrl })
+    void this.router.navigate([], { relativeTo: this.route,
+      queryParams: { tab, planId: null, assessmentId: null, attitudeAssessmentId: null, assistanceId: null, revisionId: null },
+      queryParamsHandling: 'merge', replaceUrl })
       .then(navigated => {
         if (navigated) { this.acceptedUrl = this.router.url; this.acceptedTab = tab; }
         else this.accept(this.acceptedTab);

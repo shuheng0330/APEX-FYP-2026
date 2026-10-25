@@ -1,5 +1,6 @@
+<app-notification-target [unavailable]="target.unavailable" />
 <div class="review-queue-heading team-review-intro"><div><h3>{{ 'KPI_ASSESSMENT_REVIEW.TITLE' | translate }}</h3><p class="help">{{ 'KPI_ASSESSMENT_REVIEW.HELP' | translate }}</p></div></div>
-@if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div> }
+@if (error && !drawerVisible && !target.unavailable) { <div class="error-box" role="alert">{{ error }}</div> }
 @if (loading) { <p role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
 <section class="review-status-tabs" [attr.aria-label]="'KPI_ASSESSMENT_REVIEW.FILTER' | translate">
   @for (status of statuses; track status) {

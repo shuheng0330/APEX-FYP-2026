@@ -10,12 +10,15 @@ import { revisionAuthorities } from '../../models/kpi-revision.model';
 import { OrganisationReviewTab, organisationReviewTabs } from './review-task-directory';
 import { ReviewTabNavigation } from './review-tab-navigation';
 import { ReviewTaskGuideComponent } from './review-task-guide.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
-  standalone: true, imports: [TranslateModule, DepartmentKpiReviewComponent, KpiAssistanceComponent, KpiRevisionsComponent, ReviewTaskGuideComponent],
+  standalone: true, imports: [TranslateModule, DepartmentKpiReviewComponent, KpiAssistanceComponent, KpiRevisionsComponent, ReviewTaskGuideComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   template: `
     <main class="review-page">
+      <app-notification-target [unavailable]="target.unavailable" />
       <div class="page-heading"><div><h2>{{ 'KPI_ASSISTANCE.REVIEW_TITLE' | translate }}</h2>
         <p class="help">{{ 'REVIEW_NAV.ORGANISATION_HELP' | translate }}</p></div>
         <app-review-task-guide [disabled]="navigation.pending" />
@@ -33,6 +36,7 @@ import { ReviewTaskGuideComponent } from './review-task-guide.component';
   `
 })
 export class KpiReviewComponent implements OnInit {
+  readonly target = notificationTarget();
   @ViewChild(KpiAssistanceComponent) assistanceWorkspace?: KpiAssistanceComponent;
   @ViewChild(DepartmentKpiReviewComponent) departmentWorkspace?: DepartmentKpiReviewComponent;
   @ViewChild(KpiRevisionsComponent) revisionWorkspace?: KpiRevisionsComponent;
@@ -43,7 +47,11 @@ export class KpiReviewComponent implements OnInit {
   constructor(private auth: AuthService, private modal: NzModalService, private translate: TranslateService) {
     this.tab = this.navigation.initial();
   }
-  ngOnInit() { this.navigation.connect(); }
+  ngOnInit() {
+    try { this.target.validateReviewTab(organisationReviewTabs(permission => this.auth.hasRole(permission))); }
+    catch { this.tab = null; return; }
+    this.navigation.connect();
+  }
   private canChangeTab(): boolean | Promise<boolean> {
     if (this.assistanceWorkspace?.locked || this.departmentWorkspace?.drawerVisible || this.departmentWorkspace?.busy || this.departmentWorkspace?.loading) {
       this.modal.confirm({ nzTitle: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION'), nzContent: this.translate.instant('KPI_ASSISTANCE.FINISH_ACTION_HELP'), nzCancelText: null }); return false;

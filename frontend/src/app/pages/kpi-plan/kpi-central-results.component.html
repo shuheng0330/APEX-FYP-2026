@@ -1,4 +1,5 @@
 <main class="review-page central-results-page">
+  <app-notification-target [unavailable]="target.unavailable" />
   <div class="page-heading">
     <div>
       <h2>{{ 'KPI_RESULTS.TITLE' | translate }}</h2>
@@ -6,7 +7,7 @@
     </div>
   </div>
 
-  @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+  @if (error && !target.unavailable) { <div class="error-box" role="alert">{{ error }}</div> }
   @if (success) { <div class="notice" role="status">{{ success }}</div> }
   @if (!ready) { <p class="help" role="status">{{ 'KPI_RESULTS.LOADING' | translate }}</p> }
   @else if (!periods.length) {

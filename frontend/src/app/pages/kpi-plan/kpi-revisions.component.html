@@ -1,4 +1,5 @@
 <div class="page-heading">
+  <app-notification-target [unavailable]="target.unavailable" />
   <div><h3>{{ (superiorOnly ? 'KPI_REVISIONS.INDIVIDUAL_TITLE' : 'KPI_REVISIONS.TITLE') | translate }}</h3><p class="help">{{ (superiorOnly ? 'KPI_REVISIONS.SUPERIOR_HELP' : 'KPI_REVISIONS.HELP') | translate }}</p></div>
   <div class="revision-heading-actions">
   @if (!sharedPeriod) {
@@ -11,7 +12,7 @@
   <app-kpi-revision-guide />
   </div>
 </div>
-@if (error) { <p class="error-box" role="alert">{{ error }}</p> }
+@if (error && !target.unavailable) { <p class="error-box" role="alert">{{ error }}</p> }
 @if (success) { <p class="notice" role="status">{{ success }}</p> }
 @if (busy) { <p role="status">{{ 'KPI_PLAN.LOADING' | translate }}</p> }
 @if (!sharedPeriod && !busy && !periods.length) { <p class="empty">{{ 'KPI_REVISIONS.NO_PERIODS' | translate }}</p> }

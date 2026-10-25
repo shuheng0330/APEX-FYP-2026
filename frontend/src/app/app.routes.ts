@@ -27,6 +27,7 @@ import { SopAssignComponent } from './pages/sop/sop-assign/sop-assign.component'
 import { SopScoreboardComponent } from './pages/sop/sop-scoreboard/sop-scoreboard.component';
 import { TrainerAccessComponent } from './pages/sop/trainer-access/trainer-access.component';
 import { MyLearningComponent } from './pages/learning-portal/my-learning/my-learning.component';
+import { notificationSelectionChanged } from './services/notification-navigation';
 import { CoursePlayerComponent } from './pages/learning-portal/course-player/course-player.component';
 
 export const routes: Routes = [
@@ -45,67 +46,77 @@ export const routes: Routes = [
         path: 'team-performance/team-appraisals/:reviewPeriodId/:participantId', canActivate: [PermissionGuard],
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         runGuardsAndResolvers: 'always',
-        data: { requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'], hrReview: false },
+        data: { requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'], hrReview: false, notificationWorkspace: true },
         loadComponent: () => import('./pages/annual-appraisal/annual-appraisal-detail.component').then(m => m.AnnualAppraisalDetailComponent)
       },
       {
         path: 'appraisals/review/:appraisalId', canActivate: [PermissionGuard],
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         runGuardsAndResolvers: 'always',
-        data: { requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'], hrReview: true },
+        data: { requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'], hrReview: true, notificationWorkspace: true },
         loadComponent: () => import('./pages/annual-appraisal/annual-appraisal-detail.component').then(m => m.AnnualAppraisalDetailComponent)
       },
       {
         path: 'team-performance/team-appraisals', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'], hrReview: false },
+        data: { requiredRoles: ['CAN_SUBMIT_ANNUAL_APPRAISAL'], hrReview: false, notificationWorkspace: true },
         loadComponent: () => import('./pages/annual-appraisal/annual-appraisals.component').then(m => m.AnnualAppraisalsComponent)
       },
       {
         path: 'appraisals/review', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'], hrReview: true },
+        data: { requiredRoles: ['CAN_REVIEW_ANNUAL_APPRAISAL'], hrReview: true, notificationWorkspace: true },
         loadComponent: () => import('./pages/annual-appraisal/annual-appraisals.component').then(m => m.AnnualAppraisalsComponent)
       },
       {
         path: 'my-performance/my-assessments', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['ROLE_USER'] },
+        data: { requiredRoles: ['ROLE_USER'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-assessment/my-assessments.component').then(m => m.MyAssessmentsComponent)
       },
       {
         path: 'my-performance/my-kpi-plan', canActivate: [PermissionGuard],
-        data: { requiredRoles: ['ROLE_USER'] },
+        runGuardsAndResolvers: notificationSelectionChanged,
+        canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
+        data: { requiredRoles: ['ROLE_USER'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-plan/my-kpi-plan.component').then(m => m.MyKpiPlanComponent)
       },
       {
         path: 'team-performance/team-reviews', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'] },
+        data: { requiredRoles: ['CAN_REVIEW_INDIVIDUAL_KPI', 'CAN_REVIEW_KPI_ASSESSMENT', 'CAN_REVIEW_ATTITUDE_EVALUATION'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-plan/team-reviews.component').then(m => m.TeamReviewsComponent)
       },
       {
         path: 'kpi-management/company-kpis', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI'] },
+        data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-plan/company-kpi-plan.component').then(m => m.CompanyKpiPlanComponent)
       },
       {
         path: 'kpi-management/department-kpis', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_MANAGE_DEPARTMENT_KPI'] },
+        data: { requiredRoles: ['CAN_MANAGE_DEPARTMENT_KPI'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-plan/department-kpi-plan.component').then(m => m.DepartmentKpiPlanComponent)
       },
       {
         path: 'kpi-management/kpi-results', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI', 'CAN_ENTER_COMPANY_KPI_RESULTS', 'CAN_MANAGE_DEPARTMENT_KPI'] },
+        data: { requiredRoles: ['CAN_MANAGE_COMPANY_KPI', 'CAN_ENTER_COMPANY_KPI_RESULTS', 'CAN_MANAGE_DEPARTMENT_KPI'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-plan/kpi-central-results.component').then(m => m.KpiCentralResultsComponent)
       },
       {
         path: 'kpi-management/kpi-review', canActivate: [PermissionGuard],
+        runGuardsAndResolvers: notificationSelectionChanged,
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
-        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE', 'CAN_MANAGE_KPI_AMENDMENTS', 'CAN_REVISE_COMPANY_KPI', 'CAN_PREPARE_DEPARTMENT_KPI_REVISION', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS'] },
+        data: { requiredRoles: ['CAN_APPROVE_DEPARTMENT_KPI', 'CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE', 'CAN_MANAGE_KPI_AMENDMENTS', 'CAN_REVISE_COMPANY_KPI', 'CAN_PREPARE_DEPARTMENT_KPI_REVISION', 'CAN_MANAGE_DEPARTMENT_KPI', 'CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS'], notificationWorkspace: true },
         loadComponent: () => import('./pages/kpi-plan/kpi-review.component').then(m => m.KpiReviewComponent)
       },
       { path: 'kpi-administration/company-kpis', pathMatch: 'full', redirectTo: 'kpi-management/company-kpis' },

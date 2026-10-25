@@ -12,13 +12,16 @@ import { KpiAssistance, KpiAssistanceEmployee, KpiAssistanceStatus } from '../..
 import { KpiAssistanceService } from '../../services/kpi-assistance.service';
 import { AuthService } from '../../services/auth.service';
 import { AssistedKpiPlanComponent } from './assisted-kpi-plan.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   selector: 'app-kpi-assistance', standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, AssistedKpiPlanComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, AssistedKpiPlanComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'], templateUrl: './kpi-assistance.component.html'
 })
 export class KpiAssistanceComponent implements OnInit {
+  readonly target = notificationTarget();
   @Input() hr = false;
   @Input() sharedPeriod = false;
   @ViewChild(AssistedKpiPlanComponent) planWorkspace?: AssistedKpiPlanComponent;
@@ -71,8 +74,14 @@ export class KpiAssistanceComponent implements OnInit {
     if (!this.allowed || this.busy || this.loading) return;
     this.loading = true; this.error = ''; this.accessChanged = false;
     forkJoin({ cases: this.api.list(), employees: this.hr ? of([] as KpiAssistanceEmployee[]) : this.api.employees() })
-      .pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: result => { this.cases = result.cases; this.employees = result.employees; this.ready = true; }, error: error => this.fail(error)
+      .pipe(switchMap(result => {
+        this.cases = result.cases; this.employees = result.employees; this.ready = true;
+        this.periodId = this.target.choose(this.periods, 'reviewPeriodId', p => p.id, this.periodId);
+        const row = this.target.record(this.mine, 'assistanceId', this.periodId);
+        if (row) this.filter = row.status;
+        return this.target.load(row, id => this.api.get(id));
+      }), finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: fresh => { if (fresh) { this.replace(fresh); this.selected = fresh; this.drawerVisible = true; } }, error: error => this.fail(error)
       });
   }
   requestPermission(again?: KpiAssistance) {

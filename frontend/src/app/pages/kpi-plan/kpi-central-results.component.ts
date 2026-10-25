@@ -21,15 +21,18 @@ import { AuthorityService } from '../../services/authority.service';
 import { KpiCentralResultService } from '../../services/kpi-central-result.service';
 import { StaffService } from '../../services/staff.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NzButtonModule, NzDrawerModule, NzInputModule,
-    NzModalModule, NzSelectModule, KpiItemEditorComponent],
+    NzModalModule, NzSelectModule, KpiItemEditorComponent, NotificationTargetComponent],
   templateUrl: './kpi-central-results.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss', './kpi-central-results.component.scss']
 })
 export class KpiCentralResultsComponent implements OnInit {
+  readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   private readonly datePipe = new DatePipe('en');
   readonly points = [1, 2, 3, 4, 5];
@@ -153,7 +156,8 @@ export class KpiCentralResultsComponent implements OnInit {
     if (this.versionId === null) { this.checkpoints = []; this.checkpointId = null; this.selectResult(); return of(void 0); }
     return this.api.checkpoints(this.versionId).pipe(switchMap(checkpoints => {
       this.checkpoints = checkpoints;
-      this.checkpointId = checkpoints.find(c => c.id === preferredCheckpointId)?.id ?? this.preferredCheckpoint()?.id ?? null;
+      this.checkpointId = this.target.choose(checkpoints, 'checkpointId', c => c.id,
+        checkpoints.find(c => c.id === preferredCheckpointId)?.id ?? this.preferredCheckpoint()?.id ?? null);
       this.selectResult();
       return of(void 0);
     }));
@@ -164,6 +168,11 @@ export class KpiCentralResultsComponent implements OnInit {
     return forkJoin({ options: this.api.optionsForPeriod(this.periodId), results: this.api.list(this.periodId) }).pipe(
       switchMap(({ options, results }) => {
         this.options = options; this.results = results;
+        const linkedVersion = this.target.take('planVersionId');
+        if (linkedVersion !== null) {
+          const option = options.find(o => o.planVersionId === linkedVersion);
+          this.target.require(!!option); preferredLevel = option!.level; preferredVersionId = linkedVersion;
+        }
         this.level = this.levels.includes(preferredLevel!) ? preferredLevel! : this.levels[0] ?? null;
         const versions = this.versions;
         this.versionId = versions.find(v => v.planVersionId === preferredVersionId)?.planVersionId
@@ -183,7 +192,8 @@ export class KpiCentralResultsComponent implements OnInit {
     this.ready = false; this.busy = true; this.error = ''; this.success = '';
     this.api.periods().pipe(switchMap(periods => {
       this.periods = periods;
-      this.periodId = periods.find(p => p.id === this.periodId)?.id ?? periods.find(p => p.status === 'OPEN')?.id ?? periods[0]?.id ?? null;
+      this.periodId = this.target.choose(periods, 'reviewPeriodId', p => p.id,
+        periods.find(p => p.id === this.periodId)?.id ?? periods.find(p => p.status === 'OPEN')?.id ?? periods[0]?.id ?? null);
       return this.loadPeriod(this.level, this.versionId, this.checkpointId);
     }), finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => { this.ready = true; this.loadDelegates(); }, error: e => { this.ready = true; this.fail(e); }

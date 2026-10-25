@@ -8,6 +8,8 @@ import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { finalize, switchMap, tap, throwError } from 'rxjs';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 import { AttitudeAssessment, AttitudeAssessmentItem, AttitudeAssessmentReview } from '../../models/attitude-assessment.model';
 import { assessmentPointError, assessmentCommentError, KpiSuperiorReviewProgress, superiorReviewProgress } from '../../models/kpi-assessment.model';
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
@@ -16,11 +18,12 @@ import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.componen
 
 @Component({
   selector: 'app-attitude-assessment-reviews', standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiScoringGuideComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiScoringGuideComponent, NotificationTargetComponent],
   templateUrl: './attitude-assessment-reviews.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss', './attitude-assessment-reviews.component.scss']
 })
 export class AttitudeAssessmentReviewsComponent implements OnInit {
+  readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   private savedAnswers = '';
   @ViewChild(KpiScoringGuideComponent) scoringGuide?: KpiScoringGuideComponent;
@@ -104,8 +107,13 @@ export class AttitudeAssessmentReviewsComponent implements OnInit {
   load() {
     if (this.locked) return;
     this.loading = true; this.error = '';
-    this.api.reviews().pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: rows => this.reviews = rows, error: error => this.fail(error)
+    this.api.reviews().pipe(switchMap(rows => {
+      this.reviews = rows;
+      const row = this.target.record(rows, 'attitudeAssessmentId', this.periodId);
+      if (row) { this.periodId = row.reviewPeriodId; this.filter = superiorReviewProgress(row); }
+      return this.target.load(row, id => this.api.get(id));
+    }), finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: assessment => { if (assessment) { this.accept(assessment); this.drawerVisible = true; } }, error: error => this.fail(error)
     });
   }
   open(id: number) {

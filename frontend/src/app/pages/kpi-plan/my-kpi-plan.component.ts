@@ -7,21 +7,25 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize, forkJoin, of, switchMap } from 'rxjs';
+import { finalize, forkJoin, of, switchMap, tap } from 'rxjs';
 import { KpiItem, KpiItemErrors, KpiLevel, KpiPeriodContext, KpiPlan, emptyKpiItem, kpiItemErrors, kpiPlanComplete } from '../../models/kpi-plan.model';
 import { IndividualKpiPlanService } from '../../services/individual-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { canResubmit } from '../../models/submission-revision.model';
 import { KpiVersionHistoryComponent } from './kpi-version-history.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiVersionHistoryComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiVersionHistoryComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './my-kpi-plan.component.html'
 })
 export class MyKpiPlanComponent implements OnInit {
+  readonly target = notificationTarget();
+  canLeave() { return !this.busy && !this.drawerVisible; }
   private readonly destroyRef = inject(DestroyRef);
   periods: KpiPeriodContext[] = [];
   plans: KpiPlan[] = [];
@@ -49,10 +53,14 @@ export class MyKpiPlanComponent implements OnInit {
     forkJoin({ periods: this.api.periods(), plans: this.api.mine() }).pipe(
       switchMap(result => {
         this.periods = result.periods; this.plans = result.plans;
-        this.periodId = this.periods.find(period => period.status === 'OPEN')?.id
-          ?? this.periods.find(period => period.status === 'UPCOMING')?.id ?? this.periods[0]?.id ?? null;
+        this.periodId = this.target.choose(this.periods, 'reviewPeriodId', p => p.id,
+          this.periods.find(period => period.status === 'OPEN')?.id
+          ?? this.periods.find(period => period.status === 'UPCOMING')?.id ?? this.periods[0]?.id ?? null);
         this.selectPlan();
         return this.periodId === null ? of([] as KpiPlan[]) : this.api.assigned(this.periodId);
+      }), tap(assigned => {
+        const planId = this.target.take('planId');
+        this.target.require(planId === null || [this.plan, ...assigned].some(p => p?.id === planId && p.reviewPeriodId === this.periodId));
       }), finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)
     ).subscribe({ next: assigned => { this.setAssigned(assigned); this.ready = true; }, error: error => this.fail(error) });
   }
@@ -146,5 +154,8 @@ export class MyKpiPlanComponent implements OnInit {
     return message?.includes('publication-time participant snapshot') ? this.translate.instant('INDIVIDUAL_KPI.PERIOD_UNAVAILABLE')
       : message || this.translate.instant('KPI_PLAN.ERROR');
   }
-  private fail(error: { error?: { message?: string } }) { this.error = this.errorMessage(error); }
+  private fail(error: { error?: { message?: string } }) {
+    if (this.target.unavailable) { this.plan = null; this.items = []; this.assignedPlans = []; this.periodId = null; }
+    this.error = this.errorMessage(error);
+  }
 }

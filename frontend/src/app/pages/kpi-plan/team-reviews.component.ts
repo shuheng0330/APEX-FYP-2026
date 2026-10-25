@@ -7,7 +7,9 @@ import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { finalize, switchMap } from 'rxjs';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 import { KpiPeriodContext, KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
 import { TeamReviewPeriodService } from '../../services/team-review-period.service';
 import { KpiReturnFeedbackComponent } from './kpi-return-feedback.component';
@@ -27,11 +29,12 @@ import { ReviewTaskGuideComponent } from './review-task-guide.component';
 type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RETURNED'>;
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent, KpiRevisionsComponent, ReviewTaskGuideComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, KpiAssistanceComponent, KpiScoringGuideComponent, KpiAssessmentReviewsComponent, AttitudeAssessmentReviewsComponent, KpiReturnFeedbackComponent, KpiRevisionsComponent, ReviewTaskGuideComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './team-reviews.component.html'
 })
 export class TeamReviewsComponent implements OnInit {
+  readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   tab: TeamReviewTab | null = null;
   readonly navigation = new ReviewTabNavigation(inject(Router), inject(ActivatedRoute), this.destroyRef,
@@ -70,6 +73,8 @@ export class TeamReviewsComponent implements OnInit {
   get canReviewAttitude() { return this.auth.hasRole('CAN_REVIEW_ATTITUDE_EVALUATION'); }
   ngOnInit() {
     this.tab = this.navigation.initial();
+    try { this.target.validateReviewTab(teamReviewTabs(permission => this.auth.hasRole(permission))); }
+    catch { this.tab = null; return; }
     this.navigation.connect();
     this.loadPeriods();
     if (this.tab === 'reviews') this.load();
@@ -94,8 +99,10 @@ export class TeamReviewsComponent implements OnInit {
       next: result => {
         this.periods = result.periods;
         const remembered = this.auth.userId ? Number(sessionStorage.getItem('team-review-period:' + this.auth.userId)) : null;
-        this.periodId = this.periods.find(period => period.id === this.periodId)?.id
-          ?? this.periods.find(period => period.id === remembered)?.id ?? result.defaultPeriodId;
+        try {
+          this.periodId = this.target.choose(this.periods, 'reviewPeriodId', p => p.id, this.periods.find(period => period.id === this.periodId)?.id
+            ?? this.periods.find(period => period.id === remembered)?.id ?? result.defaultPeriodId);
+        } catch { this.periodId = null; return; }
         this.periodsReady = true;
       }, error: () => { this.periodError = this.translate.instant('REVIEW_FEEDBACK.PERIOD_ERROR'); }
     });
@@ -132,8 +139,13 @@ export class TeamReviewsComponent implements OnInit {
   load() {
     if (!this.canReviewPlans || this.loading || this.busy) return;
     this.loading = true; this.error = '';
-    this.api.reviews().pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: plans => { this.plansLoaded = true; this.plans = plans.filter(plan => plan.level === 'INDIVIDUAL' && this.statuses.includes(plan.status as ReviewStatus)); },
+    this.api.reviews().pipe(switchMap(plans => {
+      this.plansLoaded = true; this.plans = plans.filter(plan => plan.level === 'INDIVIDUAL' && this.statuses.includes(plan.status as ReviewStatus));
+      const row = this.target.record(this.plans, 'planId');
+      if (row) this.filter = row.status as ReviewStatus;
+      return this.target.load(row, id => this.api.get(id));
+    }), finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: plan => { if (plan) { this.selected = plan; this.drawerVisible = true; } },
       error: error => this.fail(error)
     });
   }

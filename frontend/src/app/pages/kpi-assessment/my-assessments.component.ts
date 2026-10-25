@@ -18,15 +18,18 @@ import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
 import { CompanyReportingSourceComponent } from './company-reporting-source.component';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 import { AttitudeSelfAssessmentComponent } from './attitude-self-assessment.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule,
-    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent, CompanyReportingSourceComponent],
+    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent, CompanyReportingSourceComponent, NotificationTargetComponent],
   templateUrl: './my-assessments.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss']
 })
 export class MyAssessmentsComponent implements OnInit {
+  readonly target = notificationTarget();
   @ViewChild(AttitudeSelfAssessmentComponent) attitude?: AttitudeSelfAssessmentComponent;
   selectedTab = 0;
   attitudeVisited = false;
@@ -37,6 +40,8 @@ export class MyAssessmentsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dates = new DatePipe('en');
   private savedAnswers = '';
+  private linkedBreakdown = false;
+  private destroyed = false;
   periods: KpiPeriodContext[] = [];
   checkpoints: KpiAssessmentCheckpoint[] = [];
   periodId: number | null = null;
@@ -63,7 +68,9 @@ export class MyAssessmentsComponent implements OnInit {
   detailScope: KpiAssessmentItem['level'] = 'INDIVIDUAL';
   readonly points = [1, 2, 3, 4, 5];
 
-  constructor(private api: KpiAssessmentService, private translate: TranslateService, private modal: NzModalService) {}
+  constructor(private api: KpiAssessmentService, private translate: TranslateService, private modal: NzModalService) {
+    this.destroyRef.onDestroy(() => this.destroyed = true);
+  }
   ngOnInit() { this.load(); }
   get employeeContext() {
     return [this.assessment?.employeeName, this.assessment?.roleName, this.assessment?.kpiAllocation?.employeeLevelName]
@@ -104,7 +111,8 @@ export class MyAssessmentsComponent implements OnInit {
   }
   private periodAssessment(id: number): Observable<KpiAssessment | null> {
     return this.api.checkpoints(id).pipe(switchMap(checkpoints => {
-      this.checkpoints = checkpoints; this.checkpointId = this.preferredCheckpoint()?.id ?? null;
+      this.checkpoints = checkpoints;
+      this.checkpointId = this.target.choose(checkpoints, 'checkpointId', c => c.id, this.preferredCheckpoint()?.id ?? null);
       return this.checkpointId === null ? of(null) : this.api.mine(this.checkpointId);
     }));
   }
@@ -114,11 +122,25 @@ export class MyAssessmentsComponent implements OnInit {
     this.assessment = null; this.items = []; this.checkpoints = []; this.checkpointId = null;
     this.api.periods().pipe(switchMap(periods => {
       this.periods = periods;
-      this.periodId = periods.find(period => period.id === this.periodId)?.id
-        ?? periods.find(period => period.status === 'OPEN')?.id ?? periods[0]?.id ?? null;
+      this.periodId = this.target.choose(periods, 'reviewPeriodId', p => p.id, periods.find(period => period.id === this.periodId)?.id
+        ?? periods.find(period => period.status === 'OPEN')?.id ?? periods[0]?.id ?? null);
+      const tab = this.target.takeTab(['kpi', 'attitude']);
+      if (tab !== null) this.selectTab(tab === 'attitude' ? 1 : 0);
       return this.periodId === null ? of(null) : this.periodAssessment(this.periodId);
+    }), switchMap(assessment => {
+      const id = this.target.take('assessmentId');
+      this.target.require(id === null || assessment?.id === id);
+      this.linkedBreakdown = this.target.takeOption('view', ['breakdown']) === 'breakdown';
+      if (this.linkedBreakdown) this.target.require(assessment?.id != null && assessment.assessmentModel === 'CENTRAL_RESULTS');
+      return of(assessment);
     }), finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: assessment => { if (assessment) this.accept(assessment); this.ready = true; }, error: error => this.fail(error)
+      next: assessment => {
+        if (assessment) this.accept(assessment); this.ready = true;
+        if (this.linkedBreakdown) {
+          this.linkedBreakdown = false;
+          queueMicrotask(() => { if (!this.destroyed) this.openScoreBreakdown(); });
+        }
+      }, error: error => this.fail(error)
     });
   }
   changePeriod(id: number) {

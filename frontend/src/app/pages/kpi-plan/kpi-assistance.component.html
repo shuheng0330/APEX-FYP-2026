@@ -1,3 +1,4 @@
+<app-notification-target [unavailable]="target.unavailable" />
 @if (!allowed) { <p class="error-box" role="alert">{{ 'KPI_ASSISTANCE.ACCESS_CHANGED' | translate }}</p> }
 @else if (workspace) {
   <app-assisted-kpi-plan [assistance]="workspace" (back)="closeWorkspace()" (changed)="replace($event)" />
@@ -7,7 +8,7 @@
       @if (!hr) { <button nz-button nzType="primary" [disabled]="loading || busy || !ready" (click)="requestPermission()">{{ 'KPI_ASSISTANCE.REQUEST_PERMISSION' | translate }}</button> }
     </div>
   </div>
-  @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div> }
+  @if (error && !drawerVisible && !target.unavailable) { <div class="error-box" role="alert">{{ error }}</div> }
   @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
   @if (loading) { <p role="status">{{ 'TEAM_REVIEWS.LOADING' | translate }}</p> }
   <section class="review-status-tabs" [attr.aria-label]="'TEAM_REVIEWS.FILTER' | translate">
