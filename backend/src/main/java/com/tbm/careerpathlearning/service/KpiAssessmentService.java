@@ -1,9 +1,14 @@
 package com.tbm.careerpathlearning.service;
 import com.tbm.careerpathlearning.dto.*;
+import com.tbm.careerpathlearning.model.KpiAssessment;
+import com.tbm.careerpathlearning.model.ReviewCheckpoint;
+import com.tbm.careerpathlearning.model.ReviewPeriodParticipant;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.*;
 public interface KpiAssessmentService {
+    /** Internal read-only projection for scheduled notifications; no HTTP endpoint. */
+    boolean actionableSelfAssessmentForNotification(ReviewPeriodParticipant participant,ReviewCheckpoint checkpoint,KpiAssessment saved);
     List<KpiPeriodContextDto> periods(UUID actor);
     List<KpiAssessmentCheckpointDto> checkpoints(Long periodId,UUID actor);
     KpiAssessmentDto mine(Long checkpointId,UUID actor);

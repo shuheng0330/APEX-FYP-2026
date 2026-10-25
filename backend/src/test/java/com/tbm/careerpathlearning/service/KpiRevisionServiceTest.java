@@ -42,7 +42,7 @@ class KpiRevisionServiceTest {
     @BeforeEach void setup() {
         var mapper=Mappers.getMapper(KpiRevisionMapper.class);ReflectionTestUtils.setField(mapper,"kpiPlanMapper",items);
         service=new KpiRevisionService(versions,plans,periods,staff,participants,employeeAssignments,departments,items,mapper,
-            new KpiPlanValidator(),assignments,roleAuthorities,email,Clock.fixed(Instant.parse("2026-10-11T12:00:00Z"),ZoneOffset.UTC));
+            new KpiPlanValidator(),assignments,roleAuthorities,email,Clock.fixed(Instant.parse("2026-10-11T12:00:00Z"),ZoneOffset.UTC),mock(org.springframework.context.ApplicationEventPublisher.class));
         ReflectionTestUtils.setField(service,"entityManager",mock(jakarta.persistence.EntityManager.class));
         period=new AnnualKpiReviewPeriod();period.setId(1L);period.setName("Review");period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);
         period.setEndDate(LocalDate.of(2026,9,30));period.setKpiAmendmentsEnabled(true);

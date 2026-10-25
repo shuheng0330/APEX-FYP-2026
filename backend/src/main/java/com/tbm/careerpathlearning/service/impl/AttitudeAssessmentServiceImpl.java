@@ -25,7 +25,6 @@ import java.math.*;
 public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService {
     private static final Logger log=LoggerFactory.getLogger(AttitudeAssessmentServiceImpl.class);
     private static final String UNAVAILABLE_TITLE="Attitude Evaluation Not Yet Available";
-    private static final String MISSING_CONFIGURATION="The Attitude Evaluation criteria have not been configured for this Annual Review Period. Please check again later.";
     private final AttitudeAssessmentRepository assessments;
     private final ReviewPeriodParticipantRepository participants;
     private final AnnualKpiReviewPeriodRepository periods;
@@ -35,14 +34,17 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
     private final KpiPlanMapper periodMapper;
     private final EmailService email;
     private final Clock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     public AttitudeAssessmentServiceImpl(AttitudeAssessmentRepository assessments,ReviewPeriodParticipantRepository participants,
             AnnualKpiReviewPeriodRepository periods,StaffRepository staff,AttitudeAssessmentMapper mapper,
             AttitudeConfigurationMapper configurations,KpiPlanMapper periodMapper,EmailService email,
-            @Qualifier("annualKpiReviewClock") Clock clock) {
+            @Qualifier("annualKpiReviewClock") Clock clock,org.springframework.context.ApplicationEventPublisher events) {
         this.assessments=assessments;this.participants=participants;this.periods=periods;this.staff=staff;
         this.mapper=mapper;this.configurations=configurations;this.periodMapper=periodMapper;this.email=email;this.clock=clock;
+        this.events=events;
     }
+
 
     @Override @Transactional(readOnly=true)
     public List<KpiPeriodContextDto> periods(UUID actor) {
@@ -99,6 +101,7 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
         a.setSubmittedBy(actor);a.setSubmittedToSuperiorId(superior.getId());
         a.setSubmittedLate(today().isAfter(a.getParticipant().getReviewPeriod().getAttitudeSelfAssessmentDeadline()));
         touch(a,actor);assessments.saveAndFlush(a);
+        events.publishEvent(new KpiNotificationEvents.AttitudeReview(a,actor));
         String recipient=superior.getEmail(),employee=a.getParticipant().getStaffName(),period=a.getParticipant().getReviewPeriod().getName();
         afterCommit(()->email.sendAttitudeSelfAssessmentSubmittedEmail(recipient,employee,period,Locale.ENGLISH));
         return details(a,actor);
@@ -158,6 +161,7 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
         a.setReviewedAt(OffsetDateTime.now(clock));a.setReviewedBy(actor);
         a.setReviewedLate(today().isAfter(a.getParticipant().getReviewPeriod().getSuperiorAttitudeEvaluationDeadline()));
         a.setStatus(AttitudeAssessmentStatus.REVIEWED);touch(a,actor);assessments.saveAndFlush(a);
+        events.publishEvent(new KpiNotificationEvents.AttitudeReview(a,actor));
         String recipient=a.getParticipant().getStaff().getEmail(),employee=a.getParticipant().getStaffName();
         String period=a.getParticipant().getReviewPeriod().getName();
         afterCommit(()->email.sendAttitudeAssessmentReviewedEmail(recipient,employee,period,Locale.ENGLISH));
@@ -267,28 +271,16 @@ public class AttitudeAssessmentServiceImpl implements AttitudeAssessmentService 
         return reasons;
     }
     private String configurationProblem(ReviewPeriodParticipant p) {
-        var config=p.getReviewPeriod().getAttitudeConfiguration();
-        if(config==null || config.getStatus()!=AttitudeConfigurationStatus.PUBLISHED) return MISSING_CONFIGURATION;
-        var format=format(p);
-        if(format==null) return "An Attitude Evaluation format has not been assigned to your Job Role for this Annual Review Period. Please contact your administrator.";
-        if(criteria(config,format).isEmpty()) return MISSING_CONFIGURATION;
-        return null;
+        return AttitudeAssessmentAvailability.configurationProblem(p);
     }
     private String openingProblem(LocalDate availableFrom) {
-        if(availableFrom==null)
-            return "The Attitude Self-Assessment opening date has not been configured. Please contact your administrator.";
-        return today().isBefore(availableFrom)?"Attitude Self-Assessment opens on "+availableFrom+".":null;
+        return AttitudeAssessmentAvailability.openingProblem(availableFrom,today());
     }
     private AttitudeEvaluationFormat format(ReviewPeriodParticipant p) {
-        if(p.getRole()==null || p.getReviewPeriod().getAttitudeConfiguration()==null) return null;
-        return p.getReviewPeriod().getAttitudeConfiguration().getRoleMappings().stream()
-                .filter(m->Objects.equals(m.getRole().getId(),p.getRole().getId()))
-                .map(AttitudeRoleFormatMapping::getEvaluationFormat).findFirst().orElse(null);
+        return AttitudeAssessmentAvailability.format(p);
     }
     private List<AttitudeCriterion> criteria(AttitudeConfiguration config,AttitudeEvaluationFormat format) {
-        return config.getCriteria().stream().filter(AttitudeCriterion::isActive)
-                .filter(c->c.getCriterionType()==AttitudeCriterionType.SHARED_CORE_VALUE || c.getEvaluationFormat()==format)
-                .sorted(Comparator.comparingInt(AttitudeCriterion::getDisplayOrder).thenComparing(AttitudeCriterion::getId)).toList();
+        return AttitudeAssessmentAvailability.criteria(config,format);
     }
     private void writable(AttitudeAssessment a,UUID actor) {
         owner(a,actor);

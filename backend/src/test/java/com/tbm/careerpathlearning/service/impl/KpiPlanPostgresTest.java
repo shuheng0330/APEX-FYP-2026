@@ -85,7 +85,7 @@ class KpiPlanPostgresTest {
                         factory.getRepository(OrgChartRepository.class),
                         new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)),
                         factory.getRepository(IndividualKpiAssistanceAuthorizationRepository.class),
-                        Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class));
+                        Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class),org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
                     var request=new KpiPlanRequest();request.setReviewPeriodId(period.getId());request.setItems(List.of(com.tbm.careerpathlearning.service.KpiPlanValidatorTest.item("Sales","100")));
                     var result=service.createCompany(request,actor);session.clear();
                     var loaded=service.companyPlan(result.getId());assertEquals(5,loaded.getItems().get(0).getScoringDefinitions().size());
@@ -228,7 +228,7 @@ class KpiPlanPostgresTest {
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.class),
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),new com.tbm.careerpathlearning.service.KpiCheckpointScoreCalculator(),
                         org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.KpiCheckpointAggregateService.class),
-                        new com.tbm.careerpathlearning.service.CompanyKpiCheckpointResolver(factory.getRepository(ReviewCheckpointRepository.class)),assessmentClock);
+                        new com.tbm.careerpathlearning.service.CompanyKpiCheckpointResolver(factory.getRepository(ReviewCheckpointRepository.class)),assessmentClock,org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
                     assertNull(assessmentService.mine(checkpoint.getId(),owner.getId()).getId());
                     assertEquals(0L,scalar(c,"SELECT count(*) FROM kpi_assessment"));
                     var assessmentRequest=new KpiAssessmentRequest();assessmentRequest.setCheckpointId(checkpoint.getId());
@@ -323,7 +323,7 @@ class KpiPlanPostgresTest {
                             @Override public void cascade(KpiPlan ignored) {throw new IllegalStateException("fixture cascade failure");}
                         },factory.getRepository(StaffRepository.class),participants,factory.getRepository(OrgChartRepository.class),
                         new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),factory.getRepository(ParentChildNodeRepository.class)),
-                        consentRepository,Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class));
+                        consentRepository,Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class),org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
                     assertThrows(IllegalStateException.class,()->failingService.confirmAssistedIndividual(requested.getId(),actor));
                     c.rollback(confirmationSavepoint);c.releaseSavepoint(confirmationSavepoint);session.clear();
                     assertEquals(KpiPlanStatus.DRAFT,service.assistedIndividualPlan(requested.getId(),actor).getStatus());
@@ -356,7 +356,7 @@ class KpiPlanPostgresTest {
             mapper,revisionMapper,new KpiPlanValidator(),new com.tbm.careerpathlearning.service.KpiAssignmentService(
                 factory.getRepository(ReviewPeriodParticipantRepository.class),assignmentRepository,Clock.systemUTC()),
             factory.getRepository(RoleAuthorityRepository.class),org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),
-            Clock.fixed(Instant.parse("2026-10-11T05:00:00Z"),ZoneOffset.UTC));
+            Clock.fixed(Instant.parse("2026-10-11T05:00:00Z"),ZoneOffset.UTC),org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
         org.springframework.test.util.ReflectionTestUtils.setField(revisionService,"entityManager",session);
         var md=UUID.randomUUID();var hr=UUID.randomUUID();
         for(var id:List.of(md,hr)) {
@@ -425,7 +425,7 @@ class KpiPlanPostgresTest {
             mapper,revisionMapper,new KpiPlanValidator(),new com.tbm.careerpathlearning.service.KpiAssignmentService(
                 factory.getRepository(ReviewPeriodParticipantRepository.class),assignmentRepository,Clock.systemUTC()),
             factory.getRepository(RoleAuthorityRepository.class),org.mockito.Mockito.mock(com.tbm.careerpathlearning.service.EmailService.class),
-            Clock.fixed(Instant.parse("2026-10-11T05:00:00Z"),ZoneOffset.UTC));
+            Clock.fixed(Instant.parse("2026-10-11T05:00:00Z"),ZoneOffset.UTC),org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
         org.springframework.test.util.ReflectionTestUtils.setField(revisionService,"entityManager",session);
         UUID hr=UUID.randomUUID();var account=new Staff();account.setId(hr);account.setName("Individual revision HR fixture");
         account.setEmail(hr+"@example.test");account.setAccountStatus(StaffAccountStatus.ACTIVE);

@@ -140,10 +140,23 @@ class NotificationMailerTest {
         assertEquals("SKIPPED", notification.getEmailStatus());
 
         ReflectionTestUtils.setField(mailer, "enabled", true);
+        notification.setEmailStatus("PENDING");
         when(staffRepository.findById(aisyah)).thenReturn(Optional.empty());
         mailer.deliver(7L);
         assertEquals("NO_ADDRESS", notification.getEmailStatus());
         verify(mailSender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void inAppOnlyNotificationCannotBeEmailedEvenIfDeliveryIsCalled() {
+        notification.setEmailStatus("SKIPPED");
+
+        mailer.deliver(7L);
+
+        assertEquals("SKIPPED", notification.getEmailStatus());
+        assertEquals(0, notification.getEmailAttempts());
+        verifyNoInteractions(staffRepository, mailSender);
+        verify(userNotificationRepository, never()).save(any());
     }
 
     @Test

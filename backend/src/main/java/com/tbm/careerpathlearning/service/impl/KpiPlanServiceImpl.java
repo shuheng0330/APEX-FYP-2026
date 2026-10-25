@@ -31,15 +31,17 @@ public class KpiPlanServiceImpl implements KpiPlanService {
     private final PerformanceDepartmentResolver departmentResolver;
     private final IndividualKpiAssistanceAuthorizationRepository assistance;
     private final KpiAssistanceMapper assistanceMapper;
+    private final org.springframework.context.ApplicationEventPublisher events;
     public KpiPlanServiceImpl(KpiPlanRepository plans,AnnualKpiReviewPeriodRepository periods,
             KpiPlanMapper mapper,KpiPlanValidator validator,@Qualifier("annualKpiReviewClock") Clock clock, KpiAssignmentService assignments,
             StaffRepository staff, ReviewPeriodParticipantRepository participants, OrgChartRepository departments,
             PerformanceDepartmentResolver departmentResolver, IndividualKpiAssistanceAuthorizationRepository assistance,
-            KpiAssistanceMapper assistanceMapper) {
+            KpiAssistanceMapper assistanceMapper,org.springframework.context.ApplicationEventPublisher events) {
         this.plans=plans; this.periods=periods; this.mapper=mapper; this.validator=validator; this.clock=clock;
         this.assignments=assignments;
         this.staff=staff; this.participants=participants; this.departments=departments; this.departmentResolver=departmentResolver;
         this.assistance=assistance;this.assistanceMapper=assistanceMapper;
+        this.events=events;
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_MANAGE_COMPANY_KPI')")
     public List<KpiPeriodContextDto> companyPeriods() {
@@ -90,7 +92,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
         plan.setStatus(KpiPlanStatus.PUBLISHED);plan.setPublishedAt(OffsetDateTime.now(clock));plan.setPublishedBy(actor);
         plan.setPublishedLate(late(plan));touch(plan,actor);plans.saveAndFlush(plan);
-        assignments.cascade(plan);return details(plan);
+        assignments.cascade(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"PUBLISHED",actor));return details(plan);
     }
     private boolean late(KpiPlan plan) {return plan.getReviewPeriod().getKpiSetupDeadline()!=null && LocalDate.now(clock).isAfter(plan.getReviewPeriod().getKpiSetupDeadline());}
     @Override @Transactional(readOnly=true)
@@ -164,7 +166,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         plan.setSubmittedAt(OffsetDateTime.now(clock));plan.setSubmittedBy(actor);plan.setSubmittedLate(late(plan));
         // Resubmission starts a new pending decision; retain the return reason while the HOD edits.
         plan.setReviewedAt(null);plan.setReviewedBy(null);plan.setReviewedLate(null);plan.setReturnReason(null);
-        touch(plan,actor);plans.saveAndFlush(plan);return details(plan);
+        touch(plan,actor);plans.saveAndFlush(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"SUBMITTED",actor));return details(plan);
     }
     @Override @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
     public KpiPlanDto approveDepartment(Long id,UUID actor) {
@@ -173,7 +175,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         assignments.requirePublishedRoster(plan.getReviewPeriod());
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
         plan.setStatus(KpiPlanStatus.APPROVED);review(plan,actor);plan.setReturnReason(null);
-        plans.saveAndFlush(plan);assignments.cascade(plan);return details(plan);
+        plans.saveAndFlush(plan);assignments.cascade(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"APPROVED",actor));return details(plan);
     }
     @Override @PreAuthorize("hasAuthority('CAN_APPROVE_DEPARTMENT_KPI')")
     public KpiPlanDto returnDepartment(Long id,KpiPlanReturnRequest request,UUID actor) {
@@ -184,7 +186,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,actor);
         KpiPlanReturnFeedback.capture(plan,mapper,actor,clock);
         plan.setRevisionRequired(true);
-        plans.saveAndFlush(plan);return details(plan);
+        plans.saveAndFlush(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"RETURNED",actor));return details(plan);
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
     public List<KpiPeriodContextDto> individualPeriods(UUID actor) {
@@ -276,7 +278,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         plan.setSubmittedToSuperiorId(superior.getId());plan.setSubmittedToSuperior(superior);
         plan.setSubmittedLate(late(plan));plan.setReviewedAt(null);plan.setReviewedBy(null);
         plan.setReviewedLate(null);plan.setReturnReason(null);touch(plan,actor);
-        plans.saveAndFlush(plan);return details(plan);
+        plans.saveAndFlush(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"SUBMITTED",actor));return details(plan);
     }
     @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiPlanDto approveIndividual(Long id,UUID superior) {
@@ -285,7 +287,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         assignments.requirePublishedRoster(plan.getReviewPeriod());
         validator.validate(plan.getItems().stream().map(mapper::toDto).toList(),true);
         plan.setStatus(KpiPlanStatus.APPROVED);review(plan,superior);plan.setReturnReason(null);
-        plans.saveAndFlush(plan);assignments.cascade(plan);return details(plan);
+        plans.saveAndFlush(plan);assignments.cascade(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"APPROVED",superior));return details(plan);
     }
     @Override @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiPlanDto returnIndividual(Long id,KpiPlanReturnRequest request,UUID superior) {
@@ -296,7 +298,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         plan.setStatus(KpiPlanStatus.RETURNED);plan.setReturnReason(request.getReason().strip());review(plan,superior);
         KpiPlanReturnFeedback.capture(plan,mapper,superior,clock);
         plan.setRevisionRequired(true);
-        plans.saveAndFlush(plan);return details(plan);
+        plans.saveAndFlush(plan);events.publishEvent(new KpiNotificationEvents.Plan(plan,"RETURNED",superior));return details(plan);
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public List<KpiAssistanceEmployeeDto> assistanceEmployees(UUID superior) {
@@ -336,7 +338,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         var authorization=new IndividualKpiAssistanceAuthorization();authorization.setOwnerParticipant(participant);
         authorization.setSuperior(requester);authorization.setRequestedAt(OffsetDateTime.now(clock));
         authorization.setRequestReason(reason.strip());
-        assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
+        assistance.saveAndFlush(authorization);events.publishEvent(new KpiNotificationEvents.Assistance(authorization,superior));return assistanceDetails(authorization);
     }
     @Override @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
     public KpiAssistanceDto authorizeAssistance(Long id,UUID hr) {
@@ -347,7 +349,8 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         var participant=authorization.getOwnerParticipant();requireWritable(participant.getReviewPeriod());
         assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
         authorization.setStatus(KpiAssistanceStatus.AUTHORIZED);authorization.setAuthorizedAt(OffsetDateTime.now(clock));
-        authorization.setAuthorizedBy(reviewer);assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
+        authorization.setAuthorizedBy(reviewer);assistance.saveAndFlush(authorization);
+        events.publishEvent(new KpiNotificationEvents.Assistance(authorization,hr));return assistanceDetails(authorization);
     }
     @Override @PreAuthorize("hasAuthority('CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE')")
     public KpiAssistanceDto rejectAssistance(Long id,KpiPlanReturnRequest request,UUID hr) {
@@ -362,7 +365,7 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         assignments.requirePublishedRoster(participant.getReviewPeriod());requireNoIndividualPlan(participant);
         authorization.setStatus(KpiAssistanceStatus.REJECTED);authorization.setRejectedAt(OffsetDateTime.now(clock));
         authorization.setRejectedBy(reviewer);authorization.setRejectionReason(reason.strip());
-        assistance.saveAndFlush(authorization);return assistanceDetails(authorization);
+        assistance.saveAndFlush(authorization);events.publishEvent(new KpiNotificationEvents.Assistance(authorization,hr));return assistanceDetails(authorization);
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('CAN_REVIEW_INDIVIDUAL_KPI')")
     public KpiPlanDto assistedIndividualPlan(Long authorizationId,UUID superior) {
@@ -396,7 +399,8 @@ public class KpiPlanServiceImpl implements KpiPlanService {
         // Record the Superior's direct confirmation, not a second approval or employee submission.
         plan.setStatus(KpiPlanStatus.APPROVED);review(plan,superior);plans.saveAndFlush(plan);
         authorization.setStatus(KpiAssistanceStatus.CONSUMED);authorization.setConsumedAt(OffsetDateTime.now(clock));
-        assistance.saveAndFlush(authorization);assignments.cascade(plan);return details(plan);
+        assistance.saveAndFlush(authorization);assignments.cascade(plan);
+        events.publishEvent(new KpiNotificationEvents.Plan(plan,"CONFIRMED",superior));return details(plan);
     }
     private IndividualKpiAssistanceAuthorization requireAssistance(Long id,boolean lock) {
         if(id==null) throw new BadRequestException("Select an assistance request");

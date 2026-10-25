@@ -30,7 +30,7 @@ class IndividualKpiAssistanceServiceTest {
     Clock clock=Clock.fixed(Instant.parse("2027-06-01T00:00:00Z"),ZoneOffset.UTC);
     KpiPlanServiceImpl service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),
         new KpiPlanValidator(),clock,assignments,staff,participants,mock(OrgChartRepository.class),
-        mock(PerformanceDepartmentResolver.class),assistance,Mappers.getMapper(KpiAssistanceMapper.class));
+        mock(PerformanceDepartmentResolver.class),assistance,Mappers.getMapper(KpiAssistanceMapper.class),mock(org.springframework.context.ApplicationEventPublisher.class));
     UUID employeeId=UUID.randomUUID(),superiorId=UUID.randomUUID(),hrId=UUID.randomUUID(),outsiderId=UUID.randomUUID();
     Staff employee,superior,hr,outsider;ReviewPeriodParticipant participant;AnnualKpiReviewPeriod period;
     IndividualKpiAssistanceAuthorization authorization;KpiPlan createdPlan;

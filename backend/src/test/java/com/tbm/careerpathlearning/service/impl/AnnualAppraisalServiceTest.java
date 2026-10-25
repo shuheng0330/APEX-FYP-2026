@@ -34,6 +34,7 @@ class AnnualAppraisalServiceTest {
     AnnualPerformanceHistoryService performanceHistory=mock(AnnualPerformanceHistoryService.class);
     KpiPlanMapper plans=mock(KpiPlanMapper.class);
     EmailService email=mock(EmailService.class);
+    org.springframework.context.ApplicationEventPublisher notificationEvents=mock(org.springframework.context.ApplicationEventPublisher.class);
     UUID superiorId=UUID.randomUUID(),hrId=UUID.randomUUID(),employeeId=UUID.randomUUID(),outsiderId=UUID.randomUUID();
     Staff superior,employee;
     AnnualKpiReviewPeriod period;
@@ -67,7 +68,7 @@ class AnnualAppraisalServiceTest {
     void date(String day) {
         service=new AnnualAppraisalServiceImpl(appraisals,activity,participants,periods,staff,readiness,
                 Mappers.getMapper(AnnualAppraisalMapper.class),plans,new ObjectMapper().registerModule(new JavaTimeModule()),
-                email,Clock.fixed(Instant.parse(day+"T00:00:00Z"),ZoneId.of("Asia/Singapore")),performanceHistory);
+                email,Clock.fixed(Instant.parse(day+"T00:00:00Z"),ZoneId.of("Asia/Singapore")),performanceHistory,notificationEvents);
     }
     Staff actor(UUID id) {var s=new Staff();s.setId(id);s.setName("Actor");s.setEmail(id+"@example.test");
         s.setAccountStatus(StaffAccountStatus.ACTIVE);when(staff.findById(id)).thenReturn(Optional.of(s));return s;}
@@ -83,6 +84,21 @@ class AnnualAppraisalServiceTest {
         return new AnnualAppraisalRequest(7L,appraisal==null?null:appraisal.getLockVersion(),recommendation,justification);
     }
     void submitted() {service.create(request(AnnualAppraisalRecommendation.SALARY_INCREMENT,"Consistent delivery"),superiorId);service.submit(10L,action(),superiorId);}
+
+    @Test void notificationsUseSavedAuditIdsAndIgnoreDraftSavesAndReads() {
+        service.create(request(AnnualAppraisalRecommendation.SALARY_INCREMENT,"Consistent delivery"),superiorId);
+        service.update(10L,request(appraisal.getRecommendation(),"Consistent delivery"),superiorId);
+        service.get(10L,superiorId);verifyNoInteractions(notificationEvents);
+        service.submit(10L,action(),superiorId);
+        hr();service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Clarify"),hrId);
+        auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");
+        service.update(10L,request(appraisal.getRecommendation(),"Updated evidence"),superiorId);service.submit(10L,action(),superiorId);
+        var sent=org.mockito.ArgumentCaptor.forClass(KpiNotificationEvents.Appraisal.class);
+        verify(notificationEvents,times(3)).publishEvent(sent.capture());
+        assertEquals(List.of("SUBMITTED","RETURNED","RESUBMITTED"),sent.getAllValues().stream().map(e->e.activity().getAction()).toList());
+        assertEquals(3,sent.getAllValues().stream().map(e->e.activity().getId()).distinct().count());
+        assertTrue(sent.getAllValues().stream().allMatch(e->events.contains(e.activity())));
+    }
     void hr() {auth(hrId,"CAN_REVIEW_ANNUAL_APPRAISAL");}
     @AfterEach void cleanup() {SecurityContextHolder.clearContext();if(TransactionSynchronizationManager.isSynchronizationActive())TransactionSynchronizationManager.clearSynchronization();}
 

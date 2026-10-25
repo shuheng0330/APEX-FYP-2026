@@ -28,7 +28,7 @@ class IndividualKpiPlanServiceTest {
     KpiPlanServiceImpl service=new KpiPlanServiceImpl(plans,periods,Mappers.getMapper(KpiPlanMapper.class),
             new KpiPlanValidator(),clock,assignments,staff,participants,mock(OrgChartRepository.class),
             mock(PerformanceDepartmentResolver.class),mock(IndividualKpiAssistanceAuthorizationRepository.class),
-            mock(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class));
+            mock(com.tbm.careerpathlearning.mapper.KpiAssistanceMapper.class),mock(org.springframework.context.ApplicationEventPublisher.class));
     UUID employeeId=UUID.randomUUID(),superiorId=UUID.randomUUID(),outsiderId=UUID.randomUUID();
     Staff employee,superior,outsider; ReviewPeriodParticipant participant; AnnualKpiReviewPeriod period;
     KpiPlan plan; KpiPlanRequest request;

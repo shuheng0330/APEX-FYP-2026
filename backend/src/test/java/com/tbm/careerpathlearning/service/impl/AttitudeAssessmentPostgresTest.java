@@ -164,7 +164,7 @@ class AttitudeAssessmentPostgresTest {
                     periods.saveAndFlush(period);
                     var email=mock(EmailService.class);
                     var service=new AttitudeAssessmentServiceImpl(assessments,participants,periods,staff,Mappers.getMapper(AttitudeAssessmentMapper.class),
-                            Mappers.getMapper(AttitudeConfigurationMapper.class),Mappers.getMapper(KpiPlanMapper.class),email,clock);
+                            Mappers.getMapper(AttitudeConfigurationMapper.class),Mappers.getMapper(KpiPlanMapper.class),email,clock,org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
                     var view=service.mine(period.getId(),actor);assertNull(view.getId());assertTrue(view.isAvailable());
                     var body=new AttitudeAssessmentRequest();body.setReviewPeriodId(period.getId());var saved=service.create(body,actor);
                     session.clear();var loaded=service.get(saved.getId(),actor);assertEquals(1,loaded.getItems().size());assertNull(loaded.getItems().get(0).getSelfPoint());

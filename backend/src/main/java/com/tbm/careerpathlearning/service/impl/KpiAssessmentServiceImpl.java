@@ -41,6 +41,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
     private final KpiCheckpointAggregateService aggregates;
     private final CompanyKpiCheckpointResolver companyCheckpoints;
     private final Clock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     public KpiAssessmentServiceImpl(KpiAssessmentRepository assessments,KpiAssessmentItemRepository items,
             KpiAssessmentEvidenceRepository files,ReviewPeriodParticipantRepository participants,
@@ -48,11 +49,24 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
             AnnualKpiReviewPeriodRepository periods,StaffRepository staff,KpiPlanMapper kpis,
             KpiAssessmentMapper mapper,KpiAssessmentEvidenceStorage storage,EmailService email,KpiCheckpointScoreCalculator scores,
             KpiCheckpointAggregateService aggregates,CompanyKpiCheckpointResolver companyCheckpoints,
-            @Qualifier("annualKpiReviewClock") Clock clock) {
+            @Qualifier("annualKpiReviewClock") Clock clock,org.springframework.context.ApplicationEventPublisher events) {
         this.assessments=assessments;this.items=items;this.files=files;this.participants=participants;
         this.checkpoints=checkpoints;this.assignments=assignments;this.periods=periods;this.staff=staff;
         this.kpis=kpis;this.mapper=mapper;this.storage=storage;this.email=email;this.scores=scores;
         this.aggregates=aggregates;this.companyCheckpoints=companyCheckpoints;this.clock=clock;
+        this.events=events;
+    }
+
+    /** Read-only schedule projection for the notification job; never creates or reconciles a saved Draft. */
+    @Override
+    @Transactional(readOnly=true)
+    public boolean actionableSelfAssessmentForNotification(ReviewPeriodParticipant p,ReviewCheckpoint c,KpiAssessment saved) {
+        if(!Objects.equals(p.getReviewPeriod().getId(),c.getReviewPeriod().getId()) || p.getReviewFrequency()!=c.getReviewFrequency()
+                || c.getSelfAssessmentDeadline()==null || !checkpointDto(c,saved).isAvailable()) return false;
+        var a=saved==null?newDraft(p,c,p.getStaff().getId()):saved;
+        if(a.getStatus()!=KpiAssessmentStatus.DRAFT || !Objects.equals(a.getParticipant().getId(),p.getId())) return false;
+        var included=projectedItems(a);
+        return !included.isEmpty() && missingLevels(a,included).isEmpty() && validSuperior(p.getStaff());
     }
     @Override @Transactional(readOnly=true) @PreAuthorize("hasAuthority('ROLE_USER')")
     public List<KpiPeriodContextDto> periods(UUID actor) {
@@ -120,6 +134,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         a.setSubmittedBy(actor);a.setSubmittedToSuperiorId(superior.getId());
         a.setSubmittedLate(today().isAfter(a.getCheckpoint().getSelfAssessmentDeadline()));touch(a,actor);
         assessments.saveAndFlush(a);
+        events.publishEvent(new KpiNotificationEvents.KpiReview(a,actor));
         String recipient=superior.getEmail(),employee=a.getParticipant().getStaffName();
         String period=a.getParticipant().getReviewPeriod().getName(),checkpoint=a.getCheckpoint().getEndDate().toString();
         afterCommit(()->email.sendKpiSelfAssessmentSubmittedEmail(recipient,employee,period,checkpoint,Locale.ENGLISH));
@@ -177,6 +192,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         a.setReviewedLate(today().isAfter(a.getCheckpoint().getSuperiorAssessmentDeadline()));
         a.setStatus(KpiAssessmentStatus.REVIEWED);touch(a,actor);assessments.saveAndFlush(a);
         aggregates.refresh(a,actor,"Individual KPI review completed");
+        events.publishEvent(new KpiNotificationEvents.KpiReview(a,actor));
         String recipient=a.getParticipant().getStaff().getEmail(),employee=a.getParticipant().getStaffName();
         String period=a.getParticipant().getReviewPeriod().getName(),checkpoint=a.getCheckpoint().getEndDate().toString();
         afterCommit(()->email.sendKpiAssessmentReviewedEmail(recipient,employee,period,checkpoint,Locale.ENGLISH));
@@ -327,11 +343,7 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         dto.setCheckpoint(checkpointDto(a.getCheckpoint(),a.getId()==null?null:a));
         dto.setKpiAllocation(kpis.toDto(participant.getEmployeeLevelConfiguration()));
         // Project newly assigned items for Drafts only; preserve the frozen submitted set.
-        var included=new ArrayList<>(a.getItems());
-        if(a.getStatus()==KpiAssessmentStatus.DRAFT) {
-            var present=included.stream().map(i->i.getAssignment().getId()).collect(Collectors.toSet());
-        for(var assigned:answerable(a,applicable(a))) if(!present.contains(assigned.getId())) included.add(newItem(a,assigned));
-        }
+        var included=projectedItems(a);
         if(a.getAssessmentModel()==KpiAssessmentModel.CENTRAL_RESULTS) {
             var versions=new EnumMap<KpiLevel,Long>(KpiLevel.class);
             a.getPlanVersions().forEach(binding->versions.put(binding.getLevel(),binding.getVersion().getId()));
@@ -372,6 +384,14 @@ public class KpiAssessmentServiceImpl implements KpiAssessmentService {
         dto.setCanCompleteReview(reviewer && dto.getReviewBlockers().isEmpty());
         dto.setSuperiorOverdue(superiorOverdue(a));
         return dto;
+    }
+    private List<KpiAssessmentItem> projectedItems(KpiAssessment a) {
+        var included=new ArrayList<>(a.getItems());
+        if(a.getStatus()==KpiAssessmentStatus.DRAFT) {
+            var present=included.stream().map(i->i.getAssignment().getId()).collect(Collectors.toSet());
+            for(var assigned:answerable(a,applicable(a))) if(!present.contains(assigned.getId())) included.add(newItem(a,assigned));
+        }
+        return included;
     }
     private boolean superiorDraftSaved(KpiAssessment a) {
         // Only the routed Superior can save changes after Self-Assessment submission, including an empty Draft.

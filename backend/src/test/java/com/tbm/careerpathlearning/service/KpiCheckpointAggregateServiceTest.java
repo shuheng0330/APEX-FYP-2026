@@ -18,9 +18,10 @@ class KpiCheckpointAggregateServiceTest {
     private final ReviewCheckpointRepository checkpoints=mock(ReviewCheckpointRepository.class);
     private final UUID actor=UUID.randomUUID();
     private final Clock clock=Clock.fixed(Instant.parse("2027-02-02T12:00:00Z"),ZoneOffset.UTC);
+    private final org.springframework.context.ApplicationEventPublisher notificationEvents=mock(org.springframework.context.ApplicationEventPublisher.class);
     private final KpiCheckpointAggregateService service=new KpiCheckpointAggregateService(
             aggregateRows,central,assessments,assignments,clock,
-            org.mapstruct.factory.Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiPlanMapper.class),new CompanyKpiCheckpointResolver(checkpoints));
+            org.mapstruct.factory.Mappers.getMapper(com.tbm.careerpathlearning.mapper.KpiPlanMapper.class),new CompanyKpiCheckpointResolver(checkpoints),notificationEvents);
     private final KpiCheckpointResult[] stored={null};
     private final Map<Long,KpiCentralResult> publications=new HashMap<>();
 
@@ -95,6 +96,11 @@ class KpiCheckpointAggregateServiceTest {
         service.refreshForPublication(correction,actor);assertEquals(new BigDecimal("100.0000"),assessment.getCheckpointScore());
         assertEquals(1,assessment.getItems().get(0).getSelfPoint());
         assertEquals(2,stored[0].getCalculationHistory().size());
+        var sent=org.mockito.ArgumentCaptor.forClass(KpiNotificationEvents.Score.class);
+        verify(notificationEvents,times(2)).publishEvent(sent.capture());
+        assertNull(sent.getAllValues().get(0).previousScore());
+        assertEquals(0,new BigDecimal("90").compareTo(sent.getAllValues().get(1).previousScore()));
+        assertEquals(List.of(1,2),sent.getAllValues().stream().map(KpiNotificationEvents.Score::calculation).toList());
         verify(central,never()).findByPlanVersionIdAndCheckpointIdAndStatus(version.getId(),5L,KpiCentralResultStatus.PUBLISHED);
     }
 

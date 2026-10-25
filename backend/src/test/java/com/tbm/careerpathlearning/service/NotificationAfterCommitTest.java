@@ -90,4 +90,30 @@ class NotificationAfterCommitTest {
         }
         return status;
     }
+
+    @Test
+    void inAppOnlyCommitRemainsSkippedAndVisibleInTheSameBell() {
+        UUID recipient = UUID.randomUUID();
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                notificationService.notifyInApp(recipient, NotificationType.COURSE_ASSIGNED,
+                        "Review ready", "Open the task.", "/my-learning"));
+
+        assertEquals("SKIPPED", userNotificationRepository.findAll().get(0).getEmailStatus());
+        assertEquals(1, notificationService.mine(recipient).getUnread());
+        assertEquals("Review ready", notificationService.mine(recipient).getItems().get(0).getTitle());
+        verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    void rolledBackInAppNotificationLeavesNoRecord() {
+        assertThrows(IllegalStateException.class, () ->
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    notificationService.notifyInApp(UUID.randomUUID(), NotificationType.COURSE_ASSIGNED,
+                            "Review ready", "Open the task.", null);
+                    throw new IllegalStateException("Workflow rolled back");
+                }));
+
+        assertEquals(0, userNotificationRepository.count());
+        verifyNoInteractions(mailSender);
+    }
 }
