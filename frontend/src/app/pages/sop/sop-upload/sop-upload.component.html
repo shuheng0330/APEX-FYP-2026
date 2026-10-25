@@ -5,9 +5,6 @@
       <h1>SOP Upload and Generation</h1>
       <p>Turn approved operating procedures into structured training material and quizzes.</p>
     </div>
-    <button nz-button nzType="primary" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()">
-      <nz-icon nzType="cloud-upload"></nz-icon> Upload SOP
-    </button>
   </div>
 
   <div class="metric-grid generation-stats">
@@ -29,18 +26,37 @@
       </div>
     </div>
 
+    <!-- FR-06-10 -->
+    <nz-alert class="privacy-warning" nzType="warning" nzShowIcon
+      nzMessage="Do not upload documents that contain personal data"
+      nzDescription="Remove names, IC numbers, contact details, salaries and customer information first. Documents are sent to Google Gemini, an external AI service, to generate the training material. During testing APEX uses Gemini's free tier, under which Google may use and review what is sent to improve its products.">
+    </nz-alert>
+
     <div class="upload-layout">
       <label class="drop-zone">
-        <input type="file" accept=".doc,.docx" (change)="onFileSelected($event)" />
+        <input type="file" [accept]="fileAccept" (change)="onFileSelected($event)" />
         <nz-icon nzType="inbox" nzTheme="outline"></nz-icon>
-        <strong>{{ selectedFile?.name || 'Choose a .doc or .docx SOP' }}</strong>
-        <span>{{ selectedFile ? 'Document ready to upload' : 'Select a document from your device' }}</span>
+        <strong>{{ selectedFile?.name || 'Choose an SOP file' }}</strong>
+        <!-- FR-06-01, FR-06-12: the accepted files, described the same way everywhere -->
+        <span>{{ selectedFile ? 'Document ready to upload' : fileTypes + ', up to ' + maxUploadMb + ' MB' }}</span>
       </label>
 
       <div class="metadata-grid">
-        <label><span>SOP title</span><input nz-input placeholder="Use file name when blank" [(ngModel)]="title" /></label>
+        <label><span>SOP title</span><input nz-input [placeholder]="newVersionOf ? 'Keeps the course\'s title when blank' : 'Use file name when blank'" [(ngModel)]="title" /></label>
+        <!-- FR-06-06: a revised SOP can become the next version of a course instead of a new course -->
+        <div class="version-of">
+          <span>Upload as</span>
+          <nz-select [(ngModel)]="newVersionOf" nzAllowClear nzPlaceHolder="A new course" aria-label="Upload as">
+            @for (c of versionTargets; track c.id) {
+              <nz-option [nzValue]="c.id" [nzLabel]="'A new version of ' + c.title + ' (now v' + c.versionNo + ')'"></nz-option>
+            }
+          </nz-select>
+        </div>
         <label><span>Version</span><input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" /></label>
         <label><span>Department</span><input nz-input placeholder="e.g. Operations" [(ngModel)]="departmentTag" /></label>
+        <button nz-button nzType="primary" nzSize="large" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()" class="upload-btn">
+          <nz-icon nzType="cloud-upload"></nz-icon> Generate Material
+        </button>
       </div>
     </div>
   </section>
@@ -48,24 +64,44 @@
   <section class="document-section surface-panel">
     <div class="section-toolbar document-heading">
       <div><span class="section-kicker">Automation queue</span><h2>SOP Documents</h2></div>
-      <span class="polling-note"><nz-icon nzType="sync" [nzSpin]="processingDocuments > 0"></nz-icon> Live status updates</span>
+      <div class="toolbar-right">
+        <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" aria-label="Which courses">
+          <label nz-radio-button nzValue="CURRENT">Current</label>
+          <label nz-radio-button nzValue="ARCHIVED">Archived</label>
+        </nz-radio-group>
+        @if (view === 'CURRENT') {
+          <span class="polling-note"><nz-icon nzType="sync" [nzSpin]="processingDocuments > 0"></nz-icon> Live status updates</span>
+        }
+      </div>
     </div>
     <div class="table-scroll">
-      <nz-table #table [nzData]="documents" [nzShowPagination]="false" nzSize="middle">
+      <nz-table #table [nzData]="shown" [nzLoading]="view === 'ARCHIVED' && loadingArchived" [nzShowPagination]="false" nzSize="middle">
         <thead>
           <tr><th>Document</th><th>Department</th><th>Version</th><th>Generation progress</th><th>Modules</th><th>Actions</th></tr>
         </thead>
         <tbody>
           @for (doc of table.data; track doc.id) {
             <tr>
-              <td><strong>{{ doc.title }}</strong><small>{{ doc.originalFilename || 'SOP document' }}</small></td>
+              <td>
+                <strong>{{ doc.title }}</strong>
+                @if (doc.courseStatus === 'DRAFT') {
+                  <nz-tag nzColor="gold" class="version-tag">v{{ doc.versionNo }} draft</nz-tag>
+                } @else if (doc.versionNo > 1) {
+                  <nz-tag class="version-tag">v{{ doc.versionNo }}</nz-tag>
+                }
+                <small>{{ doc.originalFilename || 'SOP document' }}</small>
+              </td>
               <td>{{ doc.departmentTag || '-' }}</td>
               <td>{{ doc.version || '-' }}</td>
               <td class="progress-cell">
+                @if (doc.courseStatus === 'ARCHIVED') {
+                  <nz-tag>Archived</nz-tag>
+                  <small>{{ doc.archivedAt | date: 'd MMM yyyy' }} · {{ doc.enrolledCount }} enrolment{{ doc.enrolledCount === 1 ? '' : 's' }} kept</small>
+                } @else {
                 <div class="progress-label">
                   <nz-tag [nzColor]="statusColor(doc.generationStatus)">
                     @if (isInProgress(doc.generationStatus)) { <nz-icon nzType="loading"></nz-icon> }
-                    {{ generationLabel(doc.generationStatus) }}
+                    {{ generationLabel(doc) }}
                   </nz-tag>
                   <span>{{ generationPercent(doc.generationStatus) }}%</span>
                 </div>
@@ -73,6 +109,9 @@
                   [nzStatus]="doc.generationStatus === 'FAILED' ? 'exception' : 'active'"></nz-progress>
                 @if (doc.generationStatus === 'FAILED' && doc.statusMessage) {
                   <div class="err" [title]="doc.statusMessage">{{ doc.statusMessage }}</div>
+                } @else if (doc.statusMessage) {
+                  <div class="note" [title]="doc.statusMessage">{{ doc.statusMessage }}</div>
+                }
                 }
               </td>
               <td><strong>{{ doc.moduleCount }}</strong></td>
@@ -80,8 +119,36 @@
                 <button nz-button nzType="primary" [disabled]="doc.generationStatus !== 'COMPLETED'" (click)="openReview(doc)">
                   <nz-icon nzType="audit"></nz-icon> Review
                 </button>
-                @if (doc.generationStatus === 'FAILED') {
-                  <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
+                @if (doc.courseStatus === 'ARCHIVED') {
+                  <button nz-button nz-popconfirm [nzPopconfirmTitle]="restoreQuestion" nzOkText="Restore"
+                    (nzOnConfirm)="restore(doc)" [nzLoading]="busy[doc.id]">
+                    <nz-icon nzType="rollback"></nz-icon> Restore
+                  </button>
+                } @else {
+                  @if (doc.generationStatus === 'FAILED') {
+                    <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
+                  }
+                  <!-- FR-06-14: once anyone has enrolled, the course is archived rather than deleted -->
+                  @if (doc.courseStatus === 'DRAFT') {
+                    <button nz-button nzDanger
+                      nz-popconfirm [nzPopconfirmTitle]="'Discard draft v' + doc.versionNo + '? Its changes are lost; the live version stays as it is.'"
+                      nzOkText="Discard" nzOkType="primary" nzOkDanger
+                      (nzOnConfirm)="delete(doc)" aria-label="Discard draft">
+                      <nz-icon nzType="delete"></nz-icon>
+                    </button>
+                  } @else if (doc.enrolledCount > 0) {
+                    <button nz-button (click)="archive(doc)" [nzLoading]="busy[doc.id]" [disabled]="!!doc.draftId"
+                      [title]="doc.draftId ? 'Publish or discard draft v' + (doc.versionNo + 1) + ' first' : 'Staff have enrolled, so this course can be archived but not deleted'">
+                      <nz-icon nzType="inbox"></nz-icon> Archive
+                    </button>
+                  } @else {
+                    <button nz-button nzDanger [disabled]="!!doc.draftId"
+                      nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content? Nobody has enrolled yet."
+                      nzOkText="Delete" nzOkType="primary" nzOkDanger
+                      (nzOnConfirm)="delete(doc)" aria-label="Delete">
+                      <nz-icon nzType="delete"></nz-icon>
+                    </button>
+                  }
                 }
               </td>
             </tr>
@@ -89,6 +156,8 @@
         </tbody>
       </nz-table>
     </div>
-    @if (documents.length === 0) { <nz-empty nzNotFoundContent="No SOPs uploaded yet"></nz-empty> }
+    @if (shown.length === 0 && !(view === 'ARCHIVED' && loadingArchived)) {
+      <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'No archived courses' : 'No SOPs uploaded yet'"></nz-empty>
+    }
   </section>
 </div>

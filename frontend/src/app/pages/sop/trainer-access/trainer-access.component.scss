@@ -1,0 +1,10 @@
+@use 'trainer-access-shared';
+
+.trainer-access { display: flex; flex-direction: column; gap: 20px; }
+.page-heading { margin-bottom: 0; }
+.tab-body { display: flex; flex-direction: column; gap: 20px; }
+.access-cell nz-tag { margin-bottom: 2px; }
+.field nz-date-picker { width: 220px; }
+
+@media (max-width: 900px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .page-heading { flex-direction: column; } }

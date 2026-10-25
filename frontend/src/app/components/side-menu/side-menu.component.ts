@@ -103,13 +103,18 @@ export class SideMenuComponent {
       requiredRoles: ['ROLE_USER']
     },
     {
-      key: 'NAV.TRAINING_AUTOMATION', icon: 'robot',
+      key: 'NAV.TRAINING_AUTOMATION', icon: 'solution',
       children: [
         { key: 'NAV.SOP_UPLOAD', route: '/sop/upload', requiredRoles: ['CAN_MANAGE_TRAINING'] },
-        { key: 'NAV.SOP_REVIEW', route: '/sop/review', requiredRoles: ['CAN_MANAGE_TRAINING'] }
+        { key: 'NAV.SOP_REVIEW', route: '/sop/review', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
+        { key: 'NAV.SOP_QUIZ_REVIEW', route: '/sop/quiz-review', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
+        { key: 'NAV.SOP_ASSIGN', route: '/sop/assign', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+        { key: 'NAV.SOP_SCOREBOARD', route: '/sop/scoreboard', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+        { key: 'NAV.TRAINER_ACCESS', route: '/sop/trainer-access', requiredRoles: ['CAN_MANAGE_ACCESS_CONTROL'] }
       ],
-      requiredRoles: ['CAN_MANAGE_TRAINING']
-    }
+      requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL']
+    },
+    { key: 'NAV.MY_LEARNING', icon: 'read', route: '/my-learning', requiredRoles: ['ROLE_USER'] }
   ];
 
   constructor(private router: Router, public authService: AuthService) {
