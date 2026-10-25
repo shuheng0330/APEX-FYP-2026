@@ -9,8 +9,11 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzIconModule, NzIconService } from 'ng-zorro-antd/icon';
+import { NzPopoverModule } from 'ng-zorro-antd/popover';
+import { InfoCircleOutline } from '@ant-design/icons-angular/icons';
 import { EMPTY, Observable, Subject, catchError, finalize, map, merge, of, switchMap, tap, throwError } from 'rxjs';
-import { AnnualAppraisal, AnnualAppraisalAction, AnnualAppraisalCandidate, AnnualAppraisalReadiness,
+import { AnnualAppraisal, AnnualAppraisalAction, AnnualAppraisalActivity, AnnualAppraisalCandidate, AnnualAppraisalReadiness,
   AnnualRecommendation, AnnualPerformanceHistory, annualJustificationError, annualRecommendations } from '../../models/annual-appraisal.model';
 import { KpiPeriodContext } from '../../models/kpi-plan.model';
 import { AnnualAppraisalService } from '../../services/annual-appraisal.service';
@@ -18,14 +21,16 @@ import { AuthService } from '../../services/auth.service';
 import { AnnualAppraisalPerformanceComponent } from './annual-appraisal-performance.component';
 import { AnnualPerformanceTrendComponent } from './annual-performance-trend.component';
 import { AnnualAppraisalNavigationState } from './annual-appraisal-navigation-state.service';
+import { appraisalReturnComparison } from './annual-appraisal-return-comparison';
 
 interface AppraisalDetail {
   period: KpiPeriodContext; row: AnnualAppraisalCandidate; value: AnnualAppraisal | AnnualAppraisalReadiness;
 }
+type HrDecision = 'APPROVE' | 'OVERRIDE_AND_APPROVE' | 'RETURN';
 @Component({
   selector: 'app-annual-appraisal-detail', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzRadioModule,
-    NzModalModule, NzDrawerModule, AnnualAppraisalPerformanceComponent, AnnualPerformanceTrendComponent],
+    NzModalModule, NzDrawerModule, NzIconModule, NzPopoverModule, AnnualAppraisalPerformanceComponent, AnnualPerformanceTrendComponent],
   templateUrl: './annual-appraisal-detail.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './annual-appraisals.component.scss', './annual-appraisal-detail.component.scss']
 })
@@ -36,6 +41,7 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   private readonly reload = new Subject<ParamMap>();
   readonly hrReview = this.route.snapshot.data['hrReview'] === true;
   readonly recommendations = annualRecommendations;
+  readonly hrActions: readonly HrDecision[] = ['APPROVE', 'OVERRIDE_AND_APPROVE', 'RETURN'];
   readonly queuePath = this.hrReview ? '/appraisals/review' : '/team-performance/team-appraisals';
   period: KpiPeriodContext | null = null;
   periodId: number | null = null;
@@ -54,12 +60,16 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   accessChanged = false;
   showValidation = false;
   draftWarnings = false;
-  decision: 'RETURN' | 'OVERRIDE_AND_APPROVE' | null = null;
+  decision: HrDecision | null = null;
+  infoAction: HrDecision | null = null;
+  decisionError = '';
   reason = '';
   finalDecision: AnnualRecommendation | null = null;
   decisionValidation = false;
   activityVisible = false;
+  showAllActivity = false;
   expandedEvent: number | null = null;
+  expandedPerformanceEvent: number | null = null;
   historyVisible = false;
   historyLoaded = false;
   history: AnnualAppraisal[] = [];
@@ -71,12 +81,12 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   performanceHistoryLoading = false;
   performanceHistoryError = '';
   private performanceRequest = 0;
-  private destroyed = false;
 
   constructor(private api: AnnualAppraisalService, public auth: AuthService, private translate: TranslateService,
-    private modal: NzModalService, private router: Router, private navigation: AnnualAppraisalNavigationState) {}
+    private modal: NzModalService, private router: Router, private navigation: AnnualAppraisalNavigationState) {
+    inject(NzIconService).addIcon(InfoCircleOutline);
+  }
   ngOnInit() {
-    this.destroyRef.onDestroy(() => this.destroyed = true);
     document.querySelector('.main-content')?.scrollTo({ top: 0 });
     const header = document.querySelector('app-top-header .top-header');
     if (header && typeof ResizeObserver !== 'undefined') {
@@ -122,6 +132,7 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   get nextStepKey() {
     if (this.period?.status !== 'OPEN') return 'ANNUAL_APPRAISAL.NEXT.CLOSED';
     if (this.accessChanged) return 'ANNUAL_APPRAISAL.NEXT.REFRESH';
+    if (this.selected?.status === 'DRAFT' && this.readiness?.ready) return 'ANNUAL_APPRAISAL.NEXT.DRAFT_READY';
     return 'ANNUAL_APPRAISAL.NEXT.' + (this.selected?.status ?? (this.readiness?.ready ? 'READY' : 'NOT_READY'));
   }
   get currentStatus() { return this.selected?.status ?? (this.readiness?.ready ? 'READY' : 'NOT_READY'); }
@@ -129,6 +140,10 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   get justificationError() { return annualJustificationError(this.justification, this.showValidation); }
   get reasonError() { return annualJustificationError(this.reason, this.decisionValidation); }
   get canStartSubmit() { return !this.readonly && !this.locked && this.readiness?.ready === true; }
+  get showHrDecisions() { return this.hrReview && this.selected?.status === 'PENDING_REVIEW'; }
+  get returnComparison() { return this.hrReview ? appraisalReturnComparison(this.selected) : null; }
+  canReview(action: HrDecision) { return this.authorised && this.showHrDecisions && this.can(action); }
+  get hasHrActions() { return this.hrActions.some(action => this.canReview(action)); }
   get displayedBlockers() {
     if (this.hrReview) return this.selected?.status === 'PENDING_REVIEW' ? this.selected.reviewBlockers : [];
     return this.selected?.status === 'DRAFT' || this.selected?.status === 'RETURNED' ? this.selected.submissionBlockers : this.readiness?.blockers ?? [];
@@ -140,7 +155,8 @@ export class AnnualAppraisalDetailComponent implements OnInit {
     this.history = []; this.historyLoaded = false; this.historyVisible = false; this.historyRequest++;
     this.historyLoading = false; this.historyError = ''; this.historySelection = null;
     this.performanceHistory = []; this.performanceRequest++; this.performanceHistoryLoading = false; this.performanceHistoryError = '';
-    this.activityVisible = false; this.expandedEvent = null; this.clearDecision(); this.showValidation = false; this.draftWarnings = false;
+    this.activityVisible = false; this.showAllActivity = false; this.expandedEvent = null; this.expandedPerformanceEvent = null;
+    this.clearDecision(); this.showValidation = false; this.draftWarnings = false;
   }
   private resolveDetail(params: ParamMap): Observable<AppraisalDetail> {
     const positiveId = (key: string) => {
@@ -235,32 +251,22 @@ export class AnnualAppraisalDetailComponent implements OnInit {
     if (this.locked || this.hrReview || !this.can('SUBMIT') || !this.selected) return;
     this.write(this.api.submit(this.selected.id, { expectedLockVersion: this.selected.lockVersion }), 'SUBMITTED');
   }
-  beginDecision(action: 'RETURN' | 'OVERRIDE_AND_APPROVE') {
-    if (this.locked || !this.hrReview || !this.can(action)) return;
+  beginDecision(action: HrDecision) {
+    if (this.locked || this.decision || !this.canReview(action)) return;
     this.clearDecision(); this.decision = action; this.success = '';
-    requestAnimationFrame(() => {
-      if (this.destroyed || this.decision !== action) return;
-      const section = this.host.nativeElement.querySelector<HTMLElement>('#annual-decision');
-      section?.scrollIntoView({ block: 'start' });
-      section?.querySelector<HTMLTextAreaElement>('textarea')?.focus({ preventScroll: true });
-    });
   }
-  clearDecision() { this.decision = null; this.reason = ''; this.finalDecision = null; this.decisionValidation = false; }
-  confirmDecision(action: 'APPROVE' | 'RETURN' | 'OVERRIDE_AND_APPROVE') {
-    if (this.locked || !this.hrReview || !this.can(action) || !this.selected) return;
+  infoVisibility(action: HrDecision, visible: boolean) {
+    if (visible) this.infoAction = action;
+    else if (this.infoAction === action) this.infoAction = null;
+  }
+  cancelDecision() { if (!this.busy) this.clearDecision(); }
+  private clearDecision() {
+    this.decision = null; this.reason = ''; this.finalDecision = null; this.decisionValidation = false; this.decisionError = ''; this.infoAction = null;
+  }
+  confirmDecision(action: HrDecision) {
+    if (this.locked || this.decision !== action || !this.canReview(action) || !this.selected) return;
     this.decisionValidation = true;
-    if (action !== 'APPROVE' && (this.decision !== action || this.reasonError)) return;
-    if (action === 'OVERRIDE_AND_APPROVE' && (!this.finalDecision || this.finalDecision === this.selected.recommendation)) return;
-    this.confirming = true;
-    this.modal.confirm({ nzTitle: this.translate.instant('ANNUAL_APPRAISAL.ACTION.' + action),
-      nzContent: this.translate.instant(this.selected.hrReviewOverdue ? 'ANNUAL_APPRAISAL.REVIEW_LATE_HELP' : 'ANNUAL_APPRAISAL.REVIEW_CONFIRM',
-        { deadline: this.selected.hrReviewDeadline }),
-      nzOkText: this.translate.instant('ANNUAL_APPRAISAL.ACTION.' + action),
-      nzOnOk: () => { this.confirming = false; this.decide(action); }, nzOnCancel: () => { this.confirming = false; } });
-  }
-  decide(action: 'APPROVE' | 'RETURN' | 'OVERRIDE_AND_APPROVE') {
-    if (this.locked || !this.hrReview || !this.can(action) || !this.selected) return;
-    if (action !== 'APPROVE' && (this.decision !== action || annualJustificationError(this.reason, true))) return;
+    if (action !== 'APPROVE' && this.reasonError) return;
     if (action === 'OVERRIDE_AND_APPROVE' && (!this.finalDecision || this.finalDecision === this.selected.recommendation)) return;
     const request = { expectedLockVersion: this.selected.lockVersion, reason: this.reason, finalDecision: this.finalDecision };
     const result = action === 'APPROVE' ? this.api.approve(this.selected.id, { expectedLockVersion: request.expectedLockVersion })
@@ -269,7 +275,7 @@ export class AnnualAppraisalDetailComponent implements OnInit {
     this.write(result, action === 'RETURN' ? 'RETURNED' : 'APPROVED');
   }
   private write(request: Observable<AnnualAppraisal>, message: string) {
-    this.busy = true; this.error = ''; this.success = '';
+    this.busy = true; this.error = ''; this.decisionError = ''; this.success = '';
     request.pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => { this.accept(value); this.clearDecision(); this.historyLoaded = false;
         this.success = this.translate.instant('ANNUAL_APPRAISAL.SUCCESS.' + message); this.loadHistory(true); this.loadPerformanceHistory(); }, error: error => this.fail(error)
@@ -323,13 +329,59 @@ export class AnnualAppraisalDetailComponent implements OnInit {
     if (!this.locked && this.history.some(row => row.id === id)) this.historySelection = id;
   }
   get events() { return [...(this.selected?.activity ?? [])].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt) || a.id - b.id); }
-  actor(id: string) { return id === this.auth.userId ? this.translate.instant('ANNUAL_APPRAISAL.YOU') : id; }
+  toggleActivity() {
+    this.activityVisible = !this.activityVisible;
+    if (!this.activityVisible) { this.expandedEvent = null; this.expandedPerformanceEvent = null; }
+  }
+  get hasDraftActivity() { return this.selected?.activity.some(event => event.action === 'DRAFT_CREATED' || event.action === 'DRAFT_SAVED') === true; }
+  get visibleEvents() { return this.events.filter(event => this.showAllActivity || (event.action !== 'DRAFT_CREATED' && event.action !== 'DRAFT_SAVED')); }
+  toggleSubmission(id: number) {
+    if (this.locked) return;
+    this.expandedEvent = this.expandedEvent === id ? null : id; this.expandedPerformanceEvent = null;
+  }
+  toggleEventPerformance(id: number) {
+    if (!this.locked) this.expandedPerformanceEvent = this.expandedPerformanceEvent === id ? null : id;
+  }
+  showRecordedSubmission(event: AnnualAppraisalActivity): boolean {
+    if ((event.action !== 'SUBMITTED' && event.action !== 'RESUBMITTED')
+      || (!event.snapshot && !event.recommendation && event.justification == null)) return false;
+    if (!event.snapshot) return true;
+    const submissions = this.selected?.activity.filter(e => e.action === 'SUBMITTED' || e.action === 'RESUBMITTED') ?? [];
+    if (!submissions.some(e => e.id === event.id)) return false;
+    const latestId = Math.max(...submissions.map(e => e.id));
+    if (event.id !== latestId || !this.frozen || !this.selected?.submittedAt || !event.recommendation || event.justification == null) return true;
+    const snapshot = event.snapshot;
+    if (snapshot.employeeId !== this.selected.employeeId || snapshot.participantId !== this.selected.participantId
+      || snapshot.reviewPeriodId !== this.selected.reviewPeriodId) return true;
+    return event.recommendation !== this.selected.recommendation || event.justification !== this.selected.justification
+      || !this.sameRecordedContent(snapshot, this.performance);
+  }
+  // JSON snapshots may have different object key order; array order is retained conservatively.
+  private sameRecordedContent(left: unknown, right: unknown): boolean {
+    if (left === right) return left !== undefined;
+    if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') return false;
+    if (Array.isArray(left) || Array.isArray(right)) return Array.isArray(left) && Array.isArray(right)
+      && left.length === right.length && left.every((value, index) => this.sameRecordedContent(value, right[index]));
+    const a = Object.entries(left).sort(([a], [b]) => a.localeCompare(b));
+    const b = Object.entries(right).sort(([a], [b]) => a.localeCompare(b));
+    return a.length === b.length && a.every(([key, value], index) => key === b[index][0] && this.sameRecordedContent(value, b[index][1]));
+  }
+  actor(event: AnnualAppraisalActivity) {
+    if (event.actorId === this.auth.userId) return this.translate.instant('ANNUAL_APPRAISAL.YOU');
+    if (event.actorId === this.selected?.employeeId && this.selected.employeeName?.trim()) return this.selected.employeeName;
+    if (['RETURNED', 'APPROVED', 'OVERRIDDEN'].includes(event.action)) return this.translate.instant('ANNUAL_APPRAISAL.ACTIVITY_HR_REVIEWER');
+    if (event.actorId === this.selected?.superiorId || ['DRAFT_CREATED', 'DRAFT_SAVED', 'SUBMITTED', 'RESUBMITTED'].includes(event.action))
+      return this.translate.instant('ANNUAL_APPRAISAL.ACTIVITY_SUPERIOR');
+    return this.translate.instant('ANNUAL_APPRAISAL.ACTOR_UNAVAILABLE');
+  }
   @HostListener('window:beforeunload', ['$event']) warnUnsaved(event: BeforeUnloadEvent) {
     if (this.dirty || this.busy) { event.preventDefault(); event.returnValue = ''; }
   }
   private fail(error: { status?: number; error?: { message?: string } }) {
     if (this.candidate && [403, 409].includes(error.status ?? 0)) this.accessChanged = true;
-    this.error = [403, 409].includes(error.status ?? 0) ? this.translate.instant('ANNUAL_APPRAISAL.ACCESS_CHANGED')
+    const message = [403, 409].includes(error.status ?? 0)
+      ? this.translate.instant(this.decision ? 'ANNUAL_APPRAISAL.DECISION.ACCESS_CHANGED' : 'ANNUAL_APPRAISAL.ACCESS_CHANGED')
       : error.error?.message || this.translate.instant('ANNUAL_APPRAISAL.ERROR');
+    if (this.hrReview && this.decision) this.decisionError = message; else this.error = message;
   }
 }

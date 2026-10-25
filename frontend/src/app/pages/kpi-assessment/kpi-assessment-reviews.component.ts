@@ -14,10 +14,11 @@ import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAsses
   superiorAssessmentItemError, assessmentPointError, assessmentCommentError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
+import { CompanyReportingSourceComponent } from './company-reporting-source.component';
 
 @Component({
   selector: 'app-kpi-assessment-reviews', standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, CompanyReportingSourceComponent],
   templateUrl: './kpi-assessment-reviews.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss']
 })
@@ -38,6 +39,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   busy = false;
   loading = false;
   drawerVisible = false;
+  checkpointDetailsExpanded = false;
   criteriaVisible = false;
   detailItem: KpiItem[] = [];
   detailScope: KpiLevel = 'INDIVIDUAL';
@@ -95,7 +97,7 @@ export class KpiAssessmentReviewsComponent implements OnInit {
     if (this.locked) return;
     this.loading = true; this.error = ''; this.success = ''; this.accessChanged = false;
     this.api.get(id).pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: assessment => { this.accept(assessment); this.drawerVisible = true; }, error: error => this.fail(error)
+      next: assessment => { this.accept(assessment); this.checkpointDetailsExpanded = false; this.drawerVisible = true; }, error: error => this.fail(error)
     });
   }
   private answerSignature() { return JSON.stringify(this.items.map(item => [item.id, item.superiorPoint, item.superiorComment ?? null])); }

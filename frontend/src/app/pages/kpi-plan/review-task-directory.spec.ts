@@ -29,7 +29,7 @@ describe('Review task directory', () => {
     expect(organisationReviewTabs(permission)).toEqual([]);
   });
   it('keeps single and combined permissions consistent with existing route guards', () => {
-    const all = [...new Set([...testUser, ...alice, ...david])];
+    const all = [...new Set([...testUser, ...alice, ...david, 'CAN_ENTER_COMPANY_KPI_RESULTS'])];
     for (const grants of [...all.map(p => [p]), all]) {
       const permission = has(grants);
       for (const task of reviewTasks(permission)) {
@@ -41,6 +41,18 @@ describe('Review task directory', () => {
       }
     }
     expect(reviewTasks(has(['CAN_REVISE_COMPANY_KPI'])).map(t => t.id)).toEqual(['COMPANY_REVISION']);
-    expect(reviewTasks(has(all)).length).toBe(16);
+    expect(reviewTasks(has(all)).length).toBe(18);
+  });
+  it('offers central result entry only for its existing workspace permissions', () => {
+    const resultTasks = (grants: string[]) => reviewTasks(has(grants)).filter(task => task.id.endsWith('_RESULTS'));
+    expect(resultTasks(alice).map(task => task.id)).toEqual(['DEPARTMENT_RESULTS']);
+    expect(resultTasks(testUser).map(task => task.id)).toEqual(['COMPANY_RESULTS']);
+    expect(resultTasks(['CAN_ENTER_COMPANY_KPI_RESULTS']).map(task => task.id)).toEqual(['COMPANY_RESULTS']);
+    expect(resultTasks(['ROLE_USER', 'CAN_REVIEW_KPI_ASSESSMENT'])).toEqual([]);
+    expect(resultTasks(['CAN_MANAGE_COMPANY_KPI', 'CAN_MANAGE_DEPARTMENT_KPI']).map(task => task.id))
+      .toEqual(['COMPANY_RESULTS', 'DEPARTMENT_RESULTS']);
+    for (const task of resultTasks(['CAN_MANAGE_COMPANY_KPI', 'CAN_MANAGE_DEPARTMENT_KPI'])) {
+      expect(task.path).toBe('/kpi-management/kpi-results'); expect(task.destination).toBe('KPI_RESULTS.TITLE');
+    }
   });
 });

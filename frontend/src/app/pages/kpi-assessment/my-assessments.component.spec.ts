@@ -14,6 +14,7 @@ import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentItem, KpiScoreBrea
 import { emptyKpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { AttitudeAssessment } from '../../models/attitude-assessment.model';
+import { reviewLayout } from '../kpi-plan/review-navigation.test-layout';
 
 describe('My Assessments - KPI Self-Assessment', () => {
   let fixture: ComponentFixture<MyAssessmentsComponent>;
@@ -128,6 +129,21 @@ describe('My Assessments - KPI Self-Assessment', () => {
     expect(fixture.nativeElement.querySelector('.result-pending')).toBeNull();
     expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('0.00%');
   });
+  it('uses compact Company reporting dates without repeated YTD guidance or guessing the employee schedule', () => {
+    api.mine.and.returnValue(of(assessment({ id: 20, assessmentModel: 'CENTRAL_RESULTS', frequencyPolicy: 'DEPARTMENT_BASED',
+      checkpoint: { ...checkpoint(), reviewFrequency: 'QUARTERLY' },
+      companyReportingCheckpoint: { id: 18, reviewFrequency: 'MONTHLY', startDate: '2025-06-01', endDate: '2025-06-30' } })));
+    page.load(); fixture.detectChanges();
+    const source: HTMLElement = fixture.nativeElement.querySelector('app-company-reporting-source');
+    expect(source.textContent).toContain('KPI_SCORE_BREAKDOWN.COMPANY_REPORTING_PERIOD');
+    expect(source.textContent).toContain('1–30 Jun 2025');
+    expect(source.textContent).toContain('REVIEW_PERIOD.FREQUENCY.MONTHLY');
+    expect(source.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_YTD');
+    expect(source.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_REPORTING_SOURCE');
+    page.assessment!.companyReportingCheckpoint = null; fixture.detectChanges();
+    expect(source.textContent?.trim()).toBe('');
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+  });
   it('opens published score details on demand while preserving pending levels and existing answers', async () => {
     api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'PENDING_REVIEW', id: 20,
       canSaveDraft: false, canSubmit: false, checkpointScore: null, pendingResultLevels: ['DEPARTMENT', 'INDIVIDUAL'] })));
@@ -149,7 +165,9 @@ describe('My Assessments - KPI Self-Assessment', () => {
     const summary = document.body.querySelector('.breakdown-summary')!;
     expect(summary.textContent).toContain('12.00%');
     expect(summary.textContent).toContain('KPI_SCORE_BREAKDOWN.STATUS.PENDING');
-    expect(document.body.querySelector('.breakdown-values')?.textContent).toContain('120 units');
+    expect(document.body.querySelector('.breakdown-item .breakdown-values')?.textContent).toContain('120 units');
+    expect(summary.querySelectorAll('tbody tr')[0].querySelectorAll('td')[2].textContent).toContain('80.00%');
+    expect(document.body.querySelector('.breakdown-pending')).not.toBeNull();
     expect(document.body.querySelectorAll('.breakdown-item').length).toBe(1);
     page.viewBreakdownCriteria(score.levels[0].items[0].kpi, 'COMPANY');
     expect(page.detailScope).toBe('COMPANY');expect(page.drawerVisible).toBeTrue();
@@ -178,6 +196,65 @@ describe('My Assessments - KPI Self-Assessment', () => {
     page.openScoreBreakdown();page.breakdownVisible = false;
     response.next({ assessmentId: 20, checkpointScore: null, levels: [] });response.complete();
     expect(page.breakdown).toBeNull();expect(page.breakdownLoading).toBeFalse();
+  });
+  it('shows recorded level scores and compact reporting context with optional version metadata', async () => {
+    const translate = TestBed.inject(TranslateService);
+    await fixture.whenStable();
+    translate.setTranslation('breakdown-test', { KPI_SCORE_BREAKDOWN: { REPORTING_PERIOD: 'Reporting Period' },
+      REVIEW_PERIOD: { FREQUENCY: { MONTHLY: 'Monthly' } } });
+    translate.use('breakdown-test');
+    page.assessment = assessment({ id: 20, assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', frequencyPolicy: 'DEPARTMENT_BASED' });
+    const score: KpiScoreBreakdown = { assessmentId: 20, checkpointScore: 71, levels: [
+      { level: 'COMPANY', allocation: 15, status: 'AVAILABLE', contribution: 6, versionNumber: 2, resultEditionNumber: 3,
+        publishedAt: '2025-07-01T10:00:00Z', reportingCheckpoint: { id: 18, reviewFrequency: 'MONTHLY', startDate: '2025-06-01', endDate: '2025-06-30' },
+        items: [{ kpi: row().kpi, actualAchievement: 'Published achievement', point: 2 }] },
+      { level: 'DEPARTMENT', allocation: 15, status: 'AVAILABLE', contribution: 9, versionNumber: 1, resultEditionNumber: 1,
+        publishedAt: null, items: [{ kpi: row().kpi, actualAchievement: 'Department achievement', point: 3 }] },
+      { level: 'INDIVIDUAL', allocation: 70, status: 'AVAILABLE', contribution: 56, versionNumber: 1, resultEditionNumber: null,
+        publishedAt: '2025-07-02T10:00:00Z', items: [{ kpi: row().kpi, actualAchievement: null, point: 4 }] }
+    ] };
+    const recorded = structuredClone(score); api.scoreBreakdown.and.returnValue(of(score));
+    page.openScoreBreakdown(); fixture.detectChanges(); await fixture.whenStable();
+    const body = document.querySelector<HTMLElement>('.ant-drawer-open .ant-drawer-body')!;
+    expect(body.querySelector('.breakdown-score-value')?.textContent).toContain('71.00%');
+    expect(body.querySelector('.breakdown-score')?.classList.contains('notice')).toBeFalse();
+    expect([...body.querySelectorAll('.breakdown-summary th')].map(node => node.textContent?.trim())).toEqual([
+      'MY_ASSESSMENTS.LEVEL', 'KPI_SCORE_BREAKDOWN.ALLOCATION_LABEL', 'KPI_SCORE_BREAKDOWN.LEVEL_SCORE', 'KPI_SCORE_BREAKDOWN.CONTRIBUTION_LABEL'
+    ]);
+    expect([...body.querySelectorAll('.breakdown-summary tbody tr')].map(node => [...node.querySelectorAll('td')].slice(1).map(cell => cell.textContent?.trim())))
+      .toEqual([['15%', '40.00%', '6.00%'], ['15%', '60.00%', '9.00%'], ['70%', '80.00%', '56.00%']]);
+    expect(body.querySelector('.breakdown-reporting-period')?.textContent?.trim()).toBe('Reporting Period: June 2025 (Monthly)');
+    expect(body.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_YTD');
+    expect(body.querySelector('.breakdown-pending')).toBeNull();
+    const details = body.querySelector<HTMLDetailsElement>('.breakdown-result-details')!;
+    expect(details.open).toBeFalse(); expect(details.textContent).toContain('01 Jul 2025');
+    expect([...details.querySelectorAll('dd')].slice(0, 2).map(node => node.textContent?.trim())).toEqual(['2', '3']);
+    details.querySelector('summary')!.click(); fixture.detectChanges(); expect(details.open).toBeTrue();
+    expect(score).toEqual(recorded); expect(page.items).toEqual([row()]);
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+    for (const width of [1440, 768, 360]) {
+      const layout = reviewLayout(body, width);
+      try {
+        expect(layout.root.scrollWidth).withContext(String(width)).toBeLessThanOrEqual(width);
+        expect(layout.window.getComputedStyle(layout.root.querySelector('.table-scroll')!).overflowX).toBe('auto');
+      } finally { layout.remove(); }
+    }
+  });
+  it('displays unweighted level scores without rounding or changing the returned contribution', () => {
+    const level: KpiScoreBreakdown['levels'][number] = { level: 'COMPANY', allocation: 15, versionNumber: 1,
+      resultEditionNumber: 2, publishedAt: null, status: 'AVAILABLE', contribution: 6.0009, items: [] };
+    expect(page.breakdownLevelScore(level)).toBeCloseTo(40.006, 8);
+    expect(level.contribution).toBe(6.0009);
+    expect(page.breakdownLevelScore({ ...level, contribution: 0 })).toBe(0);
+    expect(page.breakdownLevelScore({ ...level, contribution: null, status: 'PENDING' })).toBeNull();
+    expect(page.breakdownLevelScore({ ...level, allocation: 0, contribution: 0, status: 'NOT_APPLICABLE' })).toBeNull();
+  });
+  it('keeps a legitimate zero checkpoint score numeric rather than Pending', async () => {
+    page.assessment = assessment({ id: 20, assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED' });
+    api.scoreBreakdown.and.returnValue(of({ assessmentId: 20, checkpointScore: 0, levels: [] }));
+    page.openScoreBreakdown(); fixture.detectChanges(); await fixture.whenStable();
+    expect(document.querySelector('.breakdown-score-value')?.textContent).toContain('0.00%');
+    expect(document.querySelector('.breakdown-pending')).toBeNull();
   });
   it('shows recorded employee context below the tab and above the checkpoint controls', () => {
     page.assessment!.roleName = 'Sales Executive';

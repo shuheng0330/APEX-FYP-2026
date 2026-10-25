@@ -54,7 +54,84 @@ describe('Annual review period form', () => {
       annualKpiConsolidationMethod: 'FINAL_CHECKPOINT', selfAssessmentDaysAfterCheckpoint: 5, superiorAssessmentDaysAfterSelfDeadline: 5 });
     REVIEW_DATE_FIELDS.forEach(field => component.dates[field].setValue(pickerDate(request[field])));
     component.roleRows.at(0).controls.selected.setValue(true);
+    if (component.departmentBased) component.changeDepartmentFrequency(10, 'MONTHLY');
   }
+
+  it('starts new periods with Department schedules without inheriting Annual Role frequency', () => {
+    api.roles.and.returnValue(of([{ ...savedReview().roleConfigurations[0], reviewFrequency: 'ANNUALLY' }]));
+    fixture.detectChanges(); component.roleRows.at(0).controls.selected.setValue(true); fixture.detectChanges();
+    expect(component.request().frequencyPolicy).toBe('DEPARTMENT_BASED');
+    expect(component.request().departmentConfigurations).toEqual([]);
+    expect(component.request().roleConfigurations[0].reviewFrequency).toBeNull();
+    expect(fixture.nativeElement.querySelector('#review-roles nz-select[formControlName="reviewFrequency"]')).toBeNull();
+    component.changeDepartmentFrequency(10, 'QUARTERLY');
+    expect(component.request().departmentConfigurations).toEqual([{ departmentId: 10, departmentName: 'Sales', reviewFrequency: 'QUARTERLY' }]);
+    expect(component.form.dirty).toBeTrue();
+  });
+  it('keeps saved Average and an explicit Average choice when defaults load', () => {
+    fixture.detectChanges();
+    component.form.controls.annualKpiConsolidationMethod.setValue('AVERAGE');
+    component.form.controls.annualKpiConsolidationMethod.markAsDirty();
+    component.dates.startDate.setValue(new Date(2028, 0, 1));
+    expect(component.request().annualKpiConsolidationMethod).toBe('AVERAGE');
+    api.get.and.returnValue(of({ ...savedReview(), status: 'DRAFT', annualKpiConsolidationMethod: 'AVERAGE' }));
+    params.next(convertToParamMap({ id: '29' }));
+    expect(component.request().annualKpiConsolidationMethod).toBe('AVERAGE');
+  });
+  it('preserves a copied consolidation choice when the Start Date loads another default', () => {
+    api.creationDefaults.and.returnValues(of({ ...defaults(), annualKpiConsolidationMethod: 'AVERAGE' }),
+      of({ ...defaults(), annualKpiConsolidationMethod: 'FINAL_CHECKPOINT' }));
+    fixture.detectChanges(); component.dates.startDate.setValue(new Date(2028, 0, 1));
+    component.dates.startDate.setValue(new Date(2029, 0, 1));
+    expect(component.request().annualKpiConsolidationMethod).toBe('AVERAGE');
+  });
+  it('copies Department defaults and consolidation without replacing a chosen schedule', () => {
+    api.creationDefaults.and.returnValue(of({ ...defaults(), annualKpiConsolidationMethod: 'AVERAGE',
+      departmentConfigurations: [{ departmentId: 10, reviewFrequency: 'MONTHLY' }] }));
+    fixture.detectChanges(); component.roleRows.at(0).controls.selected.setValue(true);
+    component.changeDepartmentFrequency(10, 'QUARTERLY'); component.dates.startDate.setValue(new Date(2028, 0, 1));
+    expect(component.request().departmentConfigurations?.[0].reviewFrequency).toBe('QUARTERLY');
+    expect(component.request().annualKpiConsolidationMethod).toBe('AVERAGE');
+  });
+  it('keeps a legacy Draft unchanged until explicit conversion confirmation', () => {
+    params.next(convertToParamMap({ id: '29' })); fixture.detectChanges();
+    expect(component.departmentBased).toBeFalse(); component.adoptDepartmentSchedule();
+    expect(component.departmentBased).toBeFalse();
+    const confirm = TestBed.inject(NzModalService).confirm as jasmine.Spy;
+    confirm.calls.mostRecent().args[0].nzOnOk();
+    expect(component.departmentBased).toBeTrue(); expect(component.request().departmentConfigurations).toEqual([]);
+    expect(component.form.dirty).toBeTrue();
+  });
+  it('shows every missing Role level despite filters and preserves input after refreshing', () => {
+    api.roles.and.returnValue(of([7, 8].map(roleId => ({ ...savedReview().roleConfigurations[0], roleId, employeeLevelId: null }))));
+    fixture.detectChanges(); component.selectAll(true); component.roleSearch = 'does not match';
+    component.form.controls.name.setValue('Unsaved name'); component.changeDepartmentFrequency(10, 'QUARTERLY'); fixture.detectChanges();
+    const links: HTMLAnchorElement[] = Array.from(fixture.nativeElement.querySelectorAll('a[target="_blank"]'));
+    expect(links.length).toBe(2); expect(links[0].href).toContain('editRoleId=7'); expect(links[1].href).toContain('editRoleId=8');
+    api.roles.and.returnValue(of([7, 8].map(roleId => ({ ...savedReview().roleConfigurations[0], roleId }))));
+    component.refreshRoles();
+    expect(component.missingLevels).toEqual([]); expect(component.form.controls.name.value).toBe('Unsaved name');
+    expect(component.request().departmentConfigurations?.[0].reviewFrequency).toBe('QUARTERLY');
+  });
+  it('shows administrator guidance without edit links when Role management is unavailable', () => {
+    spyOn(TestBed.inject(AuthService), 'hasRole').and.returnValue(false);
+    api.roles.and.returnValue(of([{ ...savedReview().roleConfigurations[0], employeeLevelId: null }]));
+    fixture.detectChanges(); component.selectAll(true); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('a[target="_blank"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('REVIEW_PERIOD.DEPARTMENT_SCHEDULE.CONTACT_ADMIN');
+  });
+  it('freezes new-policy Upcoming schedules while retaining permitted name edits', () => {
+    params.next(convertToParamMap({ id: '29' }));
+    api.get.and.returnValue(of({ ...savedReview(), frequencyPolicy: 'DEPARTMENT_BASED',
+      departmentConfigurations: [{ departmentId: 10, departmentName: 'Recorded Sales', reviewFrequency: 'QUARTERLY' }] }));
+    fixture.detectChanges();
+    expect(component.dates.endDate.disabled).toBeTrue();
+    expect(component.form.controls.selfAssessmentDaysAfterCheckpoint.disabled).toBeTrue();
+    component.changeDepartmentFrequency(10, 'MONTHLY');
+    expect(component.request().departmentConfigurations?.[0].reviewFrequency).toBe('QUARTERLY');
+    expect(component.form.controls.name.enabled).toBeTrue();
+    component.save(); expect(api.update).toHaveBeenCalled();
+  });
 
   it('renders six level rows and saves an incomplete dateless Draft without obsolete weights', () => {
     fixture.detectChanges(); expect(component.levelRows.length).toBe(6);
@@ -111,6 +188,31 @@ describe('Annual review period form', () => {
     expect(labels[0].querySelector('.required-mark')).not.toBeNull();
     expect(labels[0].parentElement?.textContent).toContain('REVIEW_PERIOD.ATTITUDE_OPENING_HELP');
     expect(component.fieldIssue('attitudeSelfAssessmentStartDate')).toBeUndefined();
+  });
+  it('groups Attitude and Appraisal dates without changing values or preview when the guide is opened', () => {
+    fixture.detectChanges(); completeForm(); component.form.markAsDirty();
+    const request = structuredClone(component.request());
+    fixture.detectChanges();
+    const preview = savedReview(); component.previewPeriod = preview;
+    const groups: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('#review-attitude .schedule-subsection'));
+    expect(groups.length).toBe(2);
+    expect(groups[0].querySelectorAll('nz-date-picker').length).toBe(3);
+    expect(groups[1].querySelectorAll('nz-date-picker').length).toBe(2);
+    expect(groups[0].querySelector('h4')?.textContent).toContain('REVIEW_PERIOD.ATTITUDE_SCHEDULE');
+    expect(groups[1].querySelector('h4')?.textContent).toContain('REVIEW_PERIOD.APPRAISAL_SCHEDULE');
+    const guide: HTMLDetailsElement = fixture.nativeElement.querySelector('#review-assessment details');
+    expect(guide.open).toBeFalse(); guide.querySelector('summary')!.click();
+    expect(guide.open).toBeTrue(); expect(component.request()).toEqual(request);
+    expect(component.form.dirty).toBeTrue(); expect(component.previewPeriod).toBe(preview);
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled(); expect(api.publish).not.toHaveBeenCalled();
+  });
+  it('shows field help and keeps Appraisal validation beside the correct input', () => {
+    fixture.detectChanges(); completeForm();
+    component.dates.hrFinalisationDeadline.setValue(pickerDate('2029-01-01')); component.validate(true); fixture.detectChanges();
+    const field: HTMLElement = fixture.nativeElement.querySelector('#appraisal-schedule-heading + .help + .grid label[for="hrFinalisationDeadline"]').parentElement;
+    expect(field.querySelector('.field-error')?.textContent).toContain('REVIEW_PERIOD.ERROR.DEADLINE_ORDER');
+    expect(field.querySelector('nz-date-picker')?.getAttribute('aria-describedby')).toBe('hrFinalisationDeadline-help');
+    expect(field.querySelector('#hrFinalisationDeadline-help')?.textContent).toContain('REVIEW_PERIOD.SCHEDULE_FIELD_HELP.hrFinalisationDeadline');
   });
   it('highlights an invalid opening date before saving and allows an incomplete Draft', () => {
     fixture.detectChanges(); completeForm();

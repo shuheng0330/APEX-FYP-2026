@@ -15,13 +15,14 @@ import { KpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
 import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAssessmentItem, KpiScoreBreakdown, assessmentItemError, assessmentPointError, assessmentCommentError } from '../../models/kpi-assessment.model';
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
+import { CompanyReportingSourceComponent } from './company-reporting-source.component';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 import { AttitudeSelfAssessmentComponent } from './attitude-self-assessment.component';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule,
-    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent],
+    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent, CompanyReportingSourceComponent],
   templateUrl: './my-assessments.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss']
 })
@@ -53,6 +54,11 @@ export class MyAssessmentsComponent implements OnInit {
   breakdownLoading = false;
   breakdownError = false;
   breakdown: KpiScoreBreakdown | null = null;
+  breakdownLevelScore(level: KpiScoreBreakdown['levels'][number]): number | null {
+    if (level.status !== 'AVAILABLE' || level.contribution === null || level.allocation <= 0) return null;
+    // Display the unweighted score from the server's exact contribution, without recalculating the total.
+    return level.contribution * 100 / level.allocation;
+  }
   detailItem: KpiItem[] = [];
   detailScope: KpiAssessmentItem['level'] = 'INDIVIDUAL';
   readonly points = [1, 2, 3, 4, 5];

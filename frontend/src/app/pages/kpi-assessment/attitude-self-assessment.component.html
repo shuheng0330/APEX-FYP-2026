@@ -97,12 +97,12 @@
                   }
                 </fieldset>
               }
+              @if (rating(item.selfPoint); as selected) {
+                <span class="selected-point-label selected-rating" role="status"><strong>{{ selected.label }}</strong></span>
+              }
               @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'attitude-point-error-' + item.criterionId">{{ validation | translate }}</span> }
             </div>
           </div>
-          @if (rating(item.selfPoint); as selected) {
-            <div class="selected-rating" role="status"><strong>{{ selected.label }}</strong><p>{{ selected.description }}</p></div>
-          }
           @if (readonly) { @if (item.selfComment) { <p class="saved-comment">{{ item.selfComment }}</p> } }
           @else {
             <label class="comment-label" [for]="'attitude-comment-' + item.criterionId">{{ 'MY_ASSESSMENTS.COMMENT' | translate }}</label>

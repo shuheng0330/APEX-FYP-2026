@@ -1,13 +1,14 @@
 <main class="review-page">
   <div class="page-heading">
     <div><h2>{{ 'KPI_PLAN.COMPANY_TITLE' | translate }}</h2><p class="help">{{ 'KPI_PLAN.COMPANY_HELP' | translate }}</p></div>
-    <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}
-      <nz-select class="plan-picker" [ngModel]="selectedId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible || !!revisions?.locked">
+    <div class="field">
+      <label for="company-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+      <nz-select nzId="company-review-period" class="plan-picker" [ngModel]="selectedId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible || !!revisions?.locked">
         @for (period of periods; track period.id) {
           <nz-option [nzValue]="period.id" [nzLabel]="(period.name || ('REVIEW_PERIOD.UNTITLED' | translate)) + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
         }
       </nz-select>
-    </label>
+    </div>
   </div>
   @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
   @if (success) { <div class="notice" role="status">{{ success }}</div> }

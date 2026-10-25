@@ -1,13 +1,14 @@
 <main class="review-page">
   <div class="page-heading">
     <div><h2>{{ 'INDIVIDUAL_KPI.TITLE' | translate }}</h2><p class="help">{{ 'INDIVIDUAL_KPI.HELP' | translate }}</p></div>
-    <label class="field">{{ 'KPI_PLAN.PERIOD' | translate }}
-      <nz-select class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible">
+    <div class="field">
+      <label for="my-kpi-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+      <nz-select nzId="my-kpi-review-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy || drawerVisible">
         @for (period of periods; track period.id) {
           <nz-option [nzValue]="period.id" [nzLabel]="(period.name || ('REVIEW_PERIOD.UNTITLED' | translate)) + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
         }
       </nz-select>
-    </label>
+    </div>
   </div>
   @if (error && !drawerVisible) {
     <div class="error-box" role="alert">{{ error }}</div>

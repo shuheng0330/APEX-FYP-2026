@@ -1,6 +1,12 @@
 export const ANNUAL_REVIEW_PERMISSION = 'CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD';
 export type ReviewPeriodStatus = 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
 export type ReviewFrequency = 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY';
+export type KpiFrequencyPolicy = 'ROLE_BASED' | 'DEPARTMENT_BASED';
+export interface ReviewDepartmentConfiguration {
+  departmentId: number;
+  departmentName?: string | null;
+  reviewFrequency: 'MONTHLY' | 'QUARTERLY';
+}
 export type ConsolidationMethod = 'FINAL_CHECKPOINT' | 'AVERAGE';
 export const REVIEW_FREQUENCIES: ReviewFrequency[] = ['MONTHLY', 'QUARTERLY', 'ANNUALLY'];
 
@@ -8,6 +14,7 @@ export interface ReviewRoleConfiguration {
   roleId: number;
   roleName: string;
   departmentName: string | null;
+  departmentId?: number | null;
   reviewFrequency: ReviewFrequency;
   employeeLevelId: number | null;
   employeeLevelName: string | null;
@@ -32,6 +39,8 @@ export type ReviewDateField = typeof REVIEW_DATE_FIELDS[number];
 
 export type AnnualReviewPeriodRequest = Record<ReviewDateField, string | null> & {
   name: string | null;
+  frequencyPolicy?: KpiFrequencyPolicy;
+  departmentConfigurations?: ReviewDepartmentConfiguration[];
   employeeLevelConfigurations: EmployeeLevelConfiguration[] | null;
   roleConfigurations: { roleId: number; reviewFrequency: ReviewFrequency | null }[];
   kpiPerformanceWeight: number | null;
@@ -66,6 +75,9 @@ export interface AnnualReviewPeriod extends Omit<AnnualReviewPeriodRequest, 'rol
 }
 
 export interface AnnualReviewCreationDefaults {
+  frequencyPolicy?: KpiFrequencyPolicy;
+  departmentConfigurations?: ReviewDepartmentConfiguration[];
+  annualKpiConsolidationMethod?: ConsolidationMethod | null;
   sourceReviewPeriodId: number | null;
   sourceReviewPeriodName?: string | null;
   employeeLevelConfigurations: EmployeeLevelConfiguration[];

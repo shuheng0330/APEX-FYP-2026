@@ -1,0 +1,6 @@
+.assessment-review-summary { overflow-wrap: anywhere; }
+.assessment-review-summary .status { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.attitude-review-readiness { padding: 8px 12px; margin-bottom: 12px; border-left: 3px solid #d49a25; border-radius: 6px; background: #fff9ec; font-size: 13px; overflow-wrap: anywhere; }
+.attitude-review-readiness ul { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.attitude-comment-guide { margin-bottom: 20px; padding: 10px 14px; border: 1px solid var(--tbm-border); border-radius: 8px; background: var(--tbm-surface-subtle); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.attitude-comment-guide p { margin: 4px 0 0; color: var(--tbm-muted); }

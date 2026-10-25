@@ -3,6 +3,18 @@ import { reviewLevels, savedReview, validReviewRequest } from './review-period.f
 import { validateReviewConfiguration } from './review-period.validation';
 
 describe('Annual review configuration validation', () => {
+  it('allows partial Department Drafts but requires mapped schedules for publication', () => {
+    const request = { ...validReviewRequest(), frequencyPolicy: 'DEPARTMENT_BASED' as const, departmentConfigurations: [] };
+    const roles = savedReview().roleConfigurations;
+    expect(validateReviewConfiguration(request, false, reviewLevels.map(l => l.id), roles)).toEqual([]);
+    expect(validateReviewConfiguration(request, true, reviewLevels.map(l => l.id), roles).some(i => i.section === 'departments')).toBeTrue();
+    expect(validateReviewConfiguration({ ...request, departmentConfigurations: [{ departmentId: 10, reviewFrequency: 'QUARTERLY' }] }, true, reviewLevels.map(l => l.id), roles)).toEqual([]);
+  });
+  it('rejects duplicate Department configuration even when saving a Draft', () => {
+    const request = { ...validReviewRequest(), frequencyPolicy: 'DEPARTMENT_BASED' as const,
+      departmentConfigurations: [1, 2].map(() => ({ departmentId: 10, reviewFrequency: 'MONTHLY' as const })) };
+    expect(validateReviewConfiguration(request, false, [], savedReview().roleConfigurations).some(i => i.key.endsWith('DEPARTMENT_FREQUENCY'))).toBeTrue();
+  });
   const validate = (request = validReviewRequest(), publish = true) => validateReviewConfiguration(request, publish, reviewLevels.map(l => l.id), savedReview().roleConfigurations);
   it('accepts the complete contract, including January final assessment deadlines', () => expect(validate()).toEqual([]));
   it('requires an Attitude opening date for publication while allowing incomplete Drafts', () => {

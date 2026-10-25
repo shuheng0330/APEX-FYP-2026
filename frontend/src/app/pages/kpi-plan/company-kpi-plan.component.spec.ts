@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { EventEmitter } from '@angular/core';
@@ -50,6 +50,34 @@ describe('Company KPI plan workspace', () => {
     const onOk = modal.confirm.calls.mostRecent().args[0]?.nzOnOk;
     if (onOk && !(onOk instanceof EventEmitter)) onOk(undefined);
   }
+  for (const target of ['.ant-select-selector', '.ant-select-selection-item', '.ant-select-arrow']) {
+    it(`opens the period dropdown from ${target} and accepts another period`, fakeAsync(() => {
+      tick(); fixture.detectChanges();
+      const selector: HTMLElement = fixture.nativeElement.querySelector('.plan-picker ' + target);
+      selector.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      selector.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      selector.click(); fixture.detectChanges(); tick(); fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.plan-picker').classList.contains('ant-select-open')).toBeTrue();
+      expect(document.querySelector('.cdk-overlay-container nz-option-item')).not.toBeNull();
+      const options = document.querySelectorAll<HTMLElement>('.cdk-overlay-container nz-option-item');
+      options[1].click(); fixture.detectChanges(); tick(); fixture.detectChanges();
+      expect(component.selectedId).toBe(2);
+      expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+    }));
+  }
+  it('keeps the field labelled and prevents opening while busy or editing an item', fakeAsync(() => {
+    tick(); fixture.detectChanges();
+    const label: HTMLLabelElement = fixture.nativeElement.querySelector('label[for="company-review-period"]');
+    expect(label.control?.id).toBe('company-review-period');
+    for (const state of ['busy', 'drawerVisible'] as const) {
+      component[state] = true; fixture.detectChanges();
+      const selector: HTMLElement = fixture.nativeElement.querySelector('.plan-picker .ant-select-selector');
+      selector.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); selector.click();
+      fixture.detectChanges(); tick(); fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.plan-picker').classList.contains('ant-select-open')).toBeFalse();
+      component[state] = false;
+    }
+  }));
   it('shows one concise plan table with a 100% total, not the employee-level allocation', () => {
     component.plan = plan(); component.items = [item('Revenue', 60), item('Customer satisfaction', 40)]; fixture.detectChanges();
     expect(component.total).toBe(100); expect(component.canPublish).toBeTrue();

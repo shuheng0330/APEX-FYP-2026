@@ -8,7 +8,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TranslateModule } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
-import { DownOutline } from '@ant-design/icons-angular/icons';
+import { CloseOutline, DownOutline } from '@ant-design/icons-angular/icons';
 import { filter, firstValueFrom, of } from 'rxjs';
 import { routes } from '../../app.routes';
 import { AnnualAppraisalService } from '../../services/annual-appraisal.service';
@@ -21,7 +21,7 @@ class DestinationComponent {}
 
 describe('Appraisal detail route lifecycle', () => {
   let api: jasmine.SpyObj<AnnualAppraisalService>;
-  let modal: jasmine.SpyObj<NzModalService>;
+  let modal: { confirm: jasmine.Spy<NzModalService['confirm']> };
   let router: Router;
   let harness: RouterTestingHarness;
   let grants: string[];
@@ -35,7 +35,7 @@ describe('Appraisal detail route lifecycle', () => {
     api.get.and.callFake(id => of(appraisal(id === 11 ? { id: 11, participantId: 8, employeeId: 'carol', employeeName: 'Carol' } : {})));
     api.history.and.returnValue(of([]));
     api.performanceHistory.and.returnValue(of([]));
-    modal = jasmine.createSpyObj('NzModalService', ['confirm']);
+    modal = { confirm: spyOn(NzModalService.prototype, 'confirm').and.stub() };
     const detailRoutes = routes.find(r => r.path === '')!.children!.filter(r =>
       r.path === 'team-performance/team-appraisals/:reviewPeriodId/:participantId' || r.path === 'appraisals/review/:appraisalId');
     await TestBed.configureTestingModule({ imports: [AnnualAppraisalDetailComponent, TranslateModule.forRoot()], providers: [
@@ -44,9 +44,8 @@ describe('Appraisal detail route lifecycle', () => {
         { path: 'elsewhere', component: DestinationComponent }, { path: '', component: DestinationComponent }]),
       provideLocationMocks(), provideNoopAnimations(), { provide: AnnualAppraisalService, useValue: api },
       { provide: AuthService, useValue: { userId: 'alice', hasRole: (p: string) => grants.includes(p) } },
-      { provide: NZ_ICONS, useValue: [DownOutline] }
+      { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline] }
     ] }).compileComponents();
-    TestBed.overrideProvider(NzModalService, { useValue: modal });
     router = TestBed.inject(Router); harness = await RouterTestingHarness.create();
     // Harness navigation does not bootstrap the application's popstate listener.
     router.setUpLocationChangeListener();
@@ -103,5 +102,26 @@ describe('Appraisal detail route lifecycle', () => {
     await setup(); grants.splice(1); await router.navigateByUrl('/appraisals/review/10');
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(router.url).toBe('/access-denied'); expect(api.get).not.toHaveBeenCalled(); expect(api.periods).not.toHaveBeenCalled();
+  });
+  it('retains the HR modal, record and URL when sidebar, another record or browser Back is cancelled', async () => {
+    await setup(); await harness.navigateByUrl('/appraisals/review');
+    api.get.and.returnValue(of(appraisal({ status: 'PENDING_REVIEW', snapshot: performance(), allowedActions: ['RETURN'] })));
+    const detail = await harness.navigateByUrl('/appraisals/review/10', AnnualAppraisalDetailComponent);
+    detail.beginDecision('RETURN'); detail.reason = 'Keep this HR feedback'; harness.detectChanges();
+    await harness.fixture.whenStable(); harness.detectChanges();
+    for (const path of ['/elsewhere', '/appraisals/review/11']) {
+      const navigating = router.navigateByUrl(path); await waitForGuard(); answer(false); expect(await navigating).toBeFalse();
+      expect(router.url).toBe('/appraisals/review/10'); expect(detail.selected?.employeeId).toBe('bob');
+      expect(detail.reason).toBe('Keep this HR feedback'); expect(detail.decision).toBe('RETURN');
+    }
+    const cancelled = firstValueFrom(router.events.pipe(filter(e => e instanceof NavigationCancel)));
+    TestBed.inject(Location).back(); await waitForGuard(); answer(false); await cancelled;
+    harness.detectChanges(); await harness.fixture.whenStable(); harness.detectChanges();
+    expect(router.url).toBe('/appraisals/review/10');
+    expect(document.querySelector<HTMLTextAreaElement>('#annual-decision-reason')?.value).toBe('Keep this HR feedback');
+    expect(api.get).toHaveBeenCalledTimes(1);
+    const accepted = router.navigateByUrl('/elsewhere'); await waitForGuard(); answer(true); expect(await accepted).toBeTrue();
+    harness.detectChanges(); await harness.fixture.whenStable();
+    expect(document.querySelector('.decision-modal')).toBeNull();
   });
 });

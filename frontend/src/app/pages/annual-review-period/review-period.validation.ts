@@ -1,12 +1,12 @@
 import { AnnualReviewPeriodRequest, ReviewDateField, ReviewRoleConfiguration, weightTotal, pickerDate, calendarDate } from '../../models/annual-review-period.model';
 
-export type ReviewSection = 'basic' | 'roles' | 'levels' | 'composition' | 'consolidation' | 'setup' | 'assessment' | 'attitude';
+export type ReviewSection = 'basic' | 'roles' | 'departments' | 'levels' | 'composition' | 'consolidation' | 'setup' | 'assessment' | 'attitude';
 export interface ReviewValidationIssue { section: ReviewSection; field: string; key: string; params?: Record<string, string | number>; }
 export const SETUP_DEADLINES: ReviewDateField[] = ['kpiSetupDeadline'];
 export const FINAL_DEADLINES: ReviewDateField[] = ['attitudeSelfAssessmentStartDate', 'attitudeSelfAssessmentDeadline', 'superiorAttitudeEvaluationDeadline', 'appraisalRecommendationDeadline', 'hrFinalisationDeadline'];
 
 export function validateReviewConfiguration(request: AnnualReviewPeriodRequest, publish: boolean,
-  levelIds: number[], roles: ReviewRoleConfiguration[]): ReviewValidationIssue[] {
+  levelIds: number[], roles: ReviewRoleConfiguration[], publishedSchedule = false): ReviewValidationIssue[] {
   const issues: ReviewValidationIssue[] = [];
   const add = (section: ReviewSection, field: string, key: string, params?: Record<string, string | number>) => issues.push({ section, field, key: `REVIEW_PERIOD.ERROR.${key}`, params });
   const required = (section: ReviewSection, field: string, value: unknown) => {
@@ -20,6 +20,18 @@ export function validateReviewConfiguration(request: AnnualReviewPeriodRequest, 
   for (const item of request.roleConfigurations) {
     const role = roles.find(role => role.roleId === item.roleId);
     if (publish && !role?.employeeLevelId) add('roles', `role-${item.roleId}`, 'ROLE_LEVEL', { role: role?.roleName ?? item.roleId });
+    if (publish && !publishedSchedule && request.frequencyPolicy === 'DEPARTMENT_BASED') {
+      const configuration = request.departmentConfigurations?.find(c => c.departmentId === role?.departmentId);
+      if (!configuration) add('departments', `department-${role?.departmentId ?? item.roleId}`, 'DEPARTMENT_SCHEDULE', { role: role?.roleName ?? item.roleId });
+    }
+  }
+  if (request.frequencyPolicy === 'DEPARTMENT_BASED') {
+    const seen = new Set<number>();
+    for (const configuration of request.departmentConfigurations ?? []) {
+      if (!Number.isSafeInteger(configuration.departmentId) || configuration.departmentId <= 0 || seen.has(configuration.departmentId) ||
+        !['MONTHLY', 'QUARTERLY'].includes(configuration.reviewFrequency)) add('departments', `department-${configuration.departmentId}`, 'DEPARTMENT_FREQUENCY');
+      seen.add(configuration.departmentId);
+    }
   }
   const checkWeight = (section: ReviewSection, field: string, value: number | null) => {
     required(section, field, value);

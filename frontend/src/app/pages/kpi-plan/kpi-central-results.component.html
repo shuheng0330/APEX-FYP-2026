@@ -4,16 +4,6 @@
       <h2>{{ 'KPI_RESULTS.TITLE' | translate }}</h2>
       <p class="help">{{ 'KPI_RESULTS.HELP' | translate }}</p>
     </div>
-    @if (periods.length) {
-      <div class="field context-picker">
-        <label for="central-result-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
-        <nz-select nzId="central-result-period" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy">
-          @for (period of periods; track period.id) {
-            <nz-option [nzValue]="period.id" [nzLabel]="(period.name || '-') + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
-          }
-        </nz-select>
-      </div>
-    }
   </div>
 
   @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
@@ -31,13 +21,18 @@
         </button>
       }
     </nav>
-    @if (!options.length) {
-      <section class="card empty"><h3>{{ 'KPI_RESULTS.NO_PLAN_TITLE' | translate }}</h3>
-        <p class="help">{{ 'KPI_RESULTS.NO_PLAN' | translate }}</p></section>
-    } @else {
       <section class="card context-card">
         <div class="card-body">
           <div class="context-grid">
+            <div class="field context-picker">
+              <label for="central-result-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+              <nz-select nzId="central-result-period" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="busy">
+                @for (period of periods; track period.id) {
+                  <nz-option [nzValue]="period.id" [nzLabel]="(period.name || '-') + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
+                }
+              </nz-select>
+            </div>
+            @if (options.length) {
             <div class="field">
               <label for="central-result-version">{{ 'KPI_RESULTS.PLAN_VERSION' | translate }}</label>
               <nz-select nzId="central-result-version" [ngModel]="versionId" (ngModelChange)="changeVersion($event)" [nzDisabled]="busy">
@@ -55,17 +50,33 @@
                 }
               </nz-select>
             </div>
+            }
           </div>
           @if (selectedCheckpoint; as checkpoint) {
-            <div class="context-summary">
-              <span class="status" [attr.data-status]="selectedPeriod?.status">{{ 'REVIEW_PERIOD.STATUS.' + selectedPeriod?.status | translate }}</span>
-              <span>{{ 'KPI_RESULTS.FREQUENCY.' + checkpoint.reviewFrequency | translate }}</span>
-              <span>{{ 'KPI_RESULTS.CHECKPOINT_END' | translate }}: {{ checkpoint.endDate | date:'dd MMM yyyy' }}</span>
-              <span>{{ 'KPI_RESULTS.OPENS' | translate }}: {{ openingDate(checkpoint) | date:'dd MMM yyyy' }}</span>
-            </div>
+            <dl class="context-summary">
+              <div><dt>{{ 'KPI_RESULTS.PERIOD_STATUS' | translate }}</dt><dd><span class="status" [attr.data-status]="selectedPeriod?.status">{{ 'REVIEW_PERIOD.STATUS.' + selectedPeriod?.status | translate }}</span></dd></div>
+              <div><dt>{{ 'KPI_RESULTS.REPORTING_FREQUENCY' | translate }}</dt><dd>{{ 'REVIEW_PERIOD.FREQUENCY.' + checkpoint.reviewFrequency | translate }}</dd></div>
+              <div><dt>{{ 'KPI_RESULTS.CHECKPOINT_END' | translate }}</dt><dd>{{ checkpoint.endDate | date:'dd MMM yyyy' }}</dd></div>
+              <div><dt>{{ 'KPI_RESULTS.OPENS' | translate }}</dt><dd>{{ openingDate(checkpoint) | date:'dd MMM yyyy' }}</dd></div>
+            </dl>
+            @if (level === 'COMPANY') {
+              <details class="company-reporting-guide">
+                <summary>{{ 'KPI_RESULTS.REPORTING_GUIDE' | translate }}</summary>
+                <div class="reporting-guide-content">
+                  @if (selectedPeriod?.frequencyPolicy === 'DEPARTMENT_BASED') {
+                    <p>{{ 'KPI_RESULTS.REPORTING_YTD_HELP' | translate }}</p>
+                    <p>{{ 'KPI_RESULTS.REPORTING_QUARTER_HELP' | translate }}</p>
+                  } @else { <p>{{ 'KPI_RESULTS.REPORTING_HELP' | translate }}</p> }
+                </div>
+              </details>
+            }
           }
         </div>
       </section>
+    @if (!options.length) {
+      <section class="card empty"><h3>{{ 'KPI_RESULTS.NO_PLAN_TITLE' | translate }}</h3>
+        <p class="help">{{ 'KPI_RESULTS.NO_PLAN' | translate }}</p></section>
+    } @else {
       @if (!checkpoints.length) {
         <section class="card empty"><h3>{{ 'KPI_RESULTS.NO_CHECKPOINT_TITLE' | translate }}</h3>
           <p class="help">{{ 'KPI_RESULTS.NO_CHECKPOINT' | translate }}</p></section>
@@ -189,10 +200,10 @@
       }
     }
     @if (auth.hasRole('CAN_MANAGE_COMPANY_KPI') && periodId !== null) {
-      <section class="card delegate-card">
-        <div class="card-head"><h3>{{ 'KPI_RESULTS.ENTRANTS' | translate }}</h3>
-          <p class="help">{{ 'KPI_RESULTS.ENTRANTS_HELP' | translate }}</p></div>
+      <details class="card delegate-card">
+        <summary>{{ 'KPI_RESULTS.MANAGE_ENTRANTS' | translate }}</summary>
         <div class="card-body">
+          <p class="help entrants-help">{{ 'KPI_RESULTS.ENTRANTS_HELP' | translate }}</p>
           <div class="notice permission-help">
             <strong>{{ 'KPI_RESULTS.PERMISSION_REQUIRED' | translate }}</strong>
             <p>{{ 'KPI_RESULTS.ENTRANT_PERMISSION' | translate }}</p>
@@ -228,7 +239,7 @@
             @if (staffError) { <p class="help warning">{{ 'KPI_RESULTS.STAFF_UNAVAILABLE' | translate }}</p> }
           }
         </div>
-      </section>
+      </details>
     }
   }
 

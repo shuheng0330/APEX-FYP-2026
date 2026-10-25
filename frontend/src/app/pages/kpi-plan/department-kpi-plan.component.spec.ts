@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { EventEmitter } from '@angular/core';
@@ -52,6 +52,48 @@ describe('Department KPI plan workspace', () => {
     const onOk = modal.confirm.calls.mostRecent().args[0]?.nzOnOk;
     if (onOk && !(onOk instanceof EventEmitter)) onOk(undefined);
   }
+  for (const field of [
+    { name: 'Review Period', property: 'periodId' as const, index: 0, next: 2 },
+    { name: 'Department', property: 'departmentId' as const, index: 1, next: 3 }
+  ]) {
+    for (const target of ['.ant-select-selection-item', '.ant-select-arrow']) {
+      it(`opens ${field.name} from ${target} and accepts another value`, fakeAsync(() => {
+        component.periods = [period(), { ...period(), id: 2, name: '2029 Annual Review' }];
+        component.departments = [{ id: 2, name: 'Retail Sales' }, { id: 3, name: 'IT' }];
+        fixture.detectChanges(); tick(); fixture.detectChanges();
+        const select: HTMLElement = fixture.nativeElement.querySelectorAll('.plan-picker')[field.index];
+        const trigger = select.querySelector<HTMLElement>(target)!;
+        trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        trigger.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); trigger.click();
+        fixture.detectChanges(); tick(); fixture.detectChanges();
+        const open = select.classList.contains('ant-select-open'); expect(open).toBeTrue();
+        if (!open) return;
+        document.querySelectorAll<HTMLElement>('.cdk-overlay-container nz-option-item')[1].click();
+        fixture.detectChanges(); tick(); fixture.detectChanges();
+        expect(component[field.property]).toBe(field.next);
+        expect(component[field.property === 'periodId' ? 'departmentId' : 'periodId']).toBe(field.property === 'periodId' ? 2 : 1);
+        expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+      }));
+    }
+  }
+  it('associates both labels with their inputs and keeps both selectors locked while busy or editing', fakeAsync(() => {
+    component.departments = [{ id: 2, name: 'Retail Sales' }, { id: 3, name: 'IT' }];
+    fixture.detectChanges(); tick(); fixture.detectChanges();
+    for (const id of ['department-review-period', 'department-plan-department']) {
+      const label: HTMLLabelElement = fixture.nativeElement.querySelector(`label[for="${id}"]`);
+      expect(label.control?.id).toBe(id);
+    }
+    for (const state of ['busy', 'drawerVisible'] as const) {
+      component[state] = true; fixture.detectChanges();
+      for (const select of fixture.nativeElement.querySelectorAll('.plan-picker')) {
+        const trigger: HTMLElement = select.querySelector('.ant-select-selector');
+        trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); trigger.click();
+        fixture.detectChanges(); tick(); fixture.detectChanges();
+        expect(select.classList.contains('ant-select-open')).toBeFalse();
+      }
+      component[state] = false;
+    }
+  }));
   it('shows the Department plan and within-level 100% progress', () => {
     component.plan = plan(); component.items = [item('Sales', 60), item('Service', 40)]; fixture.detectChanges();
     expect(component.total).toBe(100); expect(component.canSubmit).toBeTrue();

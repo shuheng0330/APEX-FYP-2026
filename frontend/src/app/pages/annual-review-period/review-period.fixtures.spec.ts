@@ -24,7 +24,7 @@ export function savedReview(): AnnualReviewPeriod {
   const request = validReviewRequest();
   return { ...request, id: 29, referenceNumber: 'review-reference', status: 'UPCOMING',
     employeeLevelConfigurations: request.employeeLevelConfigurations ?? [],
-    roleConfigurations: [{ roleId: 7, roleName: 'Retail Sales Executive', departmentName: 'Sales', reviewFrequency: 'MONTHLY', employeeLevelId: 4, employeeLevelName: 'Executive' }],
+    roleConfigurations: [{ roleId: 7, roleName: 'Retail Sales Executive', departmentId: 10, departmentName: 'Sales', reviewFrequency: 'MONTHLY', employeeLevelId: 4, employeeLevelName: 'Executive' }],
     checkpoints: [{ id: 1, reviewFrequency: 'MONTHLY', sequenceNumber: 1, startDate: '2028-01-01', endDate: '2028-01-31', selfAssessmentDeadline: '2028-02-05', superiorAssessmentDeadline: '2028-02-10' }],
     createdAt: null, updatedAt: null };
 }

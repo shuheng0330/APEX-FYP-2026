@@ -1,7 +1,7 @@
 import { EventEmitter } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
@@ -201,11 +201,61 @@ describe('Team KPI assessment reviews', () => {
     expect(modal.confirm.calls.mostRecent().args[0]?.nzContent).toBe('KPI_ASSESSMENT_REVIEW.COMPLETE_CONFIRM_CENTRAL');
     expect(api.completeReview).not.toHaveBeenCalled();
   });
-  it('shows a pending result in the queue and drawer, then a corrected numeric score on reload', () => {
+  it('keeps the employee in the title and makes checkpoint context compact without duplicate identity', () => {
+    page.open(20); fixture.detectChanges();
+    const summary = drawer().querySelector('.assessment-review-summary')!;
+    expect(summary.textContent).not.toContain('Amir');
+    expect(summary.querySelector('.assessment-review-context')?.textContent?.replace(/\s+/g, ' ')).toContain('Sales Executive / Retail');
+    expect(summary.textContent).toContain('January 2028');
+    expect(summary.textContent).toContain('10 Feb 2028');
+    expect(summary.textContent).toContain('MY_ASSESSMENTS.STATUS.PENDING_REVIEW');
+    expect(document.querySelector('.ant-drawer-open .drawer-title')?.textContent).toContain('Amir / 2028 Annual Review');
+    expect(getComputedStyle(summary).marginBottom).toBe('12px');
+  });
+  it('collapses supporting checkpoint details by default and preserves unsaved ratings when toggled', async () => {
+    api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', frequencyPolicy: 'DEPARTMENT_BASED',
+      companyReportingCheckpoint: { id: 13, reviewFrequency: 'MONTHLY', startDate: '2028-03-01', endDate: '2028-03-31' },
+      pendingResultLevels: ['COMPANY', 'DEPARTMENT', 'INDIVIDUAL'] })));
+    page.open(20); fixture.detectChanges(); await fixture.whenStable();
+    const details = drawer().querySelector<HTMLDetailsElement>('.review-checkpoint-details')!;
+    expect(details.open).toBeFalse();
+    expect(details.querySelector('summary')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.CHECKPOINT_DETAILS');
+    expect(details.querySelector('app-company-reporting-source')?.textContent).toContain('31 Mar 2028');
+    expect(details.querySelector('.result-pending')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.COMPANY');
+    expect(drawer().querySelectorAll('.result-pending').length).toBe(1);
+    page.items[0].superiorPoint = 4; page.items[0].superiorComment = 'Keep my feedback';
+    let toggled = new Promise(resolve => details.addEventListener('toggle', resolve, { once: true }));
+    details.querySelector('summary')!.click(); await toggled; fixture.detectChanges();
+    expect(details.open).toBeTrue(); expect(page.checkpointDetailsExpanded).toBeTrue();
+    toggled = new Promise(resolve => details.addEventListener('toggle', resolve, { once: true }));
+    details.querySelector('summary')!.click(); await toggled; fixture.detectChanges();
+    expect(details.open).toBeFalse(); expect(page.items[0].superiorPoint).toBe(4);
+    expect(page.items[0].superiorComment).toBe('Keep my feedback'); expect(page.canComplete).toBeTrue();
+    expect(api.saveSuperiorDraft).not.toHaveBeenCalled(); expect(api.completeReview).not.toHaveBeenCalled();
+    page.checkpointDetailsExpanded = true;
+    page.items = structuredClone(page.selected!.items); page.close(); page.open(20); fixture.detectChanges();
+    expect(page.checkpointDetailsExpanded).toBeFalse();
+  });
+  it('keeps the live remaining-ratings reminder outside the collapsed details', () => {
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { KPI_ASSESSMENT_REVIEW: { POINTS_REMAINING: 'Ratings remaining: {{count}}. Select a Superior point for each KPI.' } });
+    translate.use('en');
+    api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', items: [item(), { ...item(), id: 45 }] })));
+    page.open(20); fixture.detectChanges();
+    expect(drawer().querySelector('.submission-readiness')?.textContent).toContain('Ratings remaining: 2.');
+    expect(drawer().querySelector('.review-checkpoint-details .submission-readiness')).toBeNull();
+    page.items[0].superiorPoint = 4; fixture.detectChanges();
+    expect(drawer().querySelector('.submission-readiness')?.textContent).toContain('Ratings remaining: 1.');
+    page.items[1].superiorPoint = 5; fixture.detectChanges();
+    expect(drawer().querySelector('.submission-readiness')).toBeNull(); expect(page.canComplete).toBeTrue();
+    expect(drawer().querySelectorAll('.review-assessment-card').length).toBe(2);
+    expect(document.querySelector('.ant-drawer-open .review-assessment-footer')).not.toBeNull();
+  });
+  it('loads pending results and displays the corrected score in the detail drawer after reload', () => {
     api.reviews.and.returnValue(of([{ ...row(21, 'REVIEWED'), assessmentModel: 'CENTRAL_RESULTS',
       pendingResultLevels: ['DEPARTMENT'], checkpointScore: null }]));
     page.load(); page.filter = 'REVIEWED'; fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.queue-score')?.textContent).toContain('KPI_ASSESSMENT_REVIEW.SCORE_PENDING');
+    expect(page.visibleReviews[0].checkpointScore).toBeNull();
     api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', checkpointScore: null,
       pendingResultLevels: ['DEPARTMENT'], canSaveSuperiorDraft: false })));
     page.open(21); fixture.detectChanges();
@@ -215,7 +265,19 @@ describe('Team KPI assessment reviews', () => {
     api.reviews.and.returnValue(of([{ ...row(21, 'REVIEWED'), assessmentModel: 'CENTRAL_RESULTS',
       pendingResultLevels: [], checkpointScore: 78 }]));
     page.load(); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.queue-score')?.textContent).toContain('78.00%');
+    expect(page.visibleReviews[0].checkpointScore).toBe(78);
+    api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', checkpointScore: 78,
+      pendingResultLevels: [], canSaveSuperiorDraft: false })));
+    page.open(21); fixture.detectChanges();
+    expect(drawer().querySelector('.checkpoint-score')?.textContent).toContain('78.00%');
+  });
+  it('shows the authorised Company source without calling the employee-only breakdown endpoint', () => {
+    api.get.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', frequencyPolicy: 'DEPARTMENT_BASED',
+      companyReportingCheckpoint: { id: 13, reviewFrequency: 'MONTHLY', startDate: '2028-03-01', endDate: '2028-03-31' } })));
+    page.open(20); fixture.detectChanges();
+    expect(drawer().querySelector('app-company-reporting-source')?.textContent).toContain('31 Mar 2028');
+    expect(drawer().querySelector('app-company-reporting-source')?.textContent).toContain('KPI_SCORE_BREAKDOWN.COMPANY_REPORTING_PERIOD');
+    expect(drawer().querySelector('app-company-reporting-source')?.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_YTD');
   });
   it('rechecks backend completion readiness after saving rather than ignoring new blockers', () => {
     page.open(20); page.items[0].superiorPoint = 4;
@@ -232,7 +294,9 @@ describe('Team KPI assessment reviews', () => {
   });
   it('allows overdue review in an Open period without turning overdue into a lifecycle status', () => {
     api.get.and.returnValue(of(assessment({ superiorOverdue: true }))); page.open(20); page.items[0].superiorPoint = 5;
-    expect(page.canComplete).toBeTrue(); fixture.detectChanges(); expect(drawer().textContent).toContain('KPI_ASSESSMENT_REVIEW.LATE_HELP');
+    expect(page.canComplete).toBeTrue(); fixture.detectChanges();
+    expect(drawer().querySelector('.assessment-review-deadline .overdue')?.textContent).toContain('MY_ASSESSMENTS.OVERDUE');
+    expect(drawer().textContent).not.toContain('KPI_ASSESSMENT_REVIEW.LATE_HELP');
     page.complete(); expect(api.completeReview).toHaveBeenCalled(); expect(page.selected?.reviewedLate).toBeTrue();
   });
   it('preserves input on a failed save and blocks further decisions after lost access', () => {

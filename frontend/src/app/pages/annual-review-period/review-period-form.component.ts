@@ -16,12 +16,13 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { AnnualReviewCreationDefaults, AnnualReviewPeriod, AnnualReviewPeriodRequest, calendarDate, ConsolidationMethod,
   EmployeeLevelConfiguration, editableReviewPeriod, pickerDate, REVIEW_DATE_FIELDS, REVIEW_FREQUENCIES, ReviewFrequency,
-  ReviewRoleConfiguration, weightTotal } from '../../models/annual-review-period.model';
+  ReviewRoleConfiguration, ReviewDepartmentConfiguration, KpiFrequencyPolicy, weightTotal } from '../../models/annual-review-period.model';
 import { EmployeeLevel } from '../../models/role.model';
 import { AnnualReviewPeriodService } from '../../services/annual-review-period.service';
 import { RoleService } from '../../services/role.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewPeriodSummaryComponent } from './review-period-summary.component';
+import { ReviewDeadlineGuideComponent } from './review-deadline-guide.component';
 import { FINAL_DEADLINES, ReviewSection, ReviewValidationIssue, SETUP_DEADLINES, validateReviewConfiguration } from './review-period.validation';
 
 function roleForm(option: ReviewRoleConfiguration, selected: boolean) {
@@ -39,13 +40,40 @@ function levelForm(level: EmployeeLevel, saved?: EmployeeLevelConfiguration) {
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, ReactiveFormsModule, TranslateModule, NzButtonModule,
     NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzCheckboxModule, NzRadioModule,
-    NzModalModule, ReviewPeriodSummaryComponent],
+    NzModalModule, ReviewPeriodSummaryComponent, ReviewDeadlineGuideComponent],
   templateUrl: './review-period-form.component.html', styleUrl: './review-period.scss'
 })
 export class ReviewPeriodFormComponent implements OnInit {
-  readonly sections: ReviewSection[] = ['basic', 'roles', 'levels', 'composition', 'consolidation', 'setup', 'assessment', 'attitude'];
+  get sections(): ReviewSection[] { return ['basic', 'roles', ...(this.departmentBased ? ['departments' as const] : []), 'levels', 'composition', 'consolidation', 'setup', 'assessment', 'attitude']; }
+  readonly departmentFrequencies = ['MONTHLY', 'QUARTERLY'] as const;
+  frequencyPolicy: KpiFrequencyPolicy = 'DEPARTMENT_BASED';
+  departmentSchedules = new Map<number, ReviewDepartmentConfiguration['reviewFrequency']>();
+  get departmentBased(): boolean { return this.frequencyPolicy === 'DEPARTMENT_BASED'; }
+  get frozenSchedule(): boolean { return this.departmentBased && this.limitedEdit; }
+  get selectedRoles(): ReviewRoleConfiguration[] { return this.roleOptions.filter((_, index) => this.roleRows.at(index)?.controls.selected.value); }
+  get missingLevels(): ReviewRoleConfiguration[] { return this.selectedRoles.filter(role => !role.employeeLevelId); }
+  get selectedDepartments(): { departmentId: number; departmentName: string }[] {
+    if (this.limitedEdit && this.departmentBased) return (this.period?.departmentConfigurations ?? []).map(c => ({ departmentId: c.departmentId, departmentName: c.departmentName ?? String(c.departmentId) }));
+    return Array.from(new Map(this.selectedRoles.filter(role => !!role.departmentId).map(role => [role.departmentId!, {
+      departmentId: role.departmentId!, departmentName: role.departmentName ?? String(role.departmentId)
+    }])).values()).sort((a, b) => a.departmentName.localeCompare(b.departmentName));
+  }
+  changeDepartmentFrequency(id: number, frequency: ReviewDepartmentConfiguration['reviewFrequency'] | null): void {
+    if (this.limitedEdit || this.busy) return;
+    if (frequency) this.departmentSchedules.set(id, frequency); else this.departmentSchedules.delete(id);
+    this.form.markAsDirty(); this.previewPeriod = null;
+    if (this.issues.length) this.validate(this.publishingValidation);
+  }
+  adoptDepartmentSchedule(): void {
+    if (this.period?.status !== 'DRAFT' || this.departmentBased || this.busy) return;
+    this.modal.confirm({ nzTitle: this.translate.instant('REVIEW_PERIOD.DEPARTMENT_SCHEDULE.ADOPT'),
+      nzContent: this.translate.instant('REVIEW_PERIOD.DEPARTMENT_SCHEDULE.ADOPT_HELP'),
+      nzOnOk: () => { this.frequencyPolicy = 'DEPARTMENT_BASED'; this.departmentSchedules.clear(); this.form.markAsDirty(); this.previewPeriod = null; } });
+  }
   readonly setupDeadlines = SETUP_DEADLINES;
   readonly finalDeadlines = FINAL_DEADLINES;
+  readonly attitudeDeadlines = FINAL_DEADLINES.slice(0, 3);
+  readonly appraisalDeadlines = FINAL_DEADLINES.slice(3);
   readonly frequencies = REVIEW_FREQUENCIES;
   readonly dates = Object.fromEntries(REVIEW_DATE_FIELDS.map(field => [field, new FormControl<Date | null>(null)])) as Record<typeof REVIEW_DATE_FIELDS[number], FormControl<Date | null>>;
   readonly roleRows = new FormArray<ReturnType<typeof roleForm>>([]);
@@ -76,6 +104,7 @@ export class ReviewPeriodFormComponent implements OnInit {
   departmentFilter: string | null = null;
   private defaults$ = new Subject<string | null>();
   private publishingValidation = false;
+  private consolidationCopied = false;
   private destroyRef = inject(DestroyRef);
   total = weightTotal;
   editable = editableReviewPeriod;
@@ -126,6 +155,9 @@ export class ReviewPeriodFormComponent implements OnInit {
   }
 
   private populate(period: AnnualReviewPeriod | null, options: ReviewRoleConfiguration[]): void {
+    this.consolidationCopied = false;
+    this.frequencyPolicy = period ? period.frequencyPolicy ?? 'ROLE_BASED' : 'DEPARTMENT_BASED';
+    this.departmentSchedules = new Map((period?.departmentConfigurations ?? []).map(c => [c.departmentId, c.reviewFrequency]));
     this.form.enable({ emitEvent: false });
     this.defaultsNotice = ''; this.defaultsNeedRefresh = false; this.issues = []; this.draftReadinessShown = period?.status === 'DRAFT';
     this.form.reset({ kpiPerformanceWeight: 50, attitudeEvaluationWeight: 50 }, { emitEvent: false });
@@ -147,11 +179,17 @@ export class ReviewPeriodFormComponent implements OnInit {
         superiorAssessmentDaysAfterSelfDeadline: period.superiorAssessmentDaysAfterSelfDeadline }, { emitEvent: false });
     }
     this.form.markAsPristine();
+    if (!period) this.form.controls.annualKpiConsolidationMethod.setValue('FINAL_CHECKPOINT', { emitEvent: false });
     if (this.limitedEdit) {
       this.roleRows.disable({ emitEvent: false }); this.levelRows.disable({ emitEvent: false });
       this.form.controls.kpiPerformanceWeight.disable({ emitEvent: false });
       this.form.controls.attitudeEvaluationWeight.disable({ emitEvent: false });
       this.form.controls.annualKpiConsolidationMethod.disable({ emitEvent: false });
+      if (this.frozenSchedule) {
+        this.dates.startDate.disable({ emitEvent: false }); this.dates.endDate.disable({ emitEvent: false });
+        this.form.controls.selfAssessmentDaysAfterCheckpoint.disable({ emitEvent: false });
+        this.form.controls.superiorAssessmentDaysAfterSelfDeadline.disable({ emitEvent: false });
+      }
     }
   }
 
@@ -197,6 +235,16 @@ export class ReviewPeriodFormComponent implements OnInit {
   }
 
   private applyDefaults(defaults: AnnualReviewCreationDefaults): void {
+    // Do not replace an explicit choice, including Average, when defaults arrive asynchronously.
+    if (!this.consolidationCopied && this.form.controls.annualKpiConsolidationMethod.pristine) {
+      this.form.controls.annualKpiConsolidationMethod.setValue(defaults.annualKpiConsolidationMethod ?? 'FINAL_CHECKPOINT', { emitEvent: false });
+      this.consolidationCopied = !!defaults.annualKpiConsolidationMethod;
+    }
+    if (this.departmentBased) {
+      for (const configuration of defaults.departmentConfigurations ?? []) {
+        if (!this.departmentSchedules.has(configuration.departmentId)) this.departmentSchedules.set(configuration.departmentId, configuration.reviewFrequency);
+      }
+    }
     this.levelRows.controls.forEach(row => {
       const saved = defaults.employeeLevelConfigurations.find(c => c.employeeLevelId === row.controls.employeeLevelId.value);
       if (saved) row.patchValue({ companyKpiWeight: saved.companyKpiWeight, departmentKpiWeight: saved.departmentKpiWeight,
@@ -218,17 +266,22 @@ export class ReviewPeriodFormComponent implements OnInit {
     const dates = Object.fromEntries(REVIEW_DATE_FIELDS.map(field => [field, calendarDate(value[field])])) as Record<typeof REVIEW_DATE_FIELDS[number], string | null>;
     const weights = this.levelRows.getRawValue();
     return { ...dates, name: value.name?.trim() || null,
+      frequencyPolicy: this.frequencyPolicy,
+      departmentConfigurations: this.departmentBased ? this.selectedDepartments.flatMap(department => {
+        const reviewFrequency = this.departmentSchedules.get(department.departmentId);
+        return reviewFrequency ? [{ ...department, reviewFrequency }] : [];
+      }) : undefined,
       kpiPerformanceWeight: value.kpiPerformanceWeight, attitudeEvaluationWeight: value.attitudeEvaluationWeight,
       annualKpiConsolidationMethod: value.annualKpiConsolidationMethod,
       selfAssessmentDaysAfterCheckpoint: value.selfAssessmentDaysAfterCheckpoint,
       superiorAssessmentDaysAfterSelfDeadline: value.superiorAssessmentDaysAfterSelfDeadline,
       employeeLevelConfigurations: weights.every(w => w.companyKpiWeight === null && w.departmentKpiWeight === null && w.individualKpiWeight === null) && this.levelRows.pristine && !this.period ? null : weights,
-      roleConfigurations: this.roleRows.getRawValue().filter(r => r.selected).map(r => ({ roleId: r.roleId, reviewFrequency: r.reviewFrequency })) };
+      roleConfigurations: this.roleRows.getRawValue().filter(r => r.selected).map(r => ({ roleId: r.roleId, reviewFrequency: this.departmentBased ? null : r.reviewFrequency })) };
   }
 
   validate(publish: boolean): boolean {
     this.publishingValidation = publish;
-    this.issues = validateReviewConfiguration(this.request(), publish, this.employeeLevels.map(l => l.id), this.roleOptions);
+    this.issues = validateReviewConfiguration(this.request(), publish, this.employeeLevels.map(l => l.id), this.roleOptions, this.limitedEdit);
     return !this.issues.length;
   }
   sectionIssues(section: ReviewSection): ReviewValidationIssue[] { return this.issues.filter(issue => issue.section === section); }

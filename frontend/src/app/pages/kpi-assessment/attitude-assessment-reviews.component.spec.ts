@@ -2,7 +2,7 @@ import { EventEmitter } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
@@ -11,6 +11,7 @@ import { AttitudeAssessment, AttitudeAssessmentItem, AttitudeAssessmentReview } 
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 import { AttitudeAssessmentReviewsComponent } from './attitude-assessment-reviews.component';
+import { reviewLayout } from '../kpi-plan/review-navigation.test-layout';
 
 describe('Superior Attitude Evaluations', () => {
   let fixture: ComponentFixture<AttitudeAssessmentReviewsComponent>;
@@ -83,6 +84,54 @@ describe('Superior Attitude Evaluations', () => {
     expect(drawer().querySelector('.self-answers input')).toBeNull(); expect(drawer().querySelector('.self-answers textarea')).toBeNull();
     expect(drawer().querySelectorAll('.superior-answers input[type=radio]').length).toBe(10);
     expect(drawer().textContent).not.toContain('DEPARTMENT_REVIEW.RETURN');
+  });
+  it('uses a compact summary and one comment-sharing note above the unchanged criterion controls', () => {
+    api.get.and.returnValue(of(assessment({ items: [item(), item(45)], superiorOverdue: true })));
+    page.open(20); fixture.detectChanges();
+    const body = drawer(); const summary = body.querySelector('.assessment-review-summary')!;
+    expect(summary.textContent).not.toContain('Amir');
+    expect(summary.textContent).toContain('Sales Executive'); expect(summary.textContent).toContain('Retail');
+    expect(summary.textContent).toContain('ATTITUDE_SETUP.FORMAT.SALES');
+    expect(summary.textContent).toContain('MY_ASSESSMENTS.STATUS.PENDING_REVIEW');
+    expect(summary.querySelector('.assessment-review-deadline')?.textContent).toContain('27 Dec 2026');
+    expect(summary.querySelector('.assessment-review-deadline .overdue')?.textContent).toContain('ATTITUDE_REVIEW.OVERDUE_ALLOWED');
+    expect(body.querySelectorAll('.attitude-comment-guide').length).toBe(1);
+    const guide = body.querySelector('.attitude-comment-guide')!;
+    expect(guide.textContent).toContain('ATTITUDE_RESULTS.SHARING_HELP');
+    expect(guide.compareDocumentPosition(body.querySelector('.review-assessment-card')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const criterion of body.querySelectorAll('.review-assessment-card')) {
+      expect(criterion.textContent).not.toContain('ATTITUDE_RESULTS.SHARING_HELP');
+      expect(criterion.querySelector('.field label')?.textContent).toContain('ATTITUDE_REVIEW.SUPERIOR_COMMENT');
+      expect(criterion.querySelectorAll('input[type=radio]').length).toBe(5);
+    }
+    expect(body.querySelectorAll('textarea').length).toBe(2);
+    expect(document.querySelectorAll('.ant-drawer-open .review-assessment-footer button').length).toBe(3);
+    expect(api.saveSuperiorDraft).not.toHaveBeenCalled(); expect(api.completeReview).not.toHaveBeenCalled();
+    for (const width of [1440, 768, 360]) {
+      const layout = reviewLayout(body as HTMLElement, width);
+      try {
+        expect(layout.root.scrollWidth).withContext(String(width)).toBeLessThanOrEqual(width);
+        const summary = layout.root.querySelector('.assessment-review-summary')!;
+        expect(layout.window.getComputedStyle(summary).gridTemplateColumns.split(' ').length).toBe(width <= 650 ? 1 : 3);
+      } finally { layout.remove(); }
+    }
+  });
+  it('shows the live remaining-rating count without hiding other completion blockers', async () => {
+    await fixture.whenStable();
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('compact-test', { ATTITUDE_REVIEW: { POINTS_REMAINING: 'Ratings remaining: {{count}}' } }); translate.use('compact-test');
+    api.get.and.returnValue(of(assessment({ items: [item(), item(45)], reviewBlockers: ['Additional backend requirement'] })));
+    page.open(20); fixture.detectChanges();
+    expect(drawer().querySelector('.attitude-review-readiness')?.textContent).toContain('Ratings remaining: 2');
+    expect(drawer().textContent).not.toContain('KPI_ASSESSMENT_REVIEW.BEFORE_COMPLETE');
+    page.items[0].superiorPoint = 4; fixture.detectChanges();
+    expect(drawer().querySelector('.attitude-review-readiness')?.textContent).toContain('Ratings remaining: 1');
+    page.items[1].superiorPoint = 3; fixture.detectChanges();
+    expect(drawer().querySelector('.attitude-review-readiness')?.textContent).not.toContain('Ratings remaining');
+    expect(drawer().querySelector('.attitude-review-readiness')?.textContent).toContain('Additional backend requirement');
+    expect(page.canComplete).toBeFalse();
+    page.selected!.reviewBlockers = []; fixture.detectChanges();
+    expect(drawer().querySelector('.attitude-review-readiness')).toBeNull(); expect(page.canComplete).toBeTrue();
   });
   it('uses the preserved configured ratings in both answers and the reusable guide, not fixed KPI labels', () => {
     page.open(20); page.items[0].superiorPoint = 3; fixture.detectChanges();
@@ -169,12 +218,15 @@ describe('Superior Attitude Evaluations', () => {
       { reviewPeriodStatus: 'UPCOMING' as const }, { canSaveSuperiorDraft: false }]) {
       page.drawerVisible = false; api.get.and.returnValue(of(assessment(overrides))); page.open(20); page.saveDraft(); page.complete(); fixture.detectChanges();
       expect(page.readonly).toBeTrue(); expect(drawer().querySelector('textarea')).toBeNull();
+      expect(drawer().querySelector('.attitude-comment-guide')).toBeNull();
+      expect(drawer().querySelector('.attitude-review-readiness')).toBeNull();
     }
     expect(api.saveSuperiorDraft).not.toHaveBeenCalled(); expect(api.completeReview).not.toHaveBeenCalled();
   });
-  it('allows late evaluation in an Open period and shows an overdue notice', () => {
+  it('allows late evaluation in an Open period and shows a contextual overdue indicator', () => {
     api.get.and.returnValue(of(assessment({ superiorOverdue: true }))); page.open(20); page.items[0].superiorPoint = 4; fixture.detectChanges();
-    expect(drawer().textContent).toContain('ATTITUDE_REVIEW.LATE_HELP'); expect(page.canComplete).toBeTrue();
+    expect(drawer().querySelector('.assessment-review-deadline .overdue')?.textContent).toContain('ATTITUDE_REVIEW.OVERDUE_ALLOWED');
+    expect(drawer().textContent).not.toContain('ATTITUDE_REVIEW.LATE_HELP'); expect(page.canComplete).toBeTrue();
   });
   it('keeps inputs on failed saves and switches to read-only if relationship/permission access changes', () => {
     page.open(20); page.items[0].superiorPoint = 3;

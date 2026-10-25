@@ -41,6 +41,23 @@ describe('Where Should I Go guide', () => {
     permissions.push('CAN_REVIEW_INDIVIDUAL_KPI');
     expect(open().textContent).toContain('REVIEW_NAV.SAME_REQUEST');
   });
+  for (const entry of [
+    { permission: 'CAN_MANAGE_DEPARTMENT_KPI', task: 'DEPARTMENT_RESULTS' },
+    { permission: 'CAN_MANAGE_COMPANY_KPI', task: 'COMPANY_RESULTS' },
+    { permission: 'CAN_ENTER_COMPANY_KPI_RESULTS', task: 'COMPANY_RESULTS' }
+  ]) {
+    it(`opens KPI Results from the ${entry.permission} guide task`, async () => {
+      permissions = [entry.permission];
+      const guide = open();
+      const row = [...guide.querySelectorAll('li')].find(node => node.textContent?.includes('REVIEW_NAV.TASK.' + entry.task))!;
+      const link = row.querySelector<HTMLAnchorElement>('a')!;
+      expect(link.getAttribute('href')).toBe('/kpi-management/kpi-results');
+      expect(link.textContent).toContain('KPI_RESULTS.TITLE');
+      link.click(); await fixture.whenStable(); fixture.detectChanges();
+      expect(TestBed.inject(Router).url).toBe('/kpi-management/kpi-results');
+      expect(fixture.componentInstance.visible).toBeFalse();
+    });
+  }
   it('uses focusable native links and closes after navigation or the Close action', async () => {
     const guide = open(); const link = guide.querySelector<HTMLAnchorElement>('a')!;
     link.focus(); expect(document.activeElement).toBe(link); expect(link.tabIndex).toBe(0);

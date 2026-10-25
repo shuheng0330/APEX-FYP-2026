@@ -11,6 +11,7 @@ export interface KpiScoreBreakdown {
     versionNumber: number | null;
     resultEditionNumber: number | null;
     publishedAt: string | null;
+    reportingCheckpoint?: { id: number; reviewFrequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'; startDate: string; endDate: string } | null;
     status: 'PENDING' | 'AVAILABLE' | 'NOT_APPLICABLE';
     contribution: number | null;
     items: { kpi: KpiItem; actualAchievement: string | null; point: number }[];
@@ -33,6 +34,8 @@ export interface KpiAssessmentItem {
   evidence: KpiAssessmentEvidence[];
 }
 export interface KpiAssessment {
+  frequencyPolicy?: 'ROLE_BASED' | 'DEPARTMENT_BASED';
+  companyReportingCheckpoint?: KpiScoreBreakdown['levels'][number]['reportingCheckpoint'];
   assessmentModel: KpiAssessmentModel; pendingResultLevels: KpiLevel[];
   planVersionIds?: Partial<Record<KpiLevel, number>>;
   id: number | null; participantId: number; employeeName: string;

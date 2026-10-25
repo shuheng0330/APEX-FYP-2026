@@ -13,6 +13,7 @@ import { AuthorityService } from '../../services/authority.service';
 import { AuthService } from '../../services/auth.service';
 import { CentralResult, CentralResultItem } from '../../models/kpi-central-result.model';
 import { KpiPeriodContext } from '../../models/kpi-plan.model';
+import { reviewLayout } from './review-navigation.test-layout';
 
 describe('Central KPI results', () => {
   let fixture: ComponentFixture<KpiCentralResultsComponent>;
@@ -40,6 +41,17 @@ describe('Central KPI results', () => {
     publishedBy: null, lockVersion: 1, items: [item(point, achievement)],
     publicationBlockers: point == null ? ['Select a Result Point for Revenue', 'Enter Actual Achievement for Revenue'] : [],
     allowedActions: status === 'DRAFT' ? ['UPDATE_DRAFT', 'UPLOAD_EVIDENCE'] : ['CREATE_CORRECTION']
+  });
+
+  it('limits accumulated-annual-target guidance to the new policy', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('KPI_RESULTS.REPORTING_YTD_HELP');
+    page.periods = [{ ...period, frequencyPolicy: 'DEPARTMENT_BASED' }]; fixture.detectChanges();
+    const guide: HTMLDetailsElement = fixture.nativeElement.querySelector('.company-reporting-guide');
+    expect(guide.open).toBeFalse(); expect(guide.textContent).toContain('KPI_RESULTS.REPORTING_YTD_HELP');
+    expect(guide.textContent).toContain('KPI_RESULTS.REPORTING_QUARTER_HELP');
+    expect(fixture.nativeElement.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_REPORTING_SOURCE');
+    expect(fixture.nativeElement.querySelector('.context-card .notice')).toBeNull();
   });
 
   beforeEach(async () => {
@@ -90,6 +102,63 @@ describe('Central KPI results', () => {
     expect(api.create).not.toHaveBeenCalled();
     expect(page.canStart).toBeTrue();
     expect(fixture.nativeElement.textContent).toContain('KPI_RESULTS.START_DRAFT');
+  });
+
+  it('groups all three labelled selectors and keeps only essential checkpoint metadata visible', () => {
+    const context: HTMLElement = fixture.nativeElement.querySelector('.context-card');
+    const labels = [...context.querySelectorAll<HTMLLabelElement>('.context-grid label')];
+    expect(labels.map(label => label.htmlFor)).toEqual(['central-result-period', 'central-result-version', 'central-result-checkpoint']);
+    expect(context.querySelectorAll('.context-grid nz-select').length).toBe(3);
+    const summary = context.querySelector('.context-summary')!;
+    expect(summary.querySelectorAll('dt').length).toBe(4);
+    expect(summary.textContent).toContain('KPI_RESULTS.PERIOD_STATUS');
+    expect(summary.textContent).toContain('REVIEW_PERIOD.FREQUENCY.MONTHLY');
+    expect(summary.textContent).toContain('31 Jan 2025'); expect(summary.textContent).toContain('01 Feb 2025');
+    const guide = context.querySelector<HTMLDetailsElement>('.company-reporting-guide')!;
+    expect(guide.open).toBeFalse();
+    guide.querySelector('summary')!.click(); fixture.detectChanges(); expect(guide.open).toBeTrue();
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled(); expect(api.publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps period switching available when no eligible plan exists and hides the Company guide for Department results', () => {
+    page.options = []; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('nz-select[nzId="central-result-period"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('nz-select[nzId="central-result-version"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('KPI_RESULTS.NO_PLAN_TITLE');
+    page.level = 'DEPARTMENT'; page.options = [{ planVersionId: 2, versionNumber: 1, level: 'DEPARTMENT', departmentId: 3,
+      departmentName: 'IT', currentVersion: true }]; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.company-reporting-guide')).toBeNull();
+  });
+
+  it('collapses entrant management and preserves result inputs while opening either disclosure', () => {
+    auth.hasRole.and.callFake(role => role === 'CAN_MANAGE_COMPANY_KPI');
+    page.startDraft(); page.items[0].actualAchievement = '103 units'; page.items[0].point = 3;
+    fixture.detectChanges();
+    const entrants: HTMLDetailsElement = fixture.nativeElement.querySelector('.delegate-card');
+    const guide: HTMLDetailsElement = fixture.nativeElement.querySelector('.company-reporting-guide');
+    expect(entrants.open).toBeFalse();
+    expect(entrants.querySelector('summary')?.textContent).toContain('KPI_RESULTS.MANAGE_ENTRANTS');
+    expect(entrants.querySelector('.permission-help')).not.toBeNull(); expect(entrants.querySelector('.delegate-add')).not.toBeNull();
+    entrants.querySelector('summary')!.click(); guide.querySelector('summary')!.click(); fixture.detectChanges();
+    expect(entrants.open).toBeTrue(); expect(guide.open).toBeTrue();
+    expect(page.items[0].actualAchievement).toBe('103 units'); expect(page.items[0].point).toBe(3); expect(page.dirty).toBeTrue();
+    expect(api.assignDelegate).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled(); expect(api.publish).not.toHaveBeenCalled();
+    const form = fixture.nativeElement.querySelector('.result-card');
+    expect(form.compareDocumentPosition(entrants) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    auth.hasRole.and.callFake(role => role === 'CAN_ENTER_COMPANY_KPI_RESULTS'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.delegate-card')).toBeNull();
+  });
+
+  it('wraps the grouped selectors and metadata at desktop, tablet and narrow-mobile widths', () => {
+    page.periods = [{ ...period, name: 'A long translated Annual Review Period name '.repeat(6) }]; fixture.detectChanges();
+    for (const width of [1440, 768, 360]) {
+      const layout = reviewLayout(fixture.nativeElement.querySelector('main'), width);
+      try {
+        expect(layout.root.scrollWidth).withContext(String(width)).toBeLessThanOrEqual(width);
+        const grid = layout.root.querySelector('.context-grid')!;
+        expect(layout.window.getComputedStyle(grid).gridTemplateColumns.split(' ').length).toBe(width > 1000 ? 3 : width > 700 ? 2 : 1);
+      } finally { layout.remove(); }
+    }
   });
 
   it('saves an incomplete Draft but blocks publication and shows missing answers', () => {

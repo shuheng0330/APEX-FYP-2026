@@ -13,11 +13,10 @@
 .criterion-heading { display: flex; justify-content: space-between; gap: 20px; }
 .criterion-heading h4 { font-size: 15px; font-weight: 600; margin: 0 0 5px; overflow-wrap: anywhere; }
 .criterion-description { white-space: pre-wrap; overflow-wrap: anywhere; }
-.criterion-rating { flex: 0 0 auto; }
+.criterion-rating { flex: 0 0 230px; min-width: 0; max-width: 100%; }
 .rating-label { display: block; font-size: 12px; margin-bottom: 8px; }
 .point-option span { width: 36px; height: 36px; }
-.selected-rating { margin: 8px 0 12px; font-size: 13px; color: var(--tbm-primary); }
-.selected-rating p { margin: 4px 0 0; color: var(--tbm-muted); white-space: pre-wrap; }
+.selected-rating { margin: 8px 0 0; font-size: 13px; color: var(--tbm-primary); overflow-wrap: anywhere; }
 .comment-label { display: block; font-size: 12px; color: var(--tbm-muted); margin: 10px 0 6px; }
 textarea { border-radius: 7px; resize: vertical; }
 textarea[aria-invalid='true'] { border-color: var(--tbm-danger); }
@@ -27,5 +26,6 @@ textarea[aria-invalid='true'] { border-color: var(--tbm-danger); }
 .opening-refresh { margin-top: 16px; }
 @media (max-width: 700px) {
   .criterion-heading { flex-direction: column; gap: 12px; }
+  .criterion-rating { flex-basis: auto; width: 230px; }
   .attitude-criterion { padding: 18px 16px; }
 }

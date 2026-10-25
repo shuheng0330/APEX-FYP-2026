@@ -43,41 +43,49 @@
       @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
       @if (success) { <div class="notice" role="status">{{ success }}</div> }
       <div class="review-detail-summary assessment-review-summary">
-        <div><span class="help">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</span><strong>{{ assessment.employeeName }}</strong><span class="help">{{ assessment.roleName }} @if (assessment.departmentName) { / {{ assessment.departmentName }} }</span></div>
+        <p class="help assessment-review-context">{{ assessment.roleName }} @if (assessment.departmentName) { / {{ assessment.departmentName }} }</p>
         <div><span class="help">{{ 'MY_ASSESSMENTS.CHECKPOINT' | translate }}</span><strong>{{ checkpointLabel(assessment.checkpoint) }}</strong></div>
-        <div><span class="help">{{ 'KPI_ASSESSMENT_REVIEW.DEADLINE' | translate }}</span><strong>{{ assessment.checkpoint.superiorAssessmentDeadline | date:'dd MMM yyyy' }}</strong></div>
+        <div><span class="help">{{ 'KPI_ASSESSMENT_REVIEW.DEADLINE' | translate }}</span><div class="assessment-review-deadline"><strong>{{ assessment.checkpoint.superiorAssessmentDeadline | date:'dd MMM yyyy' }}</strong>
+          @if (!readonly && assessment.superiorOverdue) { <span class="status overdue">{{ 'MY_ASSESSMENTS.OVERDUE' | translate }}</span> }
+        </div></div>
         <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="reviewProgress(assessment)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(assessment) | translate }}</span></div>
       </div>
-      @if (assessment.assessmentModel === 'CENTRAL_RESULTS') {
-        <p class="help central-review-help">{{ 'KPI_ASSESSMENT_REVIEW.INDIVIDUAL_HELP' | translate }}</p>
-      }
+      <p class="help central-review-help">{{ (assessment.assessmentModel === 'CENTRAL_RESULTS' ? 'KPI_ASSESSMENT_REVIEW.INDIVIDUAL_HELP' : 'KPI_ASSESSMENT_REVIEW.REVIEW_HELP') | translate }}</p>
       @if (assessment.status === 'REVIEWED' && assessment.checkpointScore !== null) {
         <p class="notice checkpoint-score"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ assessment.checkpointScore | number:'1.2-2' }}%</span>
           @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
           <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
         </p>
-      } @else if (assessment.assessmentModel === 'CENTRAL_RESULTS') {
-        <div class="notice result-pending" role="status">
-          <div class="result-pending-header"><strong>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' | translate }}</strong></div>
-          @if (assessment.pendingResultLevels.length) {
-            <div class="result-pending-details">{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }}
-              @for (level of assessment.pendingResultLevels; track level) { {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level | translate }}@if (!$last) {, } }
-            </div>
-          }
-          @if (assessment.reviewedLate || assessment.reviewedAt) {
-            <div class="result-pending-meta">
-              @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
-              @if (assessment.reviewedAt) { <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span> }
-            </div>
-          }
-        </div>
+      }
+      @if (assessment.assessmentModel === 'CENTRAL_RESULTS') {
+        <details class="review-checkpoint-details" [open]="checkpointDetailsExpanded" (toggle)="checkpointDetailsExpanded = checkpointDetails.open" #checkpointDetails>
+          <summary>{{ 'KPI_ASSESSMENT_REVIEW.CHECKPOINT_DETAILS' | translate }}</summary>
+          <div class="review-checkpoint-content">
+            <app-company-reporting-source [source]="assessment.companyReportingCheckpoint" [compact]="true" />
+            <p class="help">{{ 'KPI_ASSESSMENT_REVIEW.CENTRAL_RESULTS_HELP' | translate }}</p>
+            @if (assessment.status !== 'REVIEWED' || assessment.checkpointScore === null) {
+              <div class="notice result-pending" role="status">
+                <div class="result-pending-header"><strong>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' | translate }}</strong></div>
+                @if (assessment.pendingResultLevels.length) {
+                  <div class="result-pending-details">{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }}
+                    @for (level of assessment.pendingResultLevels; track level) { {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level | translate }}@if (!$last) {, } }
+                  </div>
+                }
+                @if (assessment.reviewedLate || assessment.reviewedAt) {
+                  <div class="result-pending-meta">
+                    @if (assessment.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+                    @if (assessment.reviewedAt) { <span class="help score-reviewed-at">{{ assessment.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span> }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </details>
       }
       @if (assessment.status === 'REVIEWED') {
         <p class="help">{{ 'KPI_ASSESSMENT_REVIEW.READ_ONLY' | translate }}</p>
       } @else if (assessment.reviewPeriodStatus !== 'OPEN') {
         <p class="notice">{{ 'KPI_ASSESSMENT_REVIEW.PERIOD_READ_ONLY' | translate }}</p>
-      } @else if (!readonly && assessment.superiorOverdue) {
-        <p class="help warning overdue-help">{{ 'KPI_ASSESSMENT_REVIEW.LATE_HELP' | translate }}</p>
       }
       @if (!readonly && completionReasons.length) {
         <div class="submission-readiness" role="status"><strong>{{ 'KPI_ASSESSMENT_REVIEW.BEFORE_COMPLETE' | translate }}</strong>

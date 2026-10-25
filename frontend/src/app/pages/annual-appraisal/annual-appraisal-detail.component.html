@@ -5,37 +5,30 @@
       <div class="summary-title"><h2>{{ titleKey | translate }}</h2>
         @if (candidate) {
           <span class="status" [attr.data-status]="currentStatus">{{ 'ANNUAL_APPRAISAL.STATUS.' + currentStatus | translate }}</span>
-          @if (selected && (selected.status === 'DRAFT' || selected.status === 'RETURNED')) {
-            <span class="status" [attr.data-status]="readiness?.ready ? 'READY' : 'NOT_READY'">{{ 'ANNUAL_APPRAISAL.STATUS.' + (readiness?.ready ? 'READY' : 'NOT_READY') | translate }}</span>
-          }
         }
       </div>
       @if (candidate) {
         <p class="help employee-context"><strong>{{ candidate.employeeName || '-' }}</strong> · {{ candidate.departmentName || '-' }} · {{ candidate.roleName || '-' }} · {{ period?.name }}</p>
-        <p class="next-step"><strong>{{ 'ANNUAL_APPRAISAL.NEXT_STEP' | translate }}:</strong> {{ nextStepKey | translate }}</p>
-        @if (selected) {
-          <p class="help">{{ (hrReview ? 'ANNUAL_APPRAISAL.HR_DEADLINE' : 'ANNUAL_APPRAISAL.SUPERIOR_DEADLINE') | translate }}:
-            {{ (hrReview ? selected.hrReviewDeadline : selected.recommendationDeadline) | date:'dd MMM yyyy' }}
-            @if (overdue) { <span class="warning">{{ 'ANNUAL_APPRAISAL.OVERDUE' | translate }}</span> }
-          </p>
+        @if (selected && (selected.status === 'DRAFT' || selected.status === 'RETURNED')) {
+          <p class="help results-readiness"><strong>{{ 'ANNUAL_APPRAISAL.RESULTS_READINESS' | translate }}:</strong>
+            {{ (readiness?.ready ? 'ANNUAL_APPRAISAL.RESULTS_COMPLETE' : 'ANNUAL_APPRAISAL.RESULTS_PENDING') | translate }}</p>
         }
+        <p class="next-step"><strong>{{ 'ANNUAL_APPRAISAL.NEXT_STEP' | translate }}:</strong> {{ nextStepKey | translate }}</p>
       }
     </div>
-    <div class="detail-actions">
-      <button nz-button type="button" [disabled]="locked || !authorised" (click)="refreshDetail()">{{ 'ANNUAL_APPRAISAL.REFRESH_DETAILS' | translate }}</button>
-      @if (candidate && !readonly) {
-        <button nz-button type="button" [disabled]="locked" (click)="saveDraft()">{{ 'ANNUAL_APPRAISAL.SAVE_DRAFT' | translate }}</button>
-        <button nz-button nzType="primary" type="button" [disabled]="!canStartSubmit" (click)="requestSubmit()">{{ 'ANNUAL_APPRAISAL.SUBMIT' | translate }}</button>
-      }
-      @if (hrReview && candidate) {
-        @if (decision) {
-          <button nz-button type="button" [disabled]="locked" (click)="clearDecision()">{{ 'ANNUAL_APPRAISAL.CANCEL' | translate }}</button>
-          <button nz-button nzType="primary" type="button" [disabled]="locked || accessChanged" (click)="confirmDecision(decision)">{{ 'ANNUAL_APPRAISAL.ACTION.' + decision | translate }}</button>
-        } @else {
-          @if (can('RETURN')) { <button nz-button type="button" [disabled]="locked" (click)="beginDecision('RETURN')">{{ 'ANNUAL_APPRAISAL.ACTION.RETURN' | translate }}</button> }
-          @if (can('OVERRIDE_AND_APPROVE')) { <button nz-button type="button" [disabled]="locked" (click)="beginDecision('OVERRIDE_AND_APPROVE')">{{ 'ANNUAL_APPRAISAL.ACTION.OVERRIDE_AND_APPROVE' | translate }}</button> }
-          @if (can('APPROVE')) { <button nz-button nzType="primary" type="button" [disabled]="locked" (click)="confirmDecision('APPROVE')">{{ 'ANNUAL_APPRAISAL.ACTION.APPROVE' | translate }}</button> }
+    <div class="detail-tools">
+      <div class="detail-actions">
+        <button nz-button type="button" [disabled]="locked || !authorised" (click)="refreshDetail()">{{ 'ANNUAL_APPRAISAL.REFRESH_DETAILS' | translate }}</button>
+        @if (candidate && !readonly) {
+          <button nz-button type="button" [disabled]="locked" (click)="saveDraft()">{{ 'ANNUAL_APPRAISAL.SAVE_DRAFT' | translate }}</button>
+          <button nz-button nzType="primary" type="button" [disabled]="!canStartSubmit" (click)="requestSubmit()">{{ 'ANNUAL_APPRAISAL.SUBMIT' | translate }}</button>
         }
+      </div>
+      @if (selected) {
+        <p class="help detail-deadline">{{ (hrReview ? 'ANNUAL_APPRAISAL.HR_DEADLINE' : 'ANNUAL_APPRAISAL.SUPERIOR_DEADLINE') | translate }}:
+          {{ (hrReview ? selected.hrReviewDeadline : selected.recommendationDeadline) | date:'dd MMM yyyy' }}
+          @if (overdue) { <span class="status overdue">{{ 'ANNUAL_APPRAISAL.OVERDUE' | translate }}</span> }
+        </p>
       }
     </div>
   </header>
@@ -43,10 +36,34 @@
   @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
   @if (success) { <div class="notice" role="status">{{ success }}</div> }
   @if (candidate) {
-      @if (selected?.latestReturnReason) { <div class="draft-readiness"><strong>{{ 'ANNUAL_APPRAISAL.RETURN_REASON' | translate }}</strong><p class="preserve-lines">{{ selected!.latestReturnReason }}</p></div> }
       @if (selected?.sourceChanged) { <div class="draft-readiness">{{ (frozen ? 'ANNUAL_APPRAISAL.SOURCE_CHANGED' : 'ANNUAL_APPRAISAL.UPDATED_SOURCES') | translate }}</div> }
       @if (displayedBlockers.length) { <div class="draft-readiness"><strong>{{ 'ANNUAL_APPRAISAL.BEFORE_CONTINUING' | translate }}</strong><ul>@for (blocker of displayedBlockers; track $index) { <li>{{ blocker }}</li> }</ul></div> }
+      @if (selected?.status === 'RETURNED' && selected?.latestReturnReason) {
+        <section class="draft-readiness current-return-reason" role="note" aria-labelledby="current-return-title">
+          <h3 id="current-return-title">{{ 'ANNUAL_APPRAISAL.RETURN_REASON' | translate }}</h3>
+          <p class="preserve-lines">{{ selected!.latestReturnReason }}</p>
+        </section>
+      }
+      @if (selected?.status === 'APPROVED') {
+        <section class="card appraisal-decision-summary" aria-labelledby="appraisal-decision-summary-title">
+          <div class="card-head"><h3 id="appraisal-decision-summary-title">{{ 'ANNUAL_APPRAISAL.DECISION_SUMMARY' | translate }}</h3>
+            <p class="help">{{ 'ANNUAL_APPRAISAL.FINAL_READ_ONLY' | translate }}</p></div>
+          <div class="card-body summary-grid appraisal-decision-columns">
+            <div>
+              <dl><dt>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</dt><dd class="recorded-recommendation"><span class="status">{{ selected!.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + selected!.recommendation | translate) : '-' }}</span></dd></dl>
+              <h4>{{ 'ANNUAL_APPRAISAL.JUSTIFICATION' | translate }}</h4><p class="preserve-lines recorded-justification">{{ selected!.justification || '-' }}</p>
+              <p class="help">{{ 'ANNUAL_APPRAISAL.SUBMITTED_ON' | translate }}: {{ (selected!.submittedAt | date:'dd MMM yyyy, h:mm a') || '-' }} @if (selected!.submittedLate) { <span class="status overdue">{{ 'ANNUAL_APPRAISAL.LATE' | translate }}</span> }</p>
+            </div>
+            <div>
+              <dl><dt>{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }}</dt><dd class="recorded-final-decision"><span class="status" data-status="APPROVED">{{ selected!.finalDecision ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + selected!.finalDecision | translate) : '-' }}</span></dd></dl>
+              @if (selected!.overrideReason) { <h4>{{ 'ANNUAL_APPRAISAL.OVERRIDE_REASON' | translate }}</h4><p class="preserve-lines recorded-override-reason">{{ selected!.overrideReason }}</p> }
+              <p class="help">{{ 'ANNUAL_APPRAISAL.APPROVED_ON' | translate }}: {{ (selected!.reviewedAt | date:'dd MMM yyyy, h:mm a') || '-' }} @if (selected!.reviewedLate) { <span class="status overdue">{{ 'ANNUAL_APPRAISAL.LATE' | translate }}</span> }</p>
+            </div>
+          </div>
+        </section>
+      }
       @if (performance; as scores) { <app-annual-appraisal-performance [performance]="scores" [frozen]="frozen" /> }
+      @if (hrReview && selected?.status !== 'APPROVED') { <ng-container [ngTemplateOutlet]="recommendationSection" /> }
       <app-annual-performance-trend [history]="performanceHistory" [current]="performance || null" [currentPeriod]="period"
         [employeeId]="candidate.employeeId" [employeeName]="candidate.employeeName || ''" [loading]="performanceHistoryLoading" [error]="!!performanceHistoryError" />
       @if (performanceHistoryError) { <button nz-button type="button" [disabled]="performanceHistoryLoading" (click)="loadPerformanceHistory()">{{ 'ANNUAL_TREND.RETRY' | translate }}</button> }
@@ -75,7 +92,9 @@
           </div>
         }
       </section>
-      <section class="card"><div class="card-head"><h3>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION_TITLE' | translate }}</h3><p class="help">{{ 'ANNUAL_APPRAISAL.RECOMMENDATION_HELP' | translate }}</p></div><div class="card-body">
+      @if (!hrReview && selected?.status !== 'APPROVED') { <ng-container [ngTemplateOutlet]="recommendationSection" /> }
+      <ng-template #recommendationSection>
+      <section class="card appraisal-recommendation" aria-labelledby="appraisal-recommendation-title"><div class="card-head"><h3 id="appraisal-recommendation-title">{{ 'ANNUAL_APPRAISAL.RECOMMENDATION_TITLE' | translate }}</h3><p class="help">{{ (showRecommendationForm ? 'ANNUAL_APPRAISAL.RECOMMENDATION_HELP' : 'ANNUAL_APPRAISAL.RECOMMENDATION_READ_ONLY_HELP') | translate }}</p></div><div class="card-body">
         @if (showRecommendationForm) {
           <fieldset [disabled]="locked || readonly" class="recommendation-fields">
             <div class="field"><span id="annual-recommendation-label">{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }} <span class="required-mark">*</span></span>
@@ -95,57 +114,155 @@
           <p class="help">{{ 'ANNUAL_APPRAISAL.DRAFT_HELP' | translate }}</p>
           @if (draftWarnings) { <p class="warning" role="status">{{ 'ANNUAL_APPRAISAL.INCOMPLETE_DRAFT' | translate }}</p> }
         } @else {
-          <dl class="summary-grid"><div><dt>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</dt><dd>{{ selected?.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + selected!.recommendation | translate) : '-' }}</dd></div>
-            <div><dt>{{ 'ANNUAL_APPRAISAL.SUBMITTED_ON' | translate }}</dt><dd>{{ (selected?.submittedAt | date:'dd MMM yyyy, h:mm a') || '-' }} @if (selected?.submittedLate) { <span class="warning">{{ 'ANNUAL_APPRAISAL.LATE' | translate }}</span> }</dd></div></dl>
-          <h4 class="justification-heading">{{ 'ANNUAL_APPRAISAL.JUSTIFICATION' | translate }}</h4><p class="preserve-lines">{{ selected?.justification || '-' }}</p>
+          @let comparison = returnComparison;
+          @if (comparison) {
+            <section class="return-comparison" aria-labelledby="return-comparison-title">
+              <h4 id="return-comparison-title">{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.TITLE' | translate }}</h4>
+              @if (comparison.available) {
+                <div class="previous-return-reason"><strong>{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.REASON' | translate }}</strong><p class="preserve-lines">{{ comparison.reason }}</p></div>
+                @if (!comparison.recommendationChanged && !comparison.justificationChanged) { <p class="help">{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.UNCHANGED' | translate }}</p> }
+                @if (comparison.recommendationChanged) {
+                  <section class="recommendation-comparison" aria-labelledby="recommendation-comparison-title">
+                    <h5 id="recommendation-comparison-title">{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.RECOMMENDATION_CHANGED' | translate }}</h5>
+                    <dl class="return-comparison-grid">
+                      <div><dt>{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.BEFORE' | translate }}</dt><dd>{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + comparison.before.recommendation | translate }}</dd></div>
+                      <div><dt><span aria-hidden="true">→ </span>{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.AFTER' | translate }}</dt><dd>{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + comparison.after.recommendation | translate }}</dd></div>
+                    </dl>
+                  </section>
+                }
+                @if (comparison.justificationChanged) {
+                  <section class="justification-comparison" aria-labelledby="justification-comparison-title">
+                    <h5 id="justification-comparison-title">{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.JUSTIFICATION_CHANGED' | translate }}</h5>
+                    <details>
+                      <summary>{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.COMPARE_JUSTIFICATION' | translate }}</summary>
+                      <dl class="return-comparison-grid">
+                        <div><dt>{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.BEFORE' | translate }}</dt><dd class="preserve-lines">{{ comparison.before.justification }}</dd></div>
+                        <div><dt><span aria-hidden="true">→ </span>{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.AFTER' | translate }}</dt><dd class="preserve-lines">{{ comparison.after.justification }}</dd></div>
+                      </dl>
+                    </details>
+                  </section>
+                }
+              } @else { <p class="help comparison-unavailable" role="status">{{ 'ANNUAL_APPRAISAL.RETURN_COMPARISON.UNAVAILABLE' | translate }}</p> }
+            </section>
+          }
+          <dl class="summary-grid">
+            @if (!comparison || !comparison.available || !comparison.recommendationChanged) {
+              <div><dt>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</dt><dd>{{ selected?.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + selected!.recommendation | translate) : '-' }}</dd></div>
+            }
+            <div><dt>{{ 'ANNUAL_APPRAISAL.SUBMITTED_ON' | translate }}</dt><dd>{{ (selected?.submittedAt | date:'dd MMM yyyy, h:mm a') || '-' }} @if (selected?.submittedLate) { <span class="status overdue">{{ 'ANNUAL_APPRAISAL.LATE' | translate }}</span> }</dd></div></dl>
+          @if (!comparison || !comparison.available || !comparison.justificationChanged) {
+            <h4 class="justification-heading">{{ 'ANNUAL_APPRAISAL.JUSTIFICATION' | translate }}</h4><p class="preserve-lines">{{ selected?.justification || '-' }}</p>
+          }
         }
       </div></section>
-      @if (selected?.status === 'APPROVED') {
-        <section class="card"><div class="card-body"><h3>{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }}</h3>
-          <p><strong>{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + selected!.finalDecision | translate }}</strong></p>
-          @if (selected!.overrideReason) { <h4>{{ 'ANNUAL_APPRAISAL.OVERRIDE_REASON' | translate }}</h4><p class="preserve-lines">{{ selected!.overrideReason }}</p> }
-          <p class="help">{{ 'ANNUAL_APPRAISAL.FINAL_READ_ONLY' | translate }} · {{ selected!.reviewedAt | date:'dd MMM yyyy, h:mm a' }} @if (selected!.reviewedLate) { <span class="warning">{{ 'ANNUAL_APPRAISAL.LATE' | translate }}</span> }</p>
-        </div></section>
-      }
-      @if (hrReview && decision) {
-        <section class="card" id="annual-decision"><div class="card-head"><h3>{{ 'ANNUAL_APPRAISAL.ACTION.' + decision | translate }}</h3></div><div class="card-body recommendation-fields">
-          @if (decision === 'OVERRIDE_AND_APPROVE') {
-            <div class="field"><label for="annual-final-decision">{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }} <span class="required-mark">*</span></label>
-              <nz-select nzId="annual-final-decision" [(ngModel)]="finalDecision" [nzDisabled]="locked || accessChanged" [nzPlaceHolder]="'ANNUAL_APPRAISAL.SELECT_RECOMMENDATION' | translate"
-                [attr.aria-invalid]="decisionValidation && (!finalDecision || finalDecision === selected?.recommendation)" aria-describedby="decision-error">
-                @for (choice of recommendations; track choice) { <nz-option [nzValue]="choice" [nzLabel]="'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + choice | translate" /> }
-              </nz-select>
-              @if (decisionValidation && (!finalDecision || finalDecision === selected?.recommendation)) { <span class="field-error" id="decision-error">{{ 'ANNUAL_APPRAISAL.DIFFERENT_DECISION' | translate }}</span> }
-            </div>
-          }
-          <label class="field"><span>{{ (decision === 'RETURN' ? 'ANNUAL_APPRAISAL.RETURN_REASON' : 'ANNUAL_APPRAISAL.OVERRIDE_REASON') | translate }} <span class="required-mark">*</span></span>
-            <textarea rows="4" [(ngModel)]="reason" [disabled]="locked || accessChanged" [attr.aria-invalid]="!!reasonError" aria-describedby="decision-reason-error"></textarea>
-            @if (reasonError) { <span class="field-error" id="decision-reason-error">{{ reasonError | translate }}</span> }
-          </label>
-        </div></section>
-      }
+      </ng-template>
       @if (selected) {
-        <section class="appraisal-secondary"><button class="text-action" type="button" [attr.aria-expanded]="activityVisible" aria-controls="annual-activity" (click)="activityVisible = !activityVisible">{{ (activityVisible ? 'ANNUAL_APPRAISAL.HIDE_ACTIVITY' : 'ANNUAL_APPRAISAL.VIEW_ACTIVITY') | translate }}</button>
+        <section class="appraisal-secondary"><button class="text-action" type="button" [attr.aria-expanded]="activityVisible" aria-controls="annual-activity" (click)="toggleActivity()">{{ (activityVisible ? 'ANNUAL_APPRAISAL.HIDE_ACTIVITY' : 'ANNUAL_APPRAISAL.VIEW_ACTIVITY') | translate }}</button>
           @if (activityVisible) {
+            @if (hasDraftActivity) {
+              <div class="activity-controls"><button class="text-action" type="button" [disabled]="locked" [attr.aria-pressed]="showAllActivity" aria-controls="annual-activity" (click)="showAllActivity = !showAllActivity">{{ (showAllActivity ? 'ANNUAL_APPRAISAL.SHOW_KEY_ACTIVITY' : 'ANNUAL_APPRAISAL.SHOW_ALL_ACTIVITY') | translate }}</button></div>
+            }
             <ol id="annual-activity" class="activity-timeline">
-              @for (event of events; track event.id) {
-                <li><div class="event-heading"><strong>{{ 'ANNUAL_APPRAISAL.EVENT.' + event.action | translate }}</strong><time [attr.datetime]="event.occurredAt">{{ event.occurredAt | date:'dd MMM yyyy, h:mm a' }}</time></div>
-                  <span class="event-actor">{{ 'ANNUAL_APPRAISAL.ACTOR' | translate }}: {{ actor(event.actorId) }}</span>
+              @for (event of visibleEvents; track event.id) {
+                <li><div class="event-heading"><div class="activity-event-summary"><strong>{{ 'ANNUAL_APPRAISAL.EVENT.' + event.action | translate }}</strong><span class="event-actor">{{ actor(event) }}</span></div><time [attr.datetime]="event.occurredAt">{{ event.occurredAt | date:'dd MMM yyyy, h:mm a' }}</time></div>
                   @if (event.reason) { <p class="event-reason">{{ event.reason }}</p> }
-                  @if (event.snapshot) {
-                    <button type="button" class="text-action" [attr.aria-expanded]="expandedEvent === event.id" [attr.aria-controls]="'event-' + event.id" (click)="expandedEvent = expandedEvent === event.id ? null : event.id">{{ (expandedEvent === event.id ? 'ANNUAL_APPRAISAL.HIDE_SUBMISSION' : 'ANNUAL_APPRAISAL.VIEW_SUBMISSION') | translate }}</button>
-                    @if (expandedEvent === event.id) { <div [id]="'event-' + event.id" class="history-detail"><p><strong>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}:</strong> {{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + event.recommendation | translate }}</p><p class="preserve-lines">{{ event.justification }}</p>
-                      @if (event.finalDecision) { <p><strong>{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }}:</strong> {{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + event.finalDecision | translate }}</p> }
-                      <app-annual-appraisal-performance [performance]="event.snapshot" [frozen]="true" [contextId]="'event-' + event.id" /></div> }
+                  @if (showRecordedSubmission(event)) {
+                    <button type="button" class="text-action activity-submission-toggle" [disabled]="locked" [attr.aria-expanded]="expandedEvent === event.id" [attr.aria-controls]="'event-' + event.id" (click)="toggleSubmission(event.id)">{{ (expandedEvent === event.id ? 'ANNUAL_APPRAISAL.HIDE_SUBMISSION' : 'ANNUAL_APPRAISAL.VIEW_SUBMISSION') | translate }}</button>
+                    @if (expandedEvent === event.id) {
+                      <div [id]="'event-' + event.id" class="activity-submission">
+                        <dl><div><dt>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</dt><dd>{{ event.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + event.recommendation | translate) : '-' }}</dd></div>
+                          <div><dt>{{ 'ANNUAL_APPRAISAL.JUSTIFICATION' | translate }}</dt><dd class="preserve-lines">{{ event.justification || '-' }}</dd></div></dl>
+                        @if (event.snapshot) {
+                          <button type="button" class="text-action activity-performance-toggle" [disabled]="locked" [attr.aria-expanded]="expandedPerformanceEvent === event.id" [attr.aria-controls]="'event-performance-' + event.id" (click)="toggleEventPerformance(event.id)">{{ (expandedPerformanceEvent === event.id ? 'ANNUAL_APPRAISAL.HIDE_RECORDED_PERFORMANCE' : 'ANNUAL_APPRAISAL.VIEW_RECORDED_PERFORMANCE') | translate }}</button>
+                          @if (expandedPerformanceEvent === event.id) {
+                            <div [id]="'event-performance-' + event.id" class="activity-performance"><app-annual-appraisal-performance [performance]="event.snapshot" [frozen]="true" [contextId]="'event-' + event.id" /></div>
+                          }
+                        }
+                      </div>
+                    }
                   }
                 </li>
+              } @empty { <li class="activity-empty help">{{ (hasDraftActivity ? 'ANNUAL_APPRAISAL.NO_KEY_ACTIVITY' : 'ANNUAL_APPRAISAL.NO_ACTIVITY') | translate }}</li>
               }
             </ol>
           }
         </section>
       }
+      @if (showHrDecisions) {
+        <section class="card hr-decisions" aria-labelledby="hr-decision-title">
+          <div class="card-head"><h3 id="hr-decision-title">{{ 'ANNUAL_APPRAISAL.DECISION.TITLE' | translate }}</h3>
+            <p class="help">{{ 'ANNUAL_APPRAISAL.DECISION.HELP' | translate }}</p></div>
+          <div class="card-body">
+            @if (hasHrActions) {
+              <div class="hr-decision-tiles">
+                @for (action of hrActions; track action) {
+                  @if (canReview(action)) {
+                    <div class="hr-decision-tile" [attr.data-action]="action">
+                      <button nz-button type="button" class="hr-action-button" [attr.data-action]="action" aria-haspopup="dialog"
+                        [disabled]="locked || decision !== null" (click)="beginDecision(action)">{{ 'ANNUAL_APPRAISAL.ACTION.' + action | translate }}</button>
+                      <button nz-button type="button" class="decision-info" nz-popover #actionInfo="nzPopover" nzPopoverTrigger="click"
+                        [nzPopoverTitle]="'ANNUAL_APPRAISAL.ACTION.' + action | translate"
+                        [nzPopoverContent]="'ANNUAL_APPRAISAL.DECISION.INFO.' + action | translate"
+                        [nzPopoverOverlayStyle]="{maxWidth: 'min(320px, calc(100vw - 32px))'}"
+                        [attr.aria-expanded]="infoAction === action" (nzPopoverVisibleChange)="infoVisibility(action, $event)" (keydown.escape)="actionInfo.hide(); $event.stopPropagation()"
+                        [attr.aria-label]="'ANNUAL_APPRAISAL.DECISION.ACTION_INFO' | translate:{action: ('ANNUAL_APPRAISAL.ACTION.' + action | translate)}">
+                        <span nz-icon nzType="info-circle" aria-hidden="true"></span>
+                      </button>
+                    </div>
+                  }
+                }
+              </div>
+            } @else { <p class="help" role="status">{{ 'ANNUAL_APPRAISAL.DECISION.UNAVAILABLE' | translate }}</p> }
+          </div>
+        </section>
+      }
   }
 </div>
+
+<nz-modal [nzVisible]="decision !== null" [nzTitle]="'ANNUAL_APPRAISAL.ACTION.' + decision | translate"
+  nzWidth="min(680px, calc(100vw - 32px))" [nzMaskClosable]="false" [nzCloseOnNavigation]="false"
+  [nzClosable]="!busy" [nzKeyboard]="!busy" [nzCancelDisabled]="busy" [nzFooter]="decisionFooter"
+  (nzOnCancel)="cancelDecision()">
+  <ng-container *nzModalContent>
+    @if (decision && selected) {
+      <div class="decision-modal" [attr.aria-busy]="busy">
+        <p>{{ 'ANNUAL_APPRAISAL.DECISION.MODAL_HELP.' + decision | translate }}</p>
+        <dl class="decision-summary">
+          <div><dt>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</dt><dd>{{ selected.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + selected.recommendation | translate) : '-' }}</dd></div>
+          @if (decision !== 'RETURN') {
+            <div><dt>{{ 'ANNUAL_APPRAISAL.FINAL_SCORE' | translate }}</dt><dd class="decision-score">{{ selected.snapshot?.finalScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (selected.snapshot!.finalScore | number:'1.2-2') + ' / 100' }}</dd></div>
+          }
+        </dl>
+        @if (selected.hrReviewOverdue) { <p class="draft-readiness" role="status">{{ 'ANNUAL_APPRAISAL.REVIEW_LATE_HELP' | translate:{deadline: (selected.hrReviewDeadline | date:'dd MMM yyyy')} }}</p> }
+        @if (decisionError) { <div class="error-box" role="alert">{{ decisionError }}</div> }
+        @if (decision === 'OVERRIDE_AND_APPROVE') {
+          <div class="field"><label for="annual-final-decision">{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }} <span class="required-mark">*</span></label>
+            <nz-select nzId="annual-final-decision" [(ngModel)]="finalDecision" [nzDisabled]="locked || accessChanged" [nzPlaceHolder]="'ANNUAL_APPRAISAL.SELECT_RECOMMENDATION' | translate"
+              aria-required="true" [attr.aria-invalid]="decisionValidation && (!finalDecision || finalDecision === selected.recommendation)" aria-describedby="decision-error">
+              @for (choice of recommendations; track choice) { <nz-option [nzValue]="choice" [nzDisabled]="choice === selected.recommendation" [nzLabel]="'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + choice | translate" /> }
+            </nz-select>
+            @if (decisionValidation && (!finalDecision || finalDecision === selected.recommendation)) { <span class="field-error" id="decision-error">{{ 'ANNUAL_APPRAISAL.DIFFERENT_DECISION' | translate }}</span> }
+          </div>
+        }
+        @if (decision !== 'APPROVE') {
+          <label class="field" for="annual-decision-reason"><span>{{ (decision === 'RETURN' ? 'ANNUAL_APPRAISAL.RETURN_REASON' : 'ANNUAL_APPRAISAL.OVERRIDE_REASON') | translate }} <span class="required-mark">*</span></span>
+            <textarea [attr.cdkFocusInitial]="decision === 'RETURN' && !locked && !accessChanged ? true : null" id="annual-decision-reason" rows="4" [(ngModel)]="reason" [disabled]="locked || accessChanged" aria-required="true" [attr.aria-invalid]="!!reasonError" aria-describedby="decision-reason-error"></textarea>
+            @if (reasonError) { <span class="field-error" id="decision-reason-error">{{ reasonError | translate }}</span> }
+          </label>
+        }
+      </div>
+    }
+  </ng-container>
+  <ng-template #decisionFooter>
+    <div class="decision-modal-footer">
+      <button nz-button type="button" class="decision-cancel" [attr.cdkFocusInitial]="decision !== 'RETURN' || accessChanged ? true : null" [disabled]="busy" (click)="cancelDecision()">{{ 'ANNUAL_APPRAISAL.CANCEL' | translate }}</button>
+      @if (decision) {
+        <button nz-button type="button" class="hr-action-button decision-confirm" [attr.data-action]="decision" [nzLoading]="busy"
+          [disabled]="locked || !canReview(decision)" (click)="confirmDecision(decision)">{{ 'ANNUAL_APPRAISAL.ACTION.' + decision | translate }}</button>
+      }
+    </div>
+  </ng-template>
+</nz-modal>
 
 <nz-drawer [nzVisible]="historySelection !== null" [nzTitle]="historicalTitle" nzWidth="min(760px, 100vw)"
   (nzOnClose)="historySelection = null">

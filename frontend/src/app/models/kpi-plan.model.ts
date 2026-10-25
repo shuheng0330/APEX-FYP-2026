@@ -13,6 +13,7 @@ export interface KpiItem {
   scoringDefinitions: Record<number, string>;
 }
 export interface KpiPeriodContext {
+  frequencyPolicy?: 'ROLE_BASED' | 'DEPARTMENT_BASED';
   id: number; name: string | null; status: 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED';
     assessmentModel?: 'LEGACY_ALL_LEVELS' | 'CENTRAL_RESULTS';
   startDate: string | null; endDate: string | null; kpiSetupDeadline: string | null;

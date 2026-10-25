@@ -43,9 +43,11 @@
       @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
       @if (success) { <div class="notice" role="status">{{ success }}</div> }
       <div class="review-detail-summary assessment-review-summary">
-        <div><span class="help">{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</span><strong>{{ assessment.employeeName }}</strong><span class="help">{{ assessment.roleName }} @if (assessment.departmentName) { / {{ assessment.departmentName }} }</span></div>
+        <p class="help assessment-review-context">{{ assessment.roleName }} @if (assessment.departmentName) { / {{ assessment.departmentName }} }</p>
         <div><span class="help">{{ 'ATTITUDE_ASSESSMENT.FORMAT' | translate }}</span><strong>{{ 'ATTITUDE_SETUP.FORMAT.' + assessment.evaluationFormat | translate }}</strong></div>
-        <div><span class="help">{{ 'ATTITUDE_REVIEW.DEADLINE' | translate }}</span><strong>{{ assessment.superiorEvaluationDeadline ? (assessment.superiorEvaluationDeadline | date:'dd MMM yyyy') : '-' }}</strong></div>
+        <div><span class="help">{{ 'ATTITUDE_REVIEW.DEADLINE' | translate }}</span><div class="assessment-review-deadline"><strong>{{ assessment.superiorEvaluationDeadline ? (assessment.superiorEvaluationDeadline | date:'dd MMM yyyy') : '-' }}</strong>
+          @if (!readonly && assessment.superiorOverdue) { <span class="status overdue">{{ 'ATTITUDE_REVIEW.OVERDUE_ALLOWED' | translate }}</span> }
+        </div></div>
         <div><span class="help">{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</span><span class="status" [attr.data-status]="reviewProgress(assessment)">{{ 'MY_ASSESSMENTS.STATUS.' + reviewProgress(assessment) | translate }}</span></div>
       </div>
       @if (assessment.status === 'REVIEWED') {
@@ -55,13 +57,17 @@
         </p><p class="help">{{ 'ATTITUDE_REVIEW.READ_ONLY' | translate }}</p>
       } @else if (assessment.reviewPeriodStatus !== 'OPEN') {
         <p class="notice">{{ 'ATTITUDE_REVIEW.PERIOD_READ_ONLY' | translate }}</p>
-      } @else if (!readonly && assessment.superiorOverdue) {
-        <p class="help warning overdue-help">{{ 'ATTITUDE_REVIEW.LATE_HELP' | translate }}</p>
       }
       @if (!readonly && completionReasons.length) {
-        <div class="submission-readiness" role="status"><strong>{{ 'KPI_ASSESSMENT_REVIEW.BEFORE_COMPLETE' | translate }}</strong>
+        <div class="attitude-review-readiness" role="status">
           <ul>@for (reason of completionReasons; track reason) { <li>{{ reason }}</li> }</ul>
         </div>
+      }
+      @if (!readonly && items.length) {
+        <aside class="attitude-comment-guide" role="note">
+          <strong>{{ 'ATTITUDE_REVIEW.COMMENTS_GUIDE' | translate }}</strong>
+          <p>{{ 'ATTITUDE_RESULTS.SHARING_HELP' | translate }}</p>
+        </aside>
       }
       @for (item of items; track item.id) {
         <section class="card review-assessment-card">
@@ -84,8 +90,7 @@
               }
               @if (rating(item.superiorPoint); as scale) { <span class="selected-point-label" role="status">{{ scale.label }}</span> }
               @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'attitude-superior-error-' + item.id">{{ validation | translate }}</span> }
-              <div class="field"><label [for]="'attitude-superior-comment-' + item.id">{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_COMMENT' | translate }}</label>
-                @if (!readonly) { <p class="help">{{ 'ATTITUDE_RESULTS.SHARING_HELP' | translate }}</p> }
+              <div class="field"><label [for]="'attitude-superior-comment-' + item.id">{{ 'ATTITUDE_REVIEW.SUPERIOR_COMMENT' | translate }}</label>
                 @if (readonly) { <p class="saved-comment">{{ item.superiorComment || '-' }}</p> }
                 @else { <textarea [id]="'attitude-superior-comment-' + item.id" rows="3" maxlength="10000" [disabled]="busy" [(ngModel)]="item.superiorComment" [attr.aria-invalid]="!!commentError(item.superiorComment)" [attr.aria-describedby]="commentError(item.superiorComment) ? 'attitude-comment-error-' + item.id : null" [placeholder]="'KPI_ASSESSMENT_REVIEW.COMMENT_PLACEHOLDER' | translate"></textarea>
                   @if (commentError(item.superiorComment); as validation) { <span class="field-error" [id]="'attitude-comment-error-' + item.id">{{ validation | translate }}</span> }

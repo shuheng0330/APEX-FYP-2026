@@ -65,6 +65,9 @@
           } @else if (current.overdue) {
             <p class="help warning overdue-help">{{ 'MY_ASSESSMENTS.LATE_HELP' | translate }}</p>
           }
+          @if (current.assessmentModel === 'CENTRAL_RESULTS') {
+            <app-company-reporting-source [source]="current.companyReportingCheckpoint" [compact]="true" />
+          }
           @if (!readonly && submissionReasons.length) {
             <div class="submission-readiness" role="status">
               <strong>{{ 'MY_ASSESSMENTS.BEFORE_SUBMIT' | translate }}</strong>
@@ -190,27 +193,43 @@
         </div>
       }
       @if (breakdown; as score) {
-        <p class="notice"><strong>{{ (score.checkpointScore === null ? 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' : 'KPI_ASSESSMENT_REVIEW.SCORE') | translate }}@if (score.checkpointScore !== null) {: {{ score.checkpointScore | number:'1.2-2' }}%}</strong></p>
+        <div class="breakdown-score" role="status">
+          <span class="help">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}</span>
+          <strong class="breakdown-score-value">{{ score.checkpointScore === null ? ('KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate) : (score.checkpointScore | number:'1.2-2') + '%' }}</strong>
+        </div>
         <section class="card"><div class="table-scroll"><table class="data-table breakdown-summary">
-          <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.ALLOCATION' | translate }}</th>
-            <th>{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.CONTRIBUTION' | translate }}</th></tr></thead>
+          <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.ALLOCATION_LABEL' | translate }}</th>
+            <th>{{ 'KPI_SCORE_BREAKDOWN.LEVEL_SCORE' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.CONTRIBUTION_LABEL' | translate }}</th></tr></thead>
           <tbody>@for (level of score.levels; track level.level) {
             <tr><td>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</td><td>{{ level.allocation | number:'1.0-2' }}%</td>
-              <td>{{ 'KPI_SCORE_BREAKDOWN.STATUS.' + level.status | translate }}</td>
+              <td>@if (level.status === 'NOT_APPLICABLE') { {{ 'KPI_SCORE_BREAKDOWN.STATUS.NOT_APPLICABLE' | translate }} }
+                @else { @let levelScore = breakdownLevelScore(level);
+                  {{ levelScore === null ? ('KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate) : (levelScore | number:'1.2-2') + '%' }}
+                }
+              </td>
               <td>@if (level.contribution !== null) { {{ level.contribution | number:'1.2-2' }}% } @else { {{ 'KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate }} }</td>
             </tr>
           }</tbody>
         </table></div></section>
-        <p class="help">{{ 'KPI_SCORE_BREAKDOWN.FORMULA' | translate }}</p>
+        <p class="help breakdown-formula">{{ 'KPI_SCORE_BREAKDOWN.FORMULA' | translate }}</p>
+        @if (score.checkpointScore === null) { <p class="help breakdown-pending">{{ 'KPI_SCORE_BREAKDOWN.PENDING_HELP' | translate }}</p> }
         @for (level of score.levels; track level.level) {
           @if (level.status !== 'NOT_APPLICABLE') {
             <section class="card breakdown-level">
               <div class="card-head"><h3>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</h3>
-                <p class="help">{{ 'KPI_SCORE_BREAKDOWN.ALLOCATION' | translate }}: {{ level.allocation | number:'1.0-2' }}%
-                  @if (level.versionNumber !== null) { / {{ 'KPI_RESULTS.VERSION' | translate:{ number: level.versionNumber } }} }
-                  @if (level.resultEditionNumber !== null) { / {{ 'KPI_RESULTS.EDITION' | translate:{ number: level.resultEditionNumber } }} }
-                </p>
-                @if (level.publishedAt) { <p class="help">{{ (level.level === 'INDIVIDUAL' ? 'KPI_SCORE_BREAKDOWN.REVIEWED_ON' : 'KPI_SCORE_BREAKDOWN.PUBLISHED_ON') | translate }}: {{ level.publishedAt | date:'dd MMM yyyy, h:mm a' }}</p> }
+                @if (level.level === 'COMPANY' && level.reportingCheckpoint; as source) {
+                  <p class="help breakdown-reporting-period">{{ 'KPI_SCORE_BREAKDOWN.REPORTING_PERIOD' | translate }}: {{ source.endDate | date:'MMMM yyyy' }} ({{ 'REVIEW_PERIOD.FREQUENCY.' + source.reviewFrequency | translate }})</p>
+                }
+                @if (level.versionNumber !== null || level.resultEditionNumber !== null || level.publishedAt) {
+                  <details class="breakdown-result-details">
+                    <summary>{{ 'KPI_SCORE_BREAKDOWN.RESULT_DETAILS' | translate }}</summary>
+                    <dl class="breakdown-values">
+                      @if (level.versionNumber !== null) { <div><dt>{{ 'KPI_RESULTS.PLAN_VERSION' | translate }}</dt><dd>{{ level.versionNumber }}</dd></div> }
+                      @if (level.resultEditionNumber !== null) { <div><dt>{{ 'KPI_SCORE_BREAKDOWN.RESULT_EDITION' | translate }}</dt><dd>{{ level.resultEditionNumber }}</dd></div> }
+                      @if (level.publishedAt) { <div><dt>{{ (level.level === 'INDIVIDUAL' ? 'KPI_SCORE_BREAKDOWN.REVIEWED_ON' : 'KPI_SCORE_BREAKDOWN.PUBLISHED_ON') | translate }}</dt><dd>{{ level.publishedAt | date:'dd MMM yyyy, h:mm a' }}</dd></div> }
+                    </dl>
+                  </details>
+                }
               </div>
               @if (level.status === 'PENDING') {
                 <div class="card-body">{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }} {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level.level | translate }}</div>

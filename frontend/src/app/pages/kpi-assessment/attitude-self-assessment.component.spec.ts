@@ -11,6 +11,7 @@ import { AttitudeAssessment, AttitudeAssessmentItem } from '../../models/attitud
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
 import { AttitudeSelfAssessmentComponent } from './attitude-self-assessment.component';
+import { reviewLayout } from '../kpi-plan/review-navigation.test-layout';
 
 describe('Annual Attitude Self-Assessment', () => {
   let fixture: ComponentFixture<AttitudeSelfAssessmentComponent>;
@@ -127,13 +128,30 @@ describe('Annual Attitude Self-Assessment', () => {
       expect(fixture.nativeElement.querySelectorAll('.attitude-criterion').length).toBe(2);
     }
   });
-  it('uses bound rating labels/definitions in the selected answer and reusable scoring guide', () => {
+  it('shows only the configured label below the points and retains full definitions in the scoring guide', () => {
     page.items[0].selfPoint = 3; fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.selected-rating').textContent).toContain('Configured rating 3');
-    expect(fixture.nativeElement.querySelector('.selected-rating').textContent).toContain('Configured behaviour 3');
+    const label: HTMLElement = fixture.nativeElement.querySelector('.criterion-rating .selected-rating');
+    expect(label.previousElementSibling?.classList.contains('point-selector')).toBeTrue();
+    expect(label.textContent?.trim()).toBe('Configured rating 3');
+    expect(fixture.nativeElement.textContent).not.toContain('Configured behaviour 3');
+    expect(fixture.nativeElement.querySelector('.criterion-description').textContent).toBe('Demonstrate expected behaviour');
     const guide = fixture.debugElement.query(By.directive(KpiScoringGuideComponent)).componentInstance as KpiScoringGuideComponent;
     expect(guide.ratings).toEqual(page.assessment!.ratingDefinitions); expect(guide.titleKey).toBe('ATTITUDE_ASSESSMENT.GUIDE_TITLE');
     expect(fixture.nativeElement.textContent).not.toContain('KPI_SCORING_GUIDE.RATING');
+    expect(guide.orderedRatings.find(rating => rating.point === 3)?.description).toBe('Configured behaviour 3');
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+  });
+  it('wraps long configured labels beneath the points at desktop, tablet and mobile widths', () => {
+    page.items[0].selfPoint = 3;
+    page.assessment!.ratingDefinitions[2].label = 'Long configured rating label '.repeat(8); fixture.detectChanges();
+    for (const width of [1440, 768, 360]) {
+      const layout = reviewLayout(fixture.nativeElement.querySelector('.attitude-criteria'), width);
+      try {
+        expect(layout.root.scrollWidth).withContext(String(width)).toBeLessThanOrEqual(width);
+        expect(layout.window.getComputedStyle(layout.root.querySelector('.selected-rating')!).overflowWrap).toBe('anywhere');
+      } finally { layout.remove(); }
+    }
   });
   it('binds radio selections and shows criterion completion progress, not a performance score', async () => {
     const input: HTMLInputElement = fixture.nativeElement.querySelectorAll('input[type=radio]')[2];

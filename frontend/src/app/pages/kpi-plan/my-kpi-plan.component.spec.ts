@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { EventEmitter } from '@angular/core';
@@ -51,6 +51,38 @@ describe('My KPI Plan', () => {
     const onOk = modal.confirm.calls.mostRecent().args[0]?.nzOnOk;
     if (onOk && !(onOk instanceof EventEmitter)) onOk(undefined);
   }
+  for (const target of ['.ant-select-selection-item', '.ant-select-arrow']) {
+    it(`opens the Review Period from ${target} and loads another period`, fakeAsync(() => {
+      component.periods = [period(), period(2)];
+      fixture.detectChanges(); tick(); fixture.detectChanges();
+      const select: HTMLElement = fixture.nativeElement.querySelector('.plan-picker');
+      const trigger = select.querySelector<HTMLElement>(target)!;
+      trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      trigger.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); trigger.click();
+      fixture.detectChanges(); tick(); fixture.detectChanges();
+      const open = select.classList.contains('ant-select-open'); expect(open).toBeTrue();
+      if (!open) return;
+      document.querySelectorAll<HTMLElement>('.cdk-overlay-container nz-option-item')[1].click();
+      fixture.detectChanges(); tick(); fixture.detectChanges();
+      expect(component.periodId).toBe(2); expect(api.assigned).toHaveBeenCalledWith(2);
+      expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+      expect(api.submit).not.toHaveBeenCalled();
+    }));
+  }
+  it('links the period label to its input and prevents opening while busy or editing', fakeAsync(() => {
+    fixture.detectChanges(); tick(); fixture.detectChanges();
+    const label: HTMLLabelElement = fixture.nativeElement.querySelector('label[for="my-kpi-review-period"]');
+    expect(label?.control?.id).toBe('my-kpi-review-period');
+    for (const state of ['busy', 'drawerVisible'] as const) {
+      component[state] = true; fixture.detectChanges();
+      const select: HTMLElement = fixture.nativeElement.querySelector('.plan-picker');
+      const trigger = select.querySelector<HTMLElement>('.ant-select-selector')!;
+      trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); trigger.click();
+      fixture.detectChanges(); tick(); fixture.detectChanges();
+      expect(select.classList.contains('ant-select-open')).toBeFalse();
+      component[state] = false;
+    }
+  }));
   it('keeps assigned KPI weights separate from the Individual plan total', () => {
     component.plan = plan(); component.items = [item('Customers', 60), item('Cross sell', 40)];
     component.assignedPlans = [{ ...plan('PUBLISHED'), id: 20, level: 'COMPANY', items: [item('Revenue', 100)] }];

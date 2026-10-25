@@ -53,6 +53,14 @@
 .result-pending-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
 .result-pending-meta .score-reviewed-at { margin: 0; white-space: nowrap; }
 .breakdown-summary { min-width: 520px; }
+.breakdown-score { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; padding: 8px 0 16px; margin: 0 0 20px; border-bottom: 1px solid var(--tbm-border); }
+.breakdown-score .help { margin: 0; font-weight: 600; }
+.breakdown-score-value { font-size: 30px; line-height: 1.3; color: var(--tbm-primary); overflow-wrap: anywhere; }
+.breakdown-formula, .breakdown-pending { margin: 8px 0; }
+.breakdown-result-details { margin-top: 12px; font-size: 13px; }
+.breakdown-result-details summary { color: var(--tbm-primary); padding: 4px 0; }
+.breakdown-result-details summary:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 3px; border-radius: 4px; }
+.breakdown-result-details .breakdown-values { margin-top: 10px; }
 .breakdown-level { margin-top: 24px; }
 .breakdown-level h3 { margin: 0; }
 .breakdown-item { padding: 20px; border-top: 1px solid var(--tbm-border); }
