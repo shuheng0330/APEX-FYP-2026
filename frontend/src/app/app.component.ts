@@ -8,7 +8,6 @@ import { NzFloatButtonModule } from 'ng-zorro-antd/float-button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 
 import { SideMenuComponent } from './components/side-menu/side-menu.component';
-import { EvaluationCycleDrawerComponent } from './components/evaluation-cycle-drawer/evaluation-cycle-drawer.component';
 import { AppTopHeaderComponent } from './components/app-top-header/app-top-header.component';
 
 import { AuthService } from './services/auth.service';
@@ -19,7 +18,7 @@ import { filter } from 'rxjs';
     selector: 'app-root',
     standalone: true,
     imports: [RouterOutlet, CommonModule, NzSpinModule, NzDrawerModule,
-        NzIconModule, NzFloatButtonModule, SideMenuComponent, AppTopHeaderComponent, EvaluationCycleDrawerComponent],
+        NzIconModule, NzFloatButtonModule, SideMenuComponent, AppTopHeaderComponent],
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.scss']
 })
@@ -29,7 +28,6 @@ export class AppComponent implements OnInit {
     isLoggedIn$: any;
     isCollapsed = true;
     isDrawerVisible = false;
-    isEvaluationDrawerVisible = false;
     isAuthRoute = false;
 
     constructor(private loadingService: LoadingService, private auth: AuthService,
@@ -53,10 +51,6 @@ export class AppComponent implements OnInit {
     closeDrawer(): void {
         this.isDrawerVisible = false;
         this.isCollapsed = true;
-    }
-
-    onOpenEvaluation(): void {
-        this.isEvaluationDrawerVisible = true;
     }
 
     private updateAuthRoute(url: string): void {

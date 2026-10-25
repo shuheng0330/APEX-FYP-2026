@@ -28,11 +28,19 @@ describe('SideMenuComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
-  it('clearly separates legacy competency pages from annual appraisal review without retiring their routes', () => {
+  it('keeps annual appraisal review without exposing retired competency-performance pages', () => {
     const annual = component.navItems.find(item => item.key === 'NAV.PERFORMANCE_APPRAISAL')!;
     expect(annual.children?.map(item => item.route)).toEqual(['/appraisals/review']);
-    const legacy = component.navItems.find(item => item.key === 'NAV.LEGACY_COMPETENCY_PERFORMANCE');
-    expect(legacy?.children?.map(item => item.route)).toEqual(['/evaluation/overview', '/evaluation/org-overview', '/evaluation/my-evaluation']);
+    expect(component.navItems.some(item => item.key === 'NAV.LEGACY_COMPETENCY_PERFORMANCE')).toBeFalse();
+    const links = component.navItems.flatMap(item => [item.route, ...(item.children?.map(child => child.route) ?? [])]);
+    expect(links.some(link => link?.startsWith('/evaluation') || link?.startsWith('/performance/'))).toBeFalse();
+    expect(links).toContain('/competencies'); expect(links).toContain('/roles-competencies');
+    expect(links).toContain('/sop/review'); expect(links).toContain('/my-learning');
+  });
+  it('does not offer the retired evaluation-cycle control even with its legacy permission', () => {
+    spyOn(TestBed.inject(AuthService), 'hasRole').and.callFake(p => p === 'CAN_MANAGE_EVALUATION_CYCLE');
+    component.isCollapsed = false; fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('NAV.EVALUATION_PERIOD');
   });
   it('exposes Team Reviews with any review authority, but not ROLE_USER alone', () => {
     const item = component.navItems.find(item => item.key === 'NAV.TEAM_PERFORMANCE')!;

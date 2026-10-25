@@ -42,12 +42,6 @@
   </ul>
 
   <ul nz-menu nzMode="inline" nzTheme="light" [nzInlineCollapsed]="isCollapsed" class="bottom-cell" #profileMenu>
-    @if (authService.hasRole('CAN_MANAGE_EVALUATION_CYCLE')) {
-      <li nz-menu-item (click)="openEvaluationDrawer()">
-        <nz-icon nzType="calendar" nzTheme="outline" style="margin-right: 10px;" />
-        {{ isCollapsed ? '' : ('NAV.EVALUATION_PERIOD' | translate) }}
-      </li>
-    }
     <li nz-menu-item (click)="onProfileClick()"><nz-icon nzType="user" nzTheme="outline" style="margin-right: 10px;" />
       {{ isCollapsed ? '' : ('NAV.PROFILE' |translate) }}</li>
     <li nz-menu-item (click)="onLogout()"><nz-icon nzType="logout" nzTheme="outline" style="margin-right: 10px;" />
