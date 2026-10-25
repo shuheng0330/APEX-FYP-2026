@@ -1,0 +1,276 @@
+<div class="sop-assign page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training assignment</span>
+      <h1>Assign Training</h1>
+      <p>Choose a course, who should take it, and by when. Staff see it in their Learning Portal.</p>
+    </div>
+  </div>
+
+  <nz-spin [nzSpinning]="loading">
+    <div class="assign-layout">
+      <main class="assign-main">
+
+        <!-- 1. Course -->
+        <section class="step surface-panel">
+          <header class="step-head"><span class="step-number">1</span><h2>Select a course</h2></header>
+          @if (!loading && !courses.length) {
+            <nz-empty nzNotFoundContent="No generated courses you can assign yet. Trainers can assign the SOPs they uploaded."></nz-empty>
+          }
+          <div class="course-list">
+            @for (c of courses; track c.id) {
+              <button type="button" class="course-card" [class.selected]="c.id === selectedCourseId" [class.not-ready]="!c.ready"
+                      [disabled]="!c.ready || assigning" (click)="selectCourse(c)">
+                <span class="course-top">
+                  <strong>{{ c.title }}</strong>
+                  @if (c.ready) {
+                    <nz-tag nzColor="green">Ready</nz-tag>
+                  } @else {
+                    <nz-tag nzColor="orange">Review pending</nz-tag>
+                  }
+                </span>
+                <span class="course-meta">
+                  {{ c.departmentTag || 'No department' }} · {{ c.moduleCount }} modules
+                  @if (c.version) { · v{{ c.version }} }
+                  · {{ c.mine ? 'Yours' : (c.ownerName || 'Unknown owner') }}
+                </span>
+                <span class="course-meta">
+                  Pass {{ c.passMark }}% · {{ formatDuration(c.durationMinutes) }}{{ c.durationSet ? '' : ' (default)' }}
+                </span>
+                <span class="course-meta">
+                  @if (c.ready) {
+                    {{ c.enrolledCount }} enrolled ·
+                    <span class="visibility" [class.open]="c.visibility === 'OPEN'">{{ c.visibility === 'OPEN' ? 'Open' : 'Private' }}</span>
+                  } @else {
+                    Approved: {{ c.approvedModules }}/{{ c.moduleCount }} materials, {{ c.approvedQuizzes }}/{{ c.moduleCount }} quizzes
+                  }
+                </span>
+              </button>
+            }
+          </div>
+          @if (courses.length && !selectedCourse) {
+            <p class="hint">Only courses whose materials and quizzes are all approved can be assigned.</p>
+          }
+        </section>
+
+        @if (selectedCourse; as course) {
+          <!-- 2. Audience -->
+          <section class="step surface-panel">
+            <header class="step-head"><span class="step-number">2</span><h2>Assign to</h2></header>
+            <nz-radio-group [(ngModel)]="audienceMode" (ngModelChange)="refreshPreview()" class="choice-row">
+              <label nz-radio-button nzValue="specific">Departments, job roles or people</label>
+              <label nz-radio-button nzValue="everyone">Everyone ({{ audience.staff.length }})</label>
+            </nz-radio-group>
+
+            @if (audienceMode === 'specific') {
+              @if (suggestions.departments.length) {
+                <div class="suggestion">
+                  <nz-icon nzType="bulb"></nz-icon>
+                  <span>
+                    Suggested for this SOP's department ({{ course.departmentTag }}):
+                    @for (d of suggestions.departments; track d.id; let last = $last) {
+                      <strong>{{ d.name }}</strong> ({{ d.staffCount }} staff){{ last ? '' : ', ' }}
+                    }
+                  </span>
+                  <button nz-button nzSize="small" (click)="addSuggestions()">Add</button>
+                </div>
+              } @else if (!course.recommendedDepartmentIds.length) {
+                <p class="hint">No suggestion: no department matches this SOP's department "{{ course.departmentTag || 'not set' }}".</p>
+              }
+
+              <div class="pickers">
+                <label class="field">Departments
+                  <nz-select nzMode="multiple" [(ngModel)]="departmentIds" (ngModelChange)="refreshPreview()"
+                             nzPlaceHolder="Add departments" nzShowSearch>
+                    @for (d of audience.departments; track d.id) {
+                      <nz-option [nzValue]="d.id" [nzLabel]="d.name + ' (' + d.staffCount + ')'"></nz-option>
+                    }
+                  </nz-select>
+                </label>
+                <label class="field">Job roles
+                  <nz-select nzMode="multiple" [(ngModel)]="roleIds" (ngModelChange)="refreshPreview()"
+                             nzPlaceHolder="Add job roles" nzShowSearch>
+                    @for (r of audience.roles; track r.id) {
+                      <nz-option [nzValue]="r.id" [nzLabel]="r.name + (r.departmentName ? ' · ' + r.departmentName : '') + ' (' + r.staffCount + ')'"></nz-option>
+                    }
+                  </nz-select>
+                </label>
+                <label class="field">Individual staff
+                  <nz-select nzMode="multiple" [(ngModel)]="staffIds" (ngModelChange)="refreshPreview()"
+                             nzPlaceHolder="Search by name" nzShowSearch>
+                    @for (p of audience.staff; track p.id) {
+                      <nz-option [nzValue]="p.id" [nzLabel]="p.name + (p.roleName ? ' · ' + p.roleName : '')"></nz-option>
+                    }
+                  </nz-select>
+                </label>
+              </div>
+            } @else {
+              <p class="hint">Every active staff member gets this course in their Learning Portal.</p>
+            }
+          </section>
+
+          <!-- 3. Delivery -->
+          <section class="step surface-panel">
+            <header class="step-head"><span class="step-number">3</span><h2>How staff receive it</h2></header>
+            <div class="mode-options">
+              <button type="button" class="mode-card" [class.selected]="mode === 'PORTAL'" (click)="mode = 'PORTAL'">
+                <nz-icon nzType="appstore"></nz-icon>
+                <strong>Add to Learning Portal</strong>
+                <span>Staff start whenever they like, then have {{ daysToComplete }} days from their start to finish.</span>
+              </button>
+              <button type="button" class="mode-card" [class.selected]="mode === 'IMMEDIATE'" (click)="mode = 'IMMEDIATE'">
+                <nz-icon nzType="thunderbolt"></nz-icon>
+                <strong>Start immediately</strong>
+                <span>Shown at the top of their portal; the {{ daysToComplete }} days count from the effective date.</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- 4. Rules -->
+          <section class="step surface-panel">
+            <header class="step-head"><span class="step-number">4</span><h2>Requirements</h2></header>
+            <div class="rules">
+              <div class="rule">
+                <nz-switch [(ngModel)]="mandatory"></nz-switch>
+                <div>
+                  <strong>Mandatory training</strong>
+                  <span>{{ mandatory ? 'Staff must complete it by the due date; late completion is flagged as overdue.' : 'Optional: staff complete it if they choose.' }}</span>
+                </div>
+              </div>
+              <div class="rule">
+                <nz-input-number [(ngModel)]="passMark" [nzMin]="course.passMark" [nzMax]="100" [nzStep]="5"></nz-input-number>
+                <div>
+                  <strong>Pass mark (%)</strong>
+                  <span>Minimum quiz score to pass each module and earn the certificate. The course's own is {{ course.passMark }}%;
+                    you can raise it for this assignment, but not lower it.</span>
+                </div>
+              </div>
+              <div class="rule">
+                <strong class="rule-value">{{ formatDuration(course.durationMinutes) }}</strong>
+                <div>
+                  <strong>Estimated duration</strong>
+                  <span>Counted as training hours for staff who complete it.
+                    @if (!course.durationSet) {
+                      The course owner hasn't set it yet, so the default is used. They can set it on Review Generated Training.
+                    }</span>
+                </div>
+              </div>
+              <div class="rule">
+                <nz-switch [ngModel]="course.visibility === 'OPEN'" (ngModelChange)="toggleVisibility($event)" [nzLoading]="savingVisibility"></nz-switch>
+                <div>
+                  <strong>Open course</strong>
+                  <span>{{ course.visibility === 'OPEN' ? 'Any staff member can find and enrol in it from the Learning Portal.' : 'Private: only assigned staff can see it.' }} Saved immediately.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 5. Dates -->
+          <section class="step surface-panel">
+            <header class="step-head"><span class="step-number">5</span><h2>Dates</h2></header>
+            <div class="dates">
+              <label class="field">Effective date
+                <nz-date-picker [(ngModel)]="effectiveDate" (ngModelChange)="onEffectiveDateChange()" [nzAllowClear]="false"
+                                [nzDisabledDate]="disablePastDates" nzFormat="d MMM yyyy"></nz-date-picker>
+              </label>
+              <label class="field">Days to complete
+                <nz-input-number [(ngModel)]="daysToComplete" [nzMin]="1" [nzMax]="365"></nz-input-number>
+              </label>
+              <label class="field">Deadline
+                <nz-date-picker [(ngModel)]="deadline" [nzDisabledDate]="disableBeforeEffective" nzFormat="d MMM yyyy"
+                                nzPlaceHolder="Last day to finish"></nz-date-picker>
+              </label>
+            </div>
+            @if (deadline) {
+              <p class="due-summary">
+                <nz-icon nzType="calendar"></nz-icon>
+                @if (mode === 'IMMEDIATE') {
+                  Everyone starts {{ effectiveDate | date: 'd MMM yyyy' }} and must finish by
+                  <strong>{{ immediateDue | date: 'd MMM yyyy' }}</strong>{{ immediateDue?.getTime() === deadline.getTime() ? ' (capped by the deadline)' : '' }}.
+                } @else {
+                  Available from {{ effectiveDate | date: 'd MMM yyyy' }}. Each person has {{ daysToComplete }} days from their own start,
+                  and nothing is accepted after <strong>{{ deadline | date: 'd MMM yyyy' }}</strong>.
+                }
+              </p>
+              @if (daysUntilDeadline !== null && daysUntilDeadline < daysToComplete) {
+                <p class="due-warning">Only {{ daysUntilDeadline }} days remain before the deadline, so anyone starting now gets less than {{ daysToComplete }} days.</p>
+              }
+            }
+          </section>
+
+          <!-- 6. Preview -->
+          <section class="step surface-panel">
+            <header class="step-head">
+              <span class="step-number">6</span><h2>Who gets it</h2>
+              @if (preview) {
+                <span class="preview-counts">
+                  <nz-tag nzColor="green">{{ preview.newCount }} new</nz-tag>
+                  @if (preview.updateCount) { <nz-tag nzColor="blue">{{ preview.updateCount }} updated</nz-tag> }
+                  @if (preview.completedCount) { <nz-tag>{{ preview.completedCount }} already completed</nz-tag> }
+                </span>
+              }
+            </header>
+            <nz-spin [nzSpinning]="previewLoading" nzSize="small">
+              @if (!audienceReady) {
+                <p class="hint">Choose departments, job roles or people above to see who gets this course.</p>
+              } @else if (preview && !preview.staff.length) {
+                <p class="hint">Nobody matches this audience.</p>
+              } @else if (preview) {
+                <div class="preview-table">
+                  <div class="preview-row head"><span>Name</span><span>Job role</span><span>Department</span><span>Result</span></div>
+                  @for (row of preview.staff; track row.staffId) {
+                    <div class="preview-row">
+                      <span>{{ row.name }}</span>
+                      <span>{{ row.roleName || '-' }}</span>
+                      <span>{{ row.departmentName || '-' }}</span>
+                      <span><nz-tag [nzColor]="outcomeColor(row.outcome)">{{ outcomeLabel(row.outcome) }}</nz-tag></span>
+                    </div>
+                  }
+                </div>
+              }
+            </nz-spin>
+          </section>
+
+          <!-- Summary + confirm -->
+          <div class="assign-bar surface-panel">
+            <div class="assign-summary">
+              <strong>{{ course.title }}</strong>
+              <span>
+                {{ audienceMode === 'everyone' ? 'Everyone' : recipientCount + ' staff' }} · {{ modeLabel(mode) }}
+                · {{ mandatory ? 'Mandatory' : 'Optional' }} · pass {{ passMark }}%
+                @if (deadline) { · by {{ (mode === 'IMMEDIATE' ? immediateDue : deadline) | date: 'd MMM yyyy' }} }
+              </span>
+              @if (validationMessage) { <span class="assign-blocker">{{ validationMessage }}</span> }
+            </div>
+            <button nz-button nzType="primary" nzSize="large" [nzLoading]="assigning" [disabled]="!!validationMessage || previewLoading"
+                    nz-popconfirm [nzPopconfirmTitle]="'Assign this course to ' + recipientCount + ' staff?'" (nzOnConfirm)="assign()">
+              <nz-icon nzType="send"></nz-icon> Assign
+            </button>
+          </div>
+        }
+      </main>
+
+      <!-- History -->
+      <aside class="history-panel surface-panel">
+        <h3>Assignment history</h3>
+        <p class="muted">{{ selectedCourse ? 'For ' + selectedCourse.title : 'All courses you can assign' }}</p>
+        <nz-spin [nzSpinning]="historyLoading" nzSize="small">
+          @if (!history.length && !historyLoading) {
+            <p class="muted">No assignments yet.</p>
+          }
+          @for (h of history; track h.id) {
+            <div class="history-item">
+              @if (!selectedCourse) { <strong>{{ h.courseTitle }}</strong> }
+              <span class="history-audience">{{ h.audience }}</span>
+              <span class="history-meta">
+                {{ h.staffCount }} staff · {{ modeLabel(h.mode) }} · {{ h.mandatory ? 'Mandatory' : 'Optional' }} · pass {{ h.passMark }}%
+              </span>
+              <span class="history-meta">Due by {{ h.deadline | date: 'd MMM yyyy' }} · {{ h.daysToComplete }} days to complete</span>
+              <span class="history-by">{{ h.assignedByName }} · {{ h.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+            </div>
+          }
+        </nz-spin>
+      </aside>
+    </div>
+  </nz-spin>
+</div>

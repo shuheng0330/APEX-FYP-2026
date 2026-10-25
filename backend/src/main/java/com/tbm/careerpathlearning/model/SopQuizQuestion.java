@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.model;
 
+import com.tbm.careerpathlearning.enums.QuizDifficulty;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.ReviewStatus;
 import jakarta.persistence.*;
@@ -41,6 +42,11 @@ public class SopQuizQuestion {
 
     @Column(name = "explanation", columnDefinition = "text")
     private String explanation;
+
+    /** FR-08-07; null for questions generated before difficulty was recorded. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty")
+    private QuizDifficulty difficulty;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "review_status", nullable = false)

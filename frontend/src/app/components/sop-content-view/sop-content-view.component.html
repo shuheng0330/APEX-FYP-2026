@@ -1,0 +1,127 @@
+@if (rich; as r) {
+  @if (reviewer && r.source === 'offline') {
+    <div class="offline-note">
+      <nz-icon nzType="disconnect"></nz-icon>
+      <span>Generated offline from the SOP text because the AI was unavailable. Review it carefully before approving.</span>
+    </div>
+  }
+
+  <!-- Summary -->
+  @if (r.summary) {
+    <div class="ai-summary-box">
+      <div class="ai-label">
+        @if (reviewer && r.source !== 'offline') {
+          <nz-icon nzType="robot"></nz-icon> AI SUMMARY
+        } @else {
+          <nz-icon nzType="file-text"></nz-icon> SUMMARY
+        }
+      </div>
+      <p>{{ r.summary }}</p>
+    </div>
+  }
+
+  <!-- Learning Objectives -->
+  @if (r.learningObjectives?.length) {
+    <h3 class="section-title">What You Will Learn</h3>
+    <div class="objectives-grid">
+      @for (obj of r.learningObjectives; track $index) {
+        <div class="objective-card">
+          <nz-icon nzType="check-circle" nzTheme="twotone" [nzTwotoneColor]="'#13c2a8'"></nz-icon>
+          <span>{{ obj }}</span>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Tools -->
+  @if (r.tools?.length) {
+    <h3 class="section-title">Tools & Materials Required</h3>
+    <div class="tools-row">
+      @for (tool of r.tools; track $index) {
+        <nz-tag nzColor="default">{{ tool }}</nz-tag>
+      }
+    </div>
+  }
+
+  <!-- Content Sections -->
+  @for (section of r.sections; track $index) {
+    @if (section.heading) {
+      <h3 class="section-title">{{ section.heading }}</h3>
+    }
+    @switch (section.type) {
+      @case ('paragraph') {
+        <p class="section-body">{{ section.body }}</p>
+      }
+      @case ('steps') {
+        <ol class="steps-list">
+          @for (item of section.items; track $index; let i = $index) {
+            <li>
+              <span class="step-number">{{ i + 1 }}</span>
+              <span>{{ item }}</span>
+            </li>
+          }
+        </ol>
+      }
+      @case ('table') {
+        <div class="table-wrapper">
+          <table class="content-table">
+            @if (section.headers?.length) {
+              <thead>
+                <tr>@for (h of section.headers; track $index) { <th>{{ h }}</th> }</tr>
+              </thead>
+            }
+            <tbody>
+              @for (row of section.rows; track $index; let ri = $index) {
+                <tr [class.first-row]="ri === 0">
+                  @for (cell of row; track $index) { <td>{{ cell }}</td> }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      @case ('warnings') {
+        <div class="warnings-list">
+          @for (item of section.items; track $index) {
+            <div class="warning-card">
+              <nz-icon nzType="stop" nzTheme="outline"></nz-icon>
+              <span>{{ item }}</span>
+            </div>
+          }
+        </div>
+      }
+      @case ('image') {
+        @if (section.url) {
+          <figure class="media-figure">
+            <img [src]="mediaSrc(section.url)" [alt]="section.alt || section.heading || ''" />
+            @if (section.caption) { <figcaption>{{ section.caption }}</figcaption> }
+          </figure>
+        }
+      }
+      @case ('video') {
+        @if (section.url) {
+          <figure class="media-figure">
+            <video [src]="mediaSrc(section.url)" controls preload="metadata"></video>
+            @if (section.caption) { <figcaption>{{ section.caption }}</figcaption> }
+          </figure>
+        }
+      }
+    }
+  }
+
+  <!-- Key Terms -->
+  @if (r.keyTerms?.length) {
+    <h3 class="section-title">Key Terms to Know</h3>
+    <div class="terms-grid">
+      @for (kt of r.keyTerms; track $index) {
+        <div class="term-card">
+          <strong>{{ kt.term }}</strong>
+          <p>{{ kt.definition }}</p>
+        </div>
+      }
+    </div>
+  }
+} @else {
+  <!-- Fallback for plain text -->
+  <pre class="plain-content">{{ raw }}</pre>
+}

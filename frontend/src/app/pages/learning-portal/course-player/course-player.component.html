@@ -1,0 +1,383 @@
+@if (loading) {
+  <div class="center-state"><nz-spin nzSimple nzSize="large"></nz-spin></div>
+} @else if (loadError) {
+  <div class="page-shell">
+    <div class="error-panel surface-panel">
+      <nz-icon nzType="stop" class="error-icon"></nz-icon>
+      <h2>{{ loadError }}</h2>
+      <a nz-button nzType="primary" routerLink="/my-learning">Back to My Learning</a>
+    </div>
+  </div>
+} @else if (detail) {
+  @let d = detail;
+  <div class="player">
+
+    <!-- Module list -->
+    <aside class="player-nav">
+      <a class="back-link" routerLink="/my-learning"><nz-icon nzType="arrow-left"></nz-icon> Back to My Learning</a>
+      <div class="nav-course">
+        <h2>{{ d.course.title }}</h2>
+        <div class="nav-progress">
+          <div class="bar"><div [style.width.%]="progressPercent"></div></div>
+          <span>{{ d.course.modulesPassed }}/{{ d.course.moduleCount }}</span>
+        </div>
+      </div>
+
+      <button type="button" class="nav-item" [class.active]="view === 'overview'" (click)="showOverview()">
+        <span class="nav-dot overview"><nz-icon nzType="profile"></nz-icon></span>
+        <span class="nav-copy"><strong>Course overview</strong><small>{{ statusText }}</small></span>
+      </button>
+
+      <span class="nav-kicker">Course modules</span>
+      @for (m of modules; track m.id) {
+        <button type="button" class="nav-item" [class.active]="view !== 'overview' && m.id === activeModuleId"
+                [disabled]="!canOpen(m) || starting" (click)="openModule(m)">
+          <span class="nav-dot" [ngClass]="'state-' + m.state">
+            @switch (m.state) {
+              @case ('PASSED') { <nz-icon nzType="check"></nz-icon> }
+              @case ('LOCKED') { <nz-icon nzType="lock"></nz-icon> }
+              @case ('UNAVAILABLE') { <nz-icon nzType="clock-circle"></nz-icon> }
+              @case ('RETRAINING') { <nz-icon nzType="redo"></nz-icon> }
+              @default { {{ m.moduleOrder }} }
+            }
+          </span>
+          <span class="nav-copy"><strong>{{ m.title }}</strong><small>{{ stateLabel(m) }}</small></span>
+        </button>
+      }
+    </aside>
+
+    <main class="player-main">
+      @if (view !== 'overview' && activeModule; as am) {
+        <div class="phase-strip">
+          @for (p of phases; track p.key; let i = $index) {
+            @if (i > 0) { <nz-icon nzType="right" class="phase-sep"></nz-icon> }
+            <span class="phase" [class.current]="i === phaseIndex" [class.done]="i < phaseIndex">
+              <span class="phase-dot">
+                @if (i < phaseIndex) { <nz-icon nzType="check"></nz-icon> } @else { {{ i + 1 }} }
+              </span>
+              {{ p.label }}
+            </span>
+          }
+          <span class="phase-title">Module {{ am.moduleOrder }}: <strong>{{ am.title }}</strong></span>
+        </div>
+      }
+
+      <div class="player-scroll">
+        @switch (view) {
+
+          <!-- Overview: start, resume, certificate (FR-11-03) and feedback (FR-11-06) -->
+          @case ('overview') {
+            <div class="column">
+              <div class="hero surface-panel">
+                <span class="section-kicker">{{ d.course.category }}</span>
+                <h1>{{ d.course.title }}</h1>
+                <div class="hero-tags">
+                  <nz-tag>Version {{ d.course.versionNo }}{{ d.course.version ? ' · SOP ' + d.course.version : '' }}</nz-tag>
+                  @if (d.course.mandatory) { <nz-tag nzColor="red">Mandatory</nz-tag> }
+                  <nz-tag [nzColor]="d.course.selfEnrolled ? 'blue' : d.course.mode === 'IMMEDIATE' ? 'volcano' : 'cyan'">{{ modeLabel }}</nz-tag>
+                  @if (d.course.retraining) { <nz-tag nzColor="gold">Practice mode</nz-tag> }
+                  @if (d.course.overdue) { <nz-tag nzColor="red">Overdue</nz-tag> }
+                  @if (d.course.courseArchived) { <nz-tag>Archived</nz-tag> }
+                </div>
+                <dl class="facts">
+                  <div><dt>Progress</dt><dd>{{ d.course.modulesPassed }} of {{ d.course.moduleCount }} modules passed</dd></div>
+                  <div><dt>Pass mark</dt><dd>{{ d.course.passMark }}% on each module quiz</dd></div>
+                  <div><dt>Due</dt><dd [class.late]="d.course.overdue">{{ dueText }}</dd></div>
+                  <div><dt>Status</dt><dd>{{ statusText }}</dd></div>
+                </dl>
+
+                @if (d.course.status === 'WITHDRAWN') {
+                  <div class="notice info">
+                    <nz-icon nzType="stop"></nz-icon>
+                    <span>
+                      @if (d.course.courseSuperseded) {
+                        A new version of this course replaced this one, and you were moved to it: find it in My Learning.
+                      } @else {
+                        You were withdrawn from this course{{ d.course.courseArchived ? ' when it was archived' : '' }}.
+                      }
+                      Your progress so far is kept here.
+                    </span>
+                  </div>
+                } @else if (d.course.courseArchived) {
+                  <div class="notice info">
+                    <nz-icon nzType="inbox"></nz-icon>
+                    <span>This course has been archived, so it can't be taken any more. Your result{{ d.certificate ? ' and certificate are' : ' is' }} kept.</span>
+                  </div>
+                } @else if (d.course.courseSuperseded) {
+                  <div class="notice info">
+                    <nz-icon nzType="history"></nz-icon>
+                    <span>A newer version of this course is live, so this one can't be taken any more. Your result{{ d.certificate ? ' and certificate are' : ' is' }} kept.</span>
+                  </div>
+                } @else if (!d.course.available) {
+                  <div class="notice info">
+                    <nz-icon nzType="calendar"></nz-icon>
+                    <span>This course opens on {{ d.course.effectiveDate | date: 'd MMM yyyy' }}.</span>
+                  </div>
+                } @else if (d.course.status === 'NOT_STARTED') {
+                  <div class="start-box">
+                    <p>
+                      Study each module, then pass its quiz with {{ d.course.passMark }}% or more to unlock the next one.
+                      If you do not pass, review the material and try again as many times as you need.
+                      @if (d.course.mode === 'PORTAL' && d.course.daysToComplete) {
+                        You will have {{ d.course.daysToComplete }} days to finish once you start{{ d.course.deadline ? ', and no later than ' + (d.course.deadline | date: 'd MMM yyyy') : '' }}.
+                      }
+                    </p>
+                    <button nz-button nzType="primary" nzSize="large" [nzLoading]="starting" (click)="startCourse()">
+                      <nz-icon nzType="caret-right"></nz-icon>Start course
+                    </button>
+                  </div>
+                } @else if (d.course.status === 'IN_PROGRESS' && currentModule) {
+                  @let cm = currentModule!;
+                  <div class="start-box">
+                    <p>Pick up where you left off: Module {{ cm.moduleOrder }}, {{ cm.title }}.</p>
+                    <button nz-button nzType="primary" nzSize="large" (click)="openModule(cm)">
+                      <nz-icon nzType="caret-right"></nz-icon>Continue
+                    </button>
+                  </div>
+                }
+              </div>
+
+              @if (d.certificate; as cert) {
+                <div class="certificate surface-panel">
+                  <div class="cert-frame">
+                    <span class="cert-brand">TBM · APEX TRAINING</span>
+                    <h2>Certificate of Completion</h2>
+                    <p>This certifies that</p>
+                    <strong class="cert-name">{{ cert.learnerName }}</strong>
+                    <p>has successfully completed the SOP course</p>
+                    <strong class="cert-course">{{ cert.courseTitle }} (version {{ cert.versionNo }}{{ cert.version ? ', SOP ' + cert.version : '' }})</strong>
+                    <span class="cert-score">Final score {{ cert.finalScore }}% · pass mark {{ cert.passMark }}%</span>
+                    <div class="cert-meta">
+                      <div><strong>{{ cert.completedAt | date: 'd MMM yyyy' }}</strong><span>Date issued</span></div>
+                      <div><strong>Valid</strong><span>Status</span></div>
+                      <div><strong>{{ cert.certificateNo }}</strong><span>Certificate no.</span></div>
+                    </div>
+                  </div>
+                  <button nz-button (click)="printCertificate()"><nz-icon nzType="printer"></nz-icon>Print or save as PDF</button>
+                </div>
+
+                <div class="feedback surface-panel">
+                  <h3>Rate this course</h3>
+                  <p class="muted">Your feedback helps the trainer improve the material.</p>
+                  <nz-rate [(ngModel)]="feedbackRating" aria-label="Rating"></nz-rate>
+                  <textarea nz-input [(ngModel)]="feedbackComment" [maxlength]="maxComment"
+                            [nzAutosize]="{ minRows: 3, maxRows: 6 }" aria-label="Comment"
+                            placeholder="What was useful? What could be clearer? (optional)"></textarea>
+                  <div class="feedback-actions">
+                    <span class="muted">{{ feedbackComment.length }}/{{ maxComment }}</span>
+                    <button nz-button nzType="primary" [nzLoading]="savingFeedback" (click)="saveFeedback()">
+                      {{ d.feedbackRating ? 'Update feedback' : 'Submit feedback' }}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              <div class="progress-table surface-panel">
+                <h3>Your progress</h3>
+                <div class="progress-row head">
+                  <span>Module</span><span>Status</span><span>Attempts</span><span>Best</span><span>Passed with</span>
+                </div>
+                @for (m of modules; track m.id) {
+                  <div class="progress-row">
+                    <span class="module-name">{{ m.moduleOrder }}. {{ m.title }}</span>
+                    <span>
+                      @switch (m.state) {
+                        @case ('PASSED') { <nz-tag nzColor="green">Passed</nz-tag> }
+                        @case ('RETRAINING') { <nz-tag nzColor="gold">Practice mode</nz-tag> }
+                        @case ('LOCKED') { <nz-tag>Locked</nz-tag> }
+                        @case ('UNAVAILABLE') { <nz-tag>Being updated</nz-tag> }
+                        @default { <nz-tag nzColor="cyan">Ready</nz-tag> }
+                      }
+                    </span>
+                    <span>{{ m.attempts }}{{ m.failedAttempts ? ' (' + m.failedAttempts + ' failed)' : '' }}</span>
+                    <span>{{ m.bestScore != null ? m.bestScore + '%' : '-' }}</span>
+                    <span>{{ m.passedScore != null ? m.passedScore + '%' : '-' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Material: watermarked, copying disabled -->
+          @case ('material') {
+            @if (activeModule; as am) {
+              <div class="column">
+                @if (am.state === 'RETRAINING') {
+                  <div class="notice practice">
+                    <nz-icon nzType="redo"></nz-icon>
+                    <span>
+                      <strong>Practice mode.</strong>
+                      Your best score so far is {{ am.bestScore ?? 0 }}% and the pass mark is {{ d.course.passMark }}%.
+                      Review the material, then retake the quiz. You can try as many times as you need.
+                    </span>
+                  </div>
+                } @else if (am.state === 'PASSED') {
+                  <div class="notice passed">
+                    <nz-icon nzType="check-circle"></nz-icon>
+                    <span>You passed this module with {{ am.passedScore }}%.</span>
+                  </div>
+                }
+
+                <div class="material surface-panel" (copy)="block($event)" (cut)="block($event)"
+                     (contextmenu)="block($event)" (dragstart)="block($event)">
+                  <div class="material-head">
+                    <span class="section-kicker">Module {{ am.moduleOrder }} of {{ modules.length }}</span>
+                    <span class="protected"><nz-icon nzType="safety-certificate"></nz-icon> Protected material: copying is disabled</span>
+                  </div>
+                  @if (materialLoading) {
+                    <div class="center-state small"><nz-spin nzSimple></nz-spin></div>
+                  } @else if (material) {
+                    <h2 class="material-title">{{ material.title }}</h2>
+                    <app-sop-content-view [content]="material.content"></app-sop-content-view>
+                  }
+                  <div class="watermark" [style.background-image]="watermark" aria-hidden="true"></div>
+                </div>
+
+                <div class="material-actions">
+                  @if (am.state === 'PASSED') {
+                    @if (nextModule; as nm) {
+                      <button nz-button nzType="primary" nzSize="large" (click)="openModule(nm)">
+                        Next module<nz-icon nzType="right"></nz-icon>
+                      </button>
+                    } @else {
+                      <button nz-button nzSize="large" (click)="showOverview()">Back to course overview</button>
+                    }
+                  } @else {
+                    <button nz-button nzType="primary" nzSize="large" class="wide" [nzLoading]="quizLoading"
+                            [disabled]="!material" (click)="takeQuiz()">
+                      {{ am.state === 'RETRAINING' ? 'Retake the quiz' : 'Continue to quiz' }}<nz-icon nzType="right"></nz-icon>
+                    </button>
+                    <span class="muted">{{ am.questionCount }} question{{ am.questionCount === 1 ? '' : 's' }} · pass mark {{ d.course.passMark }}%</span>
+                  }
+                </div>
+              </div>
+            }
+          }
+
+          <!-- Quiz: one question at a time (FR-11-02) -->
+          @case ('quiz') {
+            @if (question; as q) {
+              <div class="column narrow">
+                <div class="quiz-head">
+                  <strong>Question {{ qIndex + 1 }} of {{ questions.length }}</strong>
+                  <span class="muted">{{ answeredCount }}/{{ questions.length }} answered</span>
+                </div>
+                <div class="quiz-steps">
+                  @for (item of questions; track item.id; let i = $index) {
+                    <button type="button" class="quiz-step" [class.current]="i === qIndex" [class.answered]="isAnswered(item)"
+                            [attr.aria-label]="'Go to question ' + (i + 1)" (click)="goToQuestion(i)"></button>
+                  }
+                </div>
+
+                <div class="question-card surface-panel">
+                  <div class="question-tags">
+                    <nz-tag>{{ typeLabel(q.type) }}</nz-tag>
+                    @if (q.difficulty) { <nz-tag [nzColor]="difficultyColor(q.difficulty)">{{ q.difficulty | titlecase }}</nz-tag> }
+                  </div>
+                  <p class="question-text">{{ q.question }}</p>
+                  @if (q.type === 'FILL_IN_THE_BLANK') {
+                    <input nz-input class="blank-input" placeholder="Type your answer" aria-label="Your answer"
+                           [ngModel]="answers[q.id] || ''" (ngModelChange)="answer(q, $event)" />
+                  } @else {
+                    <div class="options" role="radiogroup" aria-label="Choose one answer">
+                      @for (opt of optionsOf(q); track $index; let oi = $index) {
+                        <button type="button" class="option" role="radio" [attr.aria-checked]="answers[q.id] === opt"
+                                [class.selected]="answers[q.id] === opt" (click)="answer(q, opt)">
+                          <span class="option-dot"></span>
+                          <span class="option-letter">{{ letters[oi] }}.</span>
+                          <span>{{ opt }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <div class="quiz-nav">
+                  <button nz-button (click)="previousQuestion()" [disabled]="qIndex === 0">
+                    <nz-icon nzType="left"></nz-icon>Previous
+                  </button>
+                  <button type="button" class="link-button" (click)="view = 'material'">Back to material</button>
+                  @if (qIndex < questions.length - 1) {
+                    <button nz-button nzType="primary" (click)="nextQuestion()" [disabled]="!isAnswered(q)">
+                      Next<nz-icon nzType="right"></nz-icon>
+                    </button>
+                  } @else {
+                    <button nz-button nzType="primary" class="submit" [nzLoading]="submitting" [disabled]="!allAnswered"
+                            (click)="submitQuiz()">
+                      Submit quiz<nz-icon nzType="check"></nz-icon>
+                    </button>
+                  }
+                </div>
+                <p class="hint">Answer every question to submit.</p>
+              </div>
+            }
+          }
+
+          <!-- Result: answers only revealed once passed (FR-11-04 practice mode on a fail) -->
+          @case ('result') {
+            @if (result; as r) {
+              <div class="column narrow">
+                <div class="score-banner" [class.passed]="r.passed">
+                  <nz-icon [nzType]="r.passed ? 'trophy' : 'read'" class="banner-icon"></nz-icon>
+                  <h2>{{ r.passed ? 'Quiz passed' : 'Not passed yet' }}</h2>
+                  <p>{{ r.correct }} of {{ r.total }} correct · attempt {{ r.attempts }}</p>
+                  <span class="score-pill">{{ r.score }}% · {{ r.passed ? 'PASSED' : 'NOT PASSED' }}</span>
+                  @if (!r.passed) {
+                    <p class="banner-note">The pass mark is {{ r.passMark }}%. This module is now in practice mode: review the material and try again.</p>
+                  }
+                  @if (r.courseCompleted) {
+                    <p class="banner-note">You have completed the course with a final score of {{ r.finalScore }}%.</p>
+                  }
+                </div>
+
+                <h3 class="review-title">Question review</h3>
+                @if (!r.passed) {
+                  <p class="muted">The correct answers are shown once you pass.</p>
+                }
+                @for (q of questions; track q.id; let i = $index) {
+                  @let qr = resultOf(q);
+                  <div class="review-item" [class.correct]="qr?.correct">
+                    <nz-icon [nzType]="qr?.correct ? 'check-circle' : 'close-circle'" nzTheme="fill" class="review-icon"></nz-icon>
+                    <div>
+                      <p class="review-question">{{ i + 1 }}. {{ q.question }}</p>
+                      <p class="review-given">Your answer: {{ qr?.givenAnswer || '-' }}</p>
+                      @if (qr?.correctAnswer && !qr?.correct) {
+                        <p class="review-correct">Correct answer: {{ qr?.correctAnswer }}</p>
+                      }
+                      @if (qr?.explanation) {
+                        <p class="review-explanation">{{ qr?.explanation }}</p>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <div class="result-actions">
+                  @if (r.passed) {
+                    @if (r.courseCompleted) {
+                      <button nz-button nzType="primary" nzSize="large" (click)="showOverview()">
+                        <nz-icon nzType="safety-certificate"></nz-icon>View your certificate
+                      </button>
+                    } @else if (nextModule) {
+                      <button nz-button nzType="primary" nzSize="large" (click)="openModule(nextModule!)">
+                        Next module<nz-icon nzType="right"></nz-icon>
+                      </button>
+                    } @else {
+                      <button nz-button nzSize="large" (click)="showOverview()">Back to course overview</button>
+                    }
+                  } @else {
+                    <button nz-button nzSize="large" (click)="view = 'material'">
+                      <nz-icon nzType="read"></nz-icon>Review material
+                    </button>
+                    <button nz-button nzType="primary" nzSize="large" [nzLoading]="quizLoading" (click)="takeQuiz()">
+                      <nz-icon nzType="redo"></nz-icon>Retake quiz
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          }
+        }
+      </div>
+    </main>
+  </div>
+}

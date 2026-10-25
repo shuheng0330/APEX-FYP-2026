@@ -1,0 +1,83 @@
+@switch (state) {
+  @case ('DRAFT') {
+    <div class="version-note draft" role="status">
+      <nz-icon nzType="edit" class="note-icon"></nz-icon>
+      <div class="note-copy">
+        <strong>Draft v{{ document.versionNo }}</strong>
+        <span>Staff keep taking v{{ document.versionNo - 1 }} until you publish this draft. Approve every module's material
+          and quiz first.</span>
+      </div>
+      <div class="note-actions">
+        <button nz-button nzType="primary" nzSize="small" [disabled]="!ready" (click)="openPublish()"
+                [title]="ready ? '' : 'Approve every module\'s material and quiz first'">
+          <nz-icon nzType="cloud-upload"></nz-icon>Publish v{{ document.versionNo }}
+        </button>
+        <button nz-button nzSize="small" nzDanger nz-popconfirm [nzLoading]="discarding"
+                [nzPopconfirmTitle]="'Discard draft v' + document.versionNo + '? Its changes are lost; the live version stays as it is.'"
+                nzOkText="Discard" nzOkDanger (nzOnConfirm)="discard()">
+          Discard draft
+        </button>
+        @if (document.liveVersionId) {
+          <button nz-button nzSize="small" nzType="link" (click)="openVersion.emit(document.liveVersionId!)">Open v{{ document.versionNo - 1 }}</button>
+        }
+      </div>
+    </div>
+  }
+  @case ('LIVE_WITH_DRAFT') {
+    <div class="version-note" role="status">
+      <nz-icon nzType="lock" class="note-icon"></nz-icon>
+      <div class="note-copy">
+        <strong>Draft v{{ document.versionNo + 1 }} is in progress</strong>
+        <span>This live version can't change until the draft is published or discarded. Make your changes in the draft.</span>
+      </div>
+      <div class="note-actions">
+        <button nz-button nzSize="small" (click)="openVersion.emit(document.draftId!)">Open draft v{{ document.versionNo + 1 }}</button>
+      </div>
+    </div>
+  }
+  @case ('LIVE_WITH_LEARNERS') {
+    <p class="version-hint"><nz-icon nzType="team"></nz-icon>
+      Staff are taking v{{ document.versionNo }}. Text edits, the pass mark and the duration change it directly; quiz changes
+      and Reject &amp; Regenerate start draft v{{ document.versionNo + 1 }}, and staff keep this version until you publish it.
+    </p>
+  }
+  @case ('SUPERSEDED') {
+    <div class="version-note" role="status">
+      <nz-icon nzType="history" class="note-icon"></nz-icon>
+      <div class="note-copy">
+        <strong>Version {{ document.versionNo }}, replaced</strong>
+        <span>A newer version is live. This one's records are kept, and it can't be changed.</span>
+      </div>
+      @if (document.liveVersionId) {
+        <div class="note-actions">
+          <button nz-button nzSize="small" (click)="openVersion.emit(document.liveVersionId!)">Open the live version</button>
+        </div>
+      }
+    </div>
+  }
+}
+
+<!-- Publishing a draft (FR-07-17, FR-07-18) -->
+<nz-modal [nzVisible]="publishOpen" [nzTitle]="'Publish v' + document.versionNo" [nzFooter]="publishFooter" [nzWidth]="540"
+          (nzOnCancel)="publishOpen = false">
+  <ng-container *nzModalContent>
+    <p class="publish-copy">
+      v{{ document.versionNo }} replaces v{{ document.versionNo - 1 }} for everyone. Staff still taking v{{ document.versionNo - 1 }},
+      or yet to start it, move to v{{ document.versionNo }} and start again, with their days to complete counted from today;
+      their earlier progress stays in their history. New assignments and anyone joining get v{{ document.versionNo }}.
+      Everyone enrolled is notified.
+    </p>
+    <div class="redo-field">
+      <span class="redo-title">Staff who completed an earlier version</span>
+      <nz-radio-group [(ngModel)]="redoCompleted" class="redo-choice">
+        <label nz-radio [nzValue]="false">Keep their certificate. They don't need to take v{{ document.versionNo }}.</label>
+        <label nz-radio [nzValue]="true">Must complete v{{ document.versionNo }} too. Each gets their original days to complete,
+          counted from today, and it stays mandatory if it was. They keep their earlier certificate.</label>
+      </nz-radio-group>
+    </div>
+  </ng-container>
+</nz-modal>
+<ng-template #publishFooter>
+  <button nz-button (click)="publishOpen = false" [disabled]="publishing">Cancel</button>
+  <button nz-button nzType="primary" (click)="publish()" [nzLoading]="publishing">Publish v{{ document.versionNo }}</button>
+</ng-template>

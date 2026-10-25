@@ -17,9 +17,7 @@
         <nz-icon nzType="calendar"></nz-icon>
       </button>
     }
-    <button nz-button nzType="text" class="icon-button" aria-label="Notifications">
-      <nz-badge [nzDot]="false"><nz-icon nzType="bell" nzTheme="outline"></nz-icon></nz-badge>
-    </button>
+    <app-notification-bell></app-notification-bell>
     <button nz-button nz-dropdown [nzDropdownMenu]="accountMenu" nzTrigger="click" class="account-button">
       <span class="avatar">TB</span>
       <span class="account-label">Account</span>

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -16,10 +17,14 @@ public class TrainingScheduler {
     @Autowired
     private TrainingInvitationRepository invitationRepo;
 
+    /** Malaysia time, whatever time zone the server runs in. */
+    @Autowired
+    private Clock clock;
+
     // Run at second 0 of every minute (Real-time accuracy)
     @Scheduled(cron = "0 * * * * *") // Every minute
     public void markExpiredInvitations() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // Extract Date and Time separately
         LocalDate today = now.toLocalDate();

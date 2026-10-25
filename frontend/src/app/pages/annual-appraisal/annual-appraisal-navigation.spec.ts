@@ -10,6 +10,8 @@ import { SideMenuComponent } from '../../components/side-menu/side-menu.componen
 import { AppTopHeaderComponent } from '../../components/app-top-header/app-top-header.component';
 import { EvaluationCycleService } from '../../services/evaluation-cycle.service';
 import { reviewTasks } from '../kpi-plan/review-task-directory';
+import { of } from 'rxjs';
+import { NotificationService } from '../../services/notification.service';
 
 describe('Annual appraisal navigation', () => {
   const grants: string[] = [];
@@ -18,6 +20,7 @@ describe('Annual appraisal navigation', () => {
     grants.length = 0;
     TestBed.configureTestingModule({ imports: [SideMenuComponent, AppTopHeaderComponent, TranslateModule.forRoot()], providers: [
       provideRouter([]), provideNoopAnimations(), { provide: AuthService, useValue: auth }, { provide: EvaluationCycleService, useValue: {} },
+      { provide: NotificationService, useValue: { unreadCount: () => of(0) } },
       { provide: NZ_ICONS, useValue: [MenuOutline, BellOutline, UserOutline, LogoutOutline, RightOutline, DownOutline] }
     ] });
   });

@@ -1,0 +1,44 @@
+<button nz-button nzType="text" class="bell-button" nz-popover nzPopoverTrigger="click" nzPopoverPlacement="bottomRight"
+        [nzPopoverContent]="panel" [nzPopoverVisible]="open" (nzPopoverVisibleChange)="onOpenChange($event)"
+        nzPopoverOverlayClassName="notification-popover"
+        [attr.aria-label]="unread ? 'Notifications, ' + unread + ' unread' : 'Notifications'">
+  <nz-badge [nzCount]="unread" [nzOverflowCount]="99" nzSize="small">
+    <nz-icon nzType="bell" nzTheme="outline"></nz-icon>
+  </nz-badge>
+</button>
+
+<ng-template #panel>
+  <div class="panel">
+    <div class="panel-head">
+      <strong>Notifications</strong>
+      @if (unread) {
+        <button type="button" class="link-button" (click)="markAllRead()">Mark all as read</button>
+      }
+    </div>
+    @if (loading && !items.length) {
+      <div class="panel-state"><nz-spin nzSimple></nz-spin></div>
+    } @else if (failed) {
+      <div class="panel-state">
+        <p>Could not load notifications.</p>
+        <button nz-button nzSize="small" (click)="load()">Try again</button>
+      </div>
+    } @else if (!items.length) {
+      <nz-empty class="panel-state" nzNotFoundContent="You're all caught up"></nz-empty>
+    } @else {
+      <ul class="list" aria-label="Notifications">
+        @for (n of items; track n.id) {
+          <li>
+            <button type="button" class="item" [class.unread]="!n.read" (click)="openItem(n)">
+              @if (!n.read) { <span class="dot" aria-label="Unread"></span> }
+              <span class="item-text">
+                <span class="item-title">{{ n.title }}</span>
+                <span class="item-body">{{ n.body }}</span>
+                <span class="item-time">{{ timeAgo(n.createdAt) }}</span>
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</ng-template>
