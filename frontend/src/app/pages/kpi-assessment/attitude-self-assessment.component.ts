@@ -7,21 +7,24 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzModalService } from 'ng-zorro-antd/modal';
-import { finalize, of, switchMap, throwError } from 'rxjs';
+import { finalize, of, switchMap, throwError, tap } from 'rxjs';
 import { AttitudeAssessment, AttitudeAssessmentItem, AttitudeAssessmentRequest } from '../../models/attitude-assessment.model';
 import { assessmentCommentError, assessmentPointError } from '../../models/kpi-assessment.model';
 import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   selector: 'app-attitude-self-assessment',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzInputModule, KpiScoringGuideComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzInputModule, KpiScoringGuideComponent, NotificationTargetComponent],
   templateUrl: './attitude-self-assessment.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss',
     './my-assessments.component.scss', './attitude-self-assessment.component.scss']
 })
 export class AttitudeSelfAssessmentComponent implements OnChanges {
+  readonly target = notificationTarget();
   @Input({ required: true }) reviewPeriodId!: number;
   private readonly destroyRef = inject(DestroyRef);
   private destroyed = false;
@@ -75,7 +78,9 @@ export class AttitudeSelfAssessmentComponent implements OnChanges {
   }
   load() {
     this.assessment = null; this.items = []; this.error = ''; this.success = ''; this.busy = true;
-    this.api.mine(this.reviewPeriodId).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.api.mine(this.reviewPeriodId).pipe(tap(assessment => {
+      const id = this.target.take('attitudeAssessmentId'); this.target.require(id === null || assessment.id === id);
+    }), finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: assessment => this.accept(assessment), error: error => this.fail(error)
     });
   }

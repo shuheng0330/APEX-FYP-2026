@@ -15,15 +15,18 @@ import { AuthService } from '../../services/auth.service';
 import { TablePageSizeSelectorComponent } from '../../components/table-page-size-selector/table-page-size-selector.component';
 import { ReviewTaskGuideComponent } from '../kpi-plan/review-task-guide.component';
 import { AnnualAppraisalNavigationState, AppraisalQueueState, AppraisalQueueStatus } from './annual-appraisal-navigation-state.service';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   selector: 'app-annual-appraisals', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzPaginationModule,
-    TablePageSizeSelectorComponent, ReviewTaskGuideComponent],
+    TablePageSizeSelectorComponent, ReviewTaskGuideComponent, NotificationTargetComponent],
   templateUrl: './annual-appraisals.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './annual-appraisals.component.scss']
 })
 export class AnnualAppraisalsComponent implements OnInit {
+  readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   readonly hrReview = this.route.snapshot.data['hrReview'] === true;
@@ -85,10 +88,12 @@ export class AnnualAppraisalsComponent implements OnInit {
         this.restore = this.navigation.read(this.auth.userId, this.hrReview);
         let remembered = 0;
         try { remembered = Number(sessionStorage.getItem(`annual-appraisal-period:${this.hrReview ? 'hr' : 'team'}:${this.auth.userId}`)); } catch {}
-        this.periodId = periods.find(p => p.id === this.periodId)?.id ?? periods.find(p => p.id === this.restore?.periodId)?.id
+        let linkedPeriod: number | null = null;
+        try { linkedPeriod = this.target.value('reviewPeriodId'); this.periodId = this.target.choose(periods, 'reviewPeriodId', p => p.id, periods.find(p => p.id === this.periodId)?.id ?? periods.find(p => p.id === this.restore?.periodId)?.id
           ?? periods.find(p => p.id === remembered)?.id ?? periods.find(p => p.status === 'OPEN')?.id
-          ?? periods.find(p => p.status === 'CLOSED')?.id ?? null;
-        if (this.restore?.periodId === this.periodId) {
+          ?? periods.find(p => p.status === 'CLOSED')?.id ?? null); }
+        catch { this.periodId = null; return; }
+        if (linkedPeriod === null && this.restore?.periodId === this.periodId) {
           const { filter, search, department, pageIndex, pageSize } = this.restore;
           Object.assign(this, { filter, search, department, pageIndex, pageSize });
         } else this.restore = null;

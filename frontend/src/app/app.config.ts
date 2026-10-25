@@ -1,5 +1,6 @@
 import { APP_INITIALIZER, ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, RouteReuseStrategy, withRouterConfig } from '@angular/router';
+import { NotificationRouteReuseStrategy } from './services/notification-navigation';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideNzI18n, en_US } from 'ng-zorro-antd/i18n';
@@ -18,7 +19,8 @@ export function initAppFactory(auth: AuthService) {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
+    provideRouter(routes, withRouterConfig({ canceledNavigationResolution: 'computed' })),
+    { provide: RouteReuseStrategy, useClass: NotificationRouteReuseStrategy },
     provideHttpClient(
       withInterceptors([LoadingInterceptor, ErrorInterceptor, JwtInterceptor])
     ),

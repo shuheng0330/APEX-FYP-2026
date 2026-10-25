@@ -15,14 +15,17 @@ import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentEvidence, KpiAsses
 import { KpiAssessmentService } from '../../services/kpi-assessment.service';
 import { KpiItemEditorComponent } from '../kpi-plan/kpi-item-editor.component';
 import { CompanyReportingSourceComponent } from './company-reporting-source.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   selector: 'app-kpi-assessment-reviews', standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, CompanyReportingSourceComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule, NzModalModule, KpiItemEditorComponent, CompanyReportingSourceComponent, NotificationTargetComponent],
   templateUrl: './kpi-assessment-reviews.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss', './kpi-assessment-reviews.component.scss']
 })
 export class KpiAssessmentReviewsComponent implements OnInit {
+  readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   private readonly dates = new DatePipe('en');
   private savedAnswers = '';
@@ -89,8 +92,13 @@ export class KpiAssessmentReviewsComponent implements OnInit {
   load() {
     if (this.locked) return;
     this.loading = true; this.error = '';
-    this.api.reviews().pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: rows => this.reviews = rows, error: error => this.fail(error)
+    this.api.reviews().pipe(switchMap(rows => {
+      this.reviews = rows;
+      const row = this.target.record(rows, 'assessmentId', this.periodId);
+      if (row) { this.periodId = row.reviewPeriodId; this.filter = this.reviewProgress(row); }
+      return this.target.load(row, id => this.api.get(id));
+    }), finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: assessment => { if (assessment) { this.accept(assessment); this.drawerVisible = true; } }, error: error => this.fail(error)
     });
   }
   open(id: number) {

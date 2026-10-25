@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { catchError, exhaustMap, filter, of, timer } from 'rxjs';
+import { catchError, exhaustMap, filter, finalize, of, timer } from 'rxjs';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
@@ -11,17 +11,19 @@ import { NzPopoverModule } from 'ng-zorro-antd/popover';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NotificationService } from '../../services/notification.service';
 import { AppNotification } from '../../models/notification.model';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { localNotificationUrl } from '../../services/notification-navigation';
 
 const REFRESH_SECONDS = 30;
 
 /**
  * The bell in the top bar (NFR-016, NFR-008): the unread count, refreshed every 30 seconds while the tab is
- * visible, and the newest notifications. Opening one marks it read and goes to its page.
+ * visible, and the newest notifications. Linked items become read after successful navigation.
  */
 @Component({
   selector: 'app-notification-bell',
   standalone: true,
-  imports: [CommonModule, NzBadgeModule, NzButtonModule, NzEmptyModule, NzIconModule, NzPopoverModule, NzSpinModule],
+  imports: [CommonModule, TranslateModule, NzBadgeModule, NzButtonModule, NzEmptyModule, NzIconModule, NzPopoverModule, NzSpinModule],
   templateUrl: './notification-bell.component.html',
   styleUrls: ['./notification-bell.component.scss']
 })
@@ -33,8 +35,12 @@ export class NotificationBellComponent implements OnInit {
   open = false;
   loading = false;
   failed = false;
+  navigating = false;
+  navigationError = '';
+  private navigationSequence = 0;
+  private reading = new Set<number>();
 
-  constructor(private notifications: NotificationService, private router: Router) {}
+  constructor(private notifications: NotificationService, private router: Router, private translate: TranslateService) {}
 
   ngOnInit(): void {
     timer(0, REFRESH_SECONDS * 1000).pipe(
@@ -71,16 +77,28 @@ export class NotificationBellComponent implements OnInit {
     });
   }
 
-  openItem(item: AppNotification): void {
-    if (!item.read) {
-      item.read = true;
-      this.unread = Math.max(0, this.unread - 1);
-      this.notifications.markRead(item.id).subscribe({ error: () => this.load() });
-    }
+  async openItem(item: AppNotification): Promise<void> {
+    if (this.navigating || this.reading.has(item.id)) return;
+    this.navigationError = '';
     if (item.link) {
-      this.open = false;
-      this.router.navigateByUrl(item.link);
+      if (!localNotificationUrl(item.link)) { this.navigationError = this.translate.instant('NOTIFICATIONS.OPEN_ERROR'); return; }
+      this.navigating = true;
+      try {
+        const target = this.router.parseUrl(item.link);
+        target.queryParams = { ...target.queryParams, notice: `${item.id}-${Date.now()}-${++this.navigationSequence}` };
+        if (item.type === 'KPI_CHECKPOINT_SCORE') target.queryParams['view'] = 'breakdown';
+        const navigated = await this.router.navigateByUrl(target, { onSameUrlNavigation: 'reload' });
+        if (!navigated) return;
+        this.open = false;
+      } catch { this.navigationError = this.translate.instant('NOTIFICATIONS.OPEN_ERROR'); return; }
+      finally { this.navigating = false; }
     }
+    if (item.read) return;
+    this.reading.add(item.id);
+    this.notifications.markRead(item.id).pipe(finalize(() => this.reading.delete(item.id)), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => { item.read = true; this.items.forEach(row => { if (row.id === item.id) row.read = true; }); this.unread = Math.max(0, this.unread - 1); },
+      error: () => this.load()
+    });
   }
 
   markAllRead(): void {
@@ -92,11 +110,11 @@ export class NotificationBellComponent implements OnInit {
   /** "Just now", "5 min ago", "3 h ago", "Yesterday", or the date. */
   timeAgo(value: string): string {
     const minutes = Math.floor((Date.now() - new Date(value).getTime()) / 60_000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} min ago`;
+    if (minutes < 1) return this.translate.instant('NOTIFICATIONS.JUST_NOW');
+    if (minutes < 60) return this.translate.instant('NOTIFICATIONS.MINUTES_AGO', { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} h ago`;
-    if (hours < 48) return 'Yesterday';
+    if (hours < 24) return this.translate.instant('NOTIFICATIONS.HOURS_AGO', { count: hours });
+    if (hours < 48) return this.translate.instant('NOTIFICATIONS.YESTERDAY');
     return new Date(value).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 }

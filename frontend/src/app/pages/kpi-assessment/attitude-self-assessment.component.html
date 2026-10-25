@@ -1,4 +1,5 @@
-@if (error) {
+<app-notification-target [unavailable]="target.unavailable" />
+@if (error && !target.unavailable) {
   <div class="error-box" role="alert">{{ error }}</div>
   <button nz-button class="refresh-assessment" [disabled]="busy" (click)="refresh()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button>
 }

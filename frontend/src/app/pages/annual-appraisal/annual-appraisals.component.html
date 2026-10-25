@@ -1,4 +1,5 @@
 <div class="review-page">
+  <app-notification-target [unavailable]="target.unavailable" />
   <header class="page-heading">
     <div><h2>{{ titleKey | translate }}</h2><p class="help">{{ (hrReview ? 'ANNUAL_APPRAISAL.HR_HELP' : 'ANNUAL_APPRAISAL.TEAM_HELP') | translate }}</p></div>
     <app-review-task-guide [disabled]="locked"></app-review-task-guide>

@@ -1,4 +1,5 @@
 <main class="review-page">
+  <app-notification-target [unavailable]="target.unavailable" />
   <div class="page-heading"><div><h2>{{ 'TEAM_REVIEWS.TITLE' | translate }}</h2><p class="help">{{ 'TEAM_REVIEWS.HELP' | translate }}</p></div>
     <div class="review-heading-actions">
     @if (tab === 'reviews' || tab === 'assistance') { <app-kpi-scoring-guide /> }
@@ -39,7 +40,7 @@
   @else if (tab === 'assessments' && canReviewAssessments && periodsReady && periodId !== null) { <app-kpi-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
   @else if (tab === 'attitude' && canReviewAttitude && periodsReady && periodId !== null) { <app-attitude-assessment-reviews [sharedPeriod]="true" [periodId]="periodId" /> }
   @else if (tab === 'assistance' && canReviewPlans && periodsReady && periodId !== null) { <app-kpi-assistance [sharedPeriod]="true" [periodId]="periodId" /> } @else if (canReviewPlans && tab === 'reviews') {
-  @if (error && !drawerVisible) { <div class="error-box" role="alert">{{ error }}</div><button nz-button [disabled]="loading" (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
+  @if (error && !drawerVisible && !target.unavailable) { <div class="error-box" role="alert">{{ error }}</div><button nz-button [disabled]="loading" (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
   @if (success && !drawerVisible) { <div class="notice" role="status">{{ success }}</div> }
   @if (loading) { <p role="status">{{ 'TEAM_REVIEWS.LOADING' | translate }}</p> }
   <div class="review-queue-heading team-review-intro"><h3>{{ 'TEAM_REVIEWS.TYPE' | translate }}</h3><p class="help">{{ 'TEAM_REVIEWS.APPROVAL_HELP' | translate }}</p></div>

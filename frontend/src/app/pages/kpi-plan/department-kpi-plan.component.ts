@@ -14,16 +14,19 @@ import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { canResubmit } from '../../models/submission-revision.model';
 import { KpiRevisionPanelComponent } from './kpi-revision-panel.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiRevisionPanelComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiRevisionPanelComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './department-kpi-plan.component.html'
 })
 export class DepartmentKpiPlanComponent implements OnInit {
+  readonly target = notificationTarget();
   @ViewChild(KpiRevisionPanelComponent) revisions?: KpiRevisionPanelComponent;
-  canLeave() { return this.revisions?.canLeave() ?? !this.busy; }
+  canLeave() { return !this.busy && !this.drawerVisible && (this.revisions?.canLeave() ?? true); }
   revisionUpdated(status: string) {
     if (status !== 'EFFECTIVE' || !this.plan) return;
     this.api.get(this.plan.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: plan => this.acceptPlan(plan), error: e => this.fail(e) });
@@ -53,9 +56,15 @@ export class DepartmentKpiPlanComponent implements OnInit {
       .pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
         next: result => {
           this.periods = result.periods; this.departments = result.departments; this.plans = result.plans;
-          this.periodId = this.periods[0]?.id ?? null;
-          this.departmentId = this.departments[0]?.id ?? null;
-          this.selectPlan();
+          try {
+            this.periodId = this.target.choose(this.periods, 'reviewPeriodId', p => p.id, this.periods[0]?.id ?? null);
+            const planId = this.target.take('planId');
+            const plan = planId === null ? null : this.plans.find(p => p.id === planId && p.reviewPeriodId === this.periodId);
+            this.target.require(planId === null || !!plan);
+            this.departmentId = plan?.departmentId ?? this.departments[0]?.id ?? null;
+            this.target.require(this.departmentId === null || this.departments.some(d => d.id === this.departmentId));
+            this.selectPlan();
+          } catch { this.periodId = null; this.plan = null; this.items = []; }
         },
         error: error => this.fail(error)
       });

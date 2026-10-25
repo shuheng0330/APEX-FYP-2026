@@ -13,14 +13,17 @@ import { KpiPlanService } from '../../services/kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
 import { KpiScoringGuideComponent } from './kpi-scoring-guide.component';
 import { KpiRevisionPanelComponent } from './kpi-revision-panel.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 @Component({
-  standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzModalModule, NzDrawerModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiRevisionPanelComponent],
+  standalone: true, imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzModalModule, NzDrawerModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiRevisionPanelComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './company-kpi-plan.component.html'
 })
 export class CompanyKpiPlanComponent implements OnInit {
+  readonly target = notificationTarget();
   @ViewChild(KpiRevisionPanelComponent) revisions?: KpiRevisionPanelComponent;
-  canLeave() { return this.revisions?.canLeave() ?? !this.busy; }
+  canLeave() { return !this.busy && !this.drawerVisible && (this.revisions?.canLeave() ?? true); }
   revisionUpdated(status: string) {
     if (status !== 'EFFECTIVE' || !this.plan) return;
     this.api.get(this.plan.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: plan => this.acceptPlan(plan), error: e => this.fail(e) });
@@ -34,7 +37,11 @@ export class CompanyKpiPlanComponent implements OnInit {
   ngOnInit() {
     this.busy = true;
     forkJoin({ periods: this.api.periods(), plans: this.api.list() }).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: result => { this.periods = result.periods; this.plans = result.plans; this.selectedId = this.periods[0]?.id ?? null; this.selectPeriod(); },
+      next: result => {
+        this.periods = result.periods; this.plans = result.plans;
+        try { this.selectedId = this.target.choose(this.periods, 'reviewPeriodId', p => p.id, this.periods[0]?.id ?? null); this.selectPeriod(); }
+        catch { this.selectedId = null; this.plan = null; this.items = []; }
+      },
       error: e => this.fail(e)
     });
   }

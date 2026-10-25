@@ -1,4 +1,11 @@
 {
+    "NOTIFICATIONS": {
+        "TITLE": "Notifications", "UNREAD_COUNT": "Notifications, {{count}} unread", "UNREAD": "Unread",
+        "MARK_ALL": "Mark all as read", "LOAD_ERROR": "Could not load notifications.", "RETRY": "Try again",
+        "EMPTY": "You're all caught up", "OPEN_ERROR": "This notification could not be opened. Please try again or open the workspace from the menu.",
+        "TARGET_UNAVAILABLE": "This notification's record is unavailable or no longer accessible. You can still open the workspace to view your available tasks.",
+        "RETURN_WORKSPACE": "Return to workspace", "JUST_NOW": "Just now", "MINUTES_AGO": "{{count}} min ago", "HOURS_AGO": "{{count}} h ago", "YESTERDAY": "Yesterday"
+    },
     "ANNUAL_TREND": {
         "TITLE": "Historical Performance Trend", "HELP": "Annual KPI, Attitude and final scores for {{name}}. Up to five years of available annual results.",
         "YEARS": "{{count}} years", "LOADING": "Loading annual performance history...", "UNAVAILABLE": "Performance history could not be loaded. Your current appraisal is still available.",

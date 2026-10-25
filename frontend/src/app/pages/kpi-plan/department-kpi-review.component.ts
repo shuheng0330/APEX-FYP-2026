@@ -6,7 +6,9 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { finalize, switchMap } from 'rxjs';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 import { KpiPlan, KpiPlanStatus } from '../../models/kpi-plan.model';
 import { DepartmentKpiPlanService } from '../../services/department-kpi-plan.service';
 import { KpiItemEditorComponent } from './kpi-item-editor.component';
@@ -18,11 +20,12 @@ type ReviewStatus = Extract<KpiPlanStatus, 'PENDING_APPROVAL' | 'APPROVED' | 'RE
 @Component({
   selector: 'app-department-kpi-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiReturnFeedbackComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, KpiReturnFeedbackComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss'],
   templateUrl: './department-kpi-review.component.html'
 })
 export class DepartmentKpiReviewComponent implements OnInit {
+  readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   readonly statuses: ReviewStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'RETURNED'];
   filter: ReviewStatus = 'PENDING_APPROVAL';
@@ -46,8 +49,15 @@ export class DepartmentKpiReviewComponent implements OnInit {
 
   load() {
     this.loading = true; this.error = '';
-    this.api.list().pipe(finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: plans => this.plans = plans.filter(plan => ['PENDING_APPROVAL', 'APPROVED', 'RETURNED'].includes(plan.status)),
+    this.api.list().pipe(switchMap(plans => {
+      this.plans = plans.filter(plan => ['PENDING_APPROVAL', 'APPROVED', 'RETURNED'].includes(plan.status));
+      const row = this.target.record(this.plans, 'planId');
+      const period = this.target.take('reviewPeriodId');
+      if (period !== null) { this.target.require(this.plans.some(p => p.reviewPeriodId === period)); this.plans = this.plans.filter(p => p.reviewPeriodId === period); }
+      if (row) this.filter = row.status as ReviewStatus;
+      return this.target.load(row, id => this.api.get(id));
+    }), finalize(() => this.loading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: plan => { if (plan) { this.selected = plan; this.drawerVisible = true; } },
       error: error => this.fail(error)
     });
   }

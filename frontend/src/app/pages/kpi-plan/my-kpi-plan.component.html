@@ -1,4 +1,5 @@
 <main class="review-page">
+  <app-notification-target [unavailable]="target.unavailable" />
   <div class="page-heading">
     <div><h2>{{ 'INDIVIDUAL_KPI.TITLE' | translate }}</h2><p class="help">{{ 'INDIVIDUAL_KPI.HELP' | translate }}</p></div>
     <div class="field">
@@ -10,7 +11,7 @@
       </nz-select>
     </div>
   </div>
-  @if (error && !drawerVisible) {
+  @if (error && !drawerVisible && !target.unavailable) {
     <div class="error-box" role="alert">{{ error }}</div>
     @if (!ready && !busy) { <button nz-button (click)="load()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
   }

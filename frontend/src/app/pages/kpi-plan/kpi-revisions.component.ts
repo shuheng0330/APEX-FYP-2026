@@ -16,21 +16,34 @@ import { KpiAmendmentAccess, KpiRevision, KpiVersionStatus, unfinishedRevision }
 import { KpiRevisionGuideComponent } from './kpi-revision-guide.component';
 import { KpiRevisionPanelComponent } from './kpi-revision-panel.component';
 import { KpiRevisionWorkspaceComponent } from './kpi-revision-workspace.component';
+import { notificationTarget } from '../../services/notification-navigation';
+import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
 
 @Component({
   selector: 'app-kpi-revisions', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule, NzPaginationModule,
-    KpiRevisionGuideComponent, KpiRevisionPanelComponent, KpiRevisionWorkspaceComponent],
+    KpiRevisionGuideComponent, KpiRevisionPanelComponent, KpiRevisionWorkspaceComponent, NotificationTargetComponent],
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss', './kpi-revision.scss'],
   templateUrl: './kpi-revisions.component.html'
 })
 export class KpiRevisionsComponent implements OnInit, OnChanges {
+  readonly target = notificationTarget();
   @Input() sharedPeriod = false;
   @Input() superiorOnly = false;
   @Input() periodId: number | null = null;
-  @ViewChild(KpiRevisionWorkspaceComponent) workspace?: KpiRevisionWorkspaceComponent;
+  workspace?: KpiRevisionWorkspaceComponent;
+  private linkedRevisionId: number | null = null;
+  @ViewChild(KpiRevisionWorkspaceComponent) set linkedWorkspace(value: KpiRevisionWorkspaceComponent | undefined) {
+    this.workspace = value; this.openLinkedRevision();
+  }
+  private openLinkedRevision() {
+    if (!this.workspace || this.linkedRevisionId === null) return;
+    const id = this.linkedRevisionId, workspace = this.workspace; this.linkedRevisionId = null;
+    queueMicrotask(() => { if (!this.destroyed && this.workspace === workspace) workspace.open(id); });
+  }
   @ViewChildren(KpiRevisionPanelComponent) panels?: QueryList<KpiRevisionPanelComponent>;
   private readonly destroyRef = inject(DestroyRef);
+  private destroyed = false;
   private initialized = false;
   periods: KpiPeriodContext[] = []; plans: KpiPlan[] = []; revisions: KpiRevision[] = [];
   level: KpiLevel | '' = ''; search = '';
@@ -39,7 +52,9 @@ export class KpiRevisionsComponent implements OnInit, OnChanges {
   filter: KpiVersionStatus | '' = ''; busy = false; error = ''; success = '';
   access: KpiAmendmentAccess | null = null; enabled = false; closeDate = '';
   readonly statuses: KpiVersionStatus[] = ['REQUESTED', 'DRAFT', 'RETURNED', 'PENDING_APPROVAL', 'PENDING_MD_APPROVAL', 'PENDING_HOD_CONFIRMATION', 'EFFECTIVE', 'SUPERSEDED', 'CANCELLED'];
-  constructor(private api: KpiRevisionService, private auth: AuthService, private modal: NzModalService, private translate: TranslateService) {}
+  constructor(private api: KpiRevisionService, private auth: AuthService, private modal: NzModalService, private translate: TranslateService) {
+    this.destroyRef.onDestroy(() => this.destroyed = true);
+  }
   get canManageAccess() { return !this.superiorOnly && this.auth.hasRole('CAN_MANAGE_KPI_AMENDMENTS'); }
   get selectedPeriod() { return this.periods.find(p => p.id === this.periodId); }
   get visibleRevisions() { return this.revisions.filter(r => this.matchesScope(r) && (!this.filter || r.status === this.filter)); }
@@ -83,7 +98,8 @@ export class KpiRevisionsComponent implements OnInit, OnChanges {
     if (this.sharedPeriod) { this.load(); return; }
     this.busy = true;
     this.api.periods().pipe(switchMap(periods => {
-      this.periods = periods; this.periodId = periods.find(p => p.status === 'OPEN')?.id ?? periods[0]?.id ?? null;
+      this.periods = periods; this.periodId = this.target.choose(periods, 'reviewPeriodId', p => p.id,
+        periods.find(p => p.status === 'OPEN')?.id ?? periods[0]?.id ?? null);
       return this.periodId === null ? of({ plans: [], revisions: [], access: null }) : this.context(this.periodId);
     }), finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => this.acceptContext(result), error: e => this.fail(e) });
@@ -111,6 +127,10 @@ export class KpiRevisionsComponent implements OnInit, OnChanges {
   private acceptContext(result: { plans: KpiPlan[]; revisions: KpiRevision[]; access: KpiAmendmentAccess | null }) {
     this.plans = result.plans; this.revisions = result.revisions; this.access = result.access;
     this.enabled = result.access?.enabled ?? false; this.closeDate = result.access?.closeDate ?? '';
+    try {
+      const row = this.target.record(this.revisions.filter(r => this.matchesScope(r)), 'revisionId', this.periodId);
+      if (row) { this.filter = row.status; this.linkedRevisionId = row.id; this.openLinkedRevision(); }
+    } catch { this.plans = []; this.revisions = []; }
   }
   saveAccess() {
     if (this.locked || !this.canManageAccess || !this.access || this.access.periodStatus === 'CLOSED' || this.periodId === null) return;
