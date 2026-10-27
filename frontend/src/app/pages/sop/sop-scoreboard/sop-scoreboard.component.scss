@@ -144,3 +144,6 @@ nz-tag nz-icon { margin-right: 2px; }
   .search, .filter, .filter.wide { width: 100%; }
   .heading-actions { justify-content: flex-start; }
 }
+
+/* Whose training is shown (FR-10-10) */
+.scope-note { margin: 4px 0 0; font-size: 12px; color: var(--tbm-muted); }

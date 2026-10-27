@@ -67,6 +67,12 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
 
     @Override
     @Transactional(readOnly = true)
+    public boolean hasTeam(UUID staffId) {
+        return staffRepository.findAllActiveWithRole().stream()
+                .anyMatch(s -> !s.isDeleted() && s.getManager() != null && staffId.equals(s.getManager().getId()));
+    }
+
+    @Override
     public boolean hasActiveGrant(UUID staffId) {
         LocalDate today = LocalDate.now(clock);
         return trainerAccessGrantRepository.findById(staffId).map(g -> g.activeOn(today)).orElse(false);

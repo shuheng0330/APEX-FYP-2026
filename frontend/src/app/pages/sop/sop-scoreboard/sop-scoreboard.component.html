@@ -4,6 +4,11 @@
       <span class="section-kicker">Training Automation</span>
       <h1>Training Scoreboard</h1>
       <p>Live progress of staff on SOP training, including anyone retraining after a failed quiz.</p>
+      <!-- FR-10-10, FR-10-12 -->
+      @if (data) {
+        <p class="scope-note">Showing: {{ scopeNote }}@if (leaversShown) { {{ leaversShown }} {{ leaversShown === 1 ? 'person has' : 'people have' }} left
+          the company: listed below, but not counted in the figures. }</p>
+      }
     </div>
     <div class="heading-actions">
       <span class="live" [class.paused]="!autoRefresh" aria-live="polite">
@@ -197,7 +202,8 @@
                 <td nzLeft>
                   <div class="staff-cell">
                     <span class="avatar" aria-hidden="true">{{ initials(r.staffName) }}</span>
-                    <span class="staff-copy"><strong>{{ r.staffName }}</strong><small>{{ r.jobRole || '-' }}</small></span>
+                    <span class="staff-copy"><strong>{{ r.staffName }}</strong><small>{{ r.jobRole || '-' }}</small>
+                      @if (r.leftCompany) { <span class="flag">Left the company</span> }</span>
                   </div>
                 </td>
                 <td>{{ r.department || '-' }}</td>

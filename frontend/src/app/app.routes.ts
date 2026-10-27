@@ -109,7 +109,7 @@ export const routes: Routes = [
       {
         path: 'sop/scoreboard', component: SopScoreboardComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_VIEW_TEAM_TRAINING'] },
       },
       {
         path: 'sop/trainer-access', component: TrainerAccessComponent,

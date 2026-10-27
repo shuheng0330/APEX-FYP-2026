@@ -33,6 +33,8 @@ public class SopScoreboardRecordDto {
     private boolean mandatory;
     private SopAssignmentMode mode;
     private boolean selfEnrolled;
+    /** The person has left the company: listed, but not counted in the compliance figures (FR-10-12). */
+    private boolean leftCompany;
     private int passMark;
     /** The final score once completed, otherwise the average of the modules passed so far. */
     private Integer score;

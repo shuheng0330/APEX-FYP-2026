@@ -51,6 +51,16 @@ public record SopProgress(List<Module> modules) {
      */
     public static SopProgress of(List<SopModule> modules, Map<Long, List<SopQuizQuestion>> quizzes,
                                  List<SopQuizAttempt> attempts) {
+        return of(modules, quizzes, attempts, 0);
+    }
+
+    /**
+     * As above, where a module counts as passed only by an attempt at or above {@code passMark}, the pass mark that
+     * applies to the learner now (FR-10-11). It differs from the one an attempt was marked against only when a later
+     * assignment raised it; a module passed below the new mark is then taken again.
+     */
+    public static SopProgress of(List<SopModule> modules, Map<Long, List<SopQuizQuestion>> quizzes,
+                                 List<SopQuizAttempt> attempts, int passMark) {
         Map<Long, List<SopQuizAttempt>> byModule = attempts.stream()
                 .collect(Collectors.groupingBy(SopQuizAttempt::getSopModuleId, LinkedHashMap::new, Collectors.toList()));
         List<Module> out = new ArrayList<>();
@@ -58,7 +68,7 @@ public record SopProgress(List<Module> modules) {
         for (SopModule m : modules) {
             List<SopQuizQuestion> questions = quizzes.getOrDefault(m.getId(), List.of());
             List<SopQuizAttempt> tries = byModule.getOrDefault(m.getId(), List.of());
-            SopQuizAttempt pass = tries.stream().filter(SopQuizAttempt::isPassed).findFirst().orElse(null);
+            SopQuizAttempt pass = tries.stream().filter(a -> a.isPassed() && a.getScore() >= passMark).findFirst().orElse(null);
             boolean approved = m.getReviewStatus() == ReviewStatus.APPROVED && SopCourseReadiness.quizApproved(questions);
             String state = pass != null ? PASSED
                     : !approved ? UNAVAILABLE
