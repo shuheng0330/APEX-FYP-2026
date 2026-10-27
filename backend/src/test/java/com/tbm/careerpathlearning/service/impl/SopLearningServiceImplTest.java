@@ -173,13 +173,15 @@ class SopLearningServiceImplTest {
     }
 
     @Test
-    @DisplayName("A course is overdue once its due date has passed")
+    @DisplayName("A mandatory course is overdue once its due date has passed; an optional one never is (FR-11-17)")
     void overdue() {
         store.doc(4L, "E-Hailing", null);
         store.module(4L, 2);
-        store.enrollment(4L, learner.getId(), SopAssignmentMode.IMMEDIATE, store.today().minusDays(20),
+        SopEnrollment e = store.enrollment(4L, learner.getId(), SopAssignmentMode.IMMEDIATE, store.today().minusDays(20),
                 store.today().plusDays(30), 14, 70);
+        assertFalse(service.course(4L, learner.getId()).getCourse().isOverdue(), "optional");
 
+        e.setMandatory(true);
         assertTrue(service.course(4L, learner.getId()).getCourse().isOverdue());
     }
 
