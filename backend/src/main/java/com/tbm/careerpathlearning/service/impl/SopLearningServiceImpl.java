@@ -39,6 +39,8 @@ import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopLearningService;
 import com.tbm.careerpathlearning.service.SopProgress;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +69,8 @@ public class SopLearningServiceImpl implements SopLearningService {
 
     /** Pass mark for an Open course a learner joins themselves (no assignment sets one). */
     private static final int MAX_COMMENT_LENGTH = 2000;
+    private static final Logger log = LoggerFactory.getLogger(SopLearningServiceImpl.class);
+
     /** Tries at one module's quiz per Malaysia day (FR-11-04). */
     static final int TRIES_PER_DAY = 3;
     /** Failed attempts at one module that alert the course's trainer (FR-11-15). */
@@ -94,7 +98,13 @@ public class SopLearningServiceImpl implements SopLearningService {
 
     @Override
     public SopLearningHomeDto home(UUID staffId) {
-        sopNewJoiners.includeFor(staffId); // someone who joined an assigned department sees the course at once (FR-09-12)
+        // Someone who joined an assigned department sees the course at once (FR-09-12). If that fails, the portal still
+        // opens: the 09:00 run adds them.
+        try {
+            sopNewJoiners.includeFor(staffId);
+        } catch (RuntimeException ex) {
+            log.warn("New-joiner check for staff {} failed; the daily run will add them: {}", staffId, ex.getMessage());
+        }
         SopLearningHomeDto dto = new SopLearningHomeDto();
         Set<Long> enrolled = new HashSet<>();
         for (SopEnrollment e : sopEnrollmentRepository.findAllByStaffId(staffId)) {

@@ -18,10 +18,12 @@ import com.tbm.careerpathlearning.model.Staff;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -110,6 +112,21 @@ class SopNewJoinersTest {
         List<SopLearningCourseDto> courses = learning.home(siti.getId()).getCourses();
 
         assertEquals(List.of(1L), courses.stream().map(SopLearningCourseDto::getSopDocumentId).toList());
+    }
+
+    @Test
+    @DisplayName("If the new-joiner check fails, My Learning still opens; the daily run adds them later")
+    void portalOpensAnyway() {
+        assign(toSales(null));
+        ReflectionTestUtils.setField(learning, "sopNewJoiners", new SopNewJoiners() {
+            @Override
+            public int includeFor(UUID staffId) {
+                throw new IllegalStateException("added at the same moment by the daily run");
+            }
+        });
+
+        assertEquals(List.of(1L), learning.home(aisyah.getId()).getCourses().stream()
+                .map(SopLearningCourseDto::getSopDocumentId).toList());
     }
 
     @Test

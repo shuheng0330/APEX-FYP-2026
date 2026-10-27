@@ -75,8 +75,13 @@ public class SopNewJoiners {
         int added = 0;
         // Newest first: when several assignments of a course take someone in, the latest one's terms apply.
         for (SopAssignment a : assignments) {
+            // Who could join it, before any course is loaded: usually nobody, when one person opens My Learning.
+            List<Staff> candidates = active.stream().filter(s -> inAudience(a, s)).toList();
+            if (candidates.isEmpty()) {
+                continue;
+            }
             SopDocument assigned = sopDocumentRepository.findById(a.getSopDocumentId()).orElse(null);
-            if (assigned == null || assigned.isDeleted() || active.isEmpty()) {
+            if (assigned == null || assigned.isDeleted()) {
                 continue;
             }
             List<SopDocument> versions = sopVersionService.versionsOf(assigned);
@@ -87,8 +92,8 @@ public class SopNewJoiners {
             Set<UUID> enrolled = sopEnrollmentRepository.findAllBySopDocumentIdIn(versions.stream().map(SopDocument::getId).toList())
                     .stream().map(SopEnrollment::getStaffId).collect(Collectors.toSet());
             List<SopEnrollment> joined = new ArrayList<>();
-            for (Staff s : active) {
-                if (!enrolled.contains(s.getId()) && inAudience(a, s)) {
+            for (Staff s : candidates) {
+                if (!enrolled.contains(s.getId())) {
                     joined.add(enrolment(a, live, s, today, now));
                 }
             }
