@@ -20,6 +20,8 @@ public class SopAssignmentDto {
     private LocalDate deadline;
     private int daysToComplete;
     private int passMark;
+    /** People who join the audience later get the course too (FR-09-12). */
+    private boolean includeNewJoiners;
     private String assignedByName;
     private OffsetDateTime createdAt;
 }

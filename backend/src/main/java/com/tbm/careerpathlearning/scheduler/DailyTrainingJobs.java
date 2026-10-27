@@ -3,6 +3,7 @@ package com.tbm.careerpathlearning.scheduler;
 import com.tbm.careerpathlearning.model.TrainingJobRun;
 import com.tbm.careerpathlearning.repository.TrainingJobRunRepository;
 import com.tbm.careerpathlearning.service.SopReminderService;
+import com.tbm.careerpathlearning.service.impl.SopNewJoiners;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,7 @@ public class DailyTrainingJobs {
 
     @Autowired private TrainingJobRunRepository trainingJobRunRepository;
     @Autowired private TrainerAccessService trainerAccessService;
+    @Autowired private SopNewJoiners sopNewJoiners;
     @Autowired private SopReminderService sopReminderService;
     @Autowired private Clock clock;
 
@@ -62,6 +64,7 @@ public class DailyTrainingJobs {
         }
         try {
             int lapsed = trainerAccessService.lapseExpiredGrants();
+            int joiners = sopNewJoiners.includeAll(); // FR-09-12
             int reminders = sopReminderService.sendReminders(); // FR-09-14, FR-11-16
 
             TrainingJobRun run = new TrainingJobRun();
@@ -69,7 +72,8 @@ public class DailyTrainingJobs {
             run.setRunDate(now.toLocalDate());
             run.setStartedAt(now.toOffsetDateTime());
             run.setFinishedAt(OffsetDateTime.now(clock));
-            run.setOutcome("Trainer access grants lapsed: " + lapsed + "; training reminders sent: " + reminders);
+            run.setOutcome("Trainer access grants lapsed: " + lapsed + "; new joiners assigned: " + joiners
+                    + "; training reminders sent: " + reminders);
             trainingJobRunRepository.save(run);
             log.info("Daily training jobs for {}: {}", now.toLocalDate(), run.getOutcome());
             return true;

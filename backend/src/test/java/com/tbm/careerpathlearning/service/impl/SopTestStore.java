@@ -119,6 +119,7 @@ class SopTestStore {
     private TrainingAuditService audit;
     private SopVersionService versions;
     private SopGenerationQueue queue;
+    private SopNewJoiners newJoiners;
     private final NotificationService notifier = new RecordingNotifications();
 
     /** Sets the service's repositories, clock and course readiness check to this store's. */
@@ -131,6 +132,7 @@ class SopTestStore {
                         : f.getType() == TrainingAuditService.class ? audit()
                         : f.getType() == SopVersionService.class ? versions()
                         : f.getType() == SopGenerationQueue.class ? queue()
+                        : f.getType() == SopNewJoiners.class ? newJoiners()
                         : f.getType() == NotificationService.class ? notifier
                         : null;
                 if (value != null) {
@@ -161,6 +163,13 @@ class SopTestStore {
             versions = wire(new SopVersionServiceImpl());
         }
         return versions;
+    }
+
+    SopNewJoiners newJoiners() {
+        if (newJoiners == null) {
+            newJoiners = wire(new SopNewJoiners());
+        }
+        return newJoiners;
     }
 
     /** The generation queue, without a generation service: tests that run it set one. */
@@ -424,6 +433,10 @@ class SopTestStore {
                 case "deleteAllBySopDocumentId":
                     assignments.values().removeIf(x -> x.getSopDocumentId().equals(a[0]));
                     return null;
+                case "findAllByIncludeNewJoinersTrueOrderByCreatedAtDesc":
+                    return assignments.values().stream().filter(SopAssignment::isIncludeNewJoiners)
+                            .sorted(Comparator.comparing(SopAssignment::getCreatedAt).thenComparing(SopAssignment::getId).reversed())
+                            .toList();
                 default:
             }
         }
