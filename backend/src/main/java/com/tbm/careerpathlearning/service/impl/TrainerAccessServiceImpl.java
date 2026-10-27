@@ -40,6 +40,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,6 +71,23 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     public boolean hasTeam(UUID staffId) {
         return staffRepository.findAllActiveWithRole().stream()
                 .anyMatch(s -> !s.isDeleted() && s.getManager() != null && staffId.equals(s.getManager().getId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Staff> trainersAndHr() {
+        List<Staff> staff = staffRepository.findAllActiveWithRole();
+        Set<Long> roles = new HashSet<>(rolesWith(AuthorityName.CAN_MANAGE_TRAINING, staff));
+        roles.addAll(rolesWith(AuthorityName.CAN_ASSIGN_TRAINING, staff));
+        LocalDate today = LocalDate.now(clock);
+        Set<UUID> granted = trainerAccessGrantRepository.findAll().stream()
+                .filter(g -> g.activeOn(today))
+                .map(TrainerAccessGrant::getStaffId)
+                .collect(Collectors.toSet());
+        return staff.stream()
+                .filter(s -> granted.contains(s.getId()) || (s.getRole() != null && roles.contains(s.getRole().getId())))
+                .sorted(Comparator.comparing(s -> Objects.toString(s.getName(), ""), String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 
     @Override

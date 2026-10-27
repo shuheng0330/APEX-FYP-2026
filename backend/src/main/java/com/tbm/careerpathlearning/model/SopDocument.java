@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.enums.SopVisibility;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -78,10 +79,12 @@ public class SopDocument {
 
     /**
      * Live, Draft, Superseded or Archived (FR-06-14, NFR-010). The column default makes existing courses Live when
-     * the column is added.
+     * the column is added. It is set with @ColumnDefault: with a full column definition, Hibernate tries and fails to
+     * change the column's type at every start.
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "course_status", nullable = false, columnDefinition = "varchar(20) default 'LIVE' not null")
+    @ColumnDefault("'LIVE'")
+    @Column(name = "course_status", nullable = false, length = 20)
     private SopCourseStatus courseStatus = SopCourseStatus.LIVE;
 
     /** When the course was archived; null unless it is archived. */
