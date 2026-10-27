@@ -9,6 +9,8 @@ public enum NotificationType {
     COURSE_ASSIGNMENT_UPDATED,
     MATERIAL_REGENERATED,
     QUIZ_REGENERATED,
+    /** A learner failed the same module quiz three times (FR-11-15). */
+    QUIZ_FAILED_THREE_TIMES,
     TRAINER_ACCESS_LAPSED,
     COURSE_TRANSFERRED,
     COURSE_WITHDRAWN,

@@ -20,9 +20,11 @@ import com.tbm.careerpathlearning.model.SopAssignment;
 import com.tbm.careerpathlearning.model.SopCourseFeedback;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
+import com.tbm.careerpathlearning.model.SopMaterialView;
 import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizAttempt;
+import com.tbm.careerpathlearning.model.SopQuizDraw;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
 import com.tbm.careerpathlearning.model.Staff;
@@ -34,9 +36,11 @@ import com.tbm.careerpathlearning.repository.SopAssignmentRepository;
 import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialViewRepository;
 import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
+import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
@@ -84,7 +88,7 @@ class SopTestStore {
 
     private static final Set<Class<?>> REPOSITORIES = Set.of(SopDocumentRepository.class, SopModuleRepository.class,
             SopQuizQuestionRepository.class, SopQuizReviewEventRepository.class, SopMaterialReviewEventRepository.class,
-            SopAssignmentRepository.class,
+            SopAssignmentRepository.class, SopQuizDrawRepository.class, SopMaterialViewRepository.class,
             SopEnrollmentRepository.class, SopQuizAttemptRepository.class, SopCourseFeedbackRepository.class,
             StaffRepository.class, TrainerAccessGrantRepository.class, TrainingAuditLogRepository.class,
             AuthorityRepository.class, RoleAuthorityRepository.class);
@@ -98,6 +102,8 @@ class SopTestStore {
     final Map<Long, SopEnrollment> enrollments = new LinkedHashMap<>();
     final Map<Long, SopQuizAttempt> attempts = new LinkedHashMap<>();
     final Map<Long, SopCourseFeedback> feedback = new LinkedHashMap<>();
+    final Map<Long, SopQuizDraw> draws = new LinkedHashMap<>();
+    final Map<Long, SopMaterialView> views = new LinkedHashMap<>();
     final Map<UUID, Staff> staff = new LinkedHashMap<>();
     final Map<UUID, TrainerAccessGrant> grants = new LinkedHashMap<>();
     final Map<Long, TrainingAuditLog> auditLog = new LinkedHashMap<>();
@@ -438,6 +444,17 @@ class SopTestStore {
                 default:
             }
         }
+        if (type == SopQuizDrawRepository.class || type == SopMaterialViewRepository.class) {
+            Map<Long, ?> rows = type == SopQuizDrawRepository.class ? draws : views;
+            switch (method) {
+                case "findByEnrollmentIdAndSopModuleId":
+                    return rows.values().stream().filter(r -> enrollmentOf(r).equals(a[0]) && moduleOf(r).equals(a[1])).findFirst();
+                case "deleteAllByEnrollmentIdIn":
+                    rows.values().removeIf(r -> ((Collection<Long>) a[0]).contains(enrollmentOf(r)));
+                    return null;
+                default:
+            }
+        }
         if (type == SopQuizAttemptRepository.class) {
             Comparator<SopQuizAttempt> order = Comparator.comparing(SopQuizAttempt::getAttemptedAt).thenComparing(SopQuizAttempt::getId);
             switch (method) {
@@ -507,6 +524,8 @@ class SopTestStore {
         if (type == SopEnrollmentRepository.class) return enrollments;
         if (type == SopQuizAttemptRepository.class) return attempts;
         if (type == SopCourseFeedbackRepository.class) return feedback;
+        if (type == SopQuizDrawRepository.class) return draws;
+        if (type == SopMaterialViewRepository.class) return views;
         if (type == TrainerAccessGrantRepository.class) return grants;
         if (type == TrainingAuditLogRepository.class) return auditLog;
         return staff;
@@ -537,6 +556,12 @@ class SopTestStore {
         } else if (entity instanceof SopQuizAttempt x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             attempts.put(x.getId(), x);
+        } else if (entity instanceof SopQuizDraw x) {
+            if (x.getId() == null) x.setId(ids.incrementAndGet());
+            draws.put(x.getId(), x);
+        } else if (entity instanceof SopMaterialView x) {
+            if (x.getId() == null) x.setId(ids.incrementAndGet());
+            views.put(x.getId(), x);
         } else if (entity instanceof SopCourseFeedback x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             feedback.put(x.getId(), x);
@@ -549,6 +574,14 @@ class SopTestStore {
             throw new UnsupportedOperationException("save " + entity.getClass().getSimpleName());
         }
         return entity;
+    }
+
+    private static Long enrollmentOf(Object row) {
+        return row instanceof SopQuizDraw d ? d.getEnrollmentId() : ((SopMaterialView) row).getEnrollmentId();
+    }
+
+    private static Long moduleOf(Object row) {
+        return row instanceof SopQuizDraw d ? d.getSopModuleId() : ((SopMaterialView) row).getSopModuleId();
     }
 
     /** A notification a service sent. */
