@@ -1,8 +1,7 @@
 package com.tbm.careerpathlearning.repository;
 
-import com.tbm.careerpathlearning.enums.Status;
+import com.tbm.careerpathlearning.enums.TrainingInvitationStatus;
 import com.tbm.careerpathlearning.model.TrainingInvitation;
-import com.tbm.careerpathlearning.model.TrainingProgram;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,57 +12,33 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 
 @Repository
 public interface TrainingInvitationRepository extends JpaRepository<TrainingInvitation, Long> {
-    List<TrainingInvitation> findTrainingInvitationsByTrainingProgram(TrainingProgram trainingProgram);
-    List<TrainingInvitation> findByStaff_Id(UUID staffId);
 
-    @Query("""
-        SELECT ti
-        FROM TrainingInvitation ti
-        WHERE  ti.trainingProgram.isDeleted = false
-    """)
-    List<TrainingInvitation> getActiveTrainingInvitations();
+    List<TrainingInvitation> findAllByTrainingIdAndStatus(Long trainingId, TrainingInvitationStatus status);
 
-    @Query("""
-        SELECT ti
-        FROM TrainingInvitation ti
-        WHERE ti.trainingProgram = :training
-          AND ti.trainingProgram.isDeleted = false
-    """)
-    List<TrainingInvitation> findActiveByTrainingProgram(
-            @Param("training") TrainingProgram trainingProgram
-    );
+    boolean existsByTrainingId(Long trainingId);
 
-    @Query("""
-        SELECT ti
-        FROM TrainingInvitation ti
-        WHERE ti.staff.id = :staffId
-          AND ti.trainingProgram.isDeleted = false
-    """)
-    List<TrainingInvitation> findActiveByStaffId(
-            @Param("staffId") UUID staffId
-    );
+    /** Which of these sessions anyone has been invited to. */
+    @Query("select distinct i.trainingId from TrainingInvitation i where i.trainingId in :trainingIds")
+    List<Long> findInvitedTrainingIds(@Param("trainingIds") Collection<Long> trainingIds);
 
+    /**
+     * Marks the invitations still unanswered once their session has started as No Response, answered {@code now}.
+     * {@code today} and {@code time} are now on the Malaysia clock. Safe to run again: only pending invitations change.
+     */
     @Modifying
     @Transactional
     @Query("""
-    UPDATE TrainingInvitation i 
-    SET i.status = :newStatus 
-    WHERE i.status = :oldStatus 
-    AND (
-        i.trainingProgram.startDate < :currentDate
-        OR 
-        (i.trainingProgram.startDate = :currentDate AND i.trainingProgram.startTime <= :currentTime)
-    )
-""")
-    int bulkUpdateExpiredInvites(
-            @Param("newStatus") Status newStatus,
-            @Param("oldStatus") Status oldStatus,
-            @Param("currentDate") LocalDate currentDate,
-            @Param("currentTime") LocalTime currentTime
-    );
+            update TrainingInvitation i
+            set i.status = com.tbm.careerpathlearning.enums.TrainingInvitationStatus.NO_RESPONSE, i.respondedAt = :now
+            where i.status = com.tbm.careerpathlearning.enums.TrainingInvitationStatus.PENDING
+              and i.trainingId in (select t.trainingId from TrainingProgram t
+                                   where t.sessionDate < :today or (t.sessionDate = :today and t.startTime <= :time))
+            """)
+    int markUnansweredOnceStarted(@Param("today") LocalDate today, @Param("time") LocalTime time,
+                                  @Param("now") LocalDateTime now);
 }

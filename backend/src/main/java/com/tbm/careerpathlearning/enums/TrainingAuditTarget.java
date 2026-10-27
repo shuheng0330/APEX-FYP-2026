@@ -5,5 +5,7 @@ package com.tbm.careerpathlearning.enums;
  */
 public enum TrainingAuditTarget {
     STAFF,
-    COURSE
+    COURSE,
+    /** A training session (FR-12); the target id is the session's id. */
+    SESSION
 }

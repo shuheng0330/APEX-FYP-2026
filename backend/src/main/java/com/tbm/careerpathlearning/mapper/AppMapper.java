@@ -25,26 +25,6 @@ public interface AppMapper {
 
     LearningDocument toEntity(LearningDocumentDto dto);
 
-    // === Training Program ===
-    TrainingProgramDTO toDto(TrainingProgram entity);
-
-    TrainingProgram toEntity(TrainingProgramDTO dto);
-
-    // === Training Invitation ===
-    TrainingInvitationDTO toDto(TrainingInvitation entity);
-
-    TrainingInvitation toEntity(TrainingInvitationDTO dto);
-
-    // === Training Registration ===
-    TrainingRegistrationDTO toDto(TrainingRegistration entity);
-
-    TrainingRegistration toEntity(TrainingRegistrationDTO dto);
-
-    // === Training Attendance ===
-    TrainingAttendanceDto toDto(TrainingAttendance entity);
-
-    TrainingAttendance toEntity(TrainingAttendanceDto dto);
-
     // === Staff Learning Material===
     StaffLearningMaterialDto toDto(StaffLearningMaterial entity);
 

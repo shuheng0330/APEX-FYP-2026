@@ -18,5 +18,9 @@ public enum NotificationType {
     /** A mandatory course's last date to start, or its due date, is 3 days away or less (FR-09-14). */
     COURSE_DUE_SOON,
     /** A mandatory course is past its due date, or was not started by its last date (FR-11-16). */
-    COURSE_OVERDUE
+    COURSE_OVERDUE,
+    /** A session the person registered for, or was invited to, was cancelled (FR-12-06). */
+    SESSION_CANCELLED,
+    /** The date, time, venue or delivery of a session the person registered for, or was invited to, changed. */
+    SESSION_CHANGED
 }

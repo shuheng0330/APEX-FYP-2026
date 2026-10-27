@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessStaffDto;
 import com.tbm.careerpathlearning.dto.TrainerOwnedCourseDto;
 import com.tbm.careerpathlearning.dto.TrainingAuditEntryDto;
+import com.tbm.careerpathlearning.model.Staff;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +25,12 @@ public interface TrainerAccessService {
 
     /** Whether any active staff member reports directly to this one (FR-10-10, decision C: direct reports only). */
     boolean hasTeam(UUID staffId);
+
+    /**
+     * Active staff who can run or present a training session: Trainer access through their job role or a grant in
+     * force today, or HR (FR-12-05, FR-15-05). Sorted by name.
+     */
+    List<Staff> trainersAndHr();
 
     /** Every active staff member, with whether and how they have Trainer access. */
     List<TrainerAccessStaffDto> list();

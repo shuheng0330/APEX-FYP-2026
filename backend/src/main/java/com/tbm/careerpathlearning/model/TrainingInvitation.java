@@ -1,12 +1,16 @@
 package com.tbm.careerpathlearning.model;
 
-import com.tbm.careerpathlearning.enums.Status;
+import com.tbm.careerpathlearning.enums.TrainingInvitationStatus;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
-@Data
+/** An invitation to register for a mandatory session, sent to its target staff (FR-12-14). */
+@Getter
+@Setter
 @Entity
 @Table(name = "training_invitation", indexes = {
         @Index(name = "idx_invite_status_fk", columnList = "status, training_id")
@@ -17,26 +21,25 @@ public class TrainingInvitation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long invitationId;
 
-    @Enumerated(EnumType.STRING)
-    private Status status;
+    @Column(name = "training_id", nullable = false)
+    private Long trainingId;
 
+    @Column(name = "staff_id", nullable = false)
+    private UUID staffId;
+
+    @Column(name = "invited_by", nullable = false)
+    private UUID invitedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private TrainingInvitationStatus status = TrainingInvitationStatus.PENDING;
+
+    /** Why the person declined. */
     private String reason;
 
     private LocalDateTime invitedAt;
 
-    private LocalDateTime respondAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "staff_id")
-    private Staff staff;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "training_id")
-    private TrainingProgram trainingProgram;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "invited_by", nullable = false)
-    private Staff invitedBy;
-
-
+    /** When the person answered, or when the session started unanswered. */
+    @Column(name = "respond_at")
+    private LocalDateTime respondedAt;
 }

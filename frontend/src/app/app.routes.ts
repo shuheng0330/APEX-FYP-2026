@@ -1,13 +1,11 @@
 import { Routes } from '@angular/router';
 
 import { OrgchartPage } from './pages/orgchart-page/orgchart-page';
-import { TrainingManagementPageComponent } from './pages/training/training-management/training-management-page';
 import { EvaluationPageComponent } from './pages/evaluation-page/evaluation-page.component';
 import { RoleTabComponent } from './pages/role-tab/role-tab.component';
 import { CompetencyTabComponent } from './pages/competency-tab/competency-tab.component';
 import { RolesCompetenciesTabComponent } from './pages/roles-competencies-tab/roles-competencies-tab.component';
 import { CareerPathwayTabComponent } from './pages/career-pathway-tab/career-pathway-tab.component';
-import { TrainingEngagementPageComponent } from './pages/training/training-engagement/training-engagement-page.component';
 import { PerformanceDashboardPage } from './pages/evaluation-page/performance-dashboard/performance-dashboard.page';
 import { EvaluationOverviewPageComponent } from './pages/evaluation-page/evaluation-overview-page/evaluation-overview-page.component';
 import { OrgWideEvaluationComponent } from './pages/evaluation-page/org-wide-evaluation/org-wide-evaluation.component';
@@ -70,12 +68,6 @@ export const routes: Routes = [
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'] },
       },
-      {
-        path: 'training/management', component: TrainingManagementPageComponent,
-        canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
-      },
-      { path: 'training/engagement', component: TrainingEngagementPageComponent },
       {
         path: 'sop/upload', component: SopUploadComponent,
         canActivate: [PermissionGuard],
