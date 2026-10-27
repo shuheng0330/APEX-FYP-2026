@@ -347,7 +347,7 @@ public class SopLearningServiceImpl implements SopLearningService {
     private Progress progress(SopEnrollment e, SopDocument doc) {
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(doc.getId());
         return new Progress(e, doc, SopProgress.of(modules, sopCourseReadiness.quizzesOf(modules),
-                sopQuizAttemptRepository.findAllByEnrollmentIdOrderByAttemptedAtAscIdAsc(e.getId())));
+                sopQuizAttemptRepository.findAllByEnrollmentIdOrderByAttemptedAtAscIdAsc(e.getId()), e.getPassMark()));
     }
 
     private record ModuleContext(SopModule module, SopDocument doc, SopEnrollment enrollment, SopProgress.Module current) {

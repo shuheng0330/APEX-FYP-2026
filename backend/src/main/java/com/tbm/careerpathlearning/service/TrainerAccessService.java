@@ -16,6 +16,15 @@ public interface TrainerAccessService {
     /** Whether the staff member has an individual grant in force today. Checked at sign-in and token refresh. */
     boolean hasActiveGrant(UUID staffId);
 
+    /**
+     * Given at sign-in to a manager, someone with direct reports: they see their team's training on the Training
+     * Scoreboard (FR-10-10). It is worked out from the reporting lines, so it is not a permission a role is given.
+     */
+    String TEAM_TRAINING_AUTHORITY = "CAN_VIEW_TEAM_TRAINING";
+
+    /** Whether any active staff member reports directly to this one (FR-10-10, decision C: direct reports only). */
+    boolean hasTeam(UUID staffId);
+
     /** Every active staff member, with whether and how they have Trainer access. */
     List<TrainerAccessStaffDto> list();
 

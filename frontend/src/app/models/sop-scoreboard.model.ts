@@ -28,6 +28,8 @@ export interface ScoreboardRecord {
   mandatory: boolean;
   mode?: SopAssignmentMode | null;
   selfEnrolled: boolean;
+  /** Left the company: listed, but not counted in the figures (FR-10-12). */
+  leftCompany: boolean;
   passMark: number;
   /** Final score once certified, otherwise the average of the modules passed so far. */
   score?: number | null;
@@ -46,6 +48,8 @@ export interface Scoreboard {
   courses: { id: number; title: string; archived: boolean; versionNo: number; superseded: boolean }[];
   departments: string[];
   records: ScoreboardRecord[];
+  /** ALL courses, the viewer's OWN courses, their TEAM's training, or OWN_AND_TEAM (FR-10-10). */
+  scope: 'ALL' | 'OWN' | 'TEAM' | 'OWN_AND_TEAM';
   generatedAt: string;
 }
 

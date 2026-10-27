@@ -179,7 +179,23 @@ export class SopScoreboardComponent implements OnInit {
     return this.data?.records.some(r => !r.department) ? [...names, NO_DEPARTMENT] : names;
   }
 
-  private kpisOf(records: ScoreboardRecord[]): Kpis {
+  /** Whose training the page shows (FR-10-10). */
+  get scopeNote(): string {
+    switch (this.data?.scope) {
+      case 'ALL': return 'Every course.';
+      case 'TEAM': return 'Your team: the staff who report to you directly, on every course.';
+      case 'OWN_AND_TEAM': return 'The courses you own, and your team: the staff who report to you directly.';
+      default: return 'The courses you own.';
+    }
+  }
+
+  /** Staff who have left the company stay listed but are not counted in the figures (FR-10-12). */
+  get leaversShown(): number {
+    return this.filtered.filter(r => r.leftCompany).length;
+  }
+
+  private kpisOf(all: ScoreboardRecord[]): Kpis {
+    const records = all.filter(r => !r.leftCompany);
     const count = (status: ScoreboardStatus) => records.filter(r => r.status === status).length;
     const certified = count('COMPLETED');
     // Withdrawn staff can no longer be certified, so they don't count against the rate (FR-06-15).
@@ -200,7 +216,7 @@ export class SopScoreboardComponent implements OnInit {
   /** Average score per department, highest first; departments without scores go last. */
   private departmentsOf(records: ScoreboardRecord[]): DepartmentScore[] {
     const byName = new Map<string, DepartmentScore & { total: number }>();
-    for (const r of records) {
+    for (const r of records.filter(x => !x.leftCompany)) { // FR-10-12
       const name = r.department ?? NO_DEPARTMENT;
       const d = byName.get(name) ?? { name, average: null, scored: 0, certified: 0, enrolled: 0, retraining: 0, total: 0 };
       d.enrolled++;

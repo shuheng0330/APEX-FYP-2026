@@ -5,6 +5,7 @@ import com.tbm.careerpathlearning.dto.SopEnrollmentProgressDto;
 import com.tbm.careerpathlearning.dto.SopScoreboardDto;
 import com.tbm.careerpathlearning.dto.SopScoreboardRecordDto;
 import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
+import com.tbm.careerpathlearning.enums.StaffAccountStatus;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.OrgChart;
@@ -57,13 +58,21 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
 
     @Override
     @Transactional(readOnly = true)
-    public SopScoreboardDto scoreboard(UUID userId, boolean seeAll) {
-        Map<Long, SopDocument> docs = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
-                .filter(d -> seeAll || userId.equals(d.getUploadedBy()))
+    public SopScoreboardDto scoreboard(UUID userId, boolean seeAll, boolean team) {
+        Map<Long, SopDocument> courses = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc().stream()
+                .collect(Collectors.toMap(SopDocument::getId, Function.identity()));
+        Set<UUID> reports = team && !seeAll ? teamOf(userId) : Set.of();
+        boolean ownsCourses = courses.values().stream().anyMatch(d -> userId.equals(d.getUploadedBy()));
+        // Every course, the courses the viewer owns, and for a manager every course their team is taking (FR-10-10).
+        List<SopEnrollment> enrollments = courses.isEmpty() ? List.of() : sopEnrollmentRepository.findAllBySopDocumentIdIn(courses.keySet())
+                .stream().filter(e -> seeAll || userId.equals(courses.get(e.getSopDocumentId()).getUploadedBy())
+                        || reports.contains(e.getStaffId()))
+                .toList();
+        Map<Long, SopDocument> docs = enrollments.stream().map(e -> courses.get(e.getSopDocumentId())).distinct()
                 .collect(Collectors.toMap(SopDocument::getId, Function.identity()));
         SopScoreboardDto dto = new SopScoreboardDto();
+        dto.setScope(seeAll ? "ALL" : !team ? "OWN" : ownsCourses ? "OWN_AND_TEAM" : "TEAM");
         dto.setGeneratedAt(OffsetDateTime.now(clock));
-        List<SopEnrollment> enrollments = docs.isEmpty() ? List.of() : sopEnrollmentRepository.findAllBySopDocumentIdIn(docs.keySet());
         Set<Long> enrolledDocs = enrollments.stream().map(SopEnrollment::getSopDocumentId).collect(Collectors.toSet());
         // Courses someone is enrolled in, for the course filter.
         docs.values().stream().filter(d -> enrolledDocs.contains(d.getId()))
@@ -94,7 +103,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
 
         for (SopEnrollment e : enrollments) {
             SopProgress progress = SopProgress.of(modules.getOrDefault(e.getSopDocumentId(), List.of()), quizzes,
-                    attempts.getOrDefault(e.getId(), List.of()));
+                    attempts.getOrDefault(e.getId(), List.of()), e.getPassMark());
             dto.getRecords().add(record(e, docs.get(e.getSopDocumentId()), progress, staff.get(e.getStaffId())));
         }
         dto.getRecords().sort(Comparator.comparing(SopScoreboardRecordDto::getStaffName, String.CASE_INSENSITIVE_ORDER)
@@ -106,17 +115,18 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
 
     @Override
     @Transactional(readOnly = true)
-    public SopEnrollmentProgressDto enrollment(Long enrollmentId, UUID userId, boolean seeAll) {
+    public SopEnrollmentProgressDto enrollment(Long enrollmentId, UUID userId, boolean seeAll, boolean team) {
         SopEnrollment e = sopEnrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new BadRequestException("Enrolment not found."));
         SopDocument doc = sopDocumentRepository.findById(e.getSopDocumentId()).filter(d -> !d.isDeleted())
                 .orElseThrow(() -> new BadRequestException("Course not found."));
-        if (!seeAll && !userId.equals(doc.getUploadedBy())) {
-            throw new ForbiddenRequestException("You can only view progress on courses you created.");
+        if (!seeAll && !userId.equals(doc.getUploadedBy()) && !(team && teamOf(userId).contains(e.getStaffId()))) {
+            throw new ForbiddenRequestException(team ? "You can only view progress on your team's training or courses you created."
+                    : "You can only view progress on courses you created.");
         }
         List<SopModule> modules = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(doc.getId());
         SopProgress progress = SopProgress.of(modules, sopCourseReadiness.quizzesOf(modules),
-                sopQuizAttemptRepository.findAllByEnrollmentIdOrderByAttemptedAtAscIdAsc(e.getId()));
+                sopQuizAttemptRepository.findAllByEnrollmentIdOrderByAttemptedAtAscIdAsc(e.getId()), e.getPassMark());
         Staff staff = staffRepository.findAllWithRoleByIdIn(List.of(e.getStaffId())).stream().findFirst().orElse(null);
 
         SopEnrollmentProgressDto dto = new SopEnrollmentProgressDto();
@@ -155,6 +165,13 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
                 .toList();
     }
 
+    /** The active staff who report directly to the manager (decision C: direct reports only). */
+    private Set<UUID> teamOf(UUID managerId) {
+        return staffRepository.findAllActiveWithRole().stream()
+                .filter(s -> !s.isDeleted() && s.getManager() != null && managerId.equals(s.getManager().getId()))
+                .map(Staff::getId).collect(Collectors.toSet());
+    }
+
     // === mapping ==============================================================
 
     private SopScoreboardRecordDto record(SopEnrollment e, SopDocument doc, SopProgress progress, Staff staff) {
@@ -179,6 +196,8 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         r.setMandatory(e.isMandatory());
         r.setMode(e.getMode());
         r.setSelfEnrolled(e.getAssignmentId() == null);
+        // Left the company: gone from the staff list, or no longer active (FR-10-12).
+        r.setLeftCompany(staff == null || staff.isDeleted() || staff.getAccountStatus() != StaffAccountStatus.ACTIVE);
         r.setPassMark(e.getPassMark());
         r.setFinalScore(e.getFinalScore());
         r.setScore(e.getFinalScore() != null ? e.getFinalScore() : progress.averagePassedScore());
