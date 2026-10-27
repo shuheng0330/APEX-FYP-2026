@@ -41,15 +41,17 @@
               <td>@if (c.ownerName) { {{ c.ownerName }} } @else { <span class="muted">No owner</span> }</td>
               <td><nz-tag [nzColor]="status.color">{{ status.label }}</nz-tag></td>
               <td>{{ c.enrolledCount || '-' }}</td>
-              <td class="actions">
-                @if (c.needsNewOwner) {
-                  <button nz-button nzSize="small" nzType="primary" (click)="openTransfer(c)">
-                    <nz-icon nzType="swap"></nz-icon>Transfer
+              <td>
+                <div class="actions">
+                  @if (c.needsNewOwner) {
+                    <button nz-button nzSize="small" nzType="primary" (click)="openTransfer(c)">
+                      <nz-icon nzType="swap"></nz-icon>Transfer
+                    </button>
+                  }
+                  <button nz-button nzSize="small" nzType="text" (click)="openHistory(c)" [attr.aria-label]="'History for ' + c.title">
+                    <nz-icon nzType="history"></nz-icon>History
                   </button>
-                }
-                <button nz-button nzSize="small" nzType="text" (click)="openHistory(c)" [attr.aria-label]="'History for ' + c.title">
-                  <nz-icon nzType="history"></nz-icon>History
-                </button>
+                </div>
               </td>
             </tr>
           }

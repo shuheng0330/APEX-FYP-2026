@@ -63,16 +63,18 @@
                       @if (!s.viaRole && !s.viaGrant) { <span class="muted">No access</span> }
                     </td>
                     <td>{{ s.ownedCourses || '-' }}</td>
-                    <td class="actions">
-                      @if (s.viaGrant) {
-                        <button nz-button nzSize="small" (click)="openGrant(s)"><nz-icon nzType="calendar"></nz-icon>Change end date</button>
-                        <button nz-button nzSize="small" nzDanger (click)="openRevoke(s)">Revoke</button>
-                      } @else {
-                        <button nz-button nzSize="small" nzType="primary" (click)="openGrant(s)"><nz-icon nzType="plus"></nz-icon>Grant access</button>
-                      }
-                      <button nz-button nzSize="small" nzType="text" (click)="openHistory(s)" [attr.aria-label]="'History for ' + s.name">
-                        <nz-icon nzType="history"></nz-icon>History
-                      </button>
+                    <td>
+                      <div class="actions">
+                        @if (s.viaGrant) {
+                          <button nz-button nzSize="small" (click)="openGrant(s)"><nz-icon nzType="calendar"></nz-icon>Change end date</button>
+                          <button nz-button nzSize="small" nzDanger (click)="openRevoke(s)">Revoke</button>
+                        } @else {
+                          <button nz-button nzSize="small" nzType="primary" (click)="openGrant(s)"><nz-icon nzType="plus"></nz-icon>Grant access</button>
+                        }
+                        <button nz-button nzSize="small" nzType="text" (click)="openHistory(s)" [attr.aria-label]="'History for ' + s.name">
+                          <nz-icon nzType="history"></nz-icon>History
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }
