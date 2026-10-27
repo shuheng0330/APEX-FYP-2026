@@ -7,6 +7,7 @@ import com.tbm.careerpathlearning.dto.SopMaterialReviewEventDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
+import com.tbm.careerpathlearning.dto.SopQuizSettingsRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -86,6 +87,12 @@ public interface SopService {
     SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, SopViewer viewer);
 
     SopModuleDto approveModuleQuiz(Long moduleId, SopViewer viewer);
+
+    /** Deletes a question from a module's quiz, in a new draft once staff take the course (FR-08-11). */
+    SopModuleDto deleteQuestion(Long questionId, SopViewer viewer);
+
+    /** Sets how many questions each attempt at a module's quiz presents (FR-08-15). */
+    SopModuleDto updateQuizSettings(Long moduleId, SopQuizSettingsRequest request, SopViewer viewer);
 
     SopModuleDto rejectModuleQuiz(Long moduleId, String reason, SopViewer viewer);
 

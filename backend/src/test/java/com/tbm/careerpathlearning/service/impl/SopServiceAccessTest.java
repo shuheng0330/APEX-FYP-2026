@@ -43,7 +43,7 @@ class SopServiceAccessTest {
         store = new SopTestStore();
         service = store.wire(new SopServiceImpl());
         store.doc(1L, "Cash Handling", trainerId);
-        trainersModule = store.module(1L, ReviewStatus.PENDING, ReviewStatus.PENDING, ReviewStatus.PENDING).getId();
+        trainersModule = store.module(1L, ReviewStatus.PENDING, SopTestStore.quiz(5, ReviewStatus.PENDING)).getId();
         store.doc(2L, "Forklift Safety", superAdminId);
         store.module(2L, 2);
         store.doc(3L, "[EVAL] product_training.pdf", null);
@@ -90,7 +90,7 @@ class SopServiceAccessTest {
         assertEquals("Module 1", module.getTitle());
         assertEquals(ReviewStatus.PENDING, module.getReviewStatus());
         assertTrue(store.questionsOf(trainersModule).stream().allMatch(q -> q.getReviewStatus() == ReviewStatus.PENDING));
-        assertEquals(2, store.questionsOf(trainersModule).size());
+        assertEquals(5, store.questionsOf(trainersModule).size());
         assertTrue(store.docs.containsKey(1L));
         assertTrue(store.events.isEmpty());
     }
@@ -99,7 +99,7 @@ class SopServiceAccessTest {
     @DisplayName("HR opens any owned course read-only and is refused every change")
     void hrReadsButCannotChange() {
         assertFalse(service.getDetail(1L, hr).getDocument().isEditable());
-        assertEquals(2, service.getModule(trainersModule, hr).getQuiz().size());
+        assertEquals(5, service.getModule(trainersModule, hr).getQuiz().size());
 
         ForbiddenRequestException e = assertThrows(ForbiddenRequestException.class,
                 () -> service.approveModule(trainersModule, hr));

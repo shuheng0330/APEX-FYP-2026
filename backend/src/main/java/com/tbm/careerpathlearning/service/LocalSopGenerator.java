@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -198,6 +199,15 @@ public class LocalSopGenerator {
      */
     public List<GeneratedQuestion> topUpQuiz(List<ContentSection> sections, List<GeneratedQuestion> quiz,
                                              String title, int target) {
+        return topUpQuiz(sections, quiz, title, target, List.of());
+    }
+
+    /**
+     * As {@link #topUpQuiz(List, List, String, int)}, also leaving out sentences that {@code asked}, the questions the
+     * course's other modules ask, already cover (test note AR-03).
+     */
+    public List<GeneratedQuestion> topUpQuiz(List<ContentSection> sections, List<GeneratedQuestion> quiz,
+                                             String title, int target, Collection<String> asked) {
         List<GeneratedQuestion> result = new ArrayList<>(quiz == null ? List.of() : quiz);
         if (result.size() >= target || sections == null) {
             return result;
@@ -215,12 +225,23 @@ public class LocalSopGenerator {
         }
         Set<String> used = new HashSet<>();
         for (Fact f : facts) {
-            if (result.stream().anyMatch(q -> asks(q, f.sentence()))) {
+            if (result.stream().anyMatch(q -> asks(q, f.sentence())) || asked.stream().anyMatch(a -> covers(a, f.sentence()))) {
                 used.add(f.sentence());
             }
         }
         result.addAll(quiz(facts, heading, used, target - result.size()));
         return result;
+    }
+
+    /** True when most of a sentence's words already appear in another module's question. */
+    private static boolean covers(String question, String sentence) {
+        Set<String> sentenceWords = words(sentence);
+        if (sentenceWords.isEmpty() || question == null) {
+            return false;
+        }
+        Set<String> questionWords = words(question);
+        long shared = sentenceWords.stream().filter(questionWords::contains).count();
+        return shared * 10 >= sentenceWords.size() * 6L;
     }
 
     /** True when most of a sentence's words already appear in a question, its answer or explanation. */

@@ -86,12 +86,12 @@ class SopVersionTest {
         owner = new SopViewer(trainer.getId(), false);
         hr = new SopViewer(hrPerson.getId(), true);
 
-        // A live Open course, ready to take: two modules, each with an approved 4-question quiz.
+        // A live Open course, ready to take: two modules, each with an approved 5-question quiz.
         SopDocument course = store.doc(1L, "Cash Handling", trainer.getId());
         course.setVisibility(SopVisibility.OPEN);
         course.setExtractedText("4.1 Handling Cash\nDo not leave the cash drawer unattended.");
-        first = store.module(1L, 4);
-        second = store.module(1L, 4);
+        first = store.module(1L, 5);
+        second = store.module(1L, 5);
     }
 
     /** Aisyah has not started, Ravi passed module 1, and Mei Ling completed the course, which was mandatory for her. */
@@ -162,10 +162,10 @@ class SopVersionTest {
             assertEquals(original.getTitle(), copies.get(i).getTitle());
             assertEquals(original.getContent(), copies.get(i).getContent());
             assertEquals(ReviewStatus.APPROVED, copies.get(i).getReviewStatus());
-            assertEquals(4, store.questionsOf(copies.get(i).getId()).size());
+            assertEquals(5, store.questionsOf(copies.get(i).getId()).size());
         }
         assertEquals(texts(second), texts(copies.get(1)));
-        assertEquals(4, store.questionsOf(first.getId()).size(), "the live quiz keeps its questions");
+        assertEquals(5, store.questionsOf(first.getId()).size(), "the live quiz keeps its questions");
 
         // The draft's quiz history starts with the copy, then the edit.
         assertEquals(List.of("EDITED", "COPIED"), courses.getQuizHistory(copies.get(0).getId(), owner).stream()
@@ -241,7 +241,7 @@ class SopVersionTest {
         assertThrows(RuntimeException.class, () -> courses.rejectModuleQuiz(second.getId(), "Ask about cash drops", owner));
 
         assertEquals(Set.of(1L), store.docs.keySet(), "no draft left behind");
-        assertEquals(8, store.questions.size(), "no copied questions left behind");
+        assertEquals(10, store.questions.size(), "no copied questions left behind");
         assertTrue(store.events.isEmpty(), "no copied history left behind");
         assertTrue(courses.getDetail(1L, owner).getDocument().isEditable());
         assertEquals(List.of("COURSE_DRAFT_DISCARDED", "COURSE_DRAFT_CREATED"),
@@ -257,7 +257,7 @@ class SopVersionTest {
 
         assertRefused("Approve every module's material and quiz", () -> courses.publishDraft(draft.getId(), false, owner));
         assertTrue(store.docs.get(1L).isLive());
-        assertEquals(5, store.questionsOf(modulesOf(draft).get(0).getId()).size());
+        assertEquals(6, store.questionsOf(modulesOf(draft).get(0).getId()).size());
 
         courses.approveModuleQuiz(modulesOf(draft).get(0).getId(), owner);
         assertDoesNotThrow(() -> courses.publishDraft(draft.getId(), false, owner));
@@ -391,7 +391,7 @@ class SopVersionTest {
 
         assertEquals(Set.of(1L), store.docs.keySet());
         assertTrue(store.modules.values().stream().allMatch(m -> m.getSopDocumentId().equals(1L)));
-        assertEquals(8, store.questions.size());
+        assertEquals(10, store.questions.size());
         assertTrue(store.events.isEmpty());
         assertTrue(courses.getDetail(1L, owner).getDocument().isEditable());
         assertEquals("COURSE_DRAFT_DISCARDED", history().get(0).getAction());

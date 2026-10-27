@@ -137,6 +137,8 @@ export interface SopModule {
   content: string;
   reviewStatus: ReviewStatus;
   rejectionReason?: string;
+  /** How many of the quiz's questions each attempt presents (FR-08-15). */
+  questionsPerAttempt: number;
   quiz: SopQuizQuestion[];
 }
 

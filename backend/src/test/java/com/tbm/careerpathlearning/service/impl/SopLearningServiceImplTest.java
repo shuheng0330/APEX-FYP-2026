@@ -130,7 +130,7 @@ class SopLearningServiceImplTest {
     @DisplayName("An Open course is listed in the portal, and joining it moves it to My courses")
     void enrolInOpenCourse() {
         store.doc(2L, "Forklift Safety", null).setVisibility(SopVisibility.OPEN);
-        store.module(2L, 2);
+        store.module(2L, 5);
 
         SopLearningHomeDto home = service.home(learner.getId());
         assertEquals(1, home.getOpenCourses().size());

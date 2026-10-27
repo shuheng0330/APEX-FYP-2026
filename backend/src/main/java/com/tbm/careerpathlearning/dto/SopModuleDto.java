@@ -15,5 +15,7 @@ public class SopModuleDto {
     private String content;
     private ReviewStatus reviewStatus;
     private String rejectionReason;
+    /** How many questions each attempt at the quiz presents (FR-08-15). */
+    private int questionsPerAttempt;
     private List<SopQuizQuestionDto> quiz = new ArrayList<>();
 }

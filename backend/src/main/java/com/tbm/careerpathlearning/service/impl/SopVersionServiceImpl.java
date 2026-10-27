@@ -147,8 +147,9 @@ public class SopVersionServiceImpl implements SopVersionService {
         if (!draft.isDraft()) {
             throw new BadRequestException("Only a draft can be published.");
         }
-        if (!sopCourseReadiness.of(draft).ready()) {
-            throw new BadRequestException("Approve every module's material and quiz in this draft before publishing it.");
+        SopCourseReadiness.Readiness readiness = sopCourseReadiness.of(draft);
+        if (!readiness.ready()) {
+            throw new BadRequestException("This draft can't be published yet. " + readiness.blocker());
         }
         SopDocument previous = versionsOf(draft).stream().filter(SopDocument::isLive).findFirst().orElse(null);
         LocalDate today = LocalDate.now(clock);
@@ -224,6 +225,7 @@ public class SopVersionServiceImpl implements SopVersionService {
         copy.setContent(module.getContent());
         copy.setReviewStatus(module.getReviewStatus());
         copy.setRejectionReason(module.getRejectionReason());
+        copy.setQuestionsPerAttempt(module.getQuestionsPerAttempt());
         copy.setCreatedAt(now);
         copy.setUpdatedAt(now);
         return copy;

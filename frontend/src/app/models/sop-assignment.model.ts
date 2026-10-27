@@ -13,6 +13,8 @@ export interface AssignableCourse {
   moduleCount: number;
   approvedModules: number;
   approvedQuizzes: number;
+  /** Quizzes with fewer than 5 questions, which keep the course from being assigned (FR-08-14). */
+  shortQuizzes: number;
   /** Every module and quiz approved, so it can be assigned. */
   ready: boolean;
   visibility: SopVisibility;

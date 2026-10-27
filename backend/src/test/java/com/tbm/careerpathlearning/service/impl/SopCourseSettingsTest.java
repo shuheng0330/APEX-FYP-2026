@@ -40,7 +40,7 @@ class SopCourseSettingsTest {
         aisyah = store.person("Nur Aisyah", null);
         owner = new SopViewer(trainer.getId(), false);
         course = store.doc(1L, "Cash Handling", trainer.getId());
-        store.module(1L, 2);
+        store.module(1L, 5);
     }
 
     @Test

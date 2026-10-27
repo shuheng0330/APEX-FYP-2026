@@ -71,10 +71,10 @@ class SopArchiveTest {
         hr = new SopViewer(hrPerson.getId(), true);
         otherTrainer = new SopViewer(UUID.randomUUID(), false);
 
-        // An Open course, ready to take: two modules, each with an approved 4-question quiz.
+        // An Open course, ready to take: two modules, each with an approved 5-question quiz.
         store.doc(1L, "Cash Handling", trainer.getId()).setVisibility(SopVisibility.OPEN);
-        first = store.module(1L, 4);
-        store.module(1L, 4);
+        first = store.module(1L, 5);
+        store.module(1L, 5);
     }
 
     /** Aisyah has not started and is past due, Ravi passed the first module, and Mei Ling completed the course. */

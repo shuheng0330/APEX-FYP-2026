@@ -40,6 +40,10 @@ public class SopModule {
     @Column(name = "rejection_reason", columnDefinition = "text")
     private String rejectionReason;
 
+    /** How many of the quiz's questions each attempt presents, drawn at random when it has more (FR-08-15). */
+    @Column(name = "questions_per_attempt", columnDefinition = "integer default 5 not null")
+    private int questionsPerAttempt = 5;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

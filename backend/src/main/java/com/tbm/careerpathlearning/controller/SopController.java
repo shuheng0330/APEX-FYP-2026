@@ -4,6 +4,7 @@ import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopModuleEditRequest;
 import com.tbm.careerpathlearning.dto.SopPublishRequest;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
+import com.tbm.careerpathlearning.dto.SopQuizSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopRejectRequest;
 import com.tbm.careerpathlearning.enums.AuthorityName;
 import com.tbm.careerpathlearning.service.SopService;
@@ -153,6 +154,21 @@ public class SopController {
     public ResponseEntity<?> updateQuestion(@PathVariable Long questionId, @RequestBody SopQuizQuestionDto dto,
                                             Authentication authentication) {
         return ResponseEntity.ok(sopService.updateQuestion(questionId, dto, viewer(authentication)));
+    }
+
+    /** Deletes one question; once staff take the course, from a new draft version (FR-08-11). */
+    @DeleteMapping("/quiz/{questionId}")
+    @PreAuthorize(CHANGE)
+    public ResponseEntity<?> deleteQuestion(@PathVariable Long questionId, Authentication authentication) {
+        return ResponseEntity.ok(sopService.deleteQuestion(questionId, viewer(authentication)));
+    }
+
+    /** How many questions each attempt at the module's quiz presents (FR-08-15). */
+    @PutMapping("/module/{moduleId}/quiz/settings")
+    @PreAuthorize(CHANGE)
+    public ResponseEntity<?> updateQuizSettings(@PathVariable Long moduleId, @RequestBody SopQuizSettingsRequest request,
+                                                Authentication authentication) {
+        return ResponseEntity.ok(sopService.updateQuizSettings(moduleId, request, viewer(authentication)));
     }
 
     @PostMapping("/module/{moduleId}/quiz")

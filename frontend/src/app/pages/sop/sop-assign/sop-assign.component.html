@@ -43,6 +43,8 @@
                     <span class="visibility" [class.open]="c.visibility === 'OPEN'">{{ c.visibility === 'OPEN' ? 'Open' : 'Private' }}</span>
                   } @else {
                     Approved: {{ c.approvedModules }}/{{ c.moduleCount }} materials, {{ c.approvedQuizzes }}/{{ c.moduleCount }} quizzes
+                    <!-- FR-08-14: every quiz needs at least 5 questions -->
+                    @if (c.shortQuizzes) { · {{ c.shortQuizzes }} {{ c.shortQuizzes === 1 ? 'quiz has' : 'quizzes have' }} fewer than 5 questions }
                   }
                 </span>
               </button>

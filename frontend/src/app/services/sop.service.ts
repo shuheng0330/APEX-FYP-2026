@@ -97,6 +97,17 @@ export class SopService {
     return this.http.post<SopModule>(`${this.baseUrl}/module/${moduleId}/quiz/reject`, { reason }, { withCredentials: true });
   }
 
+  /** Deletes a question; once staff take the course, from a new draft version (FR-08-11). */
+  deleteQuestion(questionId: number): Observable<SopModule> {
+    return this.http.delete<SopModule>(`${this.baseUrl}/quiz/${questionId}`, { withCredentials: true });
+  }
+
+  /** How many questions each attempt at the module's quiz presents (FR-08-15). */
+  updateQuizSettings(moduleId: number, questionsPerAttempt: number): Observable<SopModule> {
+    return this.http.put<SopModule>(`${this.baseUrl}/module/${moduleId}/quiz/settings`, { questionsPerAttempt },
+      { withCredentials: true });
+  }
+
   /** Who approved, rejected or edited a module's quiz, and each AI regeneration (FR-08-09). */
   quizHistory(moduleId: number): Observable<QuizReviewEvent[]> {
     return this.http.get<QuizReviewEvent[]>(`${this.baseUrl}/module/${moduleId}/quiz/history`, { withCredentials: true });

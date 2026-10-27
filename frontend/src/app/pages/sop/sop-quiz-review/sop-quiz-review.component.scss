@@ -77,6 +77,14 @@
 .reject-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #f5b9b9; border-radius: 6px; background: #fff7f7; }
 .required { color: var(--tbm-danger); }
 .history { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--tbm-border); }
+
+/* Quiz size (FR-08-14, FR-08-15) */
+.size-warning { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: #ad6800; font-size: 12px; }
+.per-attempt { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--tbm-border); }
+.per-attempt h4 { margin: 0 0 8px; font-size: 13px; }
+.per-attempt-row { display: flex; align-items: center; gap: 8px; }
+.per-attempt-row nz-input-number { width: 96px; }
+.per-attempt p { margin: 6px 0 0; font-size: 11px; }
 .history h4 { margin: 0 0 10px; font-size: 13px; }
 .history-item { padding: 10px 12px; margin-bottom: 8px; border-left: 2px solid var(--tbm-border); border-radius: 0 6px 6px 0; background: var(--tbm-surface-subtle); font-size: 11px; }
 .history-item[data-action='APPROVED'] { border-left-color: #52c41a; }

@@ -39,8 +39,11 @@ export function draftQuestion(doc: SopDocument): { nzTitle: string; nzContent: s
 }
 
 /** Every module's material and quiz is approved, so a draft can be published (P2-19). */
+/** The fewest questions a quiz may have once approved, and the fewest an attempt presents (FR-08-14, FR-08-15). */
+export const MIN_QUIZ_QUESTIONS = 5;
+
 export function courseReady(modules: SopModule[]): boolean {
-  return modules.length > 0 && modules.every(m => m.reviewStatus === 'APPROVED' && m.quiz.length > 0
+  return modules.length > 0 && modules.every(m => m.reviewStatus === 'APPROVED' && m.quiz.length >= MIN_QUIZ_QUESTIONS
     && m.quiz.every(q => q.reviewStatus === 'APPROVED'));
 }
 

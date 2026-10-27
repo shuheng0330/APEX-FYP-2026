@@ -68,7 +68,7 @@ class SopServiceImplTest {
 
         store.doc(1L, "Cash Handling SOP", trainer.getId())
                 .setExtractedText("4.1 Handling Cash\nDo not leave the cash drawer unattended.");
-        SopModule module = store.module(1L, ReviewStatus.PENDING, ReviewStatus.PENDING, ReviewStatus.PENDING);
+        SopModule module = store.module(1L, ReviewStatus.PENDING, SopTestStore.quiz(5, ReviewStatus.PENDING));
         module.setTitle("Handling Cash");
         moduleId = module.getId();
     }

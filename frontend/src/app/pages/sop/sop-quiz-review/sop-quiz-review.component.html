@@ -63,7 +63,13 @@
               <div>
                 <span class="section-kicker">Module {{ module.moduleOrder }} of {{ modules.length }} · Version {{ version }}</span>
                 <h2>{{ module.title }}</h2>
-                <p class="muted">{{ module.quiz.length }} {{ module.quiz.length === 1 ? 'question' : 'questions' }}</p>
+                <p class="muted">{{ module.quiz.length }} {{ module.quiz.length === 1 ? 'question' : 'questions' }}
+                  · {{ module.questionsPerAttempt }} per attempt</p>
+                <!-- FR-08-14: a quiz needs at least 5 questions before it can be approved -->
+                @if (missingQuestions(module); as missing) {
+                  <p class="size-warning"><nz-icon nzType="warning"></nz-icon>
+                    A quiz needs at least {{ minQuestions }} questions before it can be approved. Add {{ missing }} more.</p>
+                }
               </div>
               <nz-tag [nzColor]="stateColor(quizState(module))">{{ stateLabel(quizState(module)) }}</nz-tag>
             </div>
@@ -104,6 +110,11 @@
                         @if (document.editable) {
                           <button nz-button nzType="text" nzSize="small" (click)="startEdit(q)" [disabled]="busy || drafting">
                             <nz-icon nzType="edit"></nz-icon> Edit
+                          </button>
+                          <!-- FR-08-11 -->
+                          <button nz-button nzType="text" nzSize="small" nzDanger (click)="confirmDelete(q)" [disabled]="busy || drafting"
+                                  [attr.aria-label]="'Delete question ' + (i + 1)">
+                            <nz-icon nzType="delete"></nz-icon> Delete
                           </button>
                         }
                       </div>
@@ -171,7 +182,7 @@
             } @else {
               <p class="muted">Staff cannot see this quiz until you approve it.</p>
               <button nz-button nzType="primary" nzBlock [nzLoading]="busy && !regenerating"
-                      [disabled]="busy || !module.quiz.length || drafting" (click)="approve()">
+                      [disabled]="busy || missingQuestions(module) > 0 || drafting" (click)="approve()">
                 <nz-icon nzType="check"></nz-icon>
                 {{ quizState(module) === 'REGENERATED' ? 'Approve version ' + version : 'Approve quiz' }}
               </button>
@@ -196,6 +207,26 @@
               </div>
             }
             }
+
+            <!-- FR-08-15: how many questions each attempt presents -->
+            <div class="per-attempt">
+              <h4>Questions per attempt</h4>
+              @if (document.editable) {
+                <div class="per-attempt-row">
+                  <nz-input-number [ngModel]="perAttemptValue(module)" (ngModelChange)="perAttemptDraft[module.id] = $event"
+                                   [nzMin]="minQuestions" [nzMax]="maxPerAttempt(module)" [nzStep]="1"
+                                   [nzDisabled]="module.quiz.length < minQuestions || busy" aria-label="Questions per attempt"></nz-input-number>
+                  <button nz-button (click)="savePerAttempt()" [nzLoading]="savingPerAttempt"
+                          [disabled]="module.quiz.length < minQuestions || perAttemptValue(module) === module.questionsPerAttempt">
+                    Save
+                  </button>
+                </div>
+                <p class="muted">Each attempt presents this many of the quiz's {{ module.quiz.length }} questions, at least
+                  {{ minQuestions }}. A change applies from staff's next attempt.</p>
+              } @else {
+                <p class="muted">Each attempt presents {{ module.questionsPerAttempt }} of the quiz's {{ module.quiz.length }} questions.</p>
+              }
+            </div>
 
             <div class="history">
               <h4>Review history</h4>

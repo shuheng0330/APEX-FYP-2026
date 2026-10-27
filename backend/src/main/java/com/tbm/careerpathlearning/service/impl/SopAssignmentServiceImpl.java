@@ -143,8 +143,9 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
     public SopAssignmentResultDto assign(SopAssignmentRequest request, UUID userId, boolean canAssignAny) {
         SopDocument doc = getDocOrThrow(request.getSopDocumentId());
         checkCanAssign(doc, userId, canAssignAny);
-        if (!sopCourseReadiness.of(doc).ready()) {
-            throw new BadRequestException("Approve every module and quiz of this course before assigning it.");
+        SopCourseReadiness.Readiness readiness = sopCourseReadiness.of(doc);
+        if (!readiness.ready()) {
+            throw new BadRequestException("This course can't be assigned yet. " + readiness.blocker());
         }
         Terms terms = validTerms(request, doc);
         List<Staff> active = staffRepository.findAllActiveWithRole();
@@ -251,6 +252,10 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         }
         SopDocument doc = getDocOrThrow(sopDocumentId);
         checkCanAssign(doc, userId, canAssignAny);
+        SopCourseReadiness.Readiness readiness = sopCourseReadiness.of(doc);
+        if (visibility == SopVisibility.OPEN && !readiness.ready()) { // FR-09-10
+            throw new BadRequestException("This course can't be made Open yet. " + readiness.blocker());
+        }
         doc.setVisibility(visibility);
         doc.setUpdatedAt(OffsetDateTime.now(clock));
         sopDocumentRepository.save(doc);
@@ -424,6 +429,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         dto.setModuleCount(readiness.modules());
         dto.setApprovedModules(readiness.approvedModules());
         dto.setApprovedQuizzes(readiness.approvedQuizzes());
+        dto.setShortQuizzes(readiness.shortQuizzes());
         dto.setReady(readiness.ready());
         dto.setVisibility(d.getVisibility() == null ? SopVisibility.PRIVATE : d.getVisibility());
         dto.setPassMark(d.getPassMark());
