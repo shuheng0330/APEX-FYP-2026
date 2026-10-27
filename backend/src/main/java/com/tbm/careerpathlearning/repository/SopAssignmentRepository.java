@@ -11,5 +11,8 @@ import java.util.List;
 public interface SopAssignmentRepository extends JpaRepository<SopAssignment, Long> {
     List<SopAssignment> findAllBySopDocumentIdInOrderByCreatedAtDesc(Collection<Long> sopDocumentIds);
 
+    /** Assignments that also take in new joiners, newest first (FR-09-12). */
+    List<SopAssignment> findAllByIncludeNewJoinersTrueOrderByCreatedAtDesc();
+
     void deleteAllBySopDocumentId(Long sopDocumentId);
 }

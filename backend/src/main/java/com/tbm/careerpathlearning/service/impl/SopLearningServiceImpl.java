@@ -82,6 +82,7 @@ public class SopLearningServiceImpl implements SopLearningService {
     @Autowired private SopQuizDrawRepository sopQuizDrawRepository;
     @Autowired private SopMaterialViewRepository sopMaterialViewRepository;
     @Autowired private NotificationService notificationService;
+    @Autowired private SopNewJoiners sopNewJoiners;
     @Autowired private Clock clock;
 
     /** Draws questions and shuffles options; replaced in tests for a repeatable order. */
@@ -93,6 +94,7 @@ public class SopLearningServiceImpl implements SopLearningService {
 
     @Override
     public SopLearningHomeDto home(UUID staffId) {
+        sopNewJoiners.includeFor(staffId); // someone who joined an assigned department sees the course at once (FR-09-12)
         SopLearningHomeDto dto = new SopLearningHomeDto();
         Set<Long> enrolled = new HashSet<>();
         for (SopEnrollment e : sopEnrollmentRepository.findAllByStaffId(staffId)) {

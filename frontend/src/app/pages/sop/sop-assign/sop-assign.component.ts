@@ -57,6 +57,8 @@ export class SopAssignComponent implements OnInit {
   staffIds: string[] = [];
   mode: SopAssignmentMode = 'PORTAL';
   mandatory = false;
+  /** FR-09-12: on unless the trainer opts out. */
+  includeNewJoiners = true;
   passMark = 70;
   readonly formatDuration = formatDuration;
   effectiveDate: Date = this.today();
@@ -231,6 +233,11 @@ export class SopAssignComponent implements OnInit {
     return this.preview ? this.preview.newCount + this.preview.updateCount : 0;
   }
 
+  /** A department, job-role or everyone audience: people can join it later (FR-09-12). */
+  get joinableAudience(): boolean {
+    return this.audienceMode === 'everyone' || this.departmentIds.length > 0 || this.roleIds.length > 0;
+  }
+
   private buildRequest(): AssignmentRequest | null {
     if (!this.selectedCourseId) return null;
     const everyone = this.audienceMode === 'everyone';
@@ -245,7 +252,8 @@ export class SopAssignComponent implements OnInit {
       effectiveDate: formatDate(this.effectiveDate, 'yyyy-MM-dd', 'en-US'),
       deadline: this.deadline ? formatDate(this.deadline, 'yyyy-MM-dd', 'en-US') : '',
       daysToComplete: this.daysToComplete,
-      passMark: this.passMark
+      passMark: this.passMark,
+      includeNewJoiners: this.joinableAudience && this.includeNewJoiners
     };
   }
 

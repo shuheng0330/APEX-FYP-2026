@@ -139,6 +139,18 @@
                   <span>{{ mandatory ? 'Staff must complete it by the due date; late completion is flagged as overdue.' : 'Optional: staff complete it if they choose.' }}</span>
                 </div>
               </div>
+              <!-- FR-09-12: people who join the chosen departments or job roles later -->
+              @if (joinableAudience) {
+                <div class="rule">
+                  <nz-switch [(ngModel)]="includeNewJoiners" aria-label="Include people who join later"></nz-switch>
+                  <div>
+                    <strong>Include people who join later</strong>
+                    <span>{{ includeNewJoiners
+                      ? 'Anyone who joins ' + (audienceMode === 'everyone' ? 'the company' : 'these departments or job roles') + ' later gets the course on the day they join, due that day plus the days to complete.'
+                      : 'Only the people in the audience now get the course.' }}</span>
+                  </div>
+                </div>
+              }
               <div class="rule">
                 <nz-input-number [(ngModel)]="passMark" [nzMin]="course.passMark" [nzMax]="100" [nzStep]="5"></nz-input-number>
                 <div>
@@ -267,6 +279,9 @@
               <span class="history-meta">
                 {{ h.staffCount }} staff · {{ modeLabel(h.mode) }} · {{ h.mandatory ? 'Mandatory' : 'Optional' }} · pass {{ h.passMark }}%
               </span>
+              @if (h.includeNewJoiners) {
+                <span class="history-meta">Includes people who join later</span>
+              }
               <span class="history-meta">Due by {{ h.deadline | date: 'd MMM yyyy' }} · {{ h.daysToComplete }} days to complete</span>
               <span class="history-by">{{ h.assignedByName }} · {{ h.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
             </div>

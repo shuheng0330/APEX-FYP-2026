@@ -165,6 +165,14 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         assignment.setDeadline(terms.deadline());
         assignment.setDaysToComplete(terms.daysToComplete());
         assignment.setPassMark(terms.passMark());
+        // Who the audience is, so people who join it later can be assigned too, unless the trainer opted out (FR-09-12).
+        List<Long> departmentIds = request.isEveryone() ? List.of() : Objects.requireNonNullElse(request.getDepartmentIds(), List.of());
+        List<Long> roleIds = request.isEveryone() ? List.of() : Objects.requireNonNullElse(request.getRoleIds(), List.of());
+        assignment.setAudienceEveryone(request.isEveryone());
+        assignment.setAudienceDepartmentIds(ids(departmentIds));
+        assignment.setAudienceRoleIds(ids(roleIds));
+        assignment.setIncludeNewJoiners(!Boolean.FALSE.equals(request.getIncludeNewJoiners())
+                && (request.isEveryone() || !departmentIds.isEmpty() || !roleIds.isEmpty()));
         assignment.setCreatedAt(now);
         assignment = sopAssignmentRepository.save(assignment);
 
@@ -466,6 +474,7 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
         dto.setDeadline(a.getDeadline());
         dto.setDaysToComplete(a.getDaysToComplete());
         dto.setPassMark(a.getPassMark());
+        dto.setIncludeNewJoiners(a.isIncludeNewJoiners());
         dto.setAssignedByName(name(a.getAssignedBy(), names));
         dto.setCreatedAt(a.getCreatedAt());
         return dto;
@@ -485,6 +494,10 @@ public class SopAssignmentServiceImpl implements SopAssignmentService {
     static OrgChart department(Staff s) {
         OrgChart node = s.getRole() == null ? null : s.getRole().getOrgChart();
         return node != null && node.getType() == OrgChartType.D && !node.isDeleted() ? node : null;
+    }
+
+    private static String ids(List<Long> ids) {
+        return ids.isEmpty() ? null : String.join(",", ids.stream().map(String::valueOf).toList());
     }
 
     private static List<Staff> byName(List<Staff> staff) {

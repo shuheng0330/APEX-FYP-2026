@@ -67,6 +67,8 @@ export interface AssignmentRequest {
   deadline: string;
   daysToComplete: number;
   passMark: number;
+  /** Also assign people who join the chosen departments or job roles later (FR-09-12). */
+  includeNewJoiners: boolean;
 }
 
 export type AssignmentOutcome = 'NEW' | 'UPDATE' | 'COMPLETED';
@@ -90,6 +92,8 @@ export interface Assignment {
   deadline: string;
   daysToComplete: number;
   passMark: number;
+  /** People who join the audience later get the course too (FR-09-12). */
+  includeNewJoiners: boolean;
   assignedByName: string;
   createdAt: string;
 }
