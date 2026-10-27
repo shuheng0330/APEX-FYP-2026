@@ -17,6 +17,14 @@ public class SopLearningModuleDto {
      */
     private String state;
     private int questionCount;
+    /** Questions each attempt presents (FR-08-15). */
+    private int quizSize;
+    /** Correct answers needed to pass, for example 4 of 5 (FR-11-12). */
+    private int passCorrect;
+    /** Tries left today, of {@code SopLearningServiceImpl.TRIES_PER_DAY} (FR-11-04). */
+    private int triesLeftToday;
+    /** The last attempt failed and the material hasn't been opened since, so the quiz can't be retaken yet. */
+    private boolean reviewMaterialFirst;
     private int attempts;
     private int failedAttempts;
     private Integer bestScore;

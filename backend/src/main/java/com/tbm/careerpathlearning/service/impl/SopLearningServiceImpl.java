@@ -11,6 +11,7 @@ import com.tbm.careerpathlearning.dto.SopLearningModuleDto;
 import com.tbm.careerpathlearning.dto.SopLearningQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizResultDto;
 import com.tbm.careerpathlearning.dto.SopQuizSubmission;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.SopEnrollmentStatus;
@@ -20,16 +21,21 @@ import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.SopCourseFeedback;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
+import com.tbm.careerpathlearning.model.SopMaterialView;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizAttempt;
+import com.tbm.careerpathlearning.model.SopQuizDraw;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialViewRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
+import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopLearningService;
 import com.tbm.careerpathlearning.service.SopProgress;
@@ -42,13 +48,17 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -57,6 +67,10 @@ public class SopLearningServiceImpl implements SopLearningService {
 
     /** Pass mark for an Open course a learner joins themselves (no assignment sets one). */
     private static final int MAX_COMMENT_LENGTH = 2000;
+    /** Tries at one module's quiz per Malaysia day (FR-11-04). */
+    static final int TRIES_PER_DAY = 3;
+    /** Failed attempts at one module that alert the course's trainer (FR-11-15). */
+    static final int FAILS_TO_ALERT = 3;
 
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
@@ -65,7 +79,13 @@ public class SopLearningServiceImpl implements SopLearningService {
     @Autowired private SopCourseFeedbackRepository sopCourseFeedbackRepository;
     @Autowired private StaffRepository staffRepository;
     @Autowired private SopCourseReadiness sopCourseReadiness;
+    @Autowired private SopQuizDrawRepository sopQuizDrawRepository;
+    @Autowired private SopMaterialViewRepository sopMaterialViewRepository;
+    @Autowired private NotificationService notificationService;
     @Autowired private Clock clock;
+
+    /** Draws questions and shuffles options; replaced in tests for a repeatable order. */
+    private Random random = new Random();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -156,6 +176,15 @@ public class SopLearningServiceImpl implements SopLearningService {
     @Override
     public SopLearningMaterialDto material(Long moduleId, UUID staffId) {
         ModuleContext c = moduleContext(moduleId, staffId);
+        SopMaterialView view = sopMaterialViewRepository.findByEnrollmentIdAndSopModuleId(c.enrollment().getId(), moduleId)
+                .orElseGet(() -> {
+                    SopMaterialView created = new SopMaterialView();
+                    created.setEnrollmentId(c.enrollment().getId());
+                    created.setSopModuleId(moduleId);
+                    return created;
+                });
+        view.setViewedAt(OffsetDateTime.now(clock));
+        sopMaterialViewRepository.save(view);
         SopLearningMaterialDto dto = new SopLearningMaterialDto();
         dto.setModuleId(c.module().getId());
         dto.setModuleOrder(c.module().getModuleOrder());
@@ -168,12 +197,27 @@ public class SopLearningServiceImpl implements SopLearningService {
     public List<SopLearningQuestionDto> quiz(Long moduleId, UUID staffId) {
         ModuleContext c = moduleContext(moduleId, staffId);
         checkQuizOpen(c.current());
-        return c.current().questions().stream().map(q -> {
+        checkCanTry(c);
+        List<SopQuizQuestion> pool = new ArrayList<>(c.current().questions());
+        Collections.shuffle(pool, random); // a new order, and a new selection when the quiz has more (FR-11-14)
+        List<SopQuizQuestion> drawn = pool.subList(0, quizSize(c.module(), pool.size()));
+        SopQuizDraw draw = sopQuizDrawRepository.findByEnrollmentIdAndSopModuleId(c.enrollment().getId(), moduleId)
+                .orElseGet(SopQuizDraw::new);
+        draw.setEnrollmentId(c.enrollment().getId());
+        draw.setSopModuleId(moduleId);
+        draw.setQuestionIds(String.join(",", drawn.stream().map(q -> q.getId().toString()).toList()));
+        draw.setCreatedAt(OffsetDateTime.now(clock));
+        sopQuizDrawRepository.save(draw);
+        return drawn.stream().map(q -> {
             SopLearningQuestionDto dto = new SopLearningQuestionDto();
             dto.setId(q.getId());
             dto.setType(q.getQuestionType());
             dto.setQuestion(q.getQuestionText());
-            dto.setOptions(readOptions(q.getOptions()));
+            List<String> options = new ArrayList<>(readOptions(q.getOptions()));
+            if (q.getQuestionType() == QuizQuestionType.MULTIPLE_CHOICE) {
+                Collections.shuffle(options, random);
+            }
+            dto.setOptions(options);
             dto.setDifficulty(q.getDifficulty());
             return dto;
         }).toList();
@@ -184,11 +228,16 @@ public class SopLearningServiceImpl implements SopLearningService {
     public SopQuizResultDto submit(Long moduleId, SopQuizSubmission submission, UUID staffId) {
         ModuleContext c = moduleContext(moduleId, staffId);
         checkQuizOpen(c.current());
+        checkCanTry(c);
         SopEnrollment e = c.enrollment();
         ensureStarted(e);
 
         Map<Long, String> answers = submission == null || submission.getAnswers() == null ? Map.of() : submission.getAnswers();
-        List<SopQuizQuestion> questions = c.current().questions();
+        SopQuizDraw draw = sopQuizDrawRepository.findByEnrollmentIdAndSopModuleId(e.getId(), moduleId).orElse(null);
+        List<SopQuizQuestion> questions = draw == null ? List.of() : drawnQuestions(draw, c.current().questions());
+        if (questions.isEmpty()) {
+            throw new BadRequestException("This quiz changed since you opened it. Open it again to start a new attempt.");
+        }
         SopQuizResultDto result = new SopQuizResultDto();
         int correct = 0;
         for (SopQuizQuestion q : questions) {
@@ -200,7 +249,8 @@ public class SopLearningServiceImpl implements SopLearningService {
             result.getQuestions().add(r);
         }
         int score = Math.round(100f * correct / questions.size());
-        boolean passed = score >= e.getPassMark();
+        int needed = passCorrect(e.getPassMark(), questions.size());
+        boolean passed = correct >= needed; // the same rule the learner was shown (FR-11-12)
 
         SopQuizAttempt attempt = new SopQuizAttempt();
         attempt.setEnrollmentId(e.getId());
@@ -213,6 +263,7 @@ public class SopLearningServiceImpl implements SopLearningService {
         attempt.setAnswers(writeAnswers(answers));
         attempt.setAttemptedAt(OffsetDateTime.now(clock));
         sopQuizAttemptRepository.save(attempt);
+        sopQuizDrawRepository.delete(draw);
 
         // Recompute with the new attempt; the course completes when every module is passed.
         Progress after = progress(e, c.doc());
@@ -225,22 +276,30 @@ public class SopLearningServiceImpl implements SopLearningService {
             sopEnrollmentRepository.save(e);
         }
         SopProgress.Module mp = after.course().of(moduleId);
+        if (!passed && mp.failedAttempts() >= FAILS_TO_ALERT) {
+            alertTrainer(c, mp.failedAttempts());
+        }
         result.setScore(score);
         result.setCorrect(correct);
         result.setTotal(questions.size());
         result.setPassed(passed);
         result.setPassMark(e.getPassMark());
+        result.setPassCorrect(needed);
+        result.setTriesLeftToday(triesLeftToday(mp));
         result.setAttempts(mp.attempts().size());
         result.setModuleState(mp.state());
         result.setCourseCompleted(e.getStatus() == SopEnrollmentStatus.COMPLETED);
         result.setFinalScore(e.getFinalScore());
         result.setNextModuleId(after.course().nextAfter(moduleId));
         if (passed) {
-            // Answers are only revealed once the module is passed (FR-11-04).
+            // Answers are only revealed once the module is passed (FR-11-13).
             for (int i = 0; i < questions.size(); i++) {
                 result.getQuestions().get(i).setCorrectAnswer(questions.get(i).getCorrectAnswer());
                 result.getQuestions().get(i).setExplanation(questions.get(i).getExplanation());
             }
+        } else {
+            // After a fail, only the score: not which answers were wrong (FR-11-13).
+            result.getQuestions().clear();
         }
         return result;
     }
@@ -308,6 +367,68 @@ public class SopLearningServiceImpl implements SopLearningService {
         return new ModuleContext(module, doc, e, current);
     }
 
+    /** Questions an attempt presents: the module's setting, or every question when the quiz has fewer (FR-08-15). */
+    private static int quizSize(SopModule module, int questions) {
+        return Math.min(Math.max(module.getQuestionsPerAttempt(), 1), questions);
+    }
+
+    /** Correct answers needed to reach the pass mark: 4 of 5 at 70% (FR-11-12). */
+    static int passCorrect(int passMark, int questions) {
+        return (passMark * questions + 99) / 100;
+    }
+
+    /** The drawn questions that still exist, in the order they were shown. */
+    private static List<SopQuizQuestion> drawnQuestions(SopQuizDraw draw, List<SopQuizQuestion> current) {
+        Map<Long, SopQuizQuestion> byId = new HashMap<>();
+        current.forEach(q -> byId.put(q.getId(), q));
+        return Arrays.stream(draw.getQuestionIds().split(",")).filter(id -> !id.isBlank())
+                .map(id -> byId.get(Long.valueOf(id.trim()))).filter(Objects::nonNull).toList();
+    }
+
+    private int triesToday(SopProgress.Module module) {
+        LocalDate today = LocalDate.now(clock);
+        return (int) module.attempts().stream()
+                .filter(a -> a.getAttemptedAt().atZoneSameInstant(clock.getZone()).toLocalDate().equals(today)).count();
+    }
+
+    private int triesLeftToday(SopProgress.Module module) {
+        return Math.max(0, TRIES_PER_DAY - triesToday(module));
+    }
+
+    /** The last attempt failed and the learner hasn't opened the material since (FR-11-04). */
+    private boolean reviewMaterialFirst(SopEnrollment e, SopProgress.Module module) {
+        List<SopQuizAttempt> tries = module.attempts();
+        SopQuizAttempt last = tries.isEmpty() ? null : tries.get(tries.size() - 1);
+        if (last == null || last.isPassed()) {
+            return false;
+        }
+        return sopMaterialViewRepository.findByEnrollmentIdAndSopModuleId(e.getId(), module.module().getId())
+                .map(v -> !v.getViewedAt().isAfter(last.getAttemptedAt())).orElse(true);
+    }
+
+    /** A retake needs the material reopened after the fail, and at most three tries a day (FR-11-04). */
+    private void checkCanTry(ModuleContext c) {
+        if (triesLeftToday(c.current()) == 0) {
+            throw new BadRequestException("You've used today's " + TRIES_PER_DAY + " tries at this quiz. You can try again tomorrow.");
+        }
+        if (reviewMaterialFirst(c.enrollment(), c.current())) {
+            throw new BadRequestException("Review the module's material again before you retake the quiz.");
+        }
+    }
+
+    /** Tells the course's trainer, once per learner and module, that someone keeps failing a quiz (FR-11-15). */
+    private void alertTrainer(ModuleContext c, int fails) {
+        UUID trainer = c.doc().getUploadedBy();
+        if (trainer == null) {
+            return;
+        }
+        String learner = staffRepository.findById(c.enrollment().getStaffId()).map(Staff::getName).orElse("A learner");
+        notificationService.notifyOnce("quiz-failed-3:" + c.enrollment().getId() + ":" + c.module().getId(), trainer,
+                NotificationType.QUIZ_FAILED_THREE_TIMES, "A learner may need help",
+                learner + " has failed the quiz of module " + c.module().getModuleOrder() + ", " + c.module().getTitle()
+                        + ", " + fails + " times in " + c.doc().getTitle() + ".", "/sop/scoreboard");
+    }
+
     private static void checkQuizOpen(SopProgress.Module current) {
         if (SopProgress.PASSED.equals(current.state())) {
             throw new BadRequestException("You have already passed this module's quiz.");
@@ -370,6 +491,10 @@ public class SopLearningServiceImpl implements SopLearningService {
             md.setTitle(m.module().getTitle());
             md.setState(m.state());
             md.setQuestionCount(m.questions().size());
+            md.setQuizSize(quizSize(m.module(), m.questions().size()));
+            md.setPassCorrect(passCorrect(p.enrollment().getPassMark(), md.getQuizSize()));
+            md.setTriesLeftToday(triesLeftToday(m));
+            md.setReviewMaterialFirst(reviewMaterialFirst(p.enrollment(), m));
             md.setAttempts(m.attempts().size());
             md.setFailedAttempts(m.failedAttempts());
             md.setBestScore(m.bestScore());

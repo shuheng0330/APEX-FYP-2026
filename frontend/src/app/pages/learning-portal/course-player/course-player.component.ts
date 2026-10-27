@@ -222,7 +222,8 @@ export class CoursePlayerComponent implements OnInit {
     this.activeModuleId = m.id;
     this.view = 'material';
     this.result = undefined;
-    if (this.material?.moduleId === m.id) {
+    // After a fail the material is fetched again, which records the review a retake needs (FR-11-04).
+    if (this.material?.moduleId === m.id && m.state !== 'RETRAINING') {
       return;
     }
     this.material = undefined;
@@ -231,6 +232,15 @@ export class CoursePlayerComponent implements OnInit {
       next: material => { this.material = material; this.materialLoading = false; },
       error: () => { this.materialLoading = false; this.showOverview(); this.load(); }
     });
+  }
+
+  /** Back to the material after a failed attempt; reading it again opens the retake (FR-11-04). */
+  reviewMaterial(): void {
+    const m = this.activeModule;
+    if (m) {
+      this.material = undefined;
+      this.openModule(m);
+    }
   }
 
   /** The module after the active one, if the learner can open it now. */
@@ -437,7 +447,7 @@ export class CoursePlayerComponent implements OnInit {
       case 'RETRAINING': return `Practice mode · best ${m.bestScore ?? 0}%`;
       case 'LOCKED': return 'Locked: pass the previous module first';
       case 'UNAVAILABLE': return 'Being updated by the trainer';
-      default: return `${m.questionCount} quiz question${m.questionCount === 1 ? '' : 's'}`;
+      default: return `${m.quizSize} quiz question${m.quizSize === 1 ? '' : 's'}`;
     }
   }
 }

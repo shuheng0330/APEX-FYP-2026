@@ -33,8 +33,10 @@ import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
 import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialViewRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
+import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
@@ -80,6 +82,8 @@ public class SopServiceImpl implements SopService {
     @Autowired private SopAssignmentRepository sopAssignmentRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private SopQuizAttemptRepository sopQuizAttemptRepository;
+    @Autowired private SopQuizDrawRepository sopQuizDrawRepository;
+    @Autowired private SopMaterialViewRepository sopMaterialViewRepository;
     @Autowired private SopCourseFeedbackRepository sopCourseFeedbackRepository;
     @Autowired private FileService fileService;
     @Autowired private SopGenerationService sopGenerationService;
@@ -572,6 +576,8 @@ public class SopServiceImpl implements SopService {
                 .map(SopEnrollment::getId).toList();
         if (!enrollmentIds.isEmpty()) {
             sopQuizAttemptRepository.deleteAllByEnrollmentIdIn(enrollmentIds);
+            sopQuizDrawRepository.deleteAllByEnrollmentIdIn(enrollmentIds);
+            sopMaterialViewRepository.deleteAllByEnrollmentIdIn(enrollmentIds);
         }
         sopCourseFeedbackRepository.deleteAllBySopDocumentId(sopDocumentId);
         sopEnrollmentRepository.deleteAllBySopDocumentId(sopDocumentId);

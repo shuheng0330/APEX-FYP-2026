@@ -57,6 +57,14 @@ export interface LearningModule {
   title: string;
   state: LearningModuleState;
   questionCount: number;
+  /** Questions each attempt presents (FR-08-15). */
+  quizSize: number;
+  /** Correct answers needed to pass, for example 4 of 5 (FR-11-12). */
+  passCorrect: number;
+  /** Tries left today, of 3 (FR-11-04). */
+  triesLeftToday: number;
+  /** The last attempt failed and the material hasn't been opened since. */
+  reviewMaterialFirst: boolean;
   attempts: number;
   failedAttempts: number;
   bestScore?: number | null;
@@ -117,6 +125,10 @@ export interface QuizResult {
   total: number;
   passed: boolean;
   passMark: number;
+  /** Correct answers this attempt needed (FR-11-12). */
+  passCorrect: number;
+  /** Tries left today (FR-11-04). */
+  triesLeftToday: number;
   attempts: number;
   moduleState: LearningModuleState;
   courseCompleted: boolean;
