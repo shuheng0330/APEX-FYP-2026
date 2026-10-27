@@ -175,7 +175,7 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         r.setStatus(status(e, progress));
         LocalDate due = e.dueDate();
         r.setDueDate(due);
-        r.setOverdue(e.isActive() && due != null && due.isBefore(LocalDate.now(clock)));
+        r.setOverdue(e.isMandatory() && e.isActive() && due != null && due.isBefore(LocalDate.now(clock))); // never optional (FR-11-17)
         r.setMandatory(e.isMandatory());
         r.setMode(e.getMode());
         r.setSelfEnrolled(e.getAssignmentId() == null);

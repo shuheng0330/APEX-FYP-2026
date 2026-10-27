@@ -539,7 +539,7 @@ public class SopLearningServiceImpl implements SopLearningService {
         dto.setPassMark(e.getPassMark());
         dto.setModulesPassed(p.course().passed());
         dto.setRetraining(p.course().retraining());
-        dto.setOverdue(e.isActive() && due != null && due.isBefore(today));
+        dto.setOverdue(e.isMandatory() && e.isActive() && due != null && due.isBefore(today)); // never optional (FR-11-17)
         dto.setAvailable(e.getStatus() != SopEnrollmentStatus.WITHDRAWN && p.doc().isLive()
                 && (e.getEffectiveDate() == null || !e.getEffectiveDate().isAfter(today)));
         dto.setCourseArchived(p.doc().isArchived());

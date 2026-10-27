@@ -14,5 +14,9 @@ public enum NotificationType {
     TRAINER_ACCESS_LAPSED,
     COURSE_TRANSFERRED,
     COURSE_WITHDRAWN,
-    COURSE_VERSION_PUBLISHED
+    COURSE_VERSION_PUBLISHED,
+    /** A mandatory course's last date to start, or its due date, is 3 days away or less (FR-09-14). */
+    COURSE_DUE_SOON,
+    /** A mandatory course is past its due date, or was not started by its last date (FR-11-16). */
+    COURSE_OVERDUE
 }

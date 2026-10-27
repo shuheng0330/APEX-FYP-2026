@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.scheduler;
 
 import com.tbm.careerpathlearning.model.TrainingJobRun;
 import com.tbm.careerpathlearning.repository.TrainingJobRunRepository;
+import com.tbm.careerpathlearning.service.SopReminderService;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,7 @@ public class DailyTrainingJobs {
 
     @Autowired private TrainingJobRunRepository trainingJobRunRepository;
     @Autowired private TrainerAccessService trainerAccessService;
+    @Autowired private SopReminderService sopReminderService;
     @Autowired private Clock clock;
 
     @Value("${training.daily-jobs.enabled:true}")
@@ -60,13 +62,14 @@ public class DailyTrainingJobs {
         }
         try {
             int lapsed = trainerAccessService.lapseExpiredGrants();
+            int reminders = sopReminderService.sendReminders(); // FR-09-14, FR-11-16
 
             TrainingJobRun run = new TrainingJobRun();
             run.setJobName(JOB);
             run.setRunDate(now.toLocalDate());
             run.setStartedAt(now.toOffsetDateTime());
             run.setFinishedAt(OffsetDateTime.now(clock));
-            run.setOutcome("Trainer access grants lapsed: " + lapsed);
+            run.setOutcome("Trainer access grants lapsed: " + lapsed + "; training reminders sent: " + reminders);
             trainingJobRunRepository.save(run);
             log.info("Daily training jobs for {}: {}", now.toLocalDate(), run.getOutcome());
             return true;

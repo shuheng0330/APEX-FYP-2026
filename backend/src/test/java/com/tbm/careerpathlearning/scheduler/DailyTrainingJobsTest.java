@@ -3,6 +3,7 @@ package com.tbm.careerpathlearning.scheduler;
 import com.tbm.careerpathlearning.config.ClockConfig;
 import com.tbm.careerpathlearning.model.TrainingJobRun;
 import com.tbm.careerpathlearning.repository.TrainingJobRunRepository;
+import com.tbm.careerpathlearning.service.SopReminderService;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ class DailyTrainingJobsTest {
 
     @Mock private TrainingJobRunRepository trainingJobRunRepository;
     @Mock private TrainerAccessService trainerAccessService;
+    @Mock private SopReminderService sopReminderService;
 
     @InjectMocks
     private DailyTrainingJobs jobs;
@@ -38,7 +40,7 @@ class DailyTrainingJobsTest {
 
         assertFalse(jobs.runIfDue());
 
-        verifyNoInteractions(trainerAccessService, trainingJobRunRepository);
+        verifyNoInteractions(trainerAccessService, sopReminderService, trainingJobRunRepository);
     }
 
     @Test
@@ -46,13 +48,14 @@ class DailyTrainingJobsTest {
     void runsAndRecords() {
         at("2026-10-13T01:00:00Z"); // 09:00 in Malaysia
         when(trainerAccessService.lapseExpiredGrants()).thenReturn(2);
+        when(sopReminderService.sendReminders()).thenReturn(5);
 
         assertTrue(jobs.runIfDue());
 
         ArgumentCaptor<TrainingJobRun> run = ArgumentCaptor.forClass(TrainingJobRun.class);
         verify(trainingJobRunRepository).save(run.capture());
         assertEquals(LocalDate.of(2026, 10, 13), run.getValue().getRunDate());
-        assertEquals("Trainer access grants lapsed: 2", run.getValue().getOutcome());
+        assertEquals("Trainer access grants lapsed: 2; training reminders sent: 5", run.getValue().getOutcome());
     }
 
     @Test
@@ -85,7 +88,7 @@ class DailyTrainingJobsTest {
 
         assertFalse(jobs.runIfDue());
 
-        verifyNoInteractions(trainerAccessService, trainingJobRunRepository);
+        verifyNoInteractions(trainerAccessService, sopReminderService, trainingJobRunRepository);
     }
 
     private void at(String instant) {

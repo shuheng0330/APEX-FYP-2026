@@ -171,10 +171,10 @@ export class MyLearningComponent implements OnInit {
     this.openCourses = this.home.openCourses.filter(c => this.matchesSearch(c) && this.matchesCategory(c));
   }
 
-  /** Courses assigned to start immediately (FR-11-08), soonest due first. */
+  /** Courses assigned to start immediately and not started yet (FR-11-08), soonest due first; once started, In Progress. */
   private startNowOf(courses: LearningCourse[]): LearningCourse[] {
     return courses
-      .filter(c => c.mode === 'IMMEDIATE' && isActive(c) && c.available)
+      .filter(c => c.mode === 'IMMEDIATE' && c.status === 'NOT_STARTED' && c.available)
       .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'));
   }
 

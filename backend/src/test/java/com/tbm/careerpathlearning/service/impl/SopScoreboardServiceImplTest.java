@@ -66,7 +66,7 @@ class SopScoreboardServiceImplTest {
         store.attempt(raviCash, m1, 25, false, daysAgo(1));
         SopEnrollment meilingCash = enrolled(1L, meiling.getId(), SopEnrollmentStatus.IN_PROGRESS, SopAssignmentMode.PORTAL, 0);
         store.attempt(meilingCash, m1, 100, true, daysAgo(1));
-        enrolled(1L, farid.getId(), SopEnrollmentStatus.NOT_STARTED, SopAssignmentMode.IMMEDIATE, 20);
+        enrolled(1L, farid.getId(), SopEnrollmentStatus.NOT_STARTED, SopAssignmentMode.IMMEDIATE, 20).setMandatory(true); // only mandatory is overdue
         enrolled(1L, UUID.randomUUID(), SopEnrollmentStatus.NOT_STARTED, SopAssignmentMode.PORTAL, 0);
         aisyahForklift = enrolled(2L, aisyah.getId(), SopEnrollmentStatus.IN_PROGRESS, SopAssignmentMode.PORTAL, 0);
         store.attempt(aisyahForklift, f1, 40, false, daysAgo(1));

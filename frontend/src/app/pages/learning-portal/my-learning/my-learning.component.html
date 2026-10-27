@@ -117,8 +117,11 @@
                 <div class="days-left" [class.late]="left !== null && left < 0">
                   @if (left === null) {
                     <strong>-</strong><span>no due date</span>
-                  } @else if (left < 0) {
+                  } @else if (left < 0 && c.overdue) {
                     <strong>Overdue</strong><span>{{ -left }} day{{ left === -1 ? '' : 's' }} late</span>
+                  } @else if (left < 0) {
+                    <!-- FR-11-17: an optional course is never Overdue -->
+                    <strong>Optional</strong><span>take it any time</span>
                   } @else if (left === 0) {
                     <strong>Today</strong><span>due today</span>
                   } @else {
@@ -126,7 +129,7 @@
                   }
                 </div>
                 <button nz-button nzType="primary" nzDanger (click)="open(c)">
-                  <nz-icon nzType="caret-right"></nz-icon>{{ c.status === 'IN_PROGRESS' ? 'Continue' : 'Start now' }}
+                  <nz-icon nzType="caret-right"></nz-icon>Start now
                 </button>
               </div>
             }
