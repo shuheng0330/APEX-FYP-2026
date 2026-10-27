@@ -115,41 +115,43 @@
                 }
               </td>
               <td><strong>{{ doc.moduleCount }}</strong></td>
-              <td class="actions">
-                <button nz-button nzType="primary" [disabled]="doc.generationStatus !== 'COMPLETED'" (click)="openReview(doc)">
-                  <nz-icon nzType="audit"></nz-icon> Review
-                </button>
-                @if (doc.courseStatus === 'ARCHIVED') {
-                  <button nz-button nz-popconfirm [nzPopconfirmTitle]="restoreQuestion" nzOkText="Restore"
-                    (nzOnConfirm)="restore(doc)" [nzLoading]="busy[doc.id]">
-                    <nz-icon nzType="rollback"></nz-icon> Restore
+              <td>
+                <div class="actions">
+                  <button nz-button nzType="primary" [disabled]="doc.generationStatus !== 'COMPLETED'" (click)="openReview(doc)">
+                    <nz-icon nzType="audit"></nz-icon> Review
                   </button>
-                } @else {
-                  @if (doc.generationStatus === 'FAILED') {
-                    <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
-                  }
-                  <!-- FR-06-14: once anyone has enrolled, the course is archived rather than deleted -->
-                  @if (doc.courseStatus === 'DRAFT') {
-                    <button nz-button nzDanger
-                      nz-popconfirm [nzPopconfirmTitle]="'Discard draft v' + doc.versionNo + '? Its changes are lost; the live version stays as it is.'"
-                      nzOkText="Discard" nzOkType="primary" nzOkDanger
-                      (nzOnConfirm)="delete(doc)" aria-label="Discard draft">
-                      <nz-icon nzType="delete"></nz-icon>
-                    </button>
-                  } @else if (doc.enrolledCount > 0) {
-                    <button nz-button (click)="archive(doc)" [nzLoading]="busy[doc.id]" [disabled]="!!doc.draftId"
-                      [title]="doc.draftId ? 'Publish or discard draft v' + (doc.versionNo + 1) + ' first' : 'Staff have enrolled, so this course can be archived but not deleted'">
-                      <nz-icon nzType="inbox"></nz-icon> Archive
+                  @if (doc.courseStatus === 'ARCHIVED') {
+                    <button nz-button nz-popconfirm [nzPopconfirmTitle]="restoreQuestion" nzOkText="Restore"
+                      (nzOnConfirm)="restore(doc)" [nzLoading]="busy[doc.id]">
+                      <nz-icon nzType="rollback"></nz-icon> Restore
                     </button>
                   } @else {
-                    <button nz-button nzDanger [disabled]="!!doc.draftId"
-                      nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content? Nobody has enrolled yet."
-                      nzOkText="Delete" nzOkType="primary" nzOkDanger
-                      (nzOnConfirm)="delete(doc)" aria-label="Delete">
-                      <nz-icon nzType="delete"></nz-icon>
-                    </button>
+                    @if (doc.generationStatus === 'FAILED') {
+                      <button nz-button (click)="retry(doc)"><nz-icon nzType="reload"></nz-icon> Retry</button>
+                    }
+                    <!-- FR-06-14: once anyone has enrolled, the course is archived rather than deleted -->
+                    @if (doc.courseStatus === 'DRAFT') {
+                      <button nz-button nzDanger
+                        nz-popconfirm [nzPopconfirmTitle]="'Discard draft v' + doc.versionNo + '? Its changes are lost; the live version stays as it is.'"
+                        nzOkText="Discard" nzOkType="primary" nzOkDanger
+                        (nzOnConfirm)="delete(doc)" aria-label="Discard draft">
+                        <nz-icon nzType="delete"></nz-icon>
+                      </button>
+                    } @else if (doc.enrolledCount > 0) {
+                      <button nz-button (click)="archive(doc)" [nzLoading]="busy[doc.id]" [disabled]="!!doc.draftId"
+                        [title]="doc.draftId ? 'Publish or discard draft v' + (doc.versionNo + 1) + ' first' : 'Staff have enrolled, so this course can be archived but not deleted'">
+                        <nz-icon nzType="inbox"></nz-icon> Archive
+                      </button>
+                    } @else {
+                      <button nz-button nzDanger [disabled]="!!doc.draftId"
+                        nz-popconfirm nzPopconfirmTitle="Delete this SOP and all generated content? Nobody has enrolled yet."
+                        nzOkText="Delete" nzOkType="primary" nzOkDanger
+                        (nzOnConfirm)="delete(doc)" aria-label="Delete">
+                        <nz-icon nzType="delete"></nz-icon>
+                      </button>
+                    }
                   }
-                }
+                </div>
               </td>
             </tr>
           }
