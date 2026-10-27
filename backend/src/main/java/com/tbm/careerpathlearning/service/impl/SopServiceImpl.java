@@ -9,6 +9,7 @@ import com.tbm.careerpathlearning.dto.SopMaterialReviewEventDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
+import com.tbm.careerpathlearning.dto.SopQuizSettingsRequest;
 import com.tbm.careerpathlearning.enums.MaterialReviewAction;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
@@ -41,6 +42,7 @@ import com.tbm.careerpathlearning.service.DocumentParserService;
 import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopAccess;
+import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
@@ -415,6 +417,11 @@ public class SopServiceImpl implements SopService {
         SopModule module = editableModule(moduleId, viewer);
         OffsetDateTime now = OffsetDateTime.now(clock);
         List<SopQuizQuestion> questions = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(moduleId);
+        int min = SopCourseReadiness.MIN_QUIZ_QUESTIONS;
+        if (questions.size() < min) { // FR-08-14
+            throw new BadRequestException("This quiz has " + questions.size() + (questions.size() == 1 ? " question" : " questions")
+                    + ". Add " + (min - questions.size()) + " more before approving it: every quiz needs at least " + min + ".");
+        }
         for (SopQuizQuestion q : questions) {
             q.setReviewStatus(ReviewStatus.APPROVED);
             q.setUpdatedAt(now);
@@ -444,6 +451,59 @@ public class SopServiceImpl implements SopService {
         notifyOwner(target.module(), NotificationType.QUIZ_REGENERATED, "Quiz regenerated", "has a new quiz to review",
                 "/sop/quiz-review/");
         return toModuleDto(getModuleOrThrow(subject));
+    }
+
+    @Override
+    @Transactional
+    public SopModuleDto deleteQuestion(Long questionId, SopViewer viewer) {
+        SopQuizQuestion q = sopQuizQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new BadRequestException("Quiz question not found."));
+        SopModule module = editableModule(q.getSopModuleId(), viewer);
+        Target target = changeTarget(module, viewer, "a question was deleted from module " + module.getModuleOrder() + "'s quiz");
+        if (target.copy() != null) {
+            q = sopQuizQuestionRepository.findById(target.copy().questionIds().get(questionId)).orElseThrow();
+        }
+        SopModule subject = target.module();
+        sopQuizQuestionRepository.delete(q);
+        // An attempt never presents more questions than the quiz has left, nor fewer than the minimum (FR-08-15).
+        int left = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(subject.getId()).size();
+        if (subject.getQuestionsPerAttempt() > left) {
+            subject.setQuestionsPerAttempt(Math.max(SopCourseReadiness.MIN_QUIZ_QUESTIONS, left));
+            subject.setUpdatedAt(OffsetDateTime.now(clock));
+            sopModuleRepository.save(subject);
+        }
+        recordQuizEvent(subject.getId(), QuizReviewAction.EDITED, "Deleted: " + q.getQuestionText(), viewer.userId());
+        return toModuleDto(getModuleOrThrow(subject.getId()));
+    }
+
+    /**
+     * Applies to the version staff are taking, from their next attempt (decision B, 23 Oct): like the pass mark, it
+     * changes no question, so it starts no draft.
+     */
+    @Override
+    @Transactional
+    public SopModuleDto updateQuizSettings(Long moduleId, SopQuizSettingsRequest request, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
+        int count = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(moduleId).size();
+        int min = SopCourseReadiness.MIN_QUIZ_QUESTIONS;
+        Integer wanted = request == null ? null : request.getQuestionsPerAttempt();
+        if (count < min) {
+            throw new BadRequestException("This quiz has " + count + (count == 1 ? " question" : " questions") + ". Add "
+                    + (min - count) + " more first: each attempt presents at least " + min + ".");
+        }
+        if (wanted == null || wanted < min || wanted > count) {
+            throw new BadRequestException("Questions per attempt must be between " + min + " and " + count
+                    + ", the number of questions in this quiz.");
+        }
+        int was = module.getQuestionsPerAttempt();
+        if (was != wanted) {
+            module.setQuestionsPerAttempt(wanted);
+            module.setUpdatedAt(OffsetDateTime.now(clock));
+            sopModuleRepository.save(module);
+            recordQuizEvent(moduleId, QuizReviewAction.EDITED,
+                    "Questions per attempt changed from " + was + " to " + wanted + ".", viewer.userId());
+        }
+        return toModuleDto(module);
     }
 
     @Override
@@ -778,6 +838,7 @@ public class SopServiceImpl implements SopService {
         dto.setContent(m.getContent());
         dto.setReviewStatus(m.getReviewStatus());
         dto.setRejectionReason(m.getRejectionReason());
+        dto.setQuestionsPerAttempt(m.getQuestionsPerAttempt());
         dto.setQuiz(sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(m.getId())
                 .stream().map(this::toQuizDto).toList());
         return dto;

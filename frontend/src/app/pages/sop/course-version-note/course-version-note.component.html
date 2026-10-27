@@ -9,7 +9,7 @@
       </div>
       <div class="note-actions">
         <button nz-button nzType="primary" nzSize="small" [disabled]="!ready" (click)="openPublish()"
-                [title]="ready ? '' : 'Approve every module\'s material and quiz first'">
+                [title]="ready ? '' : 'Approve every module\'s material and quiz first, each quiz with at least 5 questions'">
           <nz-icon nzType="cloud-upload"></nz-icon>Publish v{{ document.versionNo }}
         </button>
         <button nz-button nzSize="small" nzDanger nz-popconfirm [nzLoading]="discarding"

@@ -228,6 +228,13 @@ class SopTestStore {
         return d;
     }
 
+    /** {@code count} questions, all {@code status}: a quiz for {@link #module(long, ReviewStatus, ReviewStatus...)}. */
+    static ReviewStatus[] quiz(int count, ReviewStatus status) {
+        ReviewStatus[] quiz = new ReviewStatus[count];
+        Arrays.fill(quiz, status);
+        return quiz;
+    }
+
     /** A module with approved material and a quiz of {@code questionCount} approved questions. */
     SopModule module(long docId, int questionCount) {
         ReviewStatus[] quiz = new ReviewStatus[questionCount];
