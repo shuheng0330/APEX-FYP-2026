@@ -14,7 +14,7 @@ import java.util.List;
 
 /** Explicit local-only migration command; it never starts Spring or discovers legacy migrations. */
 public class ApplyAnnualReviewPeriodFoundation {
-    private static final int LATEST_VERSION = 50;
+    private static final int LATEST_VERSION = 51;
     private static final List<String> TABLES = List.of("annual_kpi_review_period",
             "review_period_role_configuration", "review_checkpoint", "review_period_participant");
 
@@ -262,6 +262,9 @@ public class ApplyAnnualReviewPeriodFoundation {
                     throw new IllegalStateException("Partial/untracked V49 frequency schema; reconcile before migration");
                 if(extraApplied>=20 && scalar(connection,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='user_notification'")!=1)
                     throw new IllegalStateException("Applied V50 notification table is missing");
+                if(scalar(connection,"SELECT count(*) FROM authority WHERE name IN ('CAN_VIEW_TEAM_PERFORMANCE',"
+                        +"'CAN_VIEW_DEPARTMENT_PERFORMANCE','CAN_VIEW_ORGANISATION_PERFORMANCE')")!=(extraApplied>=21?3:0))
+                    throw new IllegalStateException("Partial/untracked V51 performance permissions; reconcile before migration");
                 // Snapshot every existing application table, not only the KPI subset. The new
                 // model/Attitude opening columns and explicitly added authority are excluded.
                 try(var statement=connection.createStatement();var tables=statement.executeQuery(
@@ -373,6 +376,9 @@ public class ApplyAnnualReviewPeriodFoundation {
                     +"WHERE i.indrelid='public.user_notification'::regclass AND i.indisunique AND i.indisvalid AND i.indimmediate "
                     +"AND i.indpred IS NULL AND i.indexprs IS NULL AND i.indnkeyatts=1 AND a.attname='dedupe_key'")!=1)
                 throw new IllegalStateException("V50 notification columns or atomic dedupe index are missing");
+            if(scalar(connection,"SELECT count(*) FROM authority WHERE name IN ('CAN_VIEW_TEAM_PERFORMANCE',"
+                    +"'CAN_VIEW_DEPARTMENT_PERFORMANCE','CAN_VIEW_ORGANISATION_PERFORMANCE')")!=3)
+                throw new IllegalStateException("V51 performance viewing permissions are missing");
             if (scalar(connection, "SELECT count(*) FROM public.employee_level") != 6)
                 throw new IllegalStateException("Expected six Employee Levels after V30");
             if (scalar(connection, "SELECT count(*) FROM public.role WHERE LOWER(TRIM(name))='superadmin' "
@@ -410,7 +416,8 @@ public class ApplyAnnualReviewPeriodFoundation {
                 table.equals("kpi_checkpoint_result")?"(to_jsonb(t)-'company_checkpoint_id')::text":
                 table.equals("kpi_assessment")?"(to_jsonb(t)-'assessment_model')::text":"to_jsonb(t)::text";
         String filter=table.equals("authority")?" WHERE name NOT IN ('CAN_ENTER_COMPANY_KPI_RESULTS',"
-                +"'CAN_SUBMIT_ANNUAL_APPRAISAL','CAN_REVIEW_ANNUAL_APPRAISAL')":"";
+                +"'CAN_SUBMIT_ANNUAL_APPRAISAL','CAN_REVIEW_ANNUAL_APPRAISAL',"
+                +"'CAN_VIEW_TEAM_PERFORMANCE','CAN_VIEW_DEPARTMENT_PERFORMANCE','CAN_VIEW_ORGANISATION_PERFORMANCE')":"";
         try(var statement=connection.createStatement();var rows=statement.executeQuery(
                 "SELECT md5(coalesce(string_agg("+row+",',' ORDER BY "+row+"),'')) FROM public."+quotedTable+" t"+filter)) {
             rows.next();return rows.getString(1);
