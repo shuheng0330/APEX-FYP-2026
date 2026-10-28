@@ -9,6 +9,7 @@
       </div>
       @if (candidate) {
         <p class="help employee-context"><strong>{{ candidate.employeeName || '-' }}</strong> · {{ candidate.departmentName || '-' }} · {{ candidate.roleName || '-' }} · {{ period?.name }}</p>
+        @if (canViewPerformanceProfile) { <button type="button" class="text-action" [disabled]="locked" (click)="viewPerformanceProfile()">{{ 'STAFF_PERFORMANCE.VIEW_PROFILE' | translate }}</button> }
         @if (selected && (selected.status === 'DRAFT' || selected.status === 'RETURNED')) {
           <p class="help results-readiness"><strong>{{ 'ANNUAL_APPRAISAL.RESULTS_READINESS' | translate }}:</strong>
             {{ (readiness?.ready ? 'ANNUAL_APPRAISAL.RESULTS_COMPLETE' : 'ANNUAL_APPRAISAL.RESULTS_PENDING') | translate }}</p>

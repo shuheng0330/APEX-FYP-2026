@@ -1,0 +1,9 @@
+.dashboard-summary.card { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+.dashboard-summary .card-body { padding: 0; }
+.dashboard-summary .score-grid { margin: 0; gap: 20px; }
+.dashboard-summary .score-grid > div { padding: 24px; border: 1px solid var(--tbm-border); background: var(--tbm-surface); box-shadow: var(--tbm-shadow); border-radius: 10px; }
+.dashboard-summary .score-grid dt { font-size: 12px; font-weight: 600; }
+.dashboard-summary .score-grid dd { font-size: 30px; color: var(--tbm-primary); margin: 12px 0; overflow-wrap: anywhere; }
+.dashboard-summary .score-grid > div:nth-child(2) dd { color: #087a6e; }
+.dashboard-summary .score-grid .final-score dd { color: #7045bc; }
+@media (max-width: 700px) { .dashboard-summary .score-grid { grid-template-columns: minmax(0, 1fr); } }

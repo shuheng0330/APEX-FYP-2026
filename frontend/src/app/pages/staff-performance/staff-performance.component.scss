@@ -1,0 +1,35 @@
+.performance-page { max-width: 1600px; }
+.performance-heading { padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.employee-heading { display: flex; gap: 16px; align-items: center; min-width: 0; }
+.employee-heading h2 { font-size: 22px; margin: 4px 0; overflow-wrap: anywhere; }
+.avatar { display: grid; place-items: center; width: 56px; height: 56px; flex-shrink: 0; background: var(--tbm-primary); color: white; font-size: 19px; font-weight: 700; border-radius: 50%; }
+.eyebrow { color: var(--tbm-muted); font-size: 12px; font-weight: 600; margin: 0; }
+.period-controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+.period-controls .field { width: 300px; max-width: 100%; }
+.section-links a { padding: 6px 12px; border: 1px solid var(--tbm-border); border-radius: 18px; background: var(--tbm-surface); color: var(--tbm-primary); font-size: 13px; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.section-heading h3 { margin: 0; }
+.checkpoint-context { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 20px; }
+.checkpoint-context .field { min-width: 290px; max-width: 100%; }
+.checkpoint-context .status { margin: 0 12px 0 4px; }
+.kpi-table { min-width: 620px; }
+.wrap-text, .preserve-lines { overflow-wrap: anywhere; }
+.preserve-lines { white-space: pre-wrap; }
+.comparison-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 18px 0; }
+.comparison-grid > div { padding: 16px; background: var(--tbm-surface-subtle); border-radius: 8px; min-width: 0; }
+.comparison-grid h4, .comparison-grid h5 { margin-bottom: 10px; }
+.outcome-decision, .attitude-score { margin-left: 12px; }
+.status[data-status='APPROVED'], .status[data-status='REVIEWED'] { background: #e6f6f2; color: #087a6e; }
+.pending-help { margin: -4px 0 24px; }
+.text-action { border: 0; background: transparent; color: var(--tbm-primary); padding: 4px 0; cursor: pointer; }
+.drawer-section-title { margin: 24px 0 14px; }
+.checkpoint-total { display: flex; justify-content: space-between; gap: 16px; margin: 20px 0; }
+.checkpoint-total strong { color: var(--tbm-primary); font-size: 22px; }
+.result-disclosure { margin: 20px 0; padding: 14px; border: 1px solid var(--tbm-border); border-radius: 8px; }
+summary { cursor: pointer; color: var(--tbm-primary); font-weight: 600; }
+.read-only-item { margin: 16px 0; }
+.recorded-decision { color: #087a6e; font-size: 18px; font-weight: 600; }
+.drawer-actions { display: flex; justify-content: flex-end; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
+@media (max-width: 900px) { .performance-heading { align-items: stretch; flex-direction: column; } .period-controls .field { flex: 1; } }
+@media (max-width: 600px) { .comparison-grid { grid-template-columns: minmax(0, 1fr); } .performance-heading { padding: 16px; } .checkpoint-context .field, .period-controls .field { min-width: 0; width: 100%; } .period-controls { align-items: stretch; flex-direction: column; } }

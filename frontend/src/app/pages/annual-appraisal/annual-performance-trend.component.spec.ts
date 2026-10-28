@@ -32,6 +32,18 @@ describe('Annual performance trend', () => {
     fixture.componentRef.setInput('employeeId', 'bob');
     return fixture;
   }
+  it('reuses current-result inputs with independent partial scores and no submission-snapshot precedence', () => {
+    const fixture = create();
+    fixture.componentRef.setInput('results', [{ employeeId: 'bob', periodId: 6, periodName: period.name!,
+      startDate: period.startDate!, endDate: period.endDate!, annualKpiScore: 0, attitudeScore: null, finalScore: null,
+      kpiWeight: 70, attitudeWeight: 30 }]);
+    fixture.detectChanges();
+    const page = fixture.componentInstance;
+    expect(page.points.length).toBe(1); expect(page.data.datasets[0].data).toEqual([0]);
+    expect(page.data.datasets[1].data).toEqual([null]); expect(page.data.datasets[2].data).toEqual([null]);
+    expect(page.tooltipFooter(0).join(' ')).not.toContain('showing recorded scores');
+    expect(page.tooltipFooter(0).join(' ')).toContain('ANNUAL_APPRAISAL.PENDING'); fixture.destroy();
+  });
   it('plots chronological completed results, preserves gaps and zeroes, and removes the duplicate table and disclaimer', () => {
     const fixture = create(); fixture.componentRef.setInput('history', [history(5, 2025, 0), history(3, 2023, 70)]); fixture.detectChanges();
     const page = fixture.componentInstance;
