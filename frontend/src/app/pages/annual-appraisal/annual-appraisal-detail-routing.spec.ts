@@ -40,6 +40,7 @@ describe('Appraisal detail route lifecycle', () => {
       r.path === 'team-performance/team-appraisals/:reviewPeriodId/:participantId' || r.path === 'appraisals/review/:appraisalId');
     await TestBed.configureTestingModule({ imports: [AnnualAppraisalDetailComponent, TranslateModule.forRoot()], providers: [
       provideRouter([...detailRoutes, { path: 'team-performance/team-appraisals', component: DestinationComponent },
+        { path: 'my-performance/staff/:employeeId', component: DestinationComponent },
         { path: 'appraisals/review', component: DestinationComponent }, { path: 'access-denied', component: DestinationComponent },
         { path: 'elsewhere', component: DestinationComponent }, { path: '', component: DestinationComponent }]),
       provideLocationMocks(), provideNoopAnimations(), { provide: AnnualAppraisalService, useValue: api },
@@ -56,6 +57,27 @@ describe('Appraisal detail route lifecycle', () => {
     if (callback && !(callback instanceof EventEmitter)) callback(undefined);
   }
   async function waitForGuard() { await new Promise(resolve => setTimeout(resolve, 0)); expect(modal.confirm).toHaveBeenCalled(); }
+
+  it('opens the full performance profile with its period/participant and return context after the unsaved guard permits it', async () => {
+    await setup(); grants.push('CAN_VIEW_TEAM_PERFORMANCE');
+    const detail = await harness.navigateByUrl('/team-performance/team-appraisals/2/7', AnnualAppraisalDetailComponent);
+    detail.justification = 'Keep this recommendation';
+    const cancelled = firstValueFrom(router.events.pipe(filter(event => event instanceof NavigationCancel)));
+    detail.viewPerformanceProfile(); await waitForGuard(); answer(false); await cancelled;
+    expect(router.url).toBe('/team-performance/team-appraisals/2/7'); expect(detail.justification).toBe('Keep this recommendation');
+    const ended = firstValueFrom(router.events.pipe(filter(event => event instanceof NavigationEnd)));
+    detail.viewPerformanceProfile(); await waitForGuard(); answer(true); await ended;
+    const url = router.parseUrl(router.url);
+    expect(url.queryParams['reviewPeriodId']).toBe('2'); expect(url.queryParams['participantId']).toBe('7');
+    expect(url.queryParams['returnUrl']).toBe('/team-performance/team-appraisals/2/7');
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it('does not infer full-profile viewing permission from appraisal submission authority', async () => {
+    await setup(); const detail = await harness.navigateByUrl('/team-performance/team-appraisals/2/7', AnnualAppraisalDetailComponent);
+    expect(detail.canViewPerformanceProfile).toBeFalse(); detail.viewPerformanceProfile();
+    expect(router.url).toBe('/team-performance/team-appraisals/2/7');
+  });
 
   it('loads a direct Superior URL from the authorised queue and discovers an existing Draft', async () => {
     await setup(); const detail = await harness.navigateByUrl('/team-performance/team-appraisals/2/7', AnnualAppraisalDetailComponent);

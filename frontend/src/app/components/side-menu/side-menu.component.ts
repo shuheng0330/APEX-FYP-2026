@@ -39,6 +39,7 @@ export class SideMenuComponent {
     {
       key: 'NAV.MY_PERFORMANCE', icon: 'user', requiredRoles: ['ROLE_USER'],
       children: [
+        { key: 'STAFF_PERFORMANCE.MY_TITLE', route: '/my-performance/dashboard', requiredRoles: ['ROLE_USER'] },
         { key: 'INDIVIDUAL_KPI.TITLE', route: '/my-performance/my-kpi-plan', requiredRoles: ['ROLE_USER'] },
         { key: 'MY_ASSESSMENTS.TITLE', route: '/my-performance/my-assessments', requiredRoles: ['ROLE_USER'] }
       ]

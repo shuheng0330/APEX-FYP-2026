@@ -43,6 +43,16 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'my-performance/dashboard', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'], staffPerformance: false },
+        loadComponent: () => import('./pages/staff-performance/staff-performance.component').then(m => m.StaffPerformanceComponent)
+      },
+      {
+        path: 'my-performance/staff/:employeeId', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_VIEW_TEAM_PERFORMANCE', 'CAN_VIEW_DEPARTMENT_PERFORMANCE', 'CAN_VIEW_ORGANISATION_PERFORMANCE'], staffPerformance: true },
+        loadComponent: () => import('./pages/staff-performance/staff-performance.component').then(m => m.StaffPerformanceComponent)
+      },
+      {
         path: 'team-performance/team-appraisals/:reviewPeriodId/:participantId', canActivate: [PermissionGuard],
         canDeactivate: [(component: { canLeave: () => boolean | Promise<boolean> }) => component.canLeave()],
         runGuardsAndResolvers: 'always',

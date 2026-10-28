@@ -22,6 +22,7 @@ import { AnnualAppraisalPerformanceComponent } from './annual-appraisal-performa
 import { AnnualPerformanceTrendComponent } from './annual-performance-trend.component';
 import { AnnualAppraisalNavigationState } from './annual-appraisal-navigation-state.service';
 import { appraisalReturnComparison } from './annual-appraisal-return-comparison';
+import { performanceViewPermissions } from '../staff-performance/staff-performance-navigation';
 
 interface AppraisalDetail {
   period: KpiPeriodContext; row: AnnualAppraisalCandidate; value: AnnualAppraisal | AnnualAppraisalReadiness;
@@ -197,6 +198,15 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   }
   back() {
     if (!this.locked) void this.router.navigateByUrl(this.queuePath);
+  }
+  get canViewPerformanceProfile() {
+    return !!this.candidate && performanceViewPermissions.some(permission => this.auth.hasRole(permission));
+  }
+  viewPerformanceProfile() {
+    if (this.locked || !this.canViewPerformanceProfile || !this.candidate || this.periodId === null) return;
+    void this.router.navigate(['/my-performance/staff', this.candidate.employeeId], {
+      queryParams: { reviewPeriodId: this.periodId, participantId: this.candidate.participantId, returnUrl: this.router.url }
+    });
   }
   canLeave(): boolean | Promise<boolean> {
     return this.locked ? false : this.confirmDiscard();

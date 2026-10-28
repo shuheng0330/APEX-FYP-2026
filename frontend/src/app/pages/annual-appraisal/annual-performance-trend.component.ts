@@ -13,6 +13,13 @@ interface AnnualTrendPoint {
   comparison: AnnualPerformanceHistory['comparisonStatus'];
 }
 
+/** Current-result dashboards can reuse the chart without manufacturing appraisal snapshots. */
+export interface AnnualTrendResult {
+  employeeId: string; periodId: number; periodName: string; startDate: string; endDate: string;
+  annualKpiScore: number | null; attitudeScore: number | null; finalScore: number | null;
+  kpiWeight: number | null; attitudeWeight: number | null;
+}
+
 @Component({
   selector: 'app-annual-performance-trend', standalone: true,
   imports: [CommonModule, TranslateModule, BaseChartDirective], providers: [provideCharts(withDefaultRegisterables())],
@@ -43,6 +50,7 @@ interface AnnualTrendPoint {
 })
 export class AnnualPerformanceTrendComponent implements OnChanges {
   @Input() history: AnnualPerformanceHistory[] = [];
+  @Input() results: AnnualTrendResult[] | null = null;
   @Input() current: AnnualAppraisalSnapshot | null = null;
   @Input() currentPeriod: KpiPeriodContext | null = null;
   @Input() employeeId = '';
@@ -68,6 +76,18 @@ export class AnnualPerformanceTrendComponent implements OnChanges {
     const period = this.currentPeriod;
     const currentDate = period?.endDate;
     const employee = this.employeeId || this.current?.employeeId;
+    if (this.results !== null) {
+      for (const row of this.results) {
+        if (!employee || row.employeeId !== employee || !/^\d{4}-\d{2}-\d{2}$/.test(row.endDate)
+          || (currentDate && row.endDate > currentDate)
+          || [row.annualKpiScore, row.attitudeScore, row.finalScore].every(value => value === null)) continue;
+        byPeriod.set(row.periodId, { periodId: row.periodId, periodName: row.periodName, startDate: row.startDate,
+          endDate: row.endDate, year: Number(row.endDate.slice(0, 4)), kpi: row.annualKpiScore, attitude: row.attitudeScore,
+          final: row.finalScore, kpiWeight: row.kpiWeight, attitudeWeight: row.attitudeWeight,
+          current: row.periodId === period?.id, comparison: 'NOT_APPLICABLE' });
+      }
+    }
+    if (this.results === null) {
     for (const row of this.history) {
       if (!employee || row.employeeId !== employee || row.reviewPeriodId === period?.id
         || !/^\d{4}-\d{2}-\d{2}$/.test(row.endDate) || (currentDate && row.endDate > currentDate)) continue;
@@ -82,6 +102,7 @@ export class AnnualPerformanceTrendComponent implements OnChanges {
         endDate: currentDate, year: Number(currentDate.slice(0, 4)), kpi: this.current.annualKpiScore,
         attitude: this.current.attitudeScore, final: this.current.finalScore, kpiWeight: this.current.kpiWeight,
         attitudeWeight: this.current.attitudeWeight, current: true, comparison: 'NOT_APPLICABLE' });
+    }
     }
     const anchor = Number(currentDate?.slice(0, 4)) || Math.max(0, ...[...byPeriod.values()].map(p => p.year));
     this.points = [...byPeriod.values()].filter(p => p.year >= anchor - this.years + 1 && p.year <= anchor)
@@ -126,7 +147,11 @@ export class AnnualPerformanceTrendComponent implements OnChanges {
   }
   tooltipFooter(index: number): string[] {
     const point = this.slots[index];
-    return point ? [this.translate.instant('ANNUAL_TREND.COMPOSITION', { kpi: point.kpiWeight ?? '-', attitude: point.attitudeWeight ?? '-' }),
+    return point ? [...(this.results === null ? [] : [
+      ['ANNUAL_APPRAISAL.ANNUAL_KPI', point.kpi], ['ANNUAL_APPRAISAL.ATTITUDE_SCORE', point.attitude],
+      ['ANNUAL_APPRAISAL.FINAL_SCORE', point.final]
+    ].filter(([, value]) => value === null).map(([key]) => this.translate.instant(String(key)) + ': ' + this.percentage(null))),
+      this.translate.instant('ANNUAL_TREND.COMPOSITION', { kpi: point.kpiWeight ?? '-', attitude: point.attitudeWeight ?? '-' }),
       ...(point.comparison === 'DIFFERENT' ? this.wrap(this.translate.instant('ANNUAL_TREND.UPDATED')) :
         point.comparison === 'CURRENT_RESULTS_UNAVAILABLE' ? this.wrap(this.translate.instant('ANNUAL_TREND.RECORDED')) : [])] : [];
   }

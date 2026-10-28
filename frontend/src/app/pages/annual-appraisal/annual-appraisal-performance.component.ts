@@ -7,10 +7,12 @@ import { AnnualAppraisalSnapshot } from '../../models/annual-appraisal.model';
   selector: 'app-annual-appraisal-performance', standalone: true,
   imports: [CommonModule, TranslateModule],
   templateUrl: './annual-appraisal-performance.component.html',
-  styleUrls: ['../annual-review-period/review-period.scss', './annual-appraisals.component.scss']
+  styleUrls: ['../annual-review-period/review-period.scss', './annual-appraisals.component.scss', './annual-appraisal-performance.component.scss']
 })
 export class AnnualAppraisalPerformanceComponent implements OnChanges {
-  @Input({ required: true }) performance!: AnnualAppraisalSnapshot;
+  @Input({ required: true }) performance!: Pick<AnnualAppraisalSnapshot, 'annualKpiScore' | 'attitudeScore' | 'finalScore' | 'kpiWeight' | 'attitudeWeight' | 'consolidationMethod' | 'reviewFrequency'>
+    & Partial<Pick<AnnualAppraisalSnapshot, 'checkpoints' | 'attitude'>>;
+  @Input() summaryOnly = false;
   @Input() frozen = false;
   @Input() contextId = 'current';
   details = false;

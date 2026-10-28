@@ -31,6 +31,8 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
 
   private readonly pageMap: Array<{ prefix: string; page: PageContext }> = [
+    { prefix: '/my-performance/dashboard', page: { title: 'STAFF_PERFORMANCE.MY_TITLE', group: 'NAV.MY_PERFORMANCE' } },
+    { prefix: '/my-performance/staff/', page: { title: 'STAFF_PERFORMANCE.STAFF_TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/team-performance/team-appraisals', page: { title: 'ANNUAL_APPRAISAL.TEAM_TITLE', group: 'NAV.TEAM_PERFORMANCE' } },
     { prefix: '/appraisals/review', page: { title: 'ANNUAL_APPRAISAL.HR_TITLE', group: 'NAV.PERFORMANCE_APPRAISAL' } },
     { prefix: '/my-performance/my-assessments', page: { title: 'MY_ASSESSMENTS.TITLE', group: 'NAV.MY_PERFORMANCE' } },
