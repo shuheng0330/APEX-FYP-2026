@@ -19,6 +19,12 @@ public interface TrainingService {
 
     TrainingSessionDto get(Long id, TrainingViewer viewer);
 
+    /**
+     * The viewer's upcoming sessions: ones they are registered for, waiting for, offered a seat on, or invited to and
+     * yet to answer, for the My Learning home (FR-13-05).
+     */
+    List<TrainingSessionDto> mine(TrainingViewer viewer);
+
     /** Schedules a session in the viewer's name (FR-12-01 to FR-12-05). */
     TrainingSessionDto schedule(TrainingSessionRequest request, TrainingViewer viewer);
 

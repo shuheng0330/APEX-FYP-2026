@@ -1,6 +1,8 @@
 package com.tbm.careerpathlearning.dto;
 
 import com.tbm.careerpathlearning.enums.TrainingDelivery;
+import com.tbm.careerpathlearning.enums.TrainingInvitationStatus;
+import com.tbm.careerpathlearning.enums.TrainingRegistrationStatus;
 import com.tbm.careerpathlearning.enums.TrainingSessionKind;
 import com.tbm.careerpathlearning.enums.TrainingSessionStatus;
 import com.tbm.careerpathlearning.enums.TrainingSessionTiming;
@@ -67,4 +69,19 @@ public class TrainingSessionDto {
     /** Nobody has registered, been invited or had attendance recorded, so the session can still be deleted (FR-12-06). */
     private boolean canDelete;
     private boolean attendanceRecorded;
+    /** The viewer can see who is on the session: they scheduled or run it, or are HR or the Super Admin. */
+    private boolean canSeePeople;
+    /** The viewer's own place on the session, if they have one (FR-13-04). */
+    private TrainingRegistrationStatus myStatus;
+    /** The viewer's place in the waitlist, from 1. */
+    private Integer myWaitlistPosition;
+    /** Until when a freed seat is held for the viewer (FR-13-07). */
+    private LocalDateTime myOfferExpiresAt;
+    /** The viewer's invitation to this mandatory session, if any (FR-12-14). */
+    private TrainingInvitationStatus myInvitation;
+    /** The viewer can register now; otherwise registerBlocker says why not. */
+    private boolean canRegister;
+    private String registerBlocker;
+    /** Registering now would put the viewer on the waitlist (FR-13-02). */
+    private boolean wouldWaitlist;
 }

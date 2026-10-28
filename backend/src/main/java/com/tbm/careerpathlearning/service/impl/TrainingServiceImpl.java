@@ -33,6 +33,7 @@ import com.tbm.careerpathlearning.repository.TrainingRegistrationRepository;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
+import com.tbm.careerpathlearning.service.TrainingRegistrationService;
 import com.tbm.careerpathlearning.service.TrainingService;
 import com.tbm.careerpathlearning.service.TrainingViewer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -97,6 +99,7 @@ public class TrainingServiceImpl implements TrainingService {
     @Autowired private TrainerAccessService trainerAccessService;
     @Autowired private NotificationService notificationService;
     @Autowired private TrainingAuditService trainingAuditService;
+    @Autowired private TrainingRegistrationService trainingRegistrationService;
     /** Malaysia time, whatever time zone the server runs in. */
     @Autowired private Clock clock;
 
@@ -113,7 +116,7 @@ public class TrainingServiceImpl implements TrainingService {
                 .findAllByDeletedFalseAndSessionDateBetweenOrderBySessionDateAscStartTimeAsc(from, to).stream()
                 .filter(s -> archived == (s.getStatus() == TrainingSessionStatus.ARCHIVED))
                 .toList();
-        Lookup lookup = lookup(sessions);
+        Lookup lookup = lookup(sessions, viewer);
         return sessions.stream()
                 .filter(s -> canSee(s, viewer, lookup))
                 .map(s -> toDto(s, viewer, lookup))
@@ -122,9 +125,27 @@ public class TrainingServiceImpl implements TrainingService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<TrainingSessionDto> mine(TrainingViewer viewer) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        Set<Long> ids = new HashSet<>();
+        trainingRegistrationRepository.findAllByStaffIdAndStatusIn(viewer.userId(), List.of(TrainingRegistrationStatus.REGISTERED,
+                        TrainingRegistrationStatus.WAITLISTED, TrainingRegistrationStatus.OFFERED))
+                .forEach(r -> ids.add(r.getTrainingId()));
+        trainingInvitationRepository.findAllByStaffIdAndStatus(viewer.userId(), TrainingInvitationStatus.PENDING)
+                .forEach(i -> ids.add(i.getTrainingId()));
+        List<TrainingProgram> sessions = ids.isEmpty() ? List.of() : trainingProgramRepository.findAllById(ids).stream()
+                .filter(s -> !s.isDeleted() && s.getStatus() == TrainingSessionStatus.SCHEDULED && now.isBefore(s.endsAt()))
+                .sorted(Comparator.comparing(TrainingProgram::getSessionDate).thenComparing(TrainingProgram::getStartTime))
+                .toList();
+        Lookup lookup = lookup(sessions, viewer);
+        return sessions.stream().map(s -> toDto(s, viewer, lookup)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public TrainingSessionDto get(Long id, TrainingViewer viewer) {
         TrainingProgram session = find(id);
-        Lookup lookup = lookup(List.of(session));
+        Lookup lookup = lookup(List.of(session), viewer);
         if (!canSee(session, viewer, lookup)) {
             throw new ForbiddenRequestException("This session isn't open to you.");
         }
@@ -145,7 +166,8 @@ public class TrainingServiceImpl implements TrainingService {
         session.setUpdatedBy(viewer.userId());
         session.setUpdatedAt(now);
         trainingProgramRepository.save(session);
-        return toDto(session, viewer, lookup(List.of(session)));
+        trainingRegistrationService.inviteAudience(session, viewer.userId());
+        return toDto(session, viewer, lookup(List.of(session), viewer));
     }
 
     @Override
@@ -178,6 +200,7 @@ public class TrainingServiceImpl implements TrainingService {
                     + booked + " seats.");
         }
         boolean moved = !arrangements(session).equals(arrangements(changed));
+        boolean moreSeats = changed.getCapacity() > session.getCapacity();
         copy(changed, session);
         session.setUpdatedBy(viewer.userId());
         session.setUpdatedAt(now);
@@ -188,7 +211,11 @@ public class TrainingServiceImpl implements TrainingService {
                         "Session changed: " + session.getTitle(), body, link(session));
             }
         }
-        return toDto(session, viewer, lookup(List.of(session)));
+        if (moreSeats) {
+            trainingRegistrationService.offerFreeSeats(session); // seats added go to the waitlist first (FR-13-07)
+        }
+        trainingRegistrationService.inviteAudience(session, viewer.userId()); // people added to the audience (decision E)
+        return toDto(session, viewer, lookup(List.of(session), viewer));
     }
 
     @Override
@@ -241,7 +268,7 @@ public class TrainingServiceImpl implements TrainingService {
                     "Session cancelled: " + session.getTitle(), body, link(session));
         }
         audit(viewer, TrainingAuditAction.SESSION_CANCELLED, session, why);
-        return toDto(session, viewer, lookup(List.of(session)));
+        return toDto(session, viewer, lookup(List.of(session), viewer));
     }
 
     @Override
@@ -261,7 +288,7 @@ public class TrainingServiceImpl implements TrainingService {
         session.setUpdatedBy(viewer.userId());
         session.setUpdatedAt(now);
         audit(viewer, TrainingAuditAction.SESSION_ARCHIVED, session, null);
-        return toDto(session, viewer, lookup(List.of(session)));
+        return toDto(session, viewer, lookup(List.of(session), viewer));
     }
 
     @Override
@@ -276,7 +303,7 @@ public class TrainingServiceImpl implements TrainingService {
         session.setUpdatedBy(viewer.userId());
         session.setUpdatedAt(LocalDateTime.now(clock));
         audit(viewer, TrainingAuditAction.SESSION_RESTORED, session, null);
-        return toDto(session, viewer, lookup(List.of(session)));
+        return toDto(session, viewer, lookup(List.of(session), viewer));
     }
 
     @Override
@@ -496,14 +523,15 @@ public class TrainingServiceImpl implements TrainingService {
     }
 
     private TrainingProgram manageable(Long id, TrainingViewer viewer) {
-        TrainingProgram session = find(id);
+        TrainingProgram session = trainingProgramRepository.lockById(id)
+                .orElseThrow(() -> new BadRequestException("This session no longer exists."));
         if (!canManage(session, viewer)) {
             throw new ForbiddenRequestException("Only whoever scheduled this session, and HR, can change it.");
         }
         return session;
     }
 
-    private static boolean canManage(TrainingProgram session, TrainingViewer viewer) {
+    static boolean canManage(TrainingProgram session, TrainingViewer viewer) {
         return viewer.hr() || (viewer.trainer() && viewer.userId().equals(session.getCreatedBy()));
     }
 
@@ -520,8 +548,9 @@ public class TrainingServiceImpl implements TrainingService {
         }
         boolean registered = lookup.registrations().getOrDefault(session.getTrainingId(), List.of()).stream()
                 .anyMatch(r -> r.getStaffId().equals(viewer.userId()));
+        boolean invited = lookup.myInvitations().containsKey(session.getTrainingId());
         Staff me = lookup.activeById().get(viewer.userId());
-        return registered
+        return registered || invited
                 || (session.getStatus() == TrainingSessionStatus.SCHEDULED && me != null && inAudience(session, me));
     }
 
@@ -551,10 +580,11 @@ public class TrainingServiceImpl implements TrainingService {
     /** What showing a set of sessions needs, loaded once for all of them. */
     private record Lookup(Map<UUID, Staff> activeById, Map<Long, List<TrainingRegistration>> registrations,
                           Set<Long> invited, Set<Long> attended, Map<Long, String> departments,
-                          Map<Long, String> roles, Map<UUID, String> names) {
+                          Map<Long, String> roles, Map<UUID, String> names,
+                          Map<Long, TrainingInvitation> myInvitations, List<TrainingProgram> mySeats) {
     }
 
-    private Lookup lookup(List<TrainingProgram> sessions) {
+    private Lookup lookup(List<TrainingProgram> sessions, TrainingViewer viewer) {
         List<Long> ids = sessions.stream().map(TrainingProgram::getTrainingId).toList();
         Map<UUID, Staff> active = new LinkedHashMap<>();
         staffRepository.findAllActiveWithRole().forEach(s -> active.put(s.getId(), s));
@@ -583,7 +613,15 @@ public class TrainingServiceImpl implements TrainingService {
         }
         Map<UUID, String> names = people.isEmpty() ? Map.of() : staffRepository.findAllWithRoleByIdIn(people).stream()
                 .collect(Collectors.toMap(Staff::getId, s -> Objects.toString(s.getName(), "Unknown user")));
-        return new Lookup(active, registrations, invited, attended, departments, roles, names);
+        // The viewer's own invitations, and the sessions they have a seat on, for clashes (decision B).
+        Map<Long, TrainingInvitation> myInvitations = ids.isEmpty() ? Map.of()
+                : trainingInvitationRepository.findAllByStaffIdAndTrainingIdIn(viewer.userId(), ids).stream()
+                .collect(Collectors.toMap(TrainingInvitation::getTrainingId, i -> i, (a, b) -> a));
+        Set<Long> seatIds = trainingRegistrationRepository.findAllByStaffIdAndStatusIn(viewer.userId(),
+                        List.of(TrainingRegistrationStatus.REGISTERED, TrainingRegistrationStatus.OFFERED)).stream()
+                .map(TrainingRegistration::getTrainingId).collect(Collectors.toSet());
+        List<TrainingProgram> mySeats = seatIds.isEmpty() ? List.of() : trainingProgramRepository.findAllById(seatIds);
+        return new Lookup(active, registrations, invited, attended, departments, roles, names, myInvitations, mySeats);
     }
 
     private TrainingSessionDto toDto(TrainingProgram s, TrainingViewer viewer, Lookup lookup) {
@@ -644,7 +682,35 @@ public class TrainingServiceImpl implements TrainingService {
         dto.setCanManage(manage);
         dto.setCanDelete(manage && registrations.isEmpty() && !lookup.invited().contains(id) && !attended);
         dto.setAttendanceRecorded(attended);
+        dto.setCanSeePeople(manage || viewer.superAdmin() || viewer.userId().equals(s.getTrainerId()));
+        viewersPlace(dto, s, viewer, lookup, registrations, now);
         return dto;
+    }
+
+    /** The viewer's own place on the session, and whether they can register now (FR-13-04, FR-13-05). */
+    private static void viewersPlace(TrainingSessionDto dto, TrainingProgram s, TrainingViewer viewer, Lookup lookup,
+                             List<TrainingRegistration> registrations, LocalDateTime now) {
+        TrainingRegistration mine = registrations.stream().filter(r -> r.getStaffId().equals(viewer.userId()))
+                .findFirst().orElse(null);
+        TrainingInvitation invitation = lookup.myInvitations().get(s.getTrainingId());
+        TrainingRegistrationRules.Seats seats = TrainingRegistrationRules.Seats.of(s, registrations);
+        if (mine != null) {
+            dto.setMyStatus(mine.getStatus());
+            if (mine.getStatus() == TrainingRegistrationStatus.WAITLISTED) {
+                dto.setMyWaitlistPosition(seats.waiting().indexOf(mine) + 1);
+            }
+            if (mine.getStatus() == TrainingRegistrationStatus.OFFERED) {
+                dto.setMyOfferExpiresAt(mine.getOfferExpiresAt());
+            }
+        }
+        dto.setMyInvitation(invitation == null ? null : invitation.getStatus());
+        Staff me = lookup.activeById().get(viewer.userId());
+        String blocker = me == null ? "Your account isn't active, so you can't register."
+                : TrainingRegistrationRules.blocker(s, viewer.userId(), inAudience(s, me), mine, invitation,
+                TrainingRegistrationRules.clash(s, lookup.mySeats()), seats, now);
+        dto.setCanRegister(blocker == null);
+        dto.setRegisterBlocker(blocker);
+        dto.setWouldWaitlist(TrainingRegistrationRules.joinsWaitlist(s, seats));
     }
 
     /** "Everyone", or the chosen departments, job roles and people. */
@@ -725,12 +791,12 @@ public class TrainingServiceImpl implements TrainingService {
     }
 
     /** "Tue 4 Nov 2026, 09:00 to 12:00" */
-    private static String when(TrainingProgram s) {
+    static String when(TrainingProgram s) {
         return s.getSessionDate().format(NOTICE_DATE) + ", " + s.getStartTime().format(NOTICE_TIME) + " to "
                 + s.getEndTime().format(NOTICE_TIME);
     }
 
-    private static String where(TrainingProgram s) {
+    static String where(TrainingProgram s) {
         return switch (s.getDelivery()) {
             case PHYSICAL -> "at " + s.getVenue();
             case HYBRID -> "at " + s.getVenue() + " or online";
@@ -738,7 +804,7 @@ public class TrainingServiceImpl implements TrainingService {
         };
     }
 
-    private static String link(TrainingProgram s) {
+    static String link(TrainingProgram s) {
         return "/training/calendar?session=" + s.getTrainingId();
     }
 

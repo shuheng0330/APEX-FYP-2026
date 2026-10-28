@@ -3,7 +3,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  TrainingAudienceCheck, TrainingSession, TrainingSessionRequest, TrainingTrainer
+  TrainingAudienceCheck, TrainingPerson, TrainingRegistrationForm, TrainingRegistrationRequest, TrainingSession,
+  TrainingSessionRequest, TrainingTrainer
 } from '../models/training-session.model';
 
 /** Client for the Training Calendar's sessions (/api/trainings, FR-12). */
@@ -17,6 +18,11 @@ export class TrainingSessionService {
   calendar(from: string, to: string, archived = false): Observable<TrainingSession[]> {
     const params = new HttpParams().set('from', from).set('to', to).set('archived', archived);
     return this.http.get<TrainingSession[]>(this.baseUrl, { params, withCredentials: true });
+  }
+
+  /** The signed-in user's upcoming sessions, for the My Learning home (FR-13-05). */
+  mine(): Observable<TrainingSession[]> {
+    return this.http.get<TrainingSession[]>(`${this.baseUrl}/mine`, { withCredentials: true });
   }
 
   get(id: number): Observable<TrainingSession> {
@@ -54,5 +60,49 @@ export class TrainingSessionService {
 
   restore(id: number): Observable<TrainingSession> {
     return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/restore`, {}, { withCredentials: true });
+  }
+
+  // --- registering: always as the signed-in user (FR-13) --------------------------------
+
+  registrationForm(id: number): Observable<TrainingRegistrationForm> {
+    return this.http.get<TrainingRegistrationForm>(`${this.baseUrl}/${id}/registration-form`, { withCredentials: true });
+  }
+
+  register(id: number, request: TrainingRegistrationRequest = {}): Observable<TrainingSession> {
+    return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/register`, request, { withCredentials: true });
+  }
+
+  cancelRegistration(id: number): Observable<TrainingSession> {
+    return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/cancel-registration`, {}, { withCredentials: true });
+  }
+
+  acceptOffer(id: number): Observable<TrainingSession> {
+    return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/accept-offer`, {}, { withCredentials: true });
+  }
+
+  declineOffer(id: number): Observable<TrainingSession> {
+    return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/decline-offer`, {}, { withCredentials: true });
+  }
+
+  declineInvitation(id: number, reason: string): Observable<TrainingSession> {
+    return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/decline-invitation`, { reason }, { withCredentials: true });
+  }
+
+  // --- who is on a session: the trainer and HR ---------------------------------------------
+
+  people(id: number): Observable<TrainingPerson[]> {
+    return this.http.get<TrainingPerson[]>(`${this.baseUrl}/${id}/people`, { withCredentials: true });
+  }
+
+  addPerson(id: number, staffId: string): Observable<TrainingPerson[]> {
+    return this.http.post<TrainingPerson[]>(`${this.baseUrl}/${id}/people`, { staffId }, { withCredentials: true });
+  }
+
+  removePerson(id: number, registrationId: number): Observable<TrainingPerson[]> {
+    return this.http.post<TrainingPerson[]>(`${this.baseUrl}/${id}/people/${registrationId}/remove`, {}, { withCredentials: true });
+  }
+
+  offerSeat(id: number, registrationId: number): Observable<TrainingPerson[]> {
+    return this.http.post<TrainingPerson[]>(`${this.baseUrl}/${id}/people/${registrationId}/offer`, {}, { withCredentials: true });
   }
 }

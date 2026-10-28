@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface TrainingInvitationRepository extends JpaRepository<TrainingInvitation, Long> {
@@ -21,6 +23,14 @@ public interface TrainingInvitationRepository extends JpaRepository<TrainingInvi
     List<TrainingInvitation> findAllByTrainingIdAndStatus(Long trainingId, TrainingInvitationStatus status);
 
     boolean existsByTrainingId(Long trainingId);
+
+    List<TrainingInvitation> findAllByTrainingId(Long trainingId);
+
+    Optional<TrainingInvitation> findByTrainingIdAndStaffId(Long trainingId, UUID staffId);
+
+    List<TrainingInvitation> findAllByStaffIdAndTrainingIdIn(UUID staffId, Collection<Long> trainingIds);
+
+    List<TrainingInvitation> findAllByStaffIdAndStatus(UUID staffId, TrainingInvitationStatus status);
 
     /** Which of these sessions anyone has been invited to. */
     @Query("select distinct i.trainingId from TrainingInvitation i where i.trainingId in :trainingIds")

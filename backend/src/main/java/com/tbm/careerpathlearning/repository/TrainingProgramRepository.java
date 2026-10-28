@@ -1,7 +1,11 @@
 package com.tbm.careerpathlearning.repository;
 
 import com.tbm.careerpathlearning.model.TrainingProgram;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -16,4 +20,12 @@ public interface TrainingProgramRepository extends JpaRepository<TrainingProgram
                                                                                                        LocalDate to);
 
     Optional<TrainingProgram> findByTrainingIdAndDeletedFalse(Long trainingId);
+
+    /**
+     * The session, locked until the transaction ends. Every change to its seats goes through this, so two people
+     * can't take the last seat at once.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TrainingProgram t where t.trainingId = :id and t.deleted = false")
+    Optional<TrainingProgram> lockById(@Param("id") Long id);
 }

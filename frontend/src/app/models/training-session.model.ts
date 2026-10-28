@@ -4,6 +4,9 @@ export type TrainingType = 'PRODUCT' | 'SKILL_BASED' | 'OTHER';
 export type TrainingSessionStatus = 'SCHEDULED' | 'CANCELLED' | 'ARCHIVED';
 /** Worked out on the server from the Malaysia clock. */
 export type TrainingSessionTiming = 'UPCOMING' | 'IN_PROGRESS' | 'ENDED';
+/** A person's place on a session (NFR-010). */
+export type TrainingRegistrationStatus = 'REGISTERED' | 'WAITLISTED' | 'OFFERED' | 'CANCELLED';
+export type TrainingInvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'NO_RESPONSE';
 
 /** A session on the Training Calendar (/api/trainings, FR-12). Every date and time is Malaysia time. */
 export interface TrainingSession {
@@ -58,6 +61,21 @@ export interface TrainingSession {
   /** Nobody has registered, been invited or had attendance recorded (FR-12-06). */
   canDelete: boolean;
   attendanceRecorded: boolean;
+  /** The signed-in user may see who is on it: they scheduled or run it, or are HR or the Super Admin. */
+  canSeePeople: boolean;
+  /** The signed-in user's own place on the session (FR-13-04). */
+  myStatus?: TrainingRegistrationStatus;
+  /** Their place in the waitlist, from 1. */
+  myWaitlistPosition?: number;
+  /** Until when a freed seat is held for them (FR-13-07). */
+  myOfferExpiresAt?: string;
+  /** Their invitation to this mandatory session (FR-12-14). */
+  myInvitation?: TrainingInvitationStatus;
+  /** They can register now; otherwise registerBlocker says why not. */
+  canRegister: boolean;
+  registerBlocker?: string;
+  /** Registering now puts them on the waitlist (FR-13-02). */
+  wouldWaitlist: boolean;
 }
 
 /** A session as scheduled or changed (FR-12-01 to FR-12-04, FR-12-12, FR-12-13, FR-17-01). */
@@ -96,6 +114,43 @@ export interface TrainingAudienceCheck {
   audienceSize: number;
   capacity: number;
   warning?: string;
+}
+
+/** The HRDC registration form, filled in from the staff record (FR-13-03). */
+export interface TrainingRegistrationForm {
+  name: string;
+  email: string;
+  departmentName?: string;
+  roleName?: string;
+  /** TBM's branches by region. */
+  branches: Record<string, string[]>;
+}
+
+/** What a staff member sends to register; the HRDC details only for sessions that ask for them. */
+export interface TrainingRegistrationRequest {
+  idNumber?: string;
+  phone?: string;
+  branch?: string;
+  pdpaConsent?: boolean;
+}
+
+/** One person on a session, as its trainer and HR see them. */
+export interface TrainingPerson {
+  staffId: string;
+  name: string;
+  roleName?: string;
+  departmentName?: string;
+  status: TrainingRegistrationStatus | 'INVITED' | 'DECLINED' | 'NO_RESPONSE';
+  registrationId?: number;
+  waitlistPosition?: number;
+  offerExpiresAt?: string;
+  registeredAt?: string;
+  note?: string;
+  addedByName?: string;
+  /** HRDC details, for the session's trainer and HR only; the IC or passport number shows its last 4 characters. */
+  idNumber?: string;
+  phone?: string;
+  branch?: string;
 }
 
 /** Someone who can run or present a session: Trainer access or HR (FR-12-05, FR-15-05). */

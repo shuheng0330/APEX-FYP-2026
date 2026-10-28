@@ -61,6 +61,7 @@ import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopVersionService;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
+import com.tbm.careerpathlearning.service.TrainingRegistrationService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -70,6 +71,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -141,6 +143,7 @@ class SopTestStore {
     private SopGenerationQueue queue;
     private SopNewJoiners newJoiners;
     private TrainerAccessService trainerAccess;
+    private TrainingRegistrationService sessionRegistrations;
     private final NotificationService notifier = new RecordingNotifications();
 
     /** Sets the service's repositories, clock and course readiness check to this store's. */
@@ -155,6 +158,7 @@ class SopTestStore {
                         : f.getType() == SopGenerationQueue.class ? queue()
                         : f.getType() == SopNewJoiners.class ? newJoiners()
                         : f.getType() == TrainerAccessService.class ? trainerAccess()
+                        : f.getType() == TrainingRegistrationService.class ? sessionRegistrations()
                         : f.getType() == NotificationService.class ? notifier
                         : null;
                 if (value != null) {
@@ -199,6 +203,13 @@ class SopTestStore {
             trainerAccess = wire(new TrainerAccessServiceImpl());
         }
         return trainerAccess;
+    }
+
+    TrainingRegistrationService sessionRegistrations() {
+        if (sessionRegistrations == null) {
+            sessionRegistrations = wire(new TrainingRegistrationServiceImpl());
+        }
+        return sessionRegistrations;
     }
 
     /** The generation queue, without a generation service: tests that run it set one. */
@@ -551,6 +562,7 @@ class SopTestStore {
                             .sorted(Comparator.comparing(TrainingProgram::getSessionDate).thenComparing(TrainingProgram::getStartTime))
                             .toList();
                 case "findByTrainingIdAndDeletedFalse":
+                case "lockById":
                     return Optional.ofNullable(sessions.get(a[0])).filter(x -> !x.isDeleted());
                 default:
             }
@@ -563,6 +575,15 @@ class SopTestStore {
                     return registrations.values().stream().filter(r -> ((Collection<?>) a[0]).contains(r.getTrainingId())).toList();
                 case "existsByTrainingId":
                     return registrations.values().stream().anyMatch(r -> r.getTrainingId().equals(a[0]));
+                case "findByTrainingIdAndStaffId":
+                    return registrations.values().stream()
+                            .filter(r -> r.getTrainingId().equals(a[0]) && r.getStaffId().equals(a[1])).findFirst();
+                case "findAllByStaffIdAndStatusIn":
+                    return registrations.values().stream()
+                            .filter(r -> r.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(r.getStatus())).toList();
+                case "findAllByStatusAndOfferExpiresAtLessThanEqual":
+                    return registrations.values().stream().filter(r -> r.getStatus() == a[0] && r.getOfferExpiresAt() != null
+                            && !r.getOfferExpiresAt().isAfter((LocalDateTime) a[1])).toList();
                 default:
             }
         }
@@ -572,6 +593,16 @@ class SopTestStore {
                     return invitations.values().stream().filter(i -> i.getTrainingId().equals(a[0]) && i.getStatus() == a[1]).toList();
                 case "existsByTrainingId":
                     return invitations.values().stream().anyMatch(i -> i.getTrainingId().equals(a[0]));
+                case "findAllByTrainingId":
+                    return invitations.values().stream().filter(i -> i.getTrainingId().equals(a[0])).toList();
+                case "findByTrainingIdAndStaffId":
+                    return invitations.values().stream()
+                            .filter(i -> i.getTrainingId().equals(a[0]) && i.getStaffId().equals(a[1])).findFirst();
+                case "findAllByStaffIdAndTrainingIdIn":
+                    return invitations.values().stream()
+                            .filter(i -> i.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(i.getTrainingId())).toList();
+                case "findAllByStaffIdAndStatus":
+                    return invitations.values().stream().filter(i -> i.getStaffId().equals(a[0]) && i.getStatus() == a[1]).toList();
                 case "findInvitedTrainingIds":
                     return invitations.values().stream().map(TrainingInvitation::getTrainingId)
                             .filter(((Collection<?>) a[0])::contains).distinct().toList();
