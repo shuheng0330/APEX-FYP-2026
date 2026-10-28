@@ -144,6 +144,34 @@ class TrainingSessionRepositoryTest {
     }
 
     @Test
+    @DisplayName("Registration lookups: one person's place, their seats elsewhere, offers run out, invitations, the seat lock")
+    void registrationLookups() {
+        TrainingProgram s = session("Launch", DAY, LocalTime.of(9, 0));
+        TrainingRegistration offered = registration(s, TrainingRegistrationStatus.OFFERED);
+        offered.setOfferExpiresAt(LocalDateTime.of(2026, 10, 13, 10, 0));
+        TrainingRegistration waiting = registration(s, TrainingRegistrationStatus.WAITLISTED);
+        TrainingInvitation invited = invitation(s, TrainingInvitationStatus.PENDING);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertTrue(trainingProgramRepository.lockById(s.getTrainingId()).isPresent());
+        assertEquals(TrainingRegistrationStatus.WAITLISTED, trainingRegistrationRepository
+                .findByTrainingIdAndStaffId(s.getTrainingId(), waiting.getStaffId()).orElseThrow().getStatus());
+        assertEquals(1, trainingRegistrationRepository.findAllByStaffIdAndStatusIn(offered.getStaffId(),
+                List.of(TrainingRegistrationStatus.REGISTERED, TrainingRegistrationStatus.OFFERED)).size());
+        assertEquals(0, trainingRegistrationRepository.findAllByStatusAndOfferExpiresAtLessThanEqual(
+                TrainingRegistrationStatus.OFFERED, LocalDateTime.of(2026, 10, 13, 9, 59)).size());
+        assertEquals(1, trainingRegistrationRepository.findAllByStatusAndOfferExpiresAtLessThanEqual(
+                TrainingRegistrationStatus.OFFERED, LocalDateTime.of(2026, 10, 13, 10, 0)).size());
+        assertEquals(1, trainingInvitationRepository.findAllByTrainingId(s.getTrainingId()).size());
+        assertTrue(trainingInvitationRepository.findByTrainingIdAndStaffId(s.getTrainingId(), invited.getStaffId()).isPresent());
+        assertEquals(1, trainingInvitationRepository.findAllByStaffIdAndTrainingIdIn(invited.getStaffId(),
+                List.of(s.getTrainingId())).size());
+        assertEquals(1, trainingInvitationRepository.findAllByStaffIdAndStatus(invited.getStaffId(),
+                TrainingInvitationStatus.PENDING).size());
+    }
+
+    @Test
     @DisplayName("Invitations still unanswered when their session starts become No Response, once (FR-12-14)")
     void unansweredInvitations() {
         TrainingProgram yesterday = session("Yesterday", DAY.minusDays(1), LocalTime.of(15, 0));

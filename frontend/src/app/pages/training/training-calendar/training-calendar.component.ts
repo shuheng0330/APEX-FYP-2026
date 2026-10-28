@@ -69,6 +69,8 @@ export class TrainingCalendarComponent implements OnInit {
   /** A day inside the period shown. */
   anchor = startOfDay(new Date());
   kindFilter: 'ALL' | TrainingSessionKind = 'ALL';
+  /** FR-13-05: sessions open for the viewer to register, or the ones they are already on. */
+  showFilter: 'ALL' | 'OPEN' | 'MINE' = 'ALL';
   showArchived = false;
   readonly canSchedule: boolean;
 
@@ -175,7 +177,8 @@ export class TrainingCalendarComponent implements OnInit {
   /** Lays the loaded sessions out for the view, with the kind filter applied. */
   rebuild(): void {
     const { from, to } = this.range();
-    const shown = this.sessions.filter(s => this.kindFilter === 'ALL' || s.kind === this.kindFilter);
+    const shown = this.sessions.filter(s => (this.kindFilter === 'ALL' || s.kind === this.kindFilter)
+      && (this.showFilter === 'ALL' || (this.showFilter === 'OPEN' ? s.canRegister : this.isMine(s))));
     const byDay = new Map<string, TrainingSession[]>();
     for (const s of shown) {
       byDay.set(s.date, [...(byDay.get(s.date) ?? []), s]);
@@ -201,9 +204,25 @@ export class TrainingCalendarComponent implements OnInit {
 
   chipClass(s: TrainingSession): Record<string, boolean> {
     return {
-      sharing: s.kind === 'STAFF_SHARING', cancelled: s.status === 'CANCELLED', archived: s.status === 'ARCHIVED',
-      ended: s.timing === 'ENDED', mandatory: s.mandatory
+      [s.delivery.toLowerCase()]: true, sharing: s.kind === 'STAFF_SHARING', cancelled: s.status === 'CANCELLED',
+      archived: s.status === 'ARCHIVED', ended: s.timing === 'ENDED', mandatory: s.mandatory, mine: this.isMine(s)
     };
+  }
+
+  /** The viewer is registered, waiting, offered a seat or invited and yet to answer. */
+  isMine(s: TrainingSession): boolean {
+    return s.myStatus === 'REGISTERED' || s.myStatus === 'WAITLISTED' || s.myStatus === 'OFFERED'
+      || s.myInvitation === 'PENDING';
+  }
+
+  /** "Registered", "Waitlist #2", "Seat offered" or "Invited", for the viewer's own sessions. */
+  myLabel(s: TrainingSession): string | null {
+    switch (s.myStatus) {
+      case 'REGISTERED': return 'Registered';
+      case 'WAITLISTED': return `Waitlist #${s.myWaitlistPosition}`;
+      case 'OFFERED': return 'Seat offered';
+      default: return s.myInvitation === 'PENDING' ? 'Invited' : null;
+    }
   }
 
   statusLabel(s: TrainingSession): string {

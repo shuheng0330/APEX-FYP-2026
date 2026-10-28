@@ -1,0 +1,46 @@
+/* Session cards as on the prototype's Learning Portal home: a date block, badges, time and venue, trainer, a status
+   chip and the seats left. */
+.sessions { margin-bottom: 22px; }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.head h2 { margin: 0; font-size: 15px; }
+.head-icon { color: #13c2a8; font-size: 16px; }
+.count { padding: 1px 8px; border-radius: 10px; background: #e6fffb; color: #0f766e; font-size: 11px; font-weight: 700; }
+.all { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; color: #0f9f8f; font-size: 12px; font-weight: 600; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.session-card {
+  display: flex; padding: 0; overflow: hidden; border: 1px solid var(--tbm-border); text-align: left; cursor: pointer;
+  color: var(--tbm-text); min-width: 0;
+}
+.session-card:hover { border-color: #13c2a8; }
+.session-card:focus-visible { outline: 2px solid #13c2a8; outline-offset: 2px; }
+
+.date-block { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 64px; flex-shrink: 0; background: var(--tbm-surface-subtle); border-right: 1px solid var(--tbm-border); }
+.date-block .month { color: #13c2a8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.date-block strong { font-size: 22px; line-height: 1; font-variant-numeric: tabular-nums; }
+.date-block .away { color: var(--tbm-muted); font-size: 10px; }
+
+.body { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding: 11px 14px; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.badge { padding: 1px 6px; border-radius: 4px; background: #eaf1fb; color: var(--tbm-primary); font-size: 10px; font-weight: 700; }
+.badge.sharing { background: #fef3c7; color: #b45309; }
+.badge.mandatory { background: #fee2e2; color: #dc2626; }
+.badge.open { background: #f0fdfa; color: #0f766e; }
+.title { font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.meta { display: flex; gap: 10px; color: var(--tbm-muted); font-size: 11px; min-width: 0; }
+.meta span { display: inline-flex; align-items: center; gap: 3px; }
+.meta .venue { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.trainer { color: var(--tbm-muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chip { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.chip.registered { background: #d1fae5; color: #065f46; }
+.chip.waiting { background: #fef3c7; color: #92400e; }
+.chip.offered { background: #dbeafe; color: #1d4ed8; }
+.chip.invited { background: #fee2e2; color: #b91c1c; }
+.chip.register { background: #13c2a8; color: #fff; }
+.seats { display: flex; flex-direction: column; gap: 3px; }
+.bar { height: 3px; border-radius: 2px; background: #f3f4f6; overflow: hidden; }
+.bar span { display: block; height: 100%; background: #13c2a8; }
+.bar span.full { background: #dc2626; }
+.seats-text { color: var(--tbm-muted); font-size: 10px; }
+.seats-text.full { color: #dc2626; }

@@ -3,7 +3,7 @@
     <div>
       <span class="section-kicker">Training sessions</span>
       <h1>Training Calendar</h1>
-      <p>Training and staff sharing sessions, with the seats booked and left.</p>
+      <p>Training and staff sharing sessions, with the seats booked and left. Open a session to register.</p>
     </div>
     @if (canSchedule) {
       <button nz-button nzType="primary" (click)="openNew()"><nz-icon nzType="plus"></nz-icon> Schedule session</button>
@@ -22,7 +22,12 @@
       <h2 class="period" aria-live="polite">{{ periodLabel }}</h2>
     </div>
     <div class="controls">
-      <nz-select [(ngModel)]="kindFilter" (ngModelChange)="rebuild()" class="kind-filter" aria-label="Show">
+      <nz-select [(ngModel)]="showFilter" (ngModelChange)="rebuild()" class="show-filter" aria-label="Show">
+        <nz-option nzValue="ALL" nzLabel="Every session"></nz-option>
+        <nz-option nzValue="OPEN" nzLabel="Open for me to register"></nz-option>
+        <nz-option nzValue="MINE" nzLabel="My sessions"></nz-option>
+      </nz-select>
+      <nz-select [(ngModel)]="kindFilter" (ngModelChange)="rebuild()" class="kind-filter" aria-label="Kind">
         <nz-option nzValue="ALL" nzLabel="All sessions"></nz-option>
         <nz-option nzValue="TRAINING" nzLabel="Training"></nz-option>
         <nz-option nzValue="STAFF_SHARING" nzLabel="Staff sharing"></nz-option>
@@ -36,6 +41,16 @@
         <label nz-radio-button nzValue="list">List</label>
       </nz-radio-group>
     </div>
+  </div>
+
+  <!-- As in the prototype: colour by delivery, Staff Sharing apart, a red dot for mandatory -->
+  <div class="legend" aria-hidden="true">
+    <span><i class="swatch physical"></i> Physical</span>
+    <span><i class="swatch hybrid"></i> Hybrid</span>
+    <span><i class="swatch online"></i> Online</span>
+    <span><i class="swatch sharing"></i> Staff Sharing</span>
+    <span><i class="dot"></i> Mandatory</span>
+    <span><nz-icon nzType="check" class="mine-mark"></nz-icon> Yours</span>
   </div>
 
   @if (showArchived) {
@@ -69,6 +84,7 @@
                             [attr.title]="s.title + ', ' + timeRange(s)">
                       <span class="chip-time">{{ hhmm(s.startTime) }}</span>
                       <span class="chip-title">{{ s.title }}</span>
+                      @if (isMine(s)) { <nz-icon nzType="check" class="chip-mine" [attr.aria-label]="myLabel(s)"></nz-icon> }
                     </button>
                   }
                   @if (cell.sessions.length > chipsPerDay) {
@@ -101,6 +117,7 @@
                   <strong class="card-title">{{ s.title }}</strong>
                   <span class="card-meta">{{ kindLabels[s.kind] }} · {{ deliveryLabels[s.delivery] }}</span>
                   <span class="card-meta">{{ s.status === 'CANCELLED' ? 'Cancelled' : s.booked + ' / ' + s.capacity + ' seats' }}</span>
+                  @if (myLabel(s); as mine) { <span class="card-mine">{{ mine }}</span> }
                 </button>
               } @empty {
                 <p class="none">No sessions</p>
@@ -127,6 +144,7 @@
                   </span>
                   <span class="list-seats">{{ s.booked }} / {{ s.capacity }} seats</span>
                   <span class="list-tags">
+                    @if (myLabel(s); as mine) { <nz-tag nzColor="green">{{ mine }}</nz-tag> }
                     @if (s.mandatory) { <nz-tag nzColor="red">Mandatory</nz-tag> }
                     <nz-tag [nzColor]="statusColor(s)">{{ statusLabel(s) }}</nz-tag>
                   </span>

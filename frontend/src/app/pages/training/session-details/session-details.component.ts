@@ -10,8 +10,11 @@ import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { Observable } from 'rxjs';
 import { TrainingSession } from '../../../models/training-session.model';
+import { AuthService } from '../../../services/auth.service';
 import { TrainingSessionService } from '../../../services/training-session.service';
 import { formatDuration } from '../../sop/sop.util';
+import { SessionPeopleComponent } from '../session-people/session-people.component';
+import { SessionSignupComponent } from '../session-signup/session-signup.component';
 import {
   DELIVERY_LABELS, KIND_LABELS, STATUS_LABELS, TIMING_LABELS, TRAINING_TYPE_LABELS, isLink, mapsLink, timeRange
 } from '../training.util';
@@ -24,7 +27,10 @@ import {
 @Component({
   selector: 'app-session-details',
   standalone: true,
-  imports: [CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule, NzPopconfirmModule, NzTagModule],
+  imports: [
+    CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule, NzPopconfirmModule, NzTagModule,
+    SessionPeopleComponent, SessionSignupComponent
+  ],
   templateUrl: './session-details.component.html',
   styleUrls: ['./session-details.component.scss']
 })
@@ -45,8 +51,12 @@ export class SessionDetailsComponent implements OnChanges {
   cancelling = false;
   cancelReason = '';
   busy = false;
+  /** Schedules sessions: told who else may change one they can't. */
+  readonly schedules: boolean;
 
-  constructor(private sessions: TrainingSessionService, private message: NzMessageService) {}
+  constructor(private sessions: TrainingSessionService, private message: NzMessageService, auth: AuthService) {
+    this.schedules = auth.hasRole('CAN_MANAGE_TRAINING') || auth.hasRole('CAN_ASSIGN_TRAINING');
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     // A refresh of the same session keeps a half-typed reason; another session starts afresh.
@@ -125,6 +135,11 @@ export class SessionDetailsComponent implements OnChanges {
         this.message.error(err?.error?.message || 'Could not delete the session.');
       }
     });
+  }
+
+  /** People were added, removed or offered seats: show the session's seats as they are now. */
+  refresh(): void {
+    this.sessions.get(this.s.id).subscribe({ next: updated => this.changed.emit(updated) });
   }
 
   private run(call: Observable<TrainingSession>, done: string): void {

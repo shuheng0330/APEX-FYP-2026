@@ -72,7 +72,7 @@ export const routes: Routes = [
       {
         path: 'training/calendar', component: TrainingCalendarComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
+        data: { requiredRoles: ['ROLE_USER'] },
       },
       {
         path: 'sop/upload', component: SopUploadComponent,

@@ -16,6 +16,9 @@
     <nz-alert nzType="warning" nzShowIcon [nzMessage]="s.capacityWarning"></nz-alert>
   }
 
+  <!-- FR-13: the signed-in person's own place on the session -->
+  <app-session-signup [session]="s" (changed)="changed.emit($event)"></app-session-signup>
+
   <dl class="facts">
     <dt>When</dt>
     <dd>{{ s.date | date: 'EEEE d MMMM yyyy' }}<br />{{ timeRange(s) }} · {{ formatDuration(s.durationMinutes) }}</dd>
@@ -119,7 +122,11 @@
         <p class="muted">Staff have registered or been invited, so it can be cancelled but not deleted.</p>
       }
     }
-  } @else {
+  } @else if (schedules) {
     <p class="muted">Only whoever scheduled this session, and HR, can change it.</p>
+  }
+
+  @if (s.canSeePeople) {
+    <app-session-people [session]="s" (changed)="refresh()"></app-session-people>
   }
 </div>

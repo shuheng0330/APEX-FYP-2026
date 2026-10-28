@@ -82,6 +82,9 @@
     </div>
   </div>
 
+  <!-- FR-13-05: sessions the person is registered for, waiting for, offered a seat on or invited to -->
+  <app-upcoming-sessions></app-upcoming-sessions>
+
   <nz-spin [nzSpinning]="loading">
     @if (!loading) {
       @if (source !== 'open') {

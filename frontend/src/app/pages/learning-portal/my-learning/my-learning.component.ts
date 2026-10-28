@@ -11,6 +11,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { SopLearningService } from '../../../services/sop-learning.service';
 import { LearningCourse, LearningHome } from '../../../models/sop-learning.model';
 import { categoryTheme, daysUntil, CategoryTheme } from '../learning-portal.util';
+import { UpcomingSessionsComponent } from '../../training/upcoming-sessions/upcoming-sessions.component';
 
 type Source = 'all' | 'assigned' | 'open';
 type StatusFilter = 'All' | 'Mandatory' | 'Optional' | 'In Progress' | 'Completed';
@@ -50,7 +51,7 @@ const PREVIEW = 4;
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule,
-    NzButtonModule, NzEmptyModule, NzIconModule, NzInputModule, NzSpinModule
+    NzButtonModule, NzEmptyModule, NzIconModule, NzInputModule, NzSpinModule, UpcomingSessionsComponent
   ],
   templateUrl: './my-learning.component.html',
   styleUrls: ['./my-learning.component.scss']
