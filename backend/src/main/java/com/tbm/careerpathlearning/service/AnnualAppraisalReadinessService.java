@@ -72,18 +72,12 @@ public class AnnualAppraisalReadinessService {
         BigDecimal attitudeScore=attitudeReviewed?attitude.getAttitudeScore():null;
         if(!attitudeReviewed || !validScore(attitudeScore)) blockers.add("Complete Superior Attitude Evaluation");
         BigDecimal kpiWeight=period.getKpiPerformanceWeight(),attitudeWeight=period.getAttitudeEvaluationWeight();
-        boolean weightsValid=validScore(kpiWeight) && validScore(attitudeWeight) && kpiWeight.add(attitudeWeight).compareTo(HUNDRED)==0;
+        boolean weightsValid=AnnualPerformanceCalculation.validWeights(kpiWeight,attitudeWeight);
         if(!weightsValid) blockers.add("The KPI and Attitude appraisal weights must total 100%");
         if(period.getAnnualKpiConsolidationMethod()==null) blockers.add("The annual KPI consolidation method is not configured");
-        BigDecimal annualKpi=null,finalScore=null;
-        if(!sources.isEmpty() && sources.stream().allMatch(s->validScore(s.score())) && period.getAnnualKpiConsolidationMethod()!=null) {
-            annualKpi=period.getAnnualKpiConsolidationMethod()==AnnualKpiConsolidationMethod.FINAL_CHECKPOINT
-                    ?sources.get(sources.size()-1).score().setScale(4,RoundingMode.HALF_UP)
-                    :sources.stream().map(AnnualAppraisalSnapshotDto.Checkpoint::score).reduce(BigDecimal.ZERO,BigDecimal::add)
-                        .divide(BigDecimal.valueOf(sources.size()),4,RoundingMode.HALF_UP);
-            if(validScore(attitudeScore) && weightsValid)
-                finalScore=annualKpi.multiply(kpiWeight).add(attitudeScore.multiply(attitudeWeight)).divide(HUNDRED,4,RoundingMode.HALF_UP);
-        }
+        BigDecimal annualKpi=AnnualPerformanceCalculation.annualKpi(sources.stream()
+                .map(AnnualAppraisalSnapshotDto.Checkpoint::score).toList(),period.getAnnualKpiConsolidationMethod());
+        BigDecimal finalScore=AnnualPerformanceCalculation.finalScore(annualKpi,attitudeScore,kpiWeight,attitudeWeight);
         AnnualAppraisalSnapshotDto.Attitude attitudeSource=null;
         if(attitude!=null) attitudeSource=new AnnualAppraisalSnapshotDto.Attitude(attitude.getId(),attitude.getConfiguration().getId(),
                 attitude.getEvaluationFormat(),attitude.getStatus(),attitude.getReviewedAt(),attitude.getItems().stream()

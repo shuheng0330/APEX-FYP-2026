@@ -7,6 +7,9 @@ import jakarta.persistence.LockModeType;
 import java.util.*;
 
 public interface KpiAssessmentRepository extends JpaRepository<KpiAssessment,Long> {
+    @EntityGraph(attributePaths={"checkpoint", "planVersions", "planVersions.version"})
+    @Query("select distinct a from KpiAssessment a where a.participant.id in :participantIds")
+    List<KpiAssessment> findPerformanceAssessments(Collection<Long> participantIds);
     Optional<KpiAssessment> findByParticipantIdAndCheckpointId(Long participantId,Long checkpointId);
     List<KpiAssessment> findAllByParticipantId(Long participantId);
     List<KpiAssessment> findAllByReviewPeriodIdAndCheckpointIdAndStatus(Long reviewPeriodId,Long checkpointId,KpiAssessmentStatus status);
