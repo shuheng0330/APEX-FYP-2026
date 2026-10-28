@@ -1,0 +1,125 @@
+<div class="details">
+  <div class="tags">
+    <nz-tag [nzColor]="statusColor">{{ statusLabel }}</nz-tag>
+    <nz-tag [nzColor]="s.kind === 'STAFF_SHARING' ? 'cyan' : 'geekblue'">{{ kindLabels[s.kind] }}</nz-tag>
+    <nz-tag>{{ deliveryLabels[s.delivery] }}</nz-tag>
+    @if (s.mandatory) {
+      <nz-tag nzColor="red">Mandatory</nz-tag>
+    }
+  </div>
+
+  @if (s.status === 'CANCELLED') {
+    <nz-alert nzType="error" nzShowIcon [nzMessage]="'Cancelled ' + (s.cancelledAt | date: 'd MMM yyyy, HH:mm')"
+              [nzDescription]="'Reason: ' + s.cancelReason"></nz-alert>
+  }
+  @if (s.capacityWarning) {
+    <nz-alert nzType="warning" nzShowIcon [nzMessage]="s.capacityWarning"></nz-alert>
+  }
+
+  <dl class="facts">
+    <dt>When</dt>
+    <dd>{{ s.date | date: 'EEEE d MMMM yyyy' }}<br />{{ timeRange(s) }} · {{ formatDuration(s.durationMinutes) }}</dd>
+
+    <dt>Where</dt>
+    <dd>
+      @if (s.delivery === 'ONLINE') {
+        Online
+        @if (s.venue) {
+          <br />
+          @if (isLink(s.venue)) {
+            <a [href]="s.venue" target="_blank" rel="noopener">{{ s.venue }}</a>
+          } @else {
+            {{ s.venue }}
+          }
+        }
+      } @else {
+        {{ s.venue }}{{ s.delivery === 'HYBRID' ? ', or online' : '' }}
+        @if (mapsUrl) {
+          <br /><a [href]="mapsUrl" target="_blank" rel="noopener"><nz-icon nzType="environment"></nz-icon> Open in Google Maps</a>
+        }
+      }
+    </dd>
+
+    <dt>{{ s.kind === 'STAFF_SHARING' ? 'Presenter' : 'Trainer' }}</dt>
+    <dd>{{ s.trainerName || 'Not set' }}{{ s.externalTrainer ? ' (external)' : '' }}</dd>
+
+    @if (s.trainingType) {
+      <dt>Training type</dt>
+      <dd>{{ typeLabels[s.trainingType] }}
+        <span class="muted">· {{ s.trainingType === 'OTHER' ? "doesn't count towards the training KPI" : 'counts towards the training KPI' }}</span>
+      </dd>
+    }
+
+    <dt>Audience</dt>
+    <dd>{{ s.audience }} <span class="muted">· {{ s.audienceSize }} {{ s.audienceSize === 1 ? 'person' : 'people' }}</span></dd>
+
+    <dt>Registration</dt>
+    <dd>
+      {{ s.selfRegistration ? 'Staff register themselves' : 'Added by the trainer or HR' }}{{ s.registrationForm ? ', with the HRDC form' : '' }}.
+      {{ s.waitlistEnabled ? 'Waitlist when full.' : 'No waitlist.' }}
+      @if (s.registrationCutoff) {
+        Closes at the end of {{ s.registrationCutoff | date: 'EEE d MMM yyyy' }}.
+      }
+    </dd>
+  </dl>
+
+  <!-- FR-13-04 -->
+  <div class="seats">
+    <div class="seats-line">
+      <strong>{{ s.booked }} of {{ s.capacity }} seats booked</strong>
+      <span class="muted">{{ s.seatsLeft }} left{{ s.waitlisted ? ' · ' + s.waitlisted + ' waitlisted' : '' }}</span>
+    </div>
+    <div class="bar" role="img" [attr.aria-label]="s.booked + ' of ' + s.capacity + ' seats booked'">
+      <span [style.width.%]="seatsPercent"></span>
+    </div>
+  </div>
+
+  @if (s.description) {
+    <div class="description">
+      <h4>About this session</h4>
+      <p>{{ s.description }}</p>
+    </div>
+  }
+
+  <p class="muted byline">Scheduled by {{ s.createdByName || 'Unknown user' }}{{ s.createdAt ? ' on ' + (s.createdAt | date: 'd MMM yyyy') : '' }}</p>
+
+  @if (s.canManage) {
+    @if (cancelling) {
+      <div class="cancel-box">
+        <label class="field" for="cancel-reason">Why is it cancelled?
+          <textarea nz-input id="cancel-reason" [(ngModel)]="cancelReason" rows="3" maxlength="500"
+                    placeholder="Sent to everyone registered or invited"></textarea>
+        </label>
+        <div class="actions">
+          <button nz-button nzDanger nzType="primary" [nzLoading]="busy" [disabled]="!cancelReason.trim()" (click)="confirmCancel()">Cancel session</button>
+          <button nz-button (click)="cancelling = false">Keep it</button>
+        </div>
+      </div>
+    } @else {
+      <div class="actions">
+        @if (canEdit) {
+          <button nz-button nzType="primary" (click)="edit.emit(s)"><nz-icon nzType="edit"></nz-icon> Change</button>
+        }
+        @if (canCancel) {
+          <button nz-button nzDanger (click)="cancelling = true">Cancel session</button>
+        }
+        @if (canArchive) {
+          <button nz-button [nzLoading]="busy" (click)="archive()"><nz-icon nzType="inbox"></nz-icon> Archive</button>
+        }
+        @if (canRestore) {
+          <button nz-button [nzLoading]="busy" (click)="restore()"><nz-icon nzType="rollback"></nz-icon> Restore</button>
+        }
+        @if (s.canDelete) {
+          <button nz-button nzDanger nzType="text" [nzLoading]="busy" nz-popconfirm
+                  nzPopconfirmTitle="Delete this session? Nobody has registered or been invited, so nobody is told."
+                  (nzOnConfirm)="remove()"><nz-icon nzType="delete"></nz-icon> Delete</button>
+        }
+      </div>
+      @if (!s.canDelete && s.status === 'SCHEDULED' && s.timing === 'UPCOMING') {
+        <p class="muted">Staff have registered or been invited, so it can be cancelled but not deleted.</p>
+      }
+    }
+  } @else {
+    <p class="muted">Only whoever scheduled this session, and HR, can change it.</p>
+  }
+</div>
