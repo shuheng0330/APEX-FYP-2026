@@ -1,0 +1,32 @@
+.session-form { display: flex; flex-direction: column; gap: 18px; }
+.block { display: flex; flex-direction: column; gap: 10px; }
+.block h3 { margin: 0; font-size: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 600; color: var(--tbm-text); min-width: 0; }
+.field nz-select, .field nz-date-picker, .field nz-time-picker, .field nz-input-number { width: 100%; }
+.optional { color: var(--tbm-muted); font-weight: 400; }
+.row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.row.three { grid-template-columns: 2fr 1fr 1fr; }
+.pickers { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.note { margin: 0; color: var(--tbm-muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.note.warn { color: #ad4e00; }
+.switch-line { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 12px; font-weight: 400; }
+.cutoff { max-width: 260px; }
+
+.rules { display: flex; flex-direction: column; gap: 12px; }
+.rule { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; align-items: start; }
+.rule div { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.rule div span { color: var(--tbm-muted); }
+
+/* Sticks to the bottom of the drawer while the form scrolls. */
+.form-footer {
+  position: sticky; bottom: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px;
+  margin: 0 -24px -24px; padding: 12px 24px;
+  border-top: 1px solid var(--tbm-border); background: var(--tbm-surface);
+}
+.problem { margin-right: auto; color: #ad4e00; font-size: 12px; }
+
+@media (max-width: 560px) {
+  .row, .row.three { grid-template-columns: 1fr; }
+  .cutoff { max-width: none; }
+}

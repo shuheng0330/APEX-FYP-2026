@@ -1,0 +1,222 @@
+<form class="session-form" (ngSubmit)="save()">
+  @if (started) {
+    <nz-alert nzType="info" nzShowIcon
+              nzMessage="This session has started, so only its title, description, trainer and training type can change."></nz-alert>
+  }
+
+  <!-- FR-12-01, FR-12-02, FR-17-01 -->
+  <section class="block">
+    <h3>Session</h3>
+    <label class="field">Title
+      <input nz-input name="title" [(ngModel)]="title" maxlength="150" placeholder="For example: Inverter Series 2026 Launch" />
+    </label>
+    <label class="field">Description <span class="optional">optional</span>
+      <textarea nz-input name="description" [(ngModel)]="description" rows="3" maxlength="4000"
+                placeholder="What staff will learn, and anything to bring"></textarea>
+    </label>
+    <div class="row">
+      <div class="field" role="group" aria-label="Kind">Kind
+        <nz-radio-group name="kind" [(ngModel)]="kind" (ngModelChange)="onKindChange()" [nzDisabled]="started">
+          @for (k of kinds; track k[0]) {
+            <label nz-radio-button [nzValue]="k[0]">{{ k[1] }}</label>
+          }
+        </nz-radio-group>
+      </div>
+      <div class="field" role="group" aria-label="Delivery">Delivery
+        <nz-radio-group name="delivery" [(ngModel)]="delivery" [nzDisabled]="started">
+          @for (d of deliveries; track d[0]) {
+            <label nz-radio-button [nzValue]="d[0]">{{ d[1] }}</label>
+          }
+        </nz-radio-group>
+      </div>
+    </div>
+    @if (showsTrainingType) {
+      <div class="field" role="group" aria-label="Training type">Training type
+        <nz-radio-group name="trainingType" [(ngModel)]="trainingType" [nzDisabled]="typeLocked">
+          @for (t of types; track t[0]) {
+            <label nz-radio-button [nzValue]="t[0]">{{ t[1] }}</label>
+          }
+        </nz-radio-group>
+        <!-- FR-17-05 -->
+        <span class="note">{{ typeNote }}</span>
+        @if (typeLocked) {
+          <span class="note warn">Attendance has been recorded, so the training type can no longer change.</span>
+        }
+      </div>
+    } @else {
+      <p class="note">{{ sharing ? 'Staff sharing sessions' : 'Online sessions' }} have no training type and don't count towards
+        the training KPI. Training hours are still recorded.</p>
+    }
+  </section>
+
+  <section class="block">
+    <h3>When</h3>
+    <div class="row three">
+      <label class="field">Date
+        <nz-date-picker name="date" [(ngModel)]="date" [nzDisabledDate]="disablePast" [nzDisabled]="started"
+                        nzFormat="EEE d MMM yyyy" nzPlaceHolder="Choose a day"></nz-date-picker>
+      </label>
+      <label class="field">Starts
+        <nz-time-picker name="start" [(ngModel)]="start" nzFormat="HH:mm" [nzMinuteStep]="5" [nzAllowEmpty]="false"
+                        [nzDisabled]="started"></nz-time-picker>
+      </label>
+      <label class="field">Ends
+        <nz-time-picker name="end" [(ngModel)]="end" nzFormat="HH:mm" [nzMinuteStep]="5" [nzAllowEmpty]="false"
+                        [nzDisabled]="started"></nz-time-picker>
+      </label>
+    </div>
+    @if (durationMinutes > 0) {
+      <p class="note">Lasts {{ formatDuration(durationMinutes) }}. Attendees' training hours count this length.</p>
+    }
+  </section>
+
+  <section class="block">
+    <h3>Where</h3>
+    @if (inPerson) {
+      <label class="field">Venue
+        <input nz-input #venueInput name="venue" [(ngModel)]="venue" (ngModelChange)="onVenueChange()" maxlength="500"
+               [disabled]="started" placeholder="Room and building, or the outlet's address" autocomplete="off" />
+      </label>
+      @if (latitude != null) {
+        <p class="note"><nz-icon nzType="environment"></nz-icon> Pinned on the map: {{ locationName }}</p>
+      } @else if (mapsReady) {
+        <p class="note">Pick a suggestion as you type to pin the venue on the map.</p>
+      }
+      @if (delivery === 'HYBRID') {
+        <p class="note">For staff joining online, put the meeting link in the description.</p>
+      }
+    } @else {
+      <label class="field">Meeting link or note <span class="optional">optional</span>
+        <input nz-input name="venue" [(ngModel)]="venue" maxlength="500" [disabled]="started"
+               placeholder="https://… or 'Link sent by email'" />
+      </label>
+    }
+  </section>
+
+  <!-- FR-12-01, FR-15-05 -->
+  <section class="block">
+    <h3>{{ sharing ? 'Presenter' : 'Trainer' }}</h3>
+    @if (!sharing) {
+      <nz-radio-group name="trainerMode" [(ngModel)]="trainerMode" (ngModelChange)="checkAudience()">
+        <label nz-radio-button nzValue="STAFF">Staff member</label>
+        <label nz-radio-button nzValue="EXTERNAL">External trainer</label>
+      </nz-radio-group>
+    }
+    @if (trainerMode === 'STAFF') {
+      <label class="field">{{ sharing ? 'Presented by' : 'Run by' }}
+        <nz-select name="trainerId" [(ngModel)]="trainerId" (ngModelChange)="checkAudience()" nzShowSearch
+                   nzPlaceHolder="Search staff with Trainer access, or HR">
+          @for (t of trainers; track t.id) {
+            <nz-option [nzValue]="t.id" [nzLabel]="trainerLabel(t)"></nz-option>
+          }
+        </nz-select>
+      </label>
+      <p class="note">Only staff with Trainer access, and HR, can {{ sharing ? 'present a sharing session' : 'run sessions' }}.
+        The Super Admin can give someone Trainer access, with an end date if needed.</p>
+    } @else {
+      <label class="field">Trainer's name
+        <input nz-input name="trainerName" [(ngModel)]="trainerName" maxlength="100"
+               placeholder="For example: Daikin Malaysia product trainer" />
+      </label>
+    }
+  </section>
+
+  <!-- FR-12-01, FR-12-03, FR-12-15 -->
+  <section class="block">
+    <h3>Seats and audience</h3>
+    <div class="row">
+      <label class="field">Seats
+        <nz-input-number name="capacity" [(ngModel)]="capacity" (ngModelChange)="checkAudience()" [nzMin]="1"
+                         [nzMax]="maxCapacity" [nzDisabled]="started"></nz-input-number>
+      </label>
+      <div class="field">Attendance
+        <span class="switch-line">
+          <nz-switch name="mandatory" [(ngModel)]="mandatory" (ngModelChange)="checkAudience()" [nzDisabled]="started"
+                     aria-label="Mandatory"></nz-switch>
+          {{ mandatory ? 'Mandatory for its audience' : 'Optional' }}
+        </span>
+      </div>
+    </div>
+    <div class="pickers">
+      <label class="field">Departments
+        <nz-select name="departmentIds" nzMode="multiple" [(ngModel)]="departmentIds" (ngModelChange)="checkAudience()"
+                   nzPlaceHolder="Add departments" nzShowSearch [nzDisabled]="started">
+          @for (d of audience.departments; track d.id) {
+            <nz-option [nzValue]="d.id" [nzLabel]="d.name + ' (' + d.staffCount + ')'"></nz-option>
+          }
+        </nz-select>
+      </label>
+      <label class="field">Job roles
+        <nz-select name="roleIds" nzMode="multiple" [(ngModel)]="roleIds" (ngModelChange)="checkAudience()"
+                   nzPlaceHolder="Add job roles" nzShowSearch [nzDisabled]="started">
+          @for (r of audience.roles; track r.id) {
+            <nz-option [nzValue]="r.id" [nzLabel]="r.name + (r.departmentName ? ' · ' + r.departmentName : '') + ' (' + r.staffCount + ')'"></nz-option>
+          }
+        </nz-select>
+      </label>
+      <label class="field">Individual staff
+        <nz-select name="staffIds" nzMode="multiple" [(ngModel)]="staffIds" (ngModelChange)="checkAudience()"
+                   nzPlaceHolder="Search by name" nzShowSearch [nzDisabled]="started">
+          @for (p of audience.staff; track p.id) {
+            <nz-option [nzValue]="p.id" [nzLabel]="p.name + (p.roleName ? ' · ' + p.roleName : '')"></nz-option>
+          }
+        </nz-select>
+      </label>
+    </div>
+    <p class="note">
+      {{ hasAudience ? 'For the departments, job roles and people chosen.' : 'Nobody chosen: the session is for everyone.' }}
+      @if (audienceSize !== null) {
+        <strong>{{ audienceSize }} {{ audienceSize === 1 ? 'person' : 'people' }}</strong>, not counting whoever runs it.
+      }
+    </p>
+    @if (capacityWarning) {
+      <nz-alert nzType="warning" nzShowIcon [nzMessage]="capacityWarning"></nz-alert>
+    }
+  </section>
+
+  <!-- FR-12-04, FR-12-12, FR-12-13 -->
+  <section class="block">
+    <h3>Registration</h3>
+    <div class="rules">
+      <div class="rule">
+        <nz-switch name="selfRegistration" [(ngModel)]="selfRegistration" [nzDisabled]="started"
+                   aria-label="Staff register themselves"></nz-switch>
+        <div>
+          <strong>Staff register themselves</strong>
+          <span>{{ selfRegistration ? 'Staff in the audience register from the calendar.' : 'Only the trainer or HR adds people.' }}</span>
+        </div>
+      </div>
+      <div class="rule">
+        <nz-switch name="registrationForm" [(ngModel)]="registrationForm" [nzDisabled]="started"
+                   aria-label="Registration form"></nz-switch>
+        <div>
+          <strong>Registration form</strong>
+          <span>{{ registrationForm ? 'Registering asks for the HRDC details, with a PDPA notice.' : 'Registering is a single step.' }}</span>
+        </div>
+      </div>
+      <div class="rule">
+        <nz-switch name="waitlistEnabled" [(ngModel)]="waitlistEnabled" [nzDisabled]="started"
+                   aria-label="Waitlist"></nz-switch>
+        <div>
+          <strong>Waitlist</strong>
+          <span>{{ waitlistEnabled ? 'When it is full, staff join a waitlist and are offered freed seats in turn.' : 'When it is full, registration closes.' }}</span>
+        </div>
+      </div>
+    </div>
+    <label class="field cutoff">Registration cut-off <span class="optional">optional</span>
+      <nz-date-picker name="registrationCutoff" [(ngModel)]="registrationCutoff" [nzDisabledDate]="disableCutoff"
+                      [nzDisabled]="started" nzFormat="EEE d MMM yyyy" nzPlaceHolder="No cut-off"></nz-date-picker>
+    </label>
+    <p class="note">Staff can register until the end of this day.</p>
+  </section>
+
+  <div class="form-footer">
+    @if (problem) {
+      <span class="problem">{{ problem }}</span>
+    }
+    <button nz-button type="button" (click)="cancelled.emit()">Cancel</button>
+    <button nz-button nzType="primary" type="submit" [nzLoading]="saving" [disabled]="!!problem">
+      {{ editing ? 'Save changes' : 'Schedule session' }}
+    </button>
+  </div>
+</form>
