@@ -30,6 +30,12 @@ public class TrainerAccessController {
         return ResponseEntity.ok(trainerAccessService.list());
     }
 
+    /** FR-20-02: every department, for the filter, whether or not anyone is in it. */
+    @GetMapping("/departments")
+    public ResponseEntity<?> departments() {
+        return ResponseEntity.ok(trainerAccessService.departments());
+    }
+
     @PostMapping("/{staffId}/grant")
     public ResponseEntity<?> grant(@PathVariable UUID staffId, @RequestBody TrainerAccessRequest request,
                                    Authentication authentication) {

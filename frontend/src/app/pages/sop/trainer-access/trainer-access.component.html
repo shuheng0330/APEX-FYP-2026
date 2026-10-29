@@ -30,6 +30,11 @@
                      (ngModelChange)="applyFilters()" aria-label="Department">
             @for (d of departments; track d) { <nz-option [nzValue]="d" [nzLabel]="d"></nz-option> }
           </nz-select>
+          <nz-select class="filter status-filter" [(ngModel)]="status" (ngModelChange)="applyFilters()" aria-label="Account status">
+            <nz-option nzValue="ALL" nzLabel="Any status"></nz-option>
+            <nz-option nzValue="ACTIVE" nzLabel="Active"></nz-option>
+            <nz-option nzValue="INACTIVE" nzLabel="Inactive"></nz-option>
+          </nz-select>
           <nz-radio-group [(ngModel)]="access" (ngModelChange)="applyFilters()" aria-label="Trainer access">
             @for (o of accessOptions; track o.value) {
               <label nz-radio-button [nzValue]="o.value">{{ o.label }}</label>
@@ -44,7 +49,7 @@
           <div class="table-scroll">
             <nz-table #table [nzData]="filtered" [nzLoading]="loading" [nzPageSize]="20" [nzHideOnSinglePage]="true" nzSize="middle">
               <thead>
-                <tr><th>Staff member</th><th>Department</th><th>Job role</th><th>Trainer access</th><th>Courses owned</th><th>Actions</th></tr>
+                <tr><th>Staff member</th><th>Department</th><th>Job role</th><th>Status</th><th>Trainer access</th><th>Courses owned</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 @for (s of table.data; track s.staffId) {
@@ -52,6 +57,8 @@
                     <td><strong>{{ s.name }}</strong><small>{{ s.email }}</small></td>
                     <td>{{ s.department || '-' }}</td>
                     <td>{{ s.jobRole || '-' }}</td>
+                    <!-- FR-20-02 -->
+                    <td><nz-tag [nzColor]="s.active ? 'green' : 'default'">{{ s.active ? 'Active' : 'Inactive' }}</nz-tag></td>
                     <td class="access-cell">
                       @if (s.viaRole) { <nz-tag nzColor="blue">Job role</nz-tag> }
                       @if (s.viaGrant) {
@@ -69,7 +76,8 @@
                           <button nz-button nzSize="small" (click)="openGrant(s)"><nz-icon nzType="calendar"></nz-icon>Change end date</button>
                           <button nz-button nzSize="small" nzDanger (click)="openRevoke(s)">Revoke</button>
                         } @else {
-                          <button nz-button nzSize="small" nzType="primary" (click)="openGrant(s)"><nz-icon nzType="plus"></nz-icon>Grant access</button>
+                          <button nz-button nzSize="small" nzType="primary" (click)="openGrant(s)" [disabled]="!s.active"
+                                  [attr.title]="s.active ? null : 'Only active accounts can be given Trainer access'"><nz-icon nzType="plus"></nz-icon>Grant access</button>
                         }
                         <button nz-button nzSize="small" nzType="text" (click)="openHistory(s)" [attr.aria-label]="'History for ' + s.name">
                           <nz-icon nzType="history"></nz-icon>History
