@@ -30,7 +30,7 @@ describe('SideMenuComponent', () => {
   });
   it('keeps annual appraisal review without exposing retired competency-performance pages', () => {
     const annual = component.navItems.find(item => item.key === 'NAV.PERFORMANCE_APPRAISAL')!;
-    expect(annual.children?.map(item => item.route)).toEqual(['/appraisals/review']);
+    expect(annual.children?.map(item => item.route)).toEqual(['/appraisals/organisation-performance', '/appraisals/review']);
     expect(component.navItems.some(item => item.key === 'NAV.LEGACY_COMPETENCY_PERFORMANCE')).toBeFalse();
     const links = component.navItems.flatMap(item => [item.route, ...(item.children?.map(child => child.route) ?? [])]);
     expect(links.some(link => link?.startsWith('/evaluation') || link?.startsWith('/performance/'))).toBeFalse();

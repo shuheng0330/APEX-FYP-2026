@@ -14,6 +14,6 @@ export function performanceEmployeeId(value: string | null): value is string {
 export function performanceReturnUrl(value: string | null): string {
   if (!value || !value.startsWith('/') || /[\\\s#]/.test(value) || value.startsWith('//')) return '/my-performance/dashboard';
   const path = value.split('?')[0];
-  return /^\/(?:team-performance\/team-appraisals(?:\/[1-9]\d*\/[1-9]\d*)?|appraisals\/review(?:\/[1-9]\d*)?)$/.test(path)
+  return /^\/(?:team-performance\/dashboard|team-performance\/team-appraisals(?:\/[1-9]\d*\/[1-9]\d*)?|appraisals\/review(?:\/[1-9]\d*)?)$/.test(path)
     ? value : '/my-performance/dashboard';
 }

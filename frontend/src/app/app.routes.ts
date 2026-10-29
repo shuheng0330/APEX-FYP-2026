@@ -43,6 +43,16 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'appraisals/organisation-performance', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_VIEW_ORGANISATION_PERFORMANCE'] },
+        loadComponent: () => import('./pages/organisation-performance/organisation-performance.component').then(m => m.OrganisationPerformanceComponent)
+      },
+      {
+        path: 'team-performance/dashboard', canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_VIEW_TEAM_PERFORMANCE', 'CAN_VIEW_DEPARTMENT_PERFORMANCE', 'CAN_VIEW_ORGANISATION_PERFORMANCE'] },
+        loadComponent: () => import('./pages/team-performance/team-performance.component').then(m => m.TeamPerformanceComponent)
+      },
+      {
         path: 'my-performance/dashboard', canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'], staffPerformance: false },
         loadComponent: () => import('./pages/staff-performance/staff-performance.component').then(m => m.StaffPerformanceComponent)

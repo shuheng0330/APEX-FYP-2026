@@ -198,20 +198,7 @@
           <span class="help">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}</span>
           <strong class="breakdown-score-value">{{ score.checkpointScore === null ? ('KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate) : (score.checkpointScore | number:'1.2-2') + '%' }}</strong>
         </div>
-        <section class="card"><div class="table-scroll"><table class="data-table breakdown-summary">
-          <thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.ALLOCATION_LABEL' | translate }}</th>
-            <th>{{ 'KPI_SCORE_BREAKDOWN.LEVEL_SCORE' | translate }}</th><th>{{ 'KPI_SCORE_BREAKDOWN.CONTRIBUTION_LABEL' | translate }}</th></tr></thead>
-          <tbody>@for (level of score.levels; track level.level) {
-            <tr><td>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</td><td>{{ level.allocation | number:'1.0-2' }}%</td>
-              <td>@if (level.status === 'NOT_APPLICABLE') { {{ 'KPI_SCORE_BREAKDOWN.STATUS.NOT_APPLICABLE' | translate }} }
-                @else { @let levelScore = breakdownLevelScore(level);
-                  {{ levelScore === null ? ('KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate) : (levelScore | number:'1.2-2') + '%' }}
-                }
-              </td>
-              <td>@if (level.contribution !== null) { {{ level.contribution | number:'1.2-2' }}% } @else { {{ 'KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate }} }</td>
-            </tr>
-          }</tbody>
-        </table></div></section>
+        <section class="card"><app-kpi-score-summary [levels]="score.levels" /></section>
         <p class="help breakdown-formula">{{ 'KPI_SCORE_BREAKDOWN.FORMULA' | translate }}</p>
         @if (score.checkpointScore === null) { <p class="help breakdown-pending">{{ 'KPI_SCORE_BREAKDOWN.PENDING_HELP' | translate }}</p> }
         @for (level of score.levels; track level.level) {

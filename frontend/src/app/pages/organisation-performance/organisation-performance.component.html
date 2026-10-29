@@ -1,0 +1,78 @@
+<main class="review-page organisation-performance-page" [attr.aria-busy]="loading">
+  <header class="page-heading">
+    <div><h2>{{ 'ORG_PERFORMANCE.TITLE' | translate }}</h2><p class="help">{{ 'ORG_PERFORMANCE.INTRO' | translate }}</p></div>
+    <div class="selection-controls">
+      <div class="field period-field"><label for="org-period">{{ 'ANNUAL_APPRAISAL.PERIOD' | translate }}</label>
+        <nz-select nzId="org-period" [ngModel]="periodId" (ngModelChange)="changeSelection({ reviewPeriodId: $event })" [nzDisabled]="loading || !periods.length" [nzPlaceHolder]="'STAFF_PERFORMANCE.SELECT_PERIOD' | translate">
+          @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
+        </nz-select></div>
+      <button nz-button type="button" [disabled]="loading" (click)="refresh()">{{ 'ANNUAL_APPRAISAL.REFRESH_DETAILS' | translate }}</button>
+      <button nz-button type="button" class="export-button" [nzLoading]="exporting" [disabled]="!data || loading || exporting" (click)="exportExcel()">{{ 'ORG_PERFORMANCE.EXPORT' | translate }}</button>
+    </div>
+  </header>
+  @if (loading) { <p role="status">{{ 'ORG_PERFORMANCE.LOADING' | translate }}</p> }
+  @if (exportError) { <p class="error-box" role="alert">{{ 'ORG_PERFORMANCE.EXPORT_ERROR' | translate }}</p> }
+  @if (error) { <section class="card card-body" role="alert"><h3>{{ 'ORG_PERFORMANCE.UNAVAILABLE' | translate }}</h3><p>{{ 'ORG_PERFORMANCE.UNAVAILABLE_HELP' | translate }}</p><a [routerLink]="path">{{ 'ORG_PERFORMANCE.RESET' | translate }}</a></section> }
+  @if (empty) { <section class="card empty"><h3>{{ 'STAFF_PERFORMANCE.NO_PERIODS' | translate }}</h3><p>{{ 'STAFF_PERFORMANCE.NO_PERIODS_HELP' | translate }}</p></section> }
+  @if (data; as view) {
+    <p class="help period-context">{{ view.period.startDate | date:'dd MMM yyyy' }} - {{ view.period.endDate | date:'dd MMM yyyy' }} <span class="status" [attr.data-status]="view.period.status">{{ 'REVIEW_PERIOD.STATUS.' + view.period.status | translate }}</span></p>
+    <section class="team-summary" [attr.aria-label]="'ORG_PERFORMANCE.SUMMARY' | translate">
+      <div class="card summary-card"><h3>{{ 'TEAM_PERFORMANCE.EMPLOYEES_WITH_RESULTS' | translate }}</h3><strong>{{ view.summary.employeesWithResults }}</strong><p class="help">{{ 'ORG_PERFORMANCE.OUT_OF' | translate:{ count: view.summary.totalEmployees } }}</p></div>
+      @for (field of scoreFields; track field) {
+        <div class="card summary-card" [attr.data-metric]="field"><h3>{{ 'TEAM_PERFORMANCE.AVERAGES.' + field | translate }}</h3><strong>{{ view.summary[field].score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (view.summary[field].score | number:'1.2-2') + '%' }}</strong><p class="help">{{ 'ORG_PERFORMANCE.RESULT_COUNT' | translate:{ count: view.summary[field].contributingEmployees } }}</p></div>
+      }
+    </section>
+    <section class="card" aria-labelledby="org-progress-title">
+      <div class="card-head"><h3 id="org-progress-title">{{ 'ORG_PERFORMANCE.PROGRESS' | translate }}</h3><p class="help">{{ 'ORG_PERFORMANCE.PROGRESS_HELP' | translate }}</p></div>
+      <div class="table-scroll" tabindex="0" [attr.aria-label]="'ORG_PERFORMANCE.PROGRESS' | translate"><table class="data-table progress-table">
+        <thead><tr><th rowspan="2" scope="col">{{ 'ANNUAL_APPRAISAL.DEPARTMENT' | translate }}</th><th rowspan="2" scope="col">{{ 'ORG_PERFORMANCE.TOTAL_EMPLOYEES' | translate }}</th><th colspan="2" scope="colgroup">{{ 'ORG_PERFORMANCE.KPI_ASSESSMENTS' | translate }}</th><th colspan="2" scope="colgroup">{{ 'STAFF_PERFORMANCE.ATTITUDE_TITLE' | translate }}</th><th rowspan="2" scope="col" [attr.title]="'TEAM_PERFORMANCE.PROGRESS.returnedIndividualPlans' | translate">{{ 'ORG_PERFORMANCE.RETURNED_PLANS' | translate }}</th><th rowspan="2" scope="col" [attr.title]="'ORG_PERFORMANCE.PENDING_HR' | translate">{{ 'ORG_PERFORMANCE.HR_REVIEW' | translate }}</th></tr>
+          <tr>@for (group of ['kpi', 'attitude']; track group) { <th scope="col" [attr.title]="'TEAM_PERFORMANCE.PROGRESS.' + (group === 'kpi' ? 'kpiSelfAssessments' : 'attitudeSelfAssessments') | translate">{{ 'ORG_PERFORMANCE.SELF_REVIEW' | translate }}</th><th scope="col" [attr.title]="'TEAM_PERFORMANCE.PROGRESS.' + (group === 'kpi' ? 'kpiSuperiorReviews' : 'attitudeSuperiorReviews') | translate">{{ 'ORG_PERFORMANCE.SUPERIOR_REVIEW' | translate }}</th> }</tr></thead>
+        <tbody>@for (department of view.departments; track department.departmentId) { <tr><th scope="row">{{ department.name }}</th><td>{{ department.summary.totalEmployees }}</td>
+          @for (field of progressFields; track field) { <td>{{ department.assessmentProgress[field] }}</td> }<td>{{ department.pendingHrReview }}</td></tr>
+        } @empty { <tr><td colspan="8" class="empty">{{ 'ORG_PERFORMANCE.NO_DEPARTMENTS' | translate }}</td></tr> }</tbody>
+      </table></div>
+    </section>
+    <div class="analytics-heading">
+      <p class="help">{{ 'TEAM_PERFORMANCE.LATEST_RESULTS' | translate }}</p>
+      <div class="chart-controls"><div class="field"><label for="org-metric">{{ 'ORG_PERFORMANCE.SCORE_SHOWN' | translate }}</label><nz-select nzId="org-metric" [ngModel]="metric" (ngModelChange)="changeSelection({ metric: $event })">@for (value of metrics; track value) { <nz-option [nzValue]="value" [nzLabel]="'TEAM_PERFORMANCE.METRICS.' + value | translate" /> }</nz-select></div>
+        <div class="range-controls" role="group" [attr.aria-label]="'ORG_PERFORMANCE.TREND_RANGE' | translate">@for (range of [3, 5]; track range) { <button nz-button type="button" [nzType]="years === range ? 'primary' : 'default'" [attr.aria-pressed]="years === range" (click)="changeSelection({ historyYears: range })">{{ 'ANNUAL_TREND.YEARS' | translate:{ count: range } }}</button> }</div>
+      </div>
+    </div>
+    <div class="analytics-grid">
+      <section class="card" aria-labelledby="org-trend-title"><div class="card-head"><h3 id="org-trend-title">{{ 'ORG_PERFORMANCE.TREND' | translate }}</h3><p class="help">{{ 'ORG_PERFORMANCE.TREND_HELP' | translate }}</p></div><div class="card-body">
+        <app-team-performance-trend chartId="org-trend" accessibleLabel="ORG_PERFORMANCE.TREND_ACCESSIBLE" [periodAxis]="true" [points]="view.trend" [period]="view.period" [metric]="metric" [years]="years" />
+      </div></section>
+      <section class="card" aria-labelledby="org-department-trend-title"><div class="card-head"><h3 id="org-department-trend-title">{{ 'ORG_PERFORMANCE.DEPARTMENT_TREND' | translate }}</h3><p class="help">{{ 'ORG_PERFORMANCE.DEPARTMENT_TREND_HELP' | translate }}</p></div><div class="card-body">
+        <div class="field department-comparison"><label for="org-comparison">{{ 'ORG_PERFORMANCE.COMPARE_DEPARTMENTS' | translate }}</label><nz-select nzId="org-comparison" nzMode="multiple" [nzMaxTagCount]="2" [ngModel]="selectedDepartments" (ngModelChange)="changeSelection({ compare: $event.length ? $event : [''] }, true)" [nzPlaceHolder]="'ORG_PERFORMANCE.SELECT_DEPARTMENTS' | translate">
+          @for (department of view.departmentTrends; track department.departmentId) { <nz-option [nzValue]="departmentKey(department.departmentId)" [nzLabel]="department.name" /> }
+        </nz-select></div>
+        @if (comparisonSeries.length) { <app-team-performance-trend chartId="org-department-trend" accessibleLabel="ORG_PERFORMANCE.DEPARTMENT_TREND_ACCESSIBLE" [periodAxis]="true" [series]="comparisonSeries" [period]="view.period" [metric]="metric" [years]="years" /> }
+        @else { <p class="empty">{{ 'ORG_PERFORMANCE.SELECT_DEPARTMENTS' | translate }}</p> }
+      </div></section>
+    </div>
+    <section class="card" aria-labelledby="org-distribution-title"><div class="card-head"><h3 id="org-distribution-title">{{ 'TEAM_PERFORMANCE.DISTRIBUTION' | translate }}</h3><p class="help">{{ 'TEAM_PERFORMANCE.METRICS.' + metric | translate }}</p></div><div class="card-body score-distribution">
+      <app-organisation-score-distribution [distribution]="view.distribution" />
+    </div></section>
+    <section class="card" aria-labelledby="org-departments-title"><div class="card-head section-heading"><div><h3 id="org-departments-title">{{ 'ORG_PERFORMANCE.DEPARTMENTS' | translate }}</h3><p class="help">{{ 'ORG_PERFORMANCE.DEPARTMENTS_HELP' | translate }}</p></div><div class="field department-search"><label for="org-search">{{ 'ORG_PERFORMANCE.SEARCH' | translate }}</label><input nz-input id="org-search" type="search" [(ngModel)]="search" (ngModelChange)="changeSelection({ search: $event || null }, true)" /></div></div>
+      <div class="table-scroll" tabindex="0" [attr.aria-label]="'ORG_PERFORMANCE.DEPARTMENTS' | translate"><table class="data-table department-table"><thead><tr>
+        @for (column of columns; track column) { <th [attr.aria-sort]="sort === column ? (descending ? 'descending' : 'ascending') : 'none'"><button class="sort-button" type="button" (click)="setSort(column)">{{ 'ORG_PERFORMANCE.COLUMNS.' + column | translate }} @if (sort === column) { <span aria-hidden="true">{{ descending ? '↓' : '↑' }}</span> }</button></th> }<th>{{ 'ANNUAL_APPRAISAL.ACTIONS' | translate }}</th>
+      </tr></thead><tbody>@for (department of rows; track department.departmentId) { <tr><td><strong>{{ department.name }}</strong></td><td>{{ department.summary.employeesWithResults }} / {{ department.summary.totalEmployees }}</td>
+        @for (field of scoreFields; track field) { <td class="department-score"><button type="button" class="score-sample" nz-tooltip #sampleTip="nzTooltip" [nzTooltipTitle]="sampleDescription(field, department.summary[field])" [attr.aria-describedby]="'org-sample-' + departmentKey(department.departmentId) + '-' + field" (focus)="sampleTip.show()" (blur)="sampleTip.hide()" (click)="sampleTip.show()" (keydown.escape)="sampleTip.hide()">{{ department.summary[field].score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (department.summary[field].score | number:'1.2-2') + '%' }}</button><span class="sr-only" [id]="'org-sample-' + departmentKey(department.departmentId) + '-' + field">{{ sampleDescription(field, department.summary[field]) }}</span></td> }
+        <td><span [attr.title]="'TEAM_PERFORMANCE.COMPARISON.' + department.yearOnYear.status | translate">{{ changeValue(department.yearOnYear) == null ? ('TEAM_PERFORMANCE.NOT_COMPARABLE' | translate) : ((department.yearOnYear.percentagePoints! > 0 ? '+' : '') + (department.yearOnYear.percentagePoints | number:'1.2-2') + ' ' + ('TEAM_PERFORMANCE.POINTS' | translate)) }}</span><span class="sr-only"> {{ 'TEAM_PERFORMANCE.COMPARISON.' + department.yearOnYear.status | translate }}</span></td>
+        <td><a [routerLink]="teamLink(department)">{{ 'ORG_PERFORMANCE.VIEW_TEAM' | translate }}</a></td></tr>
+      } @empty { <tr><td colspan="7" class="empty">{{ (view.departments.length ? 'ORG_PERFORMANCE.NO_MATCHES' : 'ORG_PERFORMANCE.NO_DEPARTMENTS') | translate }}</td></tr> }</tbody></table></div>
+    </section>
+    <section class="card decision-distribution" aria-labelledby="org-decisions-title"><div class="card-head section-heading"><div><h3 id="org-decisions-title">{{ 'ORG_PERFORMANCE.DECISIONS' | translate }}</h3><p class="help">{{ 'ORG_PERFORMANCE.DECISIONS_HELP' | translate }}</p></div>
+      <div class="field"><label for="org-decisions">{{ 'ORG_PERFORMANCE.DECISION_SHOWN' | translate }}</label><nz-select nzId="org-decisions" [ngModel]="decisionKind" (ngModelChange)="changeSelection({ decisions: $event }, true)">@for (kind of ['superiorRecommendations', 'hrFinalDecisions']; track kind) { <nz-option [nzValue]="kind" [nzLabel]="'ORG_PERFORMANCE.DECISION_SERIES.' + kind | translate" /> }</nz-select></div>
+    </div><div class="card-body">
+      @if (decisions; as series) {
+        @if (series.disclosure === 'AVAILABLE') {
+          @for (item of series.counts; track item.decision) { <div class="distribution-bin decision-bin"><div class="bin-label"><span>{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + item.decision | translate }}</span><span><strong>{{ item.count }}</strong> <span class="help">({{ decisionPercent(item.count) | number:'1.0-1' }}%)</span></span></div><div class="bar-track" aria-hidden="true"><div class="bar-fill" [style.width.%]="decisionPercent(item.count)"></div></div></div> }
+          <p class="help">{{ 'ORG_PERFORMANCE.DECISION_BASE.' + decisionKind | translate:{ count: series.total } }}</p>
+        } @else if (series.disclosure === 'NO_DATA') { <p class="empty">{{ 'ORG_PERFORMANCE.NO_DECISIONS' | translate }}</p> }
+        @else { <div class="privacy-notice" role="status"><strong>{{ 'ORG_PERFORMANCE.PRIVACY' | translate }}</strong><p class="help">{{ 'ORG_PERFORMANCE.PRIVACY_HELP' | translate }}</p></div> }
+      }
+    </div></section>
+    <p class="help export-help">{{ 'ORG_PERFORMANCE.EXPORT_HELP' | translate }}</p>
+  }
+</main>

@@ -20,11 +20,12 @@ import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.componen
 import { AttitudeSelfAssessmentComponent } from './attitude-self-assessment.component';
 import { notificationTarget } from '../../services/notification-navigation';
 import { NotificationTargetComponent } from '../../components/notification-bell/notification-target.component';
+import { KpiScoreSummaryComponent, breakdownLevelScore } from './kpi-score-summary.component';
 
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzInputModule,
-    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent, CompanyReportingSourceComponent, NotificationTargetComponent],
+    NzDrawerModule, NzTabsModule, NzModalModule, KpiItemEditorComponent, KpiScoringGuideComponent, AttitudeSelfAssessmentComponent, CompanyReportingSourceComponent, NotificationTargetComponent, KpiScoreSummaryComponent],
   templateUrl: './my-assessments.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './my-assessments.component.scss']
 })
@@ -59,11 +60,7 @@ export class MyAssessmentsComponent implements OnInit {
   breakdownLoading = false;
   breakdownError = false;
   breakdown: KpiScoreBreakdown | null = null;
-  breakdownLevelScore(level: KpiScoreBreakdown['levels'][number]): number | null {
-    if (level.status !== 'AVAILABLE' || level.contribution === null || level.allocation <= 0) return null;
-    // Display the unweighted score from the server's exact contribution, without recalculating the total.
-    return level.contribution * 100 / level.allocation;
-  }
+  readonly breakdownLevelScore = breakdownLevelScore;
   detailItem: KpiItem[] = [];
   detailScope: KpiAssessmentItem['level'] = 'INDIVIDUAL';
   readonly points = [1, 2, 3, 4, 5];
