@@ -98,8 +98,10 @@ export class SessionAttendanceComponent implements OnChanges {
   get rows(): TrainingAttendanceRow[] {
     const q = this.search.trim().toLowerCase();
     const rows = this.sheet?.rows ?? [];
+    const ic = q.replace(/[\s-]/g, '');
     return q ? rows.filter(r => r.name.toLowerCase().includes(q)
-      || (r.departmentName ?? '').toLowerCase().includes(q)) : rows;
+      || (r.departmentName ?? '').toLowerCase().includes(q)
+      || (!!ic && (r.idNumber ?? '').toLowerCase().includes(ic))) : rows;
   }
 
   /** The counts as marked here, saved or not. */

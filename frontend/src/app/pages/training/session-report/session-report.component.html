@@ -21,9 +21,7 @@
       <button nz-button nzType="primary" [nzLoading]="downloading" (click)="download()">
         <nz-icon nzType="file-excel"></nz-icon> Download Excel
       </button>
-      <span class="muted">{{ r.fullIdNumbersInFile
-        ? 'Your copy has full IC and passport numbers, for HRDC claims. Each download is logged.'
-        : "IC and passport numbers show their last 4 characters; HR's copy has them in full." }}</span>
+      <span class="muted">The file has IC and passport numbers in full, for HRDC claims. Each download is logged.</span>
     </div>
 
     <!-- The numbers -->

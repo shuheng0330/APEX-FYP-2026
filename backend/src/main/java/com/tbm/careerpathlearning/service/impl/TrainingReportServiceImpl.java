@@ -59,17 +59,16 @@ public class TrainingReportServiceImpl implements TrainingReportService {
     @Override
     @Transactional(readOnly = true)
     public TrainingSessionReportDto report(Long sessionId, TrainingViewer viewer) {
-        return build(viewable(sessionId, viewer), viewer, false);
+        return build(viewable(sessionId, viewer), viewer);
     }
 
     @Override
     @Transactional
     public TrainingDownload reportFile(Long sessionId, TrainingViewer viewer) {
         TrainingProgram s = viewable(sessionId, viewer);
-        boolean fullIds = viewer.hr(); // decision D, 28 Oct 2026
-        TrainingSessionReportDto r = build(s, viewer, fullIds);
+        TrainingSessionReportDto r = build(s, viewer);
         byte[] content = workbook(s, r);
-        if (fullIds && r.getPeople().stream().anyMatch(p -> p.getIdNumber() != null)) {
+        if (r.getPeople().stream().anyMatch(p -> p.getIdNumber() != null)) {
             trainingAuditService.record(viewer.userId(), TrainingAuditAction.IC_NUMBERS_EXPORTED, TrainingAuditTarget.SESSION,
                     String.valueOf(sessionId), null, "Session report with IC numbers");
         }
@@ -85,7 +84,9 @@ public class TrainingReportServiceImpl implements TrainingReportService {
         return s;
     }
 
-    private TrainingSessionReportDto build(TrainingProgram s, TrainingViewer viewer, boolean fullIds) {
+    private TrainingSessionReportDto build(TrainingProgram s, TrainingViewer viewer) {
+        // The HRDC details, IC or passport number in full, are for whoever records the attendance, as on the People tab.
+        boolean details = TrainingAttendanceServiceImpl.recorder(s, viewer);
         Long id = s.getTrainingId();
         LocalDateTime now = LocalDateTime.now(clock);
         List<TrainingRegistration> registrations = trainingRegistrationRepository.findAllByTrainingId(id);
@@ -140,9 +141,9 @@ public class TrainingReportServiceImpl implements TrainingReportService {
                 p.setRoleName(person.getRole() == null ? null : person.getRole().getName());
                 p.setDepartmentName(department == null ? null : department.getName());
             }
-            if (form != null) {
+            if (form != null && details) {
                 p.setBranch(form.getBranch());
-                p.setIdNumber(fullIds ? form.getIdNumber() : TrainingRegistrationServiceImpl.masked(form.getIdNumber()));
+                p.setIdNumber(form.getIdNumber());
             }
             p.setStatus(mark == null ? "NOT_RECORDED" : mark.getStatus().name());
             if (mark != null) {
@@ -181,7 +182,6 @@ public class TrainingReportServiceImpl implements TrainingReportService {
         }
         r.setGeneratedAt(now);
         r.setGeneratedByName(name(staff, viewer.userId()));
-        r.setFullIdNumbersInFile(viewer.hr());
         return r;
     }
 
@@ -246,11 +246,8 @@ public class TrainingReportServiceImpl implements TrainingReportService {
                 book.row(sheet, i++, book.note, "None attached.");
             }
             i++;
-            book.row(sheet, i++, book.note, "Made by " + r.getGeneratedByName() + " on "
+            book.row(sheet, i, book.note, "Made by " + r.getGeneratedByName() + " on "
                     + r.getGeneratedAt().format(TrainingSpreadsheets.STAMP) + ", Malaysia time.");
-            if (!r.isFullIdNumbersInFile()) {
-                book.row(sheet, i, book.note, "IC and passport numbers show their last 4 characters. HR's copy has them in full.");
-            }
             return book.bytes();
         }
     }

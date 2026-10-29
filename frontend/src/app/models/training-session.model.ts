@@ -115,6 +115,8 @@ export interface TrainingAttendanceRow {
   name: string;
   roleName?: string;
   departmentName?: string;
+  /** From the HRDC form, in full, for whoever records the attendance: to check each person as they are marked. */
+  idNumber?: string;
   status: TrainingAttendanceStatus | 'NOT_RECORDED';
   quizScore?: number;
   walkIn: boolean;
@@ -242,8 +244,6 @@ export interface TrainingSessionReport {
   evidence: TrainingEvidence[];
   generatedAt: string;
   generatedByName?: string;
-  /** The signed-in user's Excel copy has full IC or passport numbers: HR only. */
-  fullIdNumbersInFile: boolean;
 }
 
 export interface TrainingReportPerson {
@@ -251,8 +251,8 @@ export interface TrainingReportPerson {
   email?: string;
   roleName?: string;
   departmentName?: string;
+  /** From the HRDC form, for whoever records the attendance. */
   branch?: string;
-  /** Its last 4 characters only. */
   idNumber?: string;
   walkIn: boolean;
   status: TrainingAttendanceStatus | 'NOT_RECORDED';
@@ -300,7 +300,7 @@ export interface TrainingPerson {
   registeredAt?: string;
   note?: string;
   addedByName?: string;
-  /** HRDC details, for the session's trainer and HR only; the IC or passport number shows its last 4 characters. */
+  /** HRDC details, for the session's trainer and HR only, with the IC or passport number in full. */
   idNumber?: string;
   phone?: string;
   branch?: string;

@@ -54,8 +54,6 @@ public class TrainingSessionReportDto {
     private List<TrainingAttendanceSheetDto.Evidence> evidence = new ArrayList<>();
     private LocalDateTime generatedAt;
     private String generatedByName;
-    /** The signed-in user's Excel copy has full IC or passport numbers: HR only (decision D, 28 Oct 2026). */
-    private boolean fullIdNumbersInFile;
 
     @Data
     public static class Person {
@@ -63,9 +61,8 @@ public class TrainingSessionReportDto {
         private String email;
         private String roleName;
         private String departmentName;
-        /** From the HRDC registration form, when the session had one. */
+        /** From the HRDC registration form, when the session had one; for whoever records the attendance. */
         private String branch;
-        /** On screen, its last 4 characters only. */
         private String idNumber;
         private boolean walkIn;
         /** ATTENDED, ABSENT or NOT_RECORDED. */

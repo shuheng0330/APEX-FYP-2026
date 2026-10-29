@@ -217,7 +217,7 @@ public class TrainingRegistrationServiceImpl implements TrainingRegistrationServ
             Staff adder = r.getAddedBy() == null ? null : staff.get(r.getAddedBy());
             row.setAddedByName(r.getAddedBy() == null ? null : adder == null ? "Unknown user" : adder.getName());
             if (details) {
-                row.setIdNumber(masked(r.getIdNumber()));
+                row.setIdNumber(r.getIdNumber());
                 row.setPhone(r.getPhone());
                 row.setBranch(r.getBranch());
             }
@@ -541,12 +541,4 @@ public class TrainingRegistrationServiceImpl implements TrainingRegistrationServ
         }
         return dto;
     }
-
-    /** "********1234": the last 4 characters of an IC or passport number. */
-    static String masked(String idNumber) {
-        if (idNumber == null || idNumber.isBlank()) return null;
-        String digits = idNumber.replace("-", "");
-        return digits.length() <= 4 ? digits : "*".repeat(digits.length() - 4) + digits.substring(digits.length() - 4);
-    }
-
 }
