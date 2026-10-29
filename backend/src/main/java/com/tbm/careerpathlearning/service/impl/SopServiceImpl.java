@@ -40,6 +40,7 @@ import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.service.CourseCategoryService;
 import com.tbm.careerpathlearning.service.DocumentParserService;
 import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
@@ -74,6 +75,7 @@ import java.util.stream.Collectors;
 @Service
 public class SopServiceImpl implements SopService {
 
+    @Autowired private CourseCategoryService courseCategoryService;
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopQuizQuestionRepository sopQuizQuestionRepository;
@@ -802,6 +804,7 @@ public class SopServiceImpl implements SopService {
         dto.setVersion(d.getVersion());
         dto.setOriginalFilename(d.getOriginalFilename());
         dto.setDepartmentTag(d.getDepartmentTag());
+        dto.setCategories(courseCategoryService.ofCourse(d.courseKey()));
         dto.setGenerationStatus(d.getGenerationStatus());
         dto.setStatusMessage(d.getStatusMessage());
         dto.setModuleCount(moduleCount);

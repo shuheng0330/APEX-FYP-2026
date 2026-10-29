@@ -29,6 +29,8 @@ import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainerAccessGrant;
+import com.tbm.careerpathlearning.model.CourseCategory;
+import com.tbm.careerpathlearning.model.CourseCategoryLink;
 import com.tbm.careerpathlearning.model.TrainingAccessRequest;
 import com.tbm.careerpathlearning.model.TrainingAttendance;
 import com.tbm.careerpathlearning.model.TrainingEvidence;
@@ -54,6 +56,8 @@ import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
+import com.tbm.careerpathlearning.repository.CourseCategoryLinkRepository;
+import com.tbm.careerpathlearning.repository.CourseCategoryRepository;
 import com.tbm.careerpathlearning.repository.TrainingAccessRequestRepository;
 import com.tbm.careerpathlearning.repository.TrainingAttendanceRepository;
 import com.tbm.careerpathlearning.repository.TrainingEvidenceRepository;
@@ -62,6 +66,7 @@ import com.tbm.careerpathlearning.repository.TrainingAuditLogRepository;
 import com.tbm.careerpathlearning.repository.TrainingInvitationRepository;
 import com.tbm.careerpathlearning.repository.TrainingProgramRepository;
 import com.tbm.careerpathlearning.repository.TrainingRegistrationRepository;
+import com.tbm.careerpathlearning.service.CourseCategoryService;
 import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
@@ -120,7 +125,7 @@ class SopTestStore {
             AuthorityRepository.class, RoleAuthorityRepository.class, OrgChartRepository.class, RoleRepository.class,
             TrainingProgramRepository.class, TrainingRegistrationRepository.class, TrainingInvitationRepository.class,
             TrainingAttendanceRepository.class, TrainingEvidenceRepository.class, TrainingSessionTemplateRepository.class,
-            TrainingAccessRequestRepository.class);
+            TrainingAccessRequestRepository.class, CourseCategoryRepository.class, CourseCategoryLinkRepository.class);
 
     final Map<Long, SopDocument> docs = new LinkedHashMap<>();
     final Map<Long, SopModule> modules = new LinkedHashMap<>();
@@ -147,6 +152,9 @@ class SopTestStore {
     final Map<Long, TrainingEvidence> evidence = new LinkedHashMap<>();
     final Map<Long, TrainingSessionTemplate> templates = new LinkedHashMap<>();
     final Map<Long, TrainingAccessRequest> accessRequests = new LinkedHashMap<>();
+    /** Course categories (FR-19) and the courses carrying them. */
+    final Map<Long, CourseCategory> categories = new LinkedHashMap<>();
+    final Map<Long, CourseCategoryLink> categoryLinks = new LinkedHashMap<>();
     final List<RoleAuthority> roleAuthorities = new ArrayList<>();
     /** Notifications the services sent, in order. */
     final List<Sent> notifications = new ArrayList<>();
@@ -163,6 +171,7 @@ class SopTestStore {
     private TrainingRegistrationService sessionRegistrations;
     private TrainingTemplateService sessionTemplates;
     private TrainingService sessionsService;
+    private CourseCategoryService courseCategories;
     private final NotificationService notifier = new RecordingNotifications();
     private FolderFiles files;
 
@@ -181,6 +190,7 @@ class SopTestStore {
                         : f.getType() == TrainingRegistrationService.class ? sessionRegistrations()
                         : f.getType() == TrainingTemplateService.class ? sessionTemplates()
                         : f.getType() == TrainingService.class ? sessionsService()
+                        : f.getType() == CourseCategoryService.class ? courseCategories()
                         : f.getType() == NotificationService.class ? notifier
                         : f.getType() == FileService.class ? files()
                         : null;
@@ -233,6 +243,13 @@ class SopTestStore {
             sessionRegistrations = wire(new TrainingRegistrationServiceImpl());
         }
         return sessionRegistrations;
+    }
+
+    CourseCategoryService courseCategories() {
+        if (courseCategories == null) {
+            courseCategories = wire(new CourseCategoryServiceImpl());
+        }
+        return courseCategories;
     }
 
     TrainingService sessionsService() {
@@ -685,6 +702,29 @@ class SopTestStore {
                     .sorted(Comparator.comparing(TrainingEvidence::getUploadedAt).thenComparing(TrainingEvidence::getEvidenceId))
                     .toList();
         }
+        if (type == CourseCategoryRepository.class) {
+            switch (method) {
+                case "findByCode":
+                    return categories.values().stream().filter(c -> a[0].equals(c.getCode())).findFirst();
+                case "existsByNameIgnoreCase":
+                    return categories.values().stream().anyMatch(c -> c.getName().equalsIgnoreCase((String) a[0]));
+                case "existsByNameIgnoreCaseAndCategoryIdNot":
+                    return categories.values().stream()
+                            .anyMatch(c -> c.getName().equalsIgnoreCase((String) a[0]) && !c.getCategoryId().equals(a[1]));
+                default:
+            }
+        }
+        if (type == CourseCategoryLinkRepository.class) {
+            switch (method) {
+                case "findAllByCourseKey":
+                    return categoryLinks.values().stream().filter(l -> l.getCourseKey().equals(a[0])).toList();
+                case "findAllByCourseKeyIn":
+                    return categoryLinks.values().stream().filter(l -> ((Collection<?>) a[0]).contains(l.getCourseKey())).toList();
+                case "findAllByCategoryId":
+                    return categoryLinks.values().stream().filter(l -> l.getCategoryId().equals(a[0])).toList();
+                default:
+            }
+        }
         if (type == TrainingAccessRequestRepository.class) {
             switch (method) {
                 case "existsByStaffIdAndTrainingId":
@@ -751,6 +791,8 @@ class SopTestStore {
         if (type == TrainingEvidenceRepository.class) return evidence;
         if (type == TrainingSessionTemplateRepository.class) return templates;
         if (type == TrainingAccessRequestRepository.class) return accessRequests;
+        if (type == CourseCategoryRepository.class) return categories;
+        if (type == CourseCategoryLinkRepository.class) return categoryLinks;
         return staff;
     }
 
@@ -814,6 +856,12 @@ class SopTestStore {
         } else if (entity instanceof TrainingAccessRequest x) {
             if (x.getRequestId() == null) x.setRequestId(ids.incrementAndGet());
             accessRequests.put(x.getRequestId(), x);
+        } else if (entity instanceof CourseCategory x) {
+            if (x.getCategoryId() == null) x.setCategoryId(ids.incrementAndGet());
+            categories.put(x.getCategoryId(), x);
+        } else if (entity instanceof CourseCategoryLink x) {
+            if (x.getLinkId() == null) x.setLinkId(ids.incrementAndGet());
+            categoryLinks.put(x.getLinkId(), x);
         } else {
             throw new UnsupportedOperationException("save " + entity.getClass().getSimpleName());
         }

@@ -1,0 +1,25 @@
+<div class="course-categories">
+  <div class="title-row">
+    <span class="title">Categories</span>
+    @if (canChange && !editing) {
+      <button nz-button nzType="link" nzSize="small" (click)="start()">Change</button>
+    }
+  </div>
+  @if (!editing) {
+    <div class="chips">
+      @for (c of chips; track c.id ?? c.name) {
+        <span class="chip" [class.retired]="c.retired" [style.background]="c.color + '1a'" [style.color]="c.color"
+              [attr.title]="c.retired ? 'Retired: kept on this course, no longer offered' : (c.primary && chips.length > 1 ? 'Main category' : null)">
+          <nz-icon [nzType]="c.icon"></nz-icon> {{ c.name }}
+        </span>
+      }
+    </div>
+  } @else {
+    <app-course-category-picker [(ids)]="ids" [(primaryId)]="primaryId"></app-course-category-picker>
+    <p class="hint">Up to 5, shared by every version of this course. The main one is shown first on My Learning.</p>
+    <div class="edit-actions">
+      <button nz-button nzSize="small" [disabled]="saving" (click)="editing = false">Cancel</button>
+      <button nz-button nzSize="small" nzType="primary" [nzLoading]="saving" [disabled]="!ids.length" (click)="save()">Save</button>
+    </div>
+  }
+</div>

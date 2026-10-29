@@ -69,6 +69,8 @@ export class MyLearningComponent implements OnInit {
   statusFilter: StatusFilter = 'All';
   groupBy: 'status' | 'category' = 'status';
   activeCategories: string[] = [];
+  /** Each category's own colour, from the courses shown. */
+  private categoryColors = new Map<string, string>();
   expanded: Record<string, boolean> = {};
 
   // Derived view, rebuilt whenever the data or a filter changes.
@@ -146,8 +148,10 @@ export class MyLearningComponent implements OnInit {
       { label: 'Open courses', value: this.home.openCourses.length, tone: 'primary' },
     ];
     this.assignedCount = courses.filter(c => !c.selfEnrolled).length;
-    this.categories = [...new Set([...courses, ...this.home.openCourses].map(c => c.category))]
-      .sort((a, b) => a.localeCompare(b));
+    // FR-19-06: only categories that some course here carries; colours as each category's own (FR-19-01).
+    const all = [...courses, ...this.home.openCourses];
+    this.categoryColors = new Map(all.flatMap(c => c.categories ?? []).map(cat => [cat.name, cat.color]));
+    this.categories = [...new Set(all.flatMap(c => this.categoriesOf(c)))].sort((a, b) => a.localeCompare(b));
     this.activeCategories = this.activeCategories.filter(c => this.categories.includes(c));
 
     const mine = courses
@@ -161,7 +165,7 @@ export class MyLearningComponent implements OnInit {
           courses: mine.filter(c => this.statusGroup(c) === g.key)
         }))
       : this.categories.map(cat => {
-          const inCat = mine.filter(c => c.category === cat);
+          const inCat = mine.filter(c => c.category === cat); // under its main category only, so no course shows twice
           return {
             key: cat, label: cat, tone: 'category',
             note: `${inCat.filter(c => c.mandatory).length} mandatory · ${inCat.filter(c => c.status === 'COMPLETED').length} completed`,
@@ -185,7 +189,11 @@ export class MyLearningComponent implements OnInit {
   }
 
   private matchesCategory(c: LearningCourse): boolean {
-    return !this.activeCategories.length || this.activeCategories.includes(c.category);
+    return !this.activeCategories.length || this.categoriesOf(c).some(cat => this.activeCategories.includes(cat));
+  }
+
+  private categoriesOf(c: LearningCourse): string[] {
+    return c.categories?.length ? c.categories.map(cat => cat.name) : [c.category];
   }
 
   private matchesStatus(c: LearningCourse): boolean {
@@ -231,7 +239,7 @@ export class MyLearningComponent implements OnInit {
   // --- display helpers ------------------------------------------------------
 
   theme(category: string): CategoryTheme {
-    return categoryTheme(category);
+    return categoryTheme(category, this.categoryColors.get(category));
   }
 
   progress(c: LearningCourse): number {

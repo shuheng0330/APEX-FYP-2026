@@ -27,5 +27,11 @@ public enum TrainingAuditAction {
     /** The session's trainer or HR downloaded its report or attendance file, with IC or passport numbers (decision D). */
     IC_NUMBERS_EXPORTED,
     /** Someone asked for Trainer access after attending a Product Training session (FR-15-06); target STAFF. */
-    TRAINER_ACCESS_REQUESTED
+    TRAINER_ACCESS_REQUESTED,
+    /** Course categories (FR-19-01 to FR-19-04); target CATEGORY. */
+    CATEGORY_CREATED,
+    CATEGORY_CHANGED,
+    CATEGORY_RETIRED,
+    CATEGORY_RESTORED,
+    CATEGORY_DELETED
 }

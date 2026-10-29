@@ -5,6 +5,8 @@ import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import lombok.Data;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 public class SopDocumentDto {
@@ -13,6 +15,8 @@ public class SopDocumentDto {
     private String version;
     private String originalFilename;
     private String departmentTag;
+    /** The course's categories, primary first (FR-19-05). */
+    private List<CourseCategoryChipDto> categories = new ArrayList<>();
     private SopGenerationStatus generationStatus;
     private String statusMessage;
     private int moduleCount;

@@ -1,0 +1,116 @@
+<div class="course-categories page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training Automation</span>
+      <h1>Course Categories</h1>
+      <p>Group courses on My Learning. Every course has at least one category; General is the one courses fall back to.</p>
+    </div>
+    <button nz-button nzType="primary" (click)="openNew()"><nz-icon nzType="plus"></nz-icon> New category</button>
+  </div>
+
+  <nz-spin [nzSpinning]="loading">
+    <div class="grid">
+      @for (c of active; track c.id) {
+        <ng-container [ngTemplateOutlet]="card" [ngTemplateOutletContext]="{ $implicit: c }"></ng-container>
+      }
+    </div>
+
+    @if (retired.length) {
+      <h2 class="retired-heading">Retired</h2>
+      <p class="muted">No longer offered for courses; kept on the courses that have them (FR-19-03).</p>
+      <div class="grid">
+        @for (c of retired; track c.id) {
+          <ng-container [ngTemplateOutlet]="card" [ngTemplateOutletContext]="{ $implicit: c }"></ng-container>
+        }
+      </div>
+    }
+  </nz-spin>
+</div>
+
+<ng-template #card let-c>
+  <article class="category surface-panel" [class.is-retired]="c.retired">
+    <span class="badge" [style.background]="c.color + '1a'" [style.color]="c.color">
+      <nz-icon [nzType]="c.icon"></nz-icon>
+    </span>
+    <div class="body">
+      <strong>{{ c.name }}</strong>
+      <div class="tags">
+        @if (c.general) {
+          <nz-tag>Fallback</nz-tag>
+        } @else if (c.defaultCategory) {
+          <nz-tag>Default</nz-tag>
+        } @else {
+          <nz-tag nzColor="purple">Custom</nz-tag>
+        }
+        @if (c.retired) { <nz-tag>Retired</nz-tag> }
+      </div>
+      <span class="muted">{{ c.courseCount }} {{ c.courseCount === 1 ? 'course' : 'courses' }}{{ c.createdByName ? ' · made by ' + c.createdByName : '' }}</span>
+    </div>
+    <div class="actions">
+      @if (c.canEdit) {
+        <button nz-button nzSize="small" (click)="openEdit(c)" [attr.aria-label]="'Change ' + c.name">
+          <nz-icon nzType="edit"></nz-icon>
+        </button>
+      }
+      @if (c.canRetire) {
+        @if (c.retired) {
+          <button nz-button nzSize="small" [disabled]="busy" (click)="restore(c)">Restore</button>
+        } @else {
+          <button nz-button nzSize="small" [disabled]="busy" nz-popconfirm
+                  [nzPopconfirmTitle]="'Retire ' + c.name + '? It is no longer offered, and stays on its courses.'"
+                  (nzOnConfirm)="retire(c)">Retire</button>
+        }
+      }
+      @if (c.canDelete) {
+        <button nz-button nzSize="small" nzDanger nzType="text" [disabled]="busy" nz-popconfirm
+                [nzPopconfirmTitle]="deleteQuestion(c)" (nzOnConfirm)="remove(c)" [attr.aria-label]="'Delete ' + c.name">
+          <nz-icon nzType="delete"></nz-icon>
+        </button>
+      }
+    </div>
+  </article>
+</ng-template>
+
+<nz-modal [nzVisible]="!!editing" [nzTitle]="editing?.id === null ? 'New category' : 'Change category'"
+          (nzOnCancel)="editing = null" [nzFooter]="footer">
+  <ng-container *nzModalContent>
+    @if (editing; as e) {
+      <div class="form">
+        <label class="field">Name
+          <input nz-input [(ngModel)]="e.name" maxlength="60" [disabled]="!e.canRename"
+                 placeholder="For example: HRDC Claimable" />
+          @if (!e.canRename) { <span class="muted">General keeps its name.</span> }
+        </label>
+        <div class="field" role="radiogroup" aria-label="Colour">Colour
+          <div class="swatches">
+            @for (col of options.colors; track col) {
+              <button type="button" class="swatch" [style.background]="col" [class.on]="e.color === col"
+                      [attr.aria-label]="col" [attr.aria-checked]="e.color === col" role="radio"
+                      (click)="e.color = col"></button>
+            }
+          </div>
+        </div>
+        <div class="field" role="radiogroup" aria-label="Icon">Icon
+          <div class="icons">
+            @for (ic of options.icons; track ic) {
+              <button type="button" class="icon" [class.on]="e.icon === ic" [style.color]="e.icon === ic ? e.color : null"
+                      [attr.aria-label]="ic" [attr.aria-checked]="e.icon === ic" role="radio" (click)="e.icon = ic">
+                <nz-icon [nzType]="ic"></nz-icon>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="preview">
+          <span class="muted">Shows as</span>
+          <span class="chip" [style.background]="e.color + '1a'" [style.color]="e.color">
+            <nz-icon [nzType]="e.icon"></nz-icon> {{ e.name.trim() || 'Category' }}
+          </span>
+        </div>
+      </div>
+    }
+  </ng-container>
+  <ng-template #footer>
+    <button nz-button (click)="editing = null">Cancel</button>
+    <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="!editing?.name?.trim()" (click)="save()">Save</button>
+  </ng-template>
+</nz-modal>

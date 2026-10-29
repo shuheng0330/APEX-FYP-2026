@@ -1,5 +1,6 @@
 import { QuizDifficulty, QuizQuestionType } from './sop.model';
 import { SopAssignmentMode } from './sop-assignment.model';
+import { CourseCategoryChip } from './course-category.model';
 
 /** WITHDRAWN: the course was archived before they finished it; their progress is kept (FR-06-15). */
 export type SopEnrollmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'WITHDRAWN';
@@ -16,7 +17,12 @@ export interface LearningCourse {
   sopDocumentId: number;
   title: string;
   version?: string | null;
+  /** The primary category (FR-19-05), with its colour and icon... */
   category: string;
+  categoryColor?: string;
+  categoryIcon?: string;
+  /** ...and every category the course carries, for the filters (FR-19-06). */
+  categories?: CourseCategoryChip[];
   moduleCount: number;
   /** Null for an Open course the learner has not joined. */
   enrollmentId?: number | null;

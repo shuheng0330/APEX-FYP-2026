@@ -7,5 +7,7 @@ public enum TrainingAuditTarget {
     STAFF,
     COURSE,
     /** A training session (FR-12); the target id is the session's id. */
-    SESSION
+    SESSION,
+    /** A course category (FR-19); the target id is the category's id. */
+    CATEGORY
 }
