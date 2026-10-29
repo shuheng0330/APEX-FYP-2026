@@ -3,8 +3,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  TrainingAudienceCheck, TrainingPerson, TrainingRegistrationForm, TrainingRegistrationRequest, TrainingSession,
-  TrainingSessionRequest, TrainingTrainer
+  TrainingAttendanceEntry, TrainingAttendanceSheet, TrainingAudienceCheck, TrainingPerson, TrainingRegistrationForm,
+  TrainingRegistrationRequest, TrainingSession, TrainingSessionRequest, TrainingTrainer
 } from '../models/training-session.model';
 
 /** Client for the Training Calendar's sessions (/api/trainings, FR-12). */
@@ -104,5 +104,46 @@ export class TrainingSessionService {
 
   offerSeat(id: number, registrationId: number): Observable<TrainingPerson[]> {
     return this.http.post<TrainingPerson[]>(`${this.baseUrl}/${id}/people/${registrationId}/offer`, {}, { withCredentials: true });
+  }
+
+  // --- attendance: the trainer and HR (FR-14) ------------------------------------------------
+
+  /** Sessions whose attendance the signed-in user has still to submit, oldest first (FR-14-10). */
+  awaitingAttendance(): Observable<TrainingSession[]> {
+    return this.http.get<TrainingSession[]>(`${this.baseUrl}/awaiting-attendance`, { withCredentials: true });
+  }
+
+  attendance(id: number): Observable<TrainingAttendanceSheet> {
+    return this.http.get<TrainingAttendanceSheet>(`${this.baseUrl}/${id}/attendance`, { withCredentials: true });
+  }
+
+  /** The reason only when HR changes it after submission or after the trainer's 7 days. */
+  recordAttendance(id: number, entries: TrainingAttendanceEntry[], reason?: string): Observable<TrainingAttendanceSheet> {
+    return this.http.put<TrainingAttendanceSheet>(`${this.baseUrl}/${id}/attendance`, { entries, reason }, { withCredentials: true });
+  }
+
+  addWalkIn(id: number, staffId: string, reason?: string): Observable<TrainingAttendanceSheet> {
+    return this.http.post<TrainingAttendanceSheet>(`${this.baseUrl}/${id}/attendance/walk-ins`, { staffId, reason },
+      { withCredentials: true });
+  }
+
+  submitAttendance(id: number, reason?: string): Observable<TrainingAttendanceSheet> {
+    return this.http.post<TrainingAttendanceSheet>(`${this.baseUrl}/${id}/attendance/submit`, { reason }, { withCredentials: true });
+  }
+
+  addEvidence(id: number, file: File): Observable<TrainingAttendanceSheet> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<TrainingAttendanceSheet>(`${this.baseUrl}/${id}/attendance/evidence`, form, { withCredentials: true });
+  }
+
+  removeEvidence(id: number, evidenceId: number): Observable<TrainingAttendanceSheet> {
+    return this.http.delete<TrainingAttendanceSheet>(`${this.baseUrl}/${id}/attendance/evidence/${evidenceId}`,
+      { withCredentials: true });
+  }
+
+  /** The file itself, fetched with the sign-in so it can be opened in a new tab. */
+  evidenceFile(id: number, evidenceId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${id}/attendance/evidence/${evidenceId}`, { responseType: 'blob', withCredentials: true });
   }
 }

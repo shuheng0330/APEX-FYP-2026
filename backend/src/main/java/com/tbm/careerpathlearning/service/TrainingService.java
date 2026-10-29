@@ -25,6 +25,12 @@ public interface TrainingService {
      */
     List<TrainingSessionDto> mine(TrainingViewer viewer);
 
+    /**
+     * Sessions that have started, with someone registered, whose attendance the viewer records and hasn't been
+     * submitted yet, oldest first (FR-14-10).
+     */
+    List<TrainingSessionDto> awaitingAttendance(TrainingViewer viewer);
+
     /** Schedules a session in the viewer's name (FR-12-01 to FR-12-05). */
     TrainingSessionDto schedule(TrainingSessionRequest request, TrainingViewer viewer);
 

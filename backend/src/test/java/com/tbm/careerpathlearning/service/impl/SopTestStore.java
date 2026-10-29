@@ -30,6 +30,7 @@ import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainerAccessGrant;
 import com.tbm.careerpathlearning.model.TrainingAttendance;
+import com.tbm.careerpathlearning.model.TrainingEvidence;
 import com.tbm.careerpathlearning.model.TrainingAuditLog;
 import com.tbm.careerpathlearning.model.TrainingInvitation;
 import com.tbm.careerpathlearning.model.TrainingProgram;
@@ -52,10 +53,12 @@ import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
 import com.tbm.careerpathlearning.repository.TrainingAttendanceRepository;
+import com.tbm.careerpathlearning.repository.TrainingEvidenceRepository;
 import com.tbm.careerpathlearning.repository.TrainingAuditLogRepository;
 import com.tbm.careerpathlearning.repository.TrainingInvitationRepository;
 import com.tbm.careerpathlearning.repository.TrainingProgramRepository;
 import com.tbm.careerpathlearning.repository.TrainingRegistrationRepository;
+import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopGenerationQueue;
@@ -65,8 +68,12 @@ import com.tbm.careerpathlearning.service.TrainingRegistrationService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -106,7 +113,7 @@ class SopTestStore {
             StaffRepository.class, TrainerAccessGrantRepository.class, TrainingAuditLogRepository.class,
             AuthorityRepository.class, RoleAuthorityRepository.class, OrgChartRepository.class, RoleRepository.class,
             TrainingProgramRepository.class, TrainingRegistrationRepository.class, TrainingInvitationRepository.class,
-            TrainingAttendanceRepository.class);
+            TrainingAttendanceRepository.class, TrainingEvidenceRepository.class);
 
     final Map<Long, SopDocument> docs = new LinkedHashMap<>();
     final Map<Long, SopModule> modules = new LinkedHashMap<>();
@@ -130,6 +137,7 @@ class SopTestStore {
     final Map<Long, TrainingRegistration> registrations = new LinkedHashMap<>();
     final Map<Long, TrainingInvitation> invitations = new LinkedHashMap<>();
     final Map<Long, TrainingAttendance> attendance = new LinkedHashMap<>();
+    final Map<Long, TrainingEvidence> evidence = new LinkedHashMap<>();
     final List<RoleAuthority> roleAuthorities = new ArrayList<>();
     /** Notifications the services sent, in order. */
     final List<Sent> notifications = new ArrayList<>();
@@ -145,6 +153,7 @@ class SopTestStore {
     private TrainerAccessService trainerAccess;
     private TrainingRegistrationService sessionRegistrations;
     private final NotificationService notifier = new RecordingNotifications();
+    private FolderFiles files;
 
     /** Sets the service's repositories, clock and course readiness check to this store's. */
     <T> T wire(T service) {
@@ -160,6 +169,7 @@ class SopTestStore {
                         : f.getType() == TrainerAccessService.class ? trainerAccess()
                         : f.getType() == TrainingRegistrationService.class ? sessionRegistrations()
                         : f.getType() == NotificationService.class ? notifier
+                        : f.getType() == FileService.class ? files()
                         : null;
                 if (value != null) {
                     ReflectionTestUtils.setField(service, f.getName(), value);
@@ -226,6 +236,18 @@ class SopTestStore {
 
     OffsetDateTime now() {
         return OffsetDateTime.now(clock);
+    }
+
+    /** Uploaded files, kept in a temporary folder. */
+    FolderFiles files() {
+        if (files == null) {
+            try {
+                files = new FolderFiles(Files.createTempDirectory("apex-test-files"));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return files;
     }
 
     // --- fixtures ---------------------------------------------------------------
@@ -564,6 +586,9 @@ class SopTestStore {
                 case "findByTrainingIdAndDeletedFalse":
                 case "lockById":
                     return Optional.ofNullable(sessions.get(a[0])).filter(x -> !x.isDeleted());
+                case "findAllByDeletedFalseAndStatusAndAttendanceSubmittedAtIsNullAndSessionDateLessThanEqual":
+                    return sessions.values().stream().filter(x -> !x.isDeleted() && x.getStatus() == a[0]
+                            && x.getAttendanceSubmittedAt() == null && !x.getSessionDate().isAfter((LocalDate) a[1])).toList();
                 default:
             }
         }
@@ -616,8 +641,18 @@ class SopTestStore {
                 case "findRecordedTrainingIds":
                     return attendance.values().stream().map(TrainingAttendance::getTrainingId)
                             .filter(((Collection<?>) a[0])::contains).distinct().toList();
+                case "findAllByTrainingId":
+                    return attendance.values().stream().filter(x -> x.getTrainingId().equals(a[0])).toList();
+                case "findAllByStaffIdAndTrainingIdIn":
+                    return attendance.values().stream()
+                            .filter(x -> x.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(x.getTrainingId())).toList();
                 default:
             }
+        }
+        if (type == TrainingEvidenceRepository.class && method.equals("findAllByTrainingIdOrderByUploadedAtAscEvidenceIdAsc")) {
+            return evidence.values().stream().filter(x -> x.getTrainingId().equals(a[0]))
+                    .sorted(Comparator.comparing(TrainingEvidence::getUploadedAt).thenComparing(TrainingEvidence::getEvidenceId))
+                    .toList();
         }
         if (type == TrainingAuditLogRepository.class && method.equals("findAllByTargetTypeAndTargetIdOrderByCreatedAtDescIdDesc")) {
             return auditLog.values().stream().filter(e -> e.getTargetType().equals(a[0]) && e.getTargetId().equals(a[1]))
@@ -662,6 +697,7 @@ class SopTestStore {
         if (type == TrainingRegistrationRepository.class) return registrations;
         if (type == TrainingInvitationRepository.class) return invitations;
         if (type == TrainingAttendanceRepository.class) return attendance;
+        if (type == TrainingEvidenceRepository.class) return evidence;
         return staff;
     }
 
@@ -716,6 +752,9 @@ class SopTestStore {
         } else if (entity instanceof TrainingAttendance x) {
             if (x.getAttendanceId() == null) x.setAttendanceId(ids.incrementAndGet());
             attendance.put(x.getAttendanceId(), x);
+        } else if (entity instanceof TrainingEvidence x) {
+            if (x.getEvidenceId() == null) x.setEvidenceId(ids.incrementAndGet());
+            evidence.put(x.getEvidenceId(), x);
         } else {
             throw new UnsupportedOperationException("save " + entity.getClass().getSimpleName());
         }
@@ -771,6 +810,34 @@ class SopTestStore {
         @Override
         public void markAllRead(UUID userId) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    /** Uploaded files under one folder, as the app's file service keeps them under its upload folder. */
+    static final class FolderFiles implements FileService {
+        final Path root;
+
+        FolderFiles(Path root) {
+            this.root = root;
+        }
+
+        @Override
+        public String uploadFile(org.springframework.web.multipart.MultipartFile file, String folderName) {
+            throw new UnsupportedOperationException("uploadFile");
+        }
+
+        @Override
+        public void deleteFile(String filePath) {
+            try {
+                Files.deleteIfExists(getFilePath(filePath));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        @Override
+        public Path getFilePath(String relativePath) {
+            return root.resolve(relativePath).normalize();
         }
     }
 

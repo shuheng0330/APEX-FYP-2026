@@ -1,0 +1,171 @@
+<section class="attendance" aria-label="Attendance">
+  @if (loading && !sheet) {
+    <p class="muted">Loading the attendance…</p>
+  }
+
+  @if (sheet; as sh) {
+    <!-- Where the attendance stands (FR-14-01, FR-14-09) -->
+    @if (sh.submitted) {
+      <nz-alert nzType="success" nzShowIcon
+                [nzMessage]="'Submitted by ' + (sh.submittedByName || 'Unknown user') + ' on ' + (sh.submittedAt | date: 'd MMM yyyy, HH:mm')"
+                [nzDescription]="sh.canChangeWithReason ? 'You can still change it as HR, giving a reason that is logged.'
+                  : 'Only HR can change it now.'"></nz-alert>
+    } @else if (sh.hrOnly) {
+      <nz-alert nzType="warning" nzShowIcon
+                [nzMessage]="'The trainer\'s 7 days ended ' + (sh.trainerUntil | date: 'EEE d MMM, HH:mm') + '.'"
+                [nzDescription]="sh.canChangeWithReason ? 'As HR you can still record and submit it, giving a reason that is logged.'
+                  : 'Only HR can record it now.'"></nz-alert>
+    } @else if (sh.canRecord) {
+      <p class="muted">Mark everyone, then submit. You can record until {{ sh.trainerUntil | date: 'EEE d MMM, HH:mm' }};
+        after that, only HR can.</p>
+    }
+
+    <!-- As in the prototype: the event's counts -->
+    <div class="summary">
+      <div class="counts">
+        <span class="count attended"><strong>{{ counts.attended }}</strong> attended</span>
+        <span class="count absent"><strong>{{ counts.absent }}</strong> absent</span>
+        <span class="count open"><strong>{{ counts.notRecorded }}</strong> not recorded</span>
+      </div>
+      <div class="bar" role="img" [attr.aria-label]="attendedPercent + '% attended'">
+        <span [style.width.%]="attendedPercent"></span>
+      </div>
+    </div>
+
+    @if (sh.rows.length > 6) {
+      <input nz-input class="search" [(ngModel)]="search" placeholder="Find by name or department" aria-label="Find a person" />
+    }
+    @if (editable && counts.notRecorded) {
+      <button nz-button nzSize="small" class="rest" (click)="markRestAttended()">
+        <nz-icon nzType="check"></nz-icon> Mark the {{ counts.notRecorded }} not recorded as Attended
+      </button>
+    }
+
+    @for (r of rows; track r.staffId) {
+      <div class="person" [class.changed]="isChanged(r)">
+        <div class="who">
+          <strong>{{ r.name }}</strong>
+          <span class="muted">{{ r.roleName || 'No job role' }}{{ r.departmentName ? ' · ' + r.departmentName : '' }}</span>
+          @if (r.recordedByName && !isChanged(r)) {
+            <span class="muted">Recorded by {{ r.recordedByName }}, {{ r.recordedAt | date: 'd MMM, HH:mm' }}</span>
+          }
+          @if (isChanged(r)) {
+            <span class="unsaved">Not saved</span>
+          }
+        </div>
+        <div class="marks">
+          @if (r.walkIn) {
+            <nz-tag nzColor="purple">Walk-in</nz-tag>
+          }
+          @if (editable) {
+            <div class="toggle" role="group" [attr.aria-label]="'Attendance for ' + r.name">
+              <button type="button" class="mark yes" [class.on]="markOf(r) === 'ATTENDED'" [attr.aria-pressed]="markOf(r) === 'ATTENDED'"
+                      (click)="setMark(r, 'ATTENDED')"><nz-icon nzType="check"></nz-icon> Attended</button>
+              <button type="button" class="mark no" [class.on]="markOf(r) === 'ABSENT'" [attr.aria-pressed]="markOf(r) === 'ABSENT'"
+                      (click)="setMark(r, 'ABSENT')"><nz-icon nzType="close"></nz-icon> Absent</button>
+            </div>
+          } @else {
+            @switch (markOf(r)) {
+              @case ('ATTENDED') { <nz-tag nzColor="green">Attended</nz-tag> }
+              @case ('ABSENT') { <nz-tag nzColor="red">Absent</nz-tag> }
+              @default { <nz-tag>Not recorded</nz-tag> }
+            }
+          }
+        </div>
+        <div class="score">
+          @if (editable && markOf(r) === 'ATTENDED') {
+            <label class="score-field">Quiz
+              <nz-input-number nzSize="small" [nzMin]="0" [nzMax]="100" [nzStep]="1" [nzPrecision]="0"
+                               [ngModel]="scoreOf(r)" (ngModelChange)="setScore(r, $event)"
+                               nzPlaceHolder="-" [attr.aria-label]="'Quiz score for ' + r.name"></nz-input-number> %
+            </label>
+          } @else if (scoreOf(r) !== null) {
+            <span class="muted">Quiz {{ scoreOf(r) }}%</span>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p class="muted">{{ search ? 'Nobody matches.' : 'Nobody is registered for this session. Add anyone who came as a walk-in.' }}</p>
+    }
+
+    @if (editable) {
+      @if (needsReason) {
+        <label class="field" for="attendance-reason">Reason for the change (logged)
+          <textarea nz-input id="attendance-reason" [(ngModel)]="reason" rows="2" maxlength="500"
+                    placeholder="For example: confirmed with the branch manager"></textarea>
+        </label>
+      }
+
+      @if (unsaved) {
+        <div class="actions sticky">
+          <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="!reasonGiven" (click)="save()">
+            Save {{ unsaved }} {{ unsaved === 1 ? 'change' : 'changes' }}
+          </button>
+          <button nz-button [disabled]="busy" (click)="discard()">Undo</button>
+        </div>
+      }
+
+      <!-- Decision A: someone who came without registering -->
+      <div class="walk-in">
+        <h4>Walk-ins</h4>
+        <div class="add-row">
+          <nz-select [(ngModel)]="walkIn" nzShowSearch nzAllowClear nzPlaceHolder="Someone who came without registering"
+                     aria-label="Add a walk-in">
+            @for (p of addable; track p.id) {
+              <nz-option [nzValue]="p.id" [nzLabel]="p.name + (p.roleName ? ' · ' + p.roleName : '')"></nz-option>
+            }
+          </nz-select>
+          <button nz-button [disabled]="!walkIn || !reasonGiven" [nzLoading]="busy" (click)="addWalkIn()">
+            <nz-icon nzType="user-add"></nz-icon> Add
+          </button>
+        </div>
+      </div>
+
+      @if (!sh.submitted) {
+        <div class="submit">
+          <button nz-button nzType="primary" [disabled]="!sh.canSubmit || !!unsaved || !reasonGiven || busy" nz-popconfirm
+                  nzPopconfirmTitle="Submit the attendance? After this, only HR can change it."
+                  (nzOnConfirm)="submit()"><nz-icon nzType="check-circle"></nz-icon> Submit attendance</button>
+          @if (unsaved) {
+            <span class="muted">Save your changes first.</span>
+          } @else if (sh.notRecorded) {
+            <span class="muted">Mark everyone first: {{ sh.notRecorded }} not recorded.</span>
+          } @else if (!sh.rows.length) {
+            <span class="muted">Nobody is on this session, so there is nothing to submit.</span>
+          }
+        </div>
+      }
+    }
+
+    <!-- FR-14-08: photos or PDFs, decision B -->
+    <div class="evidence">
+      <header>
+        <h4>Evidence</h4>
+        <span class="muted">{{ sh.evidence.length }} of {{ maxFiles }} · photos (JPG, PNG) or PDFs up to 10 MB</span>
+      </header>
+      @for (e of sh.evidence; track e.id) {
+        <div class="file">
+          <nz-icon [nzType]="e.contentType === 'application/pdf' ? 'file-pdf' : 'file-image'"></nz-icon>
+          <div class="file-name">
+            <button type="button" class="link" (click)="view(e)">{{ e.fileName }}</button>
+            <span class="muted">{{ size(e.sizeBytes) }} · {{ e.uploadedByName || 'Unknown user' }}, {{ e.uploadedAt | date: 'd MMM, HH:mm' }}</span>
+          </div>
+          @if (canChangeEvidence) {
+            <button nz-button nzSize="small" nzType="text" nzDanger [disabled]="busy" nz-popconfirm
+                    [nzPopconfirmTitle]="'Remove ' + e.fileName + '?'" (nzOnConfirm)="removeEvidence(e)"
+                    [attr.aria-label]="'Remove ' + e.fileName"><nz-icon nzType="delete"></nz-icon></button>
+          }
+        </div>
+      } @empty {
+        <p class="muted">No evidence attached.</p>
+      }
+      @if (canChangeEvidence && sh.evidence.length < maxFiles) {
+        <input #picker type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" hidden
+               (change)="upload(picker)" />
+        <button nz-button nzSize="small" class="attach" [nzLoading]="busy" (click)="picker.click()">
+          <nz-icon nzType="paper-clip"></nz-icon> Attach a photo or PDF
+        </button>
+      }
+    </div>
+  }
+</section>

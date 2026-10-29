@@ -453,7 +453,7 @@ class TrainingSessionTest {
     }
 
     @Test
-    @DisplayName("A session with attendance recorded can only be archived (FR-12-06)")
+    @DisplayName("A session with attendance recorded can only be archived, once the attendance is submitted (FR-12-06, decision D)")
     void attendedSessionsAreArchived() {
         Long id = sessions.schedule(launch(), asWeiMing).getId();
         at(today.plusDays(8), 12, 30);
@@ -463,6 +463,9 @@ class TrainingSessionTest {
                 assertThrows(BadRequestException.class, () -> sessions.delete(id, asWeiMing)).getMessage());
         assertEquals("This session has already started, so it can't be cancelled.",
                 assertThrows(BadRequestException.class, () -> sessions.cancel(id, "Too late", asWeiMing)).getMessage());
+        assertEquals("Submit the attendance first, then archive the session.",
+                assertThrows(BadRequestException.class, () -> sessions.archive(id, asWeiMing)).getMessage());
+        store.sessions.get(id).setAttendanceSubmittedAt(LocalDateTime.of(today.plusDays(8), LocalTime.of(12, 30)));
         assertEquals(TrainingSessionStatus.ARCHIVED, sessions.archive(id, asWeiMing).getStatus());
     }
 

@@ -76,6 +76,68 @@ export interface TrainingSession {
   registerBlocker?: string;
   /** Registering now puts them on the waitlist (FR-13-02). */
   wouldWaitlist: boolean;
+  /** They run it or are HR and it has started, so they can open its attendance (FR-14-01). */
+  canRecordAttendance: boolean;
+  /** When its attendance was submitted; until then it is awaiting attendance (FR-14-09, FR-14-10). */
+  attendanceSubmittedAt?: string;
+  /** Their own attendance, once it is submitted (FR-14-04). */
+  myAttendance?: TrainingAttendanceStatus;
+  myQuizScore?: number;
+}
+
+export type TrainingAttendanceStatus = 'ATTENDED' | 'ABSENT';
+
+/** A session's attendance, as its trainer and HR record it (FR-14). */
+export interface TrainingAttendanceSheet {
+  sessionId: number;
+  /** May record now without a reason: from the start until 7 days after, before it is submitted. */
+  canRecord: boolean;
+  /** Only HR can change it now, giving a reason that is logged. */
+  hrOnly: boolean;
+  /** The signed-in user is HR and may make that change. */
+  canChangeWithReason: boolean;
+  opensAt: string;
+  trainerUntil: string;
+  submitted: boolean;
+  submittedAt?: string;
+  submittedByName?: string;
+  /** Everyone is marked (FR-14-09). */
+  canSubmit: boolean;
+  attended: number;
+  absent: number;
+  notRecorded: number;
+  rows: TrainingAttendanceRow[];
+  evidence: TrainingEvidence[];
+}
+
+export interface TrainingAttendanceRow {
+  staffId: string;
+  name: string;
+  roleName?: string;
+  departmentName?: string;
+  status: TrainingAttendanceStatus | 'NOT_RECORDED';
+  quizScore?: number;
+  walkIn: boolean;
+  method?: 'MANUAL' | 'BATCH';
+  recordedByName?: string;
+  recordedAt?: string;
+}
+
+/** A photo or PDF attached as evidence of the session (FR-14-08). */
+export interface TrainingEvidence {
+  id: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedByName?: string;
+  uploadedAt: string;
+}
+
+/** Marks for some of the people on a session; a null status clears the mark. */
+export interface TrainingAttendanceEntry {
+  staffId: string;
+  status: TrainingAttendanceStatus | null;
+  quizScore: number | null;
 }
 
 /** A session as scheduled or changed (FR-12-01 to FR-12-04, FR-12-12, FR-12-13, FR-17-01). */

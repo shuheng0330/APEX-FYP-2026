@@ -53,6 +53,33 @@
     <span><nz-icon nzType="check" class="mine-mark"></nz-icon> Yours</span>
   </div>
 
+  <!-- FR-14-10: the trainer's and HR's sessions still to submit, oldest first -->
+  @if (awaiting.length) {
+    <section class="awaiting surface-panel" aria-label="Sessions awaiting attendance">
+      <header>
+        <nz-icon nzType="audit"></nz-icon>
+        <strong>Awaiting attendance</strong>
+        <span class="muted">{{ awaiting.length }} {{ awaiting.length === 1 ? 'session' : 'sessions' }} to submit</span>
+      </header>
+      <ul>
+        @for (s of awaiting; track s.id) {
+          <li>
+            <div class="awaiting-what">
+              <span class="awaiting-title">{{ s.title }}</span>
+              <span class="muted">{{ s.date | date: 'EEE d MMM' }} · {{ timeRange(s) }} · {{ s.booked }} registered</span>
+            </div>
+            @if (overdue(s)) {
+              <nz-tag nzColor="orange">HR only now</nz-tag>
+            } @else {
+              <span class="muted due">Trainer until {{ trainerUntil(s) | date: 'EEE d MMM, HH:mm' }}</span>
+            }
+            <button nz-button nzSize="small" (click)="openAttendance(s)">Record</button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   @if (showArchived) {
     <p class="archived-note">Showing archived sessions: ones that ended or were cancelled and have been put away. Their records are kept.</p>
   }
@@ -164,7 +191,7 @@
            (nzOnClose)="closeDetails()">
   <ng-container *nzDrawerContent>
     @if (selected) {
-      <app-session-details [session]="selected" (edit)="openEdit($event)" (changed)="onChanged($event)"
+      <app-session-details [session]="selected" [openOn]="openOn" (edit)="openEdit($event)" (changed)="onChanged($event)"
                            (deleted)="onDeleted($event)"></app-session-details>
     }
   </ng-container>

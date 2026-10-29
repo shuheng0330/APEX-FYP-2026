@@ -17,6 +17,11 @@
 .description p { margin: 0; font-size: 13px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
 .byline { padding-top: 12px; border-top: 1px solid var(--tbm-border); }
 
+.tabs ::ng-deep .ant-tabs-nav { margin-bottom: 14px; }
+.awaiting-dot { display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 50%; background: var(--tbm-warning, #faad14); vertical-align: middle; }
+.link { padding: 0; border: 0; background: none; color: var(--tbm-primary); font-size: 13px; cursor: pointer; }
+.link:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 2px; }
+
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .cancel-box { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid #ffccc7; border-radius: 8px; background: #fff1f0; }
 .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--tbm-text); }

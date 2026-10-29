@@ -1,3 +1,35 @@
+@if (showPeople || showAttendance) {
+  <!-- Whoever runs or manages the session: its details, who is on it, and its attendance -->
+  <nz-tabset [(nzSelectedIndex)]="tabIndex" nzSize="small" class="tabs">
+    <nz-tab nzTitle="Details">
+      <ng-container [ngTemplateOutlet]="details"></ng-container>
+    </nz-tab>
+    @if (showPeople) {
+      <nz-tab nzTitle="People">
+        <ng-template nz-tab>
+          <app-session-people [session]="s" (changed)="refresh()"></app-session-people>
+        </ng-template>
+      </nz-tab>
+    }
+    @if (showAttendance) {
+      <nz-tab [nzTitle]="attendanceTitle">
+        <ng-template nz-tab>
+          <app-session-attendance [session]="s" (changed)="refresh()"></app-session-attendance>
+        </ng-template>
+      </nz-tab>
+    }
+  </nz-tabset>
+  <ng-template #attendanceTitle>
+    Attendance
+    @if (awaitingAttendance) {
+      <span class="awaiting-dot" aria-label="awaiting submission"></span>
+    }
+  </ng-template>
+} @else {
+  <ng-container [ngTemplateOutlet]="details"></ng-container>
+}
+
+<ng-template #details>
 <div class="details">
   <div class="tags">
     <nz-tag [nzColor]="statusColor">{{ statusLabel }}</nz-tag>
@@ -14,6 +46,14 @@
   }
   @if (s.capacityWarning) {
     <nz-alert nzType="warning" nzShowIcon [nzMessage]="s.capacityWarning"></nz-alert>
+  }
+
+  <!-- FR-14-04: the signed-in person's own attendance, once it is submitted -->
+  @if (s.myAttendance) {
+    <nz-alert [nzType]="s.myAttendance === 'ATTENDED' ? 'success' : 'info'" nzShowIcon
+              [nzMessage]="s.myAttendance === 'ATTENDED'
+                ? 'You attended this session' + (s.myQuizScore != null ? ', with a quiz score of ' + s.myQuizScore + '%' : '') + '.'
+                : 'You were recorded as absent from this session.'"></nz-alert>
   }
 
   <!-- FR-13: the signed-in person's own place on the session -->
@@ -64,6 +104,20 @@
         Closes at the end of {{ s.registrationCutoff | date: 'EEE d MMM yyyy' }}.
       }
     </dd>
+
+    @if (showAttendance) {
+      <dt>Attendance</dt>
+      <dd>
+        @if (s.attendanceSubmittedAt) {
+          Submitted {{ s.attendanceSubmittedAt | date: 'd MMM yyyy, HH:mm' }}
+        } @else if (awaitingAttendance) {
+          Awaiting submission.
+          <button type="button" class="link" (click)="tabIndex = attendanceTabIndex">Record it</button>
+        } @else {
+          Nothing to record.
+        }
+      </dd>
+    }
   </dl>
 
   <!-- FR-13-04 -->
@@ -121,12 +175,12 @@
       @if (!s.canDelete && s.status === 'SCHEDULED' && s.timing === 'UPCOMING') {
         <p class="muted">Staff have registered or been invited, so it can be cancelled but not deleted.</p>
       }
+      @if (archiveWaitsForAttendance) {
+        <p class="muted">Submit the attendance first, then archive the session.</p>
+      }
     }
   } @else if (schedules) {
     <p class="muted">Only whoever scheduled this session, and HR, can change it.</p>
   }
-
-  @if (s.canSeePeople) {
-    <app-session-people [session]="s" (changed)="refresh()"></app-session-people>
-  }
 </div>
+</ng-template>

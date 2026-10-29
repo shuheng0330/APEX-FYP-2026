@@ -8,11 +8,17 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 public interface TrainingAttendanceRepository extends JpaRepository<TrainingAttendance, Long> {
 
     boolean existsByTrainingId(Long trainingId);
+
+    List<TrainingAttendance> findAllByTrainingId(Long trainingId);
+
+    /** A person's attendance at these sessions, for their own view of each (FR-14-04). */
+    List<TrainingAttendance> findAllByStaffIdAndTrainingIdIn(UUID staffId, Collection<Long> trainingIds);
 
     /** Which of these sessions have attendance recorded. */
     @Query("select distinct a.trainingId from TrainingAttendance a where a.trainingId in :trainingIds")

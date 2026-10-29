@@ -7,12 +7,14 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
+import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { Observable } from 'rxjs';
 import { TrainingSession } from '../../../models/training-session.model';
 import { AuthService } from '../../../services/auth.service';
 import { TrainingSessionService } from '../../../services/training-session.service';
 import { formatDuration } from '../../sop/sop.util';
+import { SessionAttendanceComponent } from '../session-attendance/session-attendance.component';
 import { SessionPeopleComponent } from '../session-people/session-people.component';
 import { SessionSignupComponent } from '../session-signup/session-signup.component';
 import {
@@ -28,14 +30,16 @@ import {
   selector: 'app-session-details',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule, NzPopconfirmModule, NzTagModule,
-    SessionPeopleComponent, SessionSignupComponent
+    CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule, NzPopconfirmModule, NzTabsModule,
+    NzTagModule, SessionAttendanceComponent, SessionPeopleComponent, SessionSignupComponent
   ],
   templateUrl: './session-details.component.html',
   styleUrls: ['./session-details.component.scss']
 })
 export class SessionDetailsComponent implements OnChanges {
   @Input({ required: true }) session!: TrainingSession;
+  /** Opened from the sessions awaiting attendance: start on the Attendance tab. */
+  @Input() openOn: 'details' | 'attendance' = 'details';
   @Output() edit = new EventEmitter<TrainingSession>();
   @Output() changed = new EventEmitter<TrainingSession>();
   @Output() deleted = new EventEmitter<number>();
@@ -47,6 +51,7 @@ export class SessionDetailsComponent implements OnChanges {
   readonly timeRange = timeRange;
   readonly isLink = isLink;
 
+  tabIndex = 0;
   /** The cancel box is open. */
   cancelling = false;
   cancelReason = '';
@@ -59,11 +64,12 @@ export class SessionDetailsComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // A refresh of the same session keeps a half-typed reason; another session starts afresh.
+    // A refresh of the same session keeps a half-typed reason and the tab; another session starts afresh.
     const before: TrainingSession | undefined = changes['session']?.previousValue;
     if (!before || before.id !== this.session.id) {
       this.cancelling = false;
       this.cancelReason = '';
+      this.tabIndex = this.openOn === 'attendance' && this.showAttendance ? this.attendanceTabIndex : 0;
     }
   }
 
@@ -99,7 +105,32 @@ export class SessionDetailsComponent implements OnChanges {
   }
 
   get canArchive(): boolean {
-    return this.s.canManage && (this.s.status === 'CANCELLED' || (this.s.status === 'SCHEDULED' && this.s.timing === 'ENDED'));
+    return this.s.canManage && !this.archiveWaitsForAttendance
+      && (this.s.status === 'CANCELLED' || (this.s.status === 'SCHEDULED' && this.s.timing === 'ENDED'));
+  }
+
+  /** An ended session with people on it is archived once its attendance is submitted (decision D). */
+  get archiveWaitsForAttendance(): boolean {
+    return this.s.canManage && this.s.status === 'SCHEDULED' && this.s.timing === 'ENDED' && this.awaitingAttendance;
+  }
+
+  get showPeople(): boolean {
+    return this.s.canSeePeople;
+  }
+
+  /** Once it starts, for its trainer, HR and the Super Admin; a cancelled session has none. */
+  get showAttendance(): boolean {
+    return this.s.canSeePeople && !this.s.cancelledAt && this.s.timing !== 'UPCOMING';
+  }
+
+  get attendanceTabIndex(): number {
+    return this.showPeople ? 2 : 1;
+  }
+
+  /** Started, with someone on it, and not submitted yet (FR-14-10). */
+  get awaitingAttendance(): boolean {
+    return this.s.status === 'SCHEDULED' && this.s.timing !== 'UPCOMING' && !this.s.attendanceSubmittedAt
+      && (this.s.booked > 0 || this.s.attendanceRecorded);
   }
 
   get canRestore(): boolean {

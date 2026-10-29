@@ -146,6 +146,13 @@ public class TrainingProgram {
     @Column(name = "archived_at")
     private LocalDateTime archivedAt;
 
+    /** The trainer's final confirmation of attendance (FR-14-09): only then does the session count as training. */
+    @Column(name = "attendance_submitted_at")
+    private LocalDateTime attendanceSubmittedAt;
+
+    @Column(name = "attendance_submitted_by")
+    private UUID attendanceSubmittedBy;
+
     /** Deleted before anyone registered or was invited (FR-12-06): hidden everywhere. */
     @Column(name = "is_deleted")
     private boolean deleted;
