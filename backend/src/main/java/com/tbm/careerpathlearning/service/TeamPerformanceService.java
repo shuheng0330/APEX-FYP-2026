@@ -2,7 +2,6 @@ package com.tbm.careerpathlearning.service;
 
 import com.tbm.careerpathlearning.dto.TeamPerformanceDto;
 import com.tbm.careerpathlearning.dto.TeamPerformanceDto.*;
-import com.tbm.careerpathlearning.dto.StaffPerformanceDto.Scores;
 import com.tbm.careerpathlearning.enums.*;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.model.*;
@@ -13,12 +12,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.math.*;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.function.Function;
 import static com.tbm.careerpathlearning.service.StaffPerformanceAccess.*;
+import static com.tbm.careerpathlearning.service.PerformanceSummaryCalculator.*;
 
 @Service
 @Transactional(readOnly = true)
@@ -87,12 +85,7 @@ public class TeamPerformanceService {
                 .map(p -> new Employee(p.getStaff().getId(), p.getId(), p.getStaffName(), p.getDepartmentName(), p.getRoleName(), data.scores().get(p.getId()),
                         employeeChange(p, before.get(p.getStaff().getId()), data, comparison, prior))).toList();
         var summary = summary(current, data);
-        var priorSummary = summary(priorPopulation, data);
-        Comparison aggregateComparison = comparison;
-        if (aggregateComparison == Comparison.AVAILABLE && (current.stream().anyMatch(p -> !validSignature(p))
-                || priorPopulation.stream().anyMatch(p -> !validSignature(p)) || !signatures(current).equals(signatures(priorPopulation))
-                || !comparableSchedules(current, priorPopulation, data))) aggregateComparison = Comparison.INCOMPATIBLE_CONFIGURATION;
-        var change = change(summary.finalScore().score(), priorSummary.finalScore().score(), aggregateComparison, prior);
+        var change = scopeChange(current, priorPopulation, data, comparison, prior);
         var trend = periods.stream().map(p -> new TrendPoint(period(p), summary(population.stream()
                 .filter(employee -> employee.getReviewPeriod().getId().equals(p.getId())).toList(), data))).toList();
         return new TeamPerformanceDto(selectedScope, period(selected), summary, attention(selected, current, data, actorId), trend,
@@ -111,55 +104,24 @@ public class TeamPerformanceService {
                         && p.getStartDate() != null && p.getEndDate() != null).toList();
     }
 
-    private Summary summary(List<ReviewPeriodParticipant> population, TeamPerformanceResults.Data data) {
-        return new Summary(population.size(), average(population, data, Scores::finalScore).contributingEmployees(),
-                average(population, data, Scores::annualKpiScore), average(population, data, Scores::attitudeScore), average(population, data, Scores::finalScore));
-    }
-
-    private Average average(List<ReviewPeriodParticipant> population, TeamPerformanceResults.Data data, Function<Scores, BigDecimal> score) {
-        var values = population.stream().map(p -> data.scores().get(p.getId())).filter(Objects::nonNull).map(score).filter(Objects::nonNull).toList();
-        return new Average(values.isEmpty() ? null : values.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(values.size()), 4, RoundingMode.HALF_UP), values.size());
-    }
-
-    private Distribution distribution(List<ReviewPeriodParticipant> population, TeamPerformanceResults.Data data, Metric metric) {
-        Function<Scores, BigDecimal> value = switch (metric) { case KPI -> Scores::annualKpiScore; case ATTITUDE -> Scores::attitudeScore; case FINAL -> Scores::finalScore; };
-        int[] counts = new int[5]; int missing = 0;
-        for (var p : population) {
-            var score = value.apply(data.scores().get(p.getId()));
-            if (score == null) missing++;
-            else counts[Math.min(4, score.intValue() / 20)]++;
-        }
-        var bins = new ArrayList<Bin>();
-        for (int i = 0; i < 5; i++) bins.add(new Bin(i * 20, (i + 1) * 20, i == 4, counts[i]));
-        return new Distribution(metric, List.copyOf(bins), population.size() - missing, missing);
-    }
-
     private Attention attention(AnnualKpiReviewPeriod period, List<ReviewPeriodParticipant> population, TeamPerformanceResults.Data data, UUID actor) {
         LocalDate today = LocalDate.now(clock);
         boolean open = period.getStatus() == AnnualKpiReviewPeriodStatus.OPEN;
-        boolean assessmentPeriod = open || period.getStatus() == AnnualKpiReviewPeriodStatus.CLOSED;
-        int kpiSelf = 0, kpiSuperior = 0, attitudeSelf = 0, attitudeSuperior = 0;
-        int myKpi = 0, myAttitude = 0, myPlans = 0, overdue = 0, returnedPlans = 0, returnedRevisions = 0;
+        int myKpi = 0, myAttitude = 0, myPlans = 0, overdue = 0, returnedRevisions = 0;
         var byId = new HashMap<Long, ReviewPeriodParticipant>();
         for (var p : population) {
             byId.put(p.getId(), p);
             boolean reportsToMe = currentReport(p, actor);
             for (var c : data.required(p)) {
                 var a = data.assessment(p.getId(), c.getId());
-                if (assessmentPeriod && c.getEndDate().isBefore(today) && (a == null || a.getStatus() == KpiAssessmentStatus.DRAFT)) kpiSelf++;
                 if (a != null && a.getStatus() == KpiAssessmentStatus.PENDING_REVIEW) {
-                    kpiSuperior++;
                     if (open && reportsToMe && access.has("CAN_REVIEW_KPI_ASSESSMENT") && actor.equals(a.getSubmittedToSuperiorId())) {
                         myKpi++; if (late(today, c.getSuperiorAssessmentDeadline())) overdue++;
                     }
                 }
             }
             var attitude = data.attitudes().get(p.getId());
-            if (assessmentPeriod && period.getAttitudeSelfAssessmentStartDate() != null && !today.isBefore(period.getAttitudeSelfAssessmentStartDate())
-                    && (attitude == null || attitude.getStatus() == AttitudeAssessmentStatus.DRAFT)) attitudeSelf++;
             if (attitude != null && attitude.getStatus() == AttitudeAssessmentStatus.PENDING_REVIEW) {
-                attitudeSuperior++;
                 if (open && reportsToMe && access.has("CAN_REVIEW_ATTITUDE_EVALUATION") && actor.equals(attitude.getSubmittedToSuperiorId())) {
                     myAttitude++; if (late(today, period.getSuperiorAttitudeEvaluationDeadline())) overdue++;
                 }
@@ -168,7 +130,6 @@ public class TeamPerformanceService {
         for (var plan : data.plans()) {
             var p = byId.get(plan.getParticipantId());
             if (p == null) continue;
-            if (plan.getStatus() == KpiPlanStatus.RETURNED) returnedPlans++;
             if ((open || period.getStatus() == AnnualKpiReviewPeriodStatus.UPCOMING) && plan.getStatus() == KpiPlanStatus.PENDING_APPROVAL
                     && access.has("CAN_REVIEW_INDIVIDUAL_KPI") && currentReport(p, actor) && actor.equals(plan.getSubmittedToSuperiorId())) {
                 myPlans++; if (late(today, period.getKpiSetupDeadline())) overdue++;
@@ -194,7 +155,7 @@ public class TeamPerformanceService {
         if (myPlans > 0) links.add(link("INDIVIDUAL_PLAN_APPROVALS", "reviews", period));
         if (returnedRevisions > 0) links.add(link("RETURNED_INDIVIDUAL_REVISIONS", "revisions", period));
         return new Attention(new Actions(myKpi, myAttitude, myPlans, overdue, returnedRevisions, List.copyOf(links)),
-                new Progress(kpiSelf, kpiSuperior, attitudeSelf, attitudeSuperior, returnedPlans));
+                progress(period, population, data, today));
     }
 
     private boolean currentReport(ReviewPeriodParticipant p, UUID actor) {
@@ -207,58 +168,6 @@ public class TeamPerformanceService {
         return new ActionLink(task, "/team-performance/team-reviews", Map.of("tab", tab, "reviewPeriodId", p.getId().toString()));
     }
 
-    private Change employeeChange(ReviewPeriodParticipant current, ReviewPeriodParticipant prior, TeamPerformanceResults.Data data,
-            Comparison comparison, AnnualKpiReviewPeriod priorPeriod) {
-        if (comparison == Comparison.AVAILABLE && prior != null && (!validSignature(current) || !validSignature(prior) || !signature(current).equals(signature(prior))
-                || !scheduleMatches(data.required(current), data.required(prior)))) comparison = Comparison.INCOMPATIBLE_CONFIGURATION;
-        return change(data.scores().get(current.getId()).finalScore(), prior == null ? null : data.scores().get(prior.getId()).finalScore(), comparison, priorPeriod);
-    }
-    private Change change(BigDecimal current, BigDecimal before, Comparison comparison, AnnualKpiReviewPeriod prior) {
-        if (comparison == Comparison.AVAILABLE && (current == null || before == null)) comparison = Comparison.NO_COMPARABLE_RESULTS;
-        return new Change(comparison == Comparison.AVAILABLE ? current.subtract(before).setScale(4, RoundingMode.HALF_UP) : null,
-                comparison, prior == null ? null : prior.getId());
-    }
-    private boolean comparablePeriod(AnnualKpiReviewPeriod current, AnnualKpiReviewPeriod prior) {
-        return current.getStartDate().minusYears(1).equals(prior.getStartDate()) && current.getEndDate().minusYears(1).equals(prior.getEndDate())
-                && current.getFrequencyPolicy() == prior.getFrequencyPolicy() && current.getAssessmentModel() == prior.getAssessmentModel()
-                && current.getAnnualKpiConsolidationMethod() != null && current.getAnnualKpiConsolidationMethod() == prior.getAnnualKpiConsolidationMethod()
-                && AnnualPerformanceCalculation.validWeights(current.getKpiPerformanceWeight(), current.getAttitudeEvaluationWeight())
-                && same(current.getKpiPerformanceWeight(), prior.getKpiPerformanceWeight()) && same(current.getAttitudeEvaluationWeight(), prior.getAttitudeEvaluationWeight());
-    }
-    private boolean same(BigDecimal a, BigDecimal b) { return a != null && b != null && a.compareTo(b) == 0; }
-    private record Signature(ReviewFrequency frequency, BigDecimal company, BigDecimal department, BigDecimal individual) {}
-    private Signature signature(ReviewPeriodParticipant p) {
-        var w = p.getEmployeeLevelConfiguration();
-        return new Signature(p.getReviewFrequency(), normal(w == null ? null : w.getCompanyKpiWeight()),
-                normal(w == null ? null : w.getDepartmentKpiWeight()), normal(w == null ? null : w.getIndividualKpiWeight()));
-    }
-    private BigDecimal normal(BigDecimal n) { return n == null ? null : n.stripTrailingZeros(); }
-    private boolean validSignature(ReviewPeriodParticipant p) {
-        var s = signature(p);
-        var weights = Arrays.asList(s.company(), s.department(), s.individual());
-        return s.frequency() != null && weights.stream().allMatch(w -> AnnualPerformanceCalculation.validScore(w)
-                && w.stripTrailingZeros().scale() <= 2)
-                && weights.stream().reduce(BigDecimal.ZERO, BigDecimal::add).compareTo(new BigDecimal("100")) == 0;
-    }
-    private Set<Signature> signatures(List<ReviewPeriodParticipant> population) {
-        var values = new HashSet<Signature>(); population.forEach(p -> values.add(signature(p))); return values;
-    }
-    private boolean comparableSchedules(List<ReviewPeriodParticipant> current, List<ReviewPeriodParticipant> prior, TeamPerformanceResults.Data data) {
-        var beforeByFrequency = new EnumMap<ReviewFrequency, ReviewPeriodParticipant>(ReviewFrequency.class);
-        prior.forEach(p -> beforeByFrequency.putIfAbsent(p.getReviewFrequency(), p));
-        for (var p : current) {
-            var before = beforeByFrequency.get(p.getReviewFrequency());
-            if (before == null || !scheduleMatches(data.required(p), data.required(before))) return false;
-        }
-        return true;
-    }
-    private boolean scheduleMatches(List<ReviewCheckpoint> current, List<ReviewCheckpoint> prior) {
-        if (current.isEmpty() || current.size() != prior.size()) return false;
-        for (int i = 0; i < current.size(); i++)
-            if (!current.get(i).getStartDate().minusYears(1).equals(prior.get(i).getStartDate())
-                    || !current.get(i).getEndDate().minusYears(1).equals(prior.get(i).getEndDate())) return false;
-        return true;
-    }
     private Period period(AnnualKpiReviewPeriod p) {
         return mapper.toPeriod(p);
     }
