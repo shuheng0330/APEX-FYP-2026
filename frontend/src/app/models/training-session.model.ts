@@ -83,6 +83,59 @@ export interface TrainingSession {
   /** Their own attendance, once it is submitted (FR-14-04). */
   myAttendance?: TrainingAttendanceStatus;
   myQuizScore?: number;
+  /**
+   * FR-15-06, after a Product Training they attended: REQUEST (they may ask for Trainer access to present a staff
+   * sharing session), REQUESTED, or CAN_PRESENT (they have Trainer access or are HR).
+   */
+  sharingInvite?: 'REQUEST' | 'REQUESTED' | 'CAN_PRESENT';
+  trainerAccessRequestedAt?: string;
+}
+
+/**
+ * The Staff Sharing page (FR-15-01 to FR-15-03): a year's figures and presenters, company-wide, and the sessions the
+ * signed-in user may see.
+ */
+export interface TrainingSharingBoard {
+  year: number;
+  years: number[];
+  sessionsHeld: number;
+  presenters: number;
+  /** Every attendance, repeat visits included. */
+  totalAttendances: number;
+  /** Different staff reached, still with the company: never above the headcount. */
+  staffReached: number;
+  headcount: number;
+  reachPercent?: number;
+  averageAttendance?: number;
+  averageQuizScore?: number;
+  staffWhoShared: SharingPresenter[];
+  sessions: SharingSessionHeld[];
+  upcoming: TrainingSession[];
+}
+
+export interface SharingPresenter {
+  staffId: string;
+  name: string;
+  roleName?: string;
+  departmentName?: string;
+  sessions: number;
+  attendances: number;
+  staffReached: number;
+  averageQuizScore?: number;
+  /** yyyy-MM-dd */
+  lastShared?: string;
+  leftCompany: boolean;
+}
+
+export interface SharingSessionHeld {
+  id: number;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  presenterName?: string;
+  attended: number;
+  onList: number;
 }
 
 export type TrainingAttendanceStatus = 'ATTENDED' | 'ABSENT';

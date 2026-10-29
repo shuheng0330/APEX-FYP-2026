@@ -91,4 +91,10 @@ public class TrainingSessionDto {
     /** The viewer's own attendance, ATTENDED or ABSENT, once it is submitted (FR-14-04). */
     private String myAttendance;
     private Integer myQuizScore;
+    /**
+     * FR-15-06, after a Product Training the viewer attended: REQUEST (they may ask for Trainer access to present a
+     * staff sharing session), REQUESTED (they asked), or CAN_PRESENT (they have Trainer access or are HR).
+     */
+    private String sharingInvite;
+    private LocalDateTime trainerAccessRequestedAt;
 }

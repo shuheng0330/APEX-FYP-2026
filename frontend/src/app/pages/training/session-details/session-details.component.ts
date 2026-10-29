@@ -153,6 +153,11 @@ export class SessionDetailsComponent implements OnChanges {
     this.run(this.sessions.archive(this.s.id), 'Session archived. Its records are kept; turn on Archived to see it.');
   }
 
+  /** FR-15-06 */
+  requestTrainerAccess(): void {
+    this.run(this.sessions.requestTrainerAccess(this.s.id), 'Asked. The Super Admin has been told.');
+  }
+
   restore(): void {
     this.run(this.sessions.restore(this.s.id), 'Session restored to the calendar.');
   }

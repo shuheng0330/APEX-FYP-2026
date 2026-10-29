@@ -34,5 +34,9 @@ public enum NotificationType {
     /** The person did not take up an offered seat in time, so it passed to the next person (FR-13-07). */
     SESSION_OFFER_EXPIRED,
     /** The trainer or HR took the person off a session. */
-    SESSION_REMOVED
+    SESSION_REMOVED,
+    /** The person attended a Product Training session and is asked to share what they learned (FR-15-06). */
+    SHARING_SUGGESTED,
+    /** For the Super Admin: someone asked for Trainer access to present a staff sharing session (FR-15-06). */
+    TRAINER_ACCESS_REQUESTED
 }

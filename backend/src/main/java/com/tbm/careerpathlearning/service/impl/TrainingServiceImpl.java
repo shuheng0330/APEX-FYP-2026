@@ -7,6 +7,7 @@ import com.tbm.careerpathlearning.dto.TrainingTrainerDto;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.OrgChartType;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
+import com.tbm.careerpathlearning.enums.TrainingAttendanceStatus;
 import com.tbm.careerpathlearning.enums.TrainingAuditAction;
 import com.tbm.careerpathlearning.enums.TrainingAuditTarget;
 import com.tbm.careerpathlearning.enums.TrainingDelivery;
@@ -20,6 +21,7 @@ import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.OrgChart;
 import com.tbm.careerpathlearning.model.Role;
 import com.tbm.careerpathlearning.model.Staff;
+import com.tbm.careerpathlearning.model.TrainingAccessRequest;
 import com.tbm.careerpathlearning.model.TrainingAttendance;
 import com.tbm.careerpathlearning.model.TrainingInvitation;
 import com.tbm.careerpathlearning.model.TrainingProgram;
@@ -27,6 +29,7 @@ import com.tbm.careerpathlearning.model.TrainingRegistration;
 import com.tbm.careerpathlearning.repository.OrgChartRepository;
 import com.tbm.careerpathlearning.repository.RoleRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.repository.TrainingAccessRequestRepository;
 import com.tbm.careerpathlearning.repository.TrainingAttendanceRepository;
 import com.tbm.careerpathlearning.repository.TrainingInvitationRepository;
 import com.tbm.careerpathlearning.repository.TrainingProgramRepository;
@@ -95,6 +98,7 @@ public class TrainingServiceImpl implements TrainingService {
     @Autowired private TrainingRegistrationRepository trainingRegistrationRepository;
     @Autowired private TrainingInvitationRepository trainingInvitationRepository;
     @Autowired private TrainingAttendanceRepository trainingAttendanceRepository;
+    @Autowired private TrainingAccessRequestRepository trainingAccessRequestRepository;
     @Autowired private StaffRepository staffRepository;
     @Autowired private OrgChartRepository orgChartRepository;
     @Autowired private RoleRepository roleRepository;
@@ -628,7 +632,7 @@ public class TrainingServiceImpl implements TrainingService {
                           Set<Long> invited, Set<Long> attended, Map<Long, String> departments,
                           Map<Long, String> roles, Map<UUID, String> names,
                           Map<Long, TrainingInvitation> myInvitations, List<TrainingProgram> mySeats,
-                          Map<Long, TrainingAttendance> myAttendance) {
+                          Map<Long, TrainingAttendance> myAttendance, Map<Long, TrainingAccessRequest> myRequests) {
     }
 
     private Lookup lookup(List<TrainingProgram> sessions, TrainingViewer viewer) {
@@ -671,8 +675,11 @@ public class TrainingServiceImpl implements TrainingService {
         Map<Long, TrainingAttendance> myAttendance = ids.isEmpty() ? Map.of()
                 : trainingAttendanceRepository.findAllByStaffIdAndTrainingIdIn(viewer.userId(), ids).stream()
                 .collect(Collectors.toMap(TrainingAttendance::getTrainingId, a -> a, (a, b) -> a));
+        Map<Long, TrainingAccessRequest> myRequests = myAttendance.isEmpty() ? Map.of()
+                : trainingAccessRequestRepository.findAllByStaffIdAndTrainingIdIn(viewer.userId(), myAttendance.keySet())
+                .stream().collect(Collectors.toMap(TrainingAccessRequest::getTrainingId, r -> r, (a, b) -> a));
         return new Lookup(active, registrations, invited, attended, departments, roles, names, myInvitations, mySeats,
-                myAttendance);
+                myAttendance, myRequests);
     }
 
     private TrainingSessionDto toDto(TrainingProgram s, TrainingViewer viewer, Lookup lookup) {
@@ -741,6 +748,11 @@ public class TrainingServiceImpl implements TrainingService {
         if (myAttendance != null && s.getAttendanceSubmittedAt() != null) { // shown once it is final (FR-14-09)
             dto.setMyAttendance(myAttendance.getStatus().name());
             dto.setMyQuizScore(myAttendance.getQuizScore());
+            if (myAttendance.getStatus() == TrainingAttendanceStatus.ATTENDED && TrainingAttendanceServiceImpl.sharingFollowsOn(s)) {
+                TrainingAccessRequest asked = lookup.myRequests().get(id);
+                dto.setSharingInvite(viewer.canSchedule() ? "CAN_PRESENT" : asked != null ? "REQUESTED" : "REQUEST");
+                dto.setTrainerAccessRequestedAt(asked == null ? null : asked.getRequestedAt());
+            }
         }
         viewersPlace(dto, s, viewer, lookup, registrations, now);
         return dto;

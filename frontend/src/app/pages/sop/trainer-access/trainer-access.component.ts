@@ -104,8 +104,12 @@ export class TrainerAccessComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(params => this.tabIndex = params.get('tab') === 'owners' ? OWNERS_TAB : STAFF_TAB);
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      this.tabIndex = params.get('tab') === 'owners' ? OWNERS_TAB : STAFF_TAB;
+      // A Trainer access request's notification names the person (FR-15-06).
+      const search = params.get('search');
+      if (search) this.search = search;
+    });
   }
 
   /** Keeps the open tab in the address, so a refresh or a shared link opens the same tab. */

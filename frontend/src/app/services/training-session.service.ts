@@ -5,7 +5,7 @@ import { environment } from '../../environments/environment';
 import {
   TrainingAttendanceEntry, TrainingAttendanceSheet, TrainingAudienceCheck, TrainingBatchResult, TrainingPerson,
   TrainingRegistrationForm, TrainingRegistrationRequest, TrainingSession, TrainingSessionReport, TrainingSessionRequest,
-  TrainingTemplate, TrainingTrainer
+  TrainingSharingBoard, TrainingTemplate, TrainingTrainer
 } from '../models/training-session.model';
 
 /** Client for the Training Calendar's sessions (/api/trainings, FR-12). */
@@ -159,6 +159,19 @@ export class TrainingSessionService {
     form.append('file', file);
     if (reason) form.append('reason', reason);
     return this.http.post<TrainingBatchResult>(`${this.baseUrl}/${id}/attendance/batch`, form, { withCredentials: true });
+  }
+
+  // --- staff sharing (FR-15) ------------------------------------------------------------------
+
+  /** The Staff Sharing page for a year; this year when none is given. */
+  sharingBoard(year?: number): Observable<TrainingSharingBoard> {
+    const params = year ? new HttpParams().set('year', year) : undefined;
+    return this.http.get<TrainingSharingBoard>(`${this.baseUrl}/sharing`, { params, withCredentials: true });
+  }
+
+  /** FR-15-06: asks the Super Admin for Trainer access, after attending this Product Training session. */
+  requestTrainerAccess(id: number): Observable<TrainingSession> {
+    return this.http.post<TrainingSession>(`${this.baseUrl}/${id}/request-trainer-access`, {}, { withCredentials: true });
   }
 
   // --- reports and templates (FR-12-07 to FR-12-10) -----------------------------------------

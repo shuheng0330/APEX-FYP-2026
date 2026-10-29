@@ -1,0 +1,161 @@
+<div class="staff-sharing page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training sessions</span>
+      <h1>Staff Sharing</h1>
+      <p>Knowledge shared by colleagues themselves, who presented it, and how many staff it has reached.</p>
+    </div>
+    @if (board) {
+      <nz-select class="year" [(ngModel)]="year" (ngModelChange)="onYearChange()" aria-label="Year">
+        @for (y of board.years; track y) {
+          <nz-option [nzValue]="y" [nzLabel]="'' + y"></nz-option>
+        }
+      </nz-select>
+    }
+  </div>
+
+  <nz-spin [nzSpinning]="loading && !board">
+    @if (board; as b) {
+      <!-- FR-15-02: staff reached against headcount, apart from all attendances (TF-23) -->
+      <div class="kpi-grid">
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="bulb"></nz-icon> Sharing sessions</span>
+          <strong>{{ b.sessionsHeld }}</strong>
+          <span class="kpi-note">held in {{ b.year }} · {{ b.upcoming.length }} upcoming for you</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="team"></nz-icon> Staff reached</span>
+          <strong>{{ b.staffReached }} <small>of {{ b.headcount }}</small></strong>
+          <span class="kpi-note">{{ b.reachPercent != null ? b.reachPercent + '% of headcount' : 'No staff yet' }}, each counted once</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="check-circle"></nz-icon> Attendances</span>
+          <strong>{{ b.totalAttendances }}</strong>
+          <span class="kpi-note">counting repeat visits</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="audit"></nz-icon> Presenters</span>
+          <strong>{{ b.presenters }}</strong>
+          <span class="kpi-note">colleagues who shared</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="rise"></nz-icon> Average attendance</span>
+          <strong>{{ b.averageAttendance != null ? b.averageAttendance : '–' }}</strong>
+          <span class="kpi-note">staff per session</span>
+        </div>
+        <div class="kpi surface-panel">
+          <span class="kpi-label"><nz-icon nzType="trophy"></nz-icon> Average quiz</span>
+          <strong>{{ b.averageQuizScore != null ? b.averageQuizScore + '%' : '–' }}</strong>
+          <span class="kpi-note">of the scores recorded</span>
+        </div>
+      </div>
+
+      <div class="columns">
+        <div class="main">
+          <!-- FR-15-02, FR-15-03: recognising each presenter -->
+          <section class="surface-panel block" aria-labelledby="who-shared">
+            <header>
+              <div>
+                <h2 id="who-shared">Staff who shared</h2>
+                <span class="muted">{{ b.presenters }} {{ b.presenters === 1 ? 'presenter' : 'presenters' }} in {{ b.year }}</span>
+              </div>
+              <nz-radio-group [(ngModel)]="presenterSort" nzSize="small" aria-label="Sort presenters">
+                <label nz-radio-button nzValue="sessions">Sessions</label>
+                <label nz-radio-button nzValue="reached">Staff reached</label>
+                <label nz-radio-button nzValue="attendances">Attendances</label>
+              </nz-radio-group>
+            </header>
+            @if (presenters.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th><th scope="col">Presenter</th><th scope="col" class="num">Sessions</th>
+                      <th scope="col" class="num">Staff reached</th><th scope="col" class="num">Attendances</th>
+                      <th scope="col" class="num">Avg quiz</th><th scope="col">Last shared</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of presenters; track p.staffId; let i = $index) {
+                      <tr>
+                        <td><span class="rank" [class.top]="i < 3">{{ i + 1 }}</span></td>
+                        <td>
+                          <strong>{{ p.name }}</strong>
+                          @if (p.leftCompany) { <nz-tag>Left the company</nz-tag> }
+                          <span class="muted block-line">{{ p.roleName || 'No job role' }}{{ p.departmentName ? ' · ' + p.departmentName : '' }}</span>
+                        </td>
+                        <td class="num">{{ p.sessions }}</td>
+                        <td class="num">{{ p.staffReached }}</td>
+                        <td class="num">{{ p.attendances }}</td>
+                        <td class="num">{{ p.averageQuizScore != null ? p.averageQuizScore + '%' : '–' }}</td>
+                        <td>{{ p.lastShared | date: 'd MMM yyyy' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <nz-empty [nzNotFoundContent]="'Nobody has shared yet in ' + b.year + '. Sessions count once their attendance is submitted.'"></nz-empty>
+            }
+          </section>
+
+          <section class="surface-panel block" aria-labelledby="held">
+            <header>
+              <div>
+                <h2 id="held">Sessions held</h2>
+                <span class="muted">With attendance submitted, for the audiences you're in</span>
+              </div>
+              <nz-radio-group [(ngModel)]="sessionSort" nzSize="small" aria-label="Sort sessions">
+                <label nz-radio-button nzValue="newest">Newest</label>
+                <label nz-radio-button nzValue="attended">Most attended</label>
+              </nz-radio-group>
+            </header>
+            @for (h of held; track h.id) {
+              <div class="held">
+                <div class="when">
+                  <strong>{{ h.date | date: 'd' }}</strong>
+                  <span>{{ h.date | date: 'MMM' }}</span>
+                </div>
+                <div class="what">
+                  <strong>{{ h.title }}</strong>
+                  <span class="muted">{{ h.presenterName }} · {{ timeRange(h) }}</span>
+                </div>
+                <div class="count">
+                  <strong>{{ h.attended }}</strong>
+                  <span class="muted">of {{ h.onList }} attended</span>
+                </div>
+              </div>
+            } @empty {
+              <p class="muted">No sharing sessions for you with attendance submitted in {{ b.year }}.</p>
+            }
+          </section>
+        </div>
+
+        <!-- FR-15-01 -->
+        <aside class="surface-panel block upcoming" aria-labelledby="upcoming">
+          <header>
+            <div>
+              <h2 id="upcoming">Upcoming sharing</h2>
+              <span class="muted">Open one to register</span>
+            </div>
+          </header>
+          @for (s of b.upcoming; track s.id) {
+            <button type="button" class="session" (click)="open(s)">
+              <span class="session-when">{{ s.date | date: 'EEE d MMM' }} · {{ timeRange(s) }}</span>
+              <strong>{{ s.title }}</strong>
+              <span class="muted">{{ s.trainerName || 'Presenter not set' }}</span>
+              <span class="session-foot">
+                <span class="muted">{{ s.seatsLeft }} {{ s.seatsLeft === 1 ? 'seat' : 'seats' }} left</span>
+                @if (myLabel(s); as mine) { <nz-tag nzColor="green">{{ mine }}</nz-tag> }
+                @if (s.timing === 'IN_PROGRESS') { <nz-tag nzColor="processing">In progress</nz-tag> }
+              </span>
+            </button>
+          } @empty {
+            <p class="muted">No upcoming sharing sessions for you. Staff with Trainer access schedule them on the
+              Training Calendar.</p>
+          }
+        </aside>
+      </div>
+    }
+  </nz-spin>
+</div>
