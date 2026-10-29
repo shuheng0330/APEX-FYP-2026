@@ -35,6 +35,8 @@ public class SopScoreboardRecordDto {
     private boolean selfEnrolled;
     /** The person has left the company: listed, but not counted in the compliance figures (FR-10-12). */
     private boolean leftCompany;
+    /** The viewer may open the person's whole training record: HR, the Super Admin, or their manager (FR-18-01). */
+    private boolean canOpenRecord;
     private int passMark;
     /** The final score once completed, otherwise the average of the modules passed so far. */
     private Integer score;

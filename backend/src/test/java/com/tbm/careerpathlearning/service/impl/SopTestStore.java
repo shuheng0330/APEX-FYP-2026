@@ -672,6 +672,8 @@ class SopTestStore {
                     return attendance.values().stream().filter(x -> x.getTrainingId().equals(a[0])).toList();
                 case "findAllByTrainingIdIn":
                     return attendance.values().stream().filter(x -> ((Collection<?>) a[0]).contains(x.getTrainingId())).toList();
+                case "findAllByStaffId":
+                    return attendance.values().stream().filter(x -> x.getStaffId().equals(a[0])).toList();
                 case "findAllByStaffIdAndTrainingIdIn":
                     return attendance.values().stream()
                             .filter(x -> x.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(x.getTrainingId())).toList();

@@ -1621,6 +1621,9 @@
         },
         "PROFILE": {
             "TITLE": "Profile",
+            "TRAINING_HISTORY": {
+                "TITLE": "Training History"
+            },
             "GENERAL": {
                 "TITLE": "General Information",
                 "BUTTON": {

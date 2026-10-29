@@ -272,6 +272,12 @@
       @let tag = statusTag(rec.status);
       <div class="detail">
         <p class="muted">{{ rec.jobRole || 'No job role' }} · {{ rec.department || 'No department' }}</p>
+        <!-- FR-18-01: every course and session of this person -->
+        @if (rec.canOpenRecord) {
+          <a class="record-link" [routerLink]="['/training/records', rec.staffId]">
+            <nz-icon nzType="profile"></nz-icon> Full training record
+          </a>
+        }
         <h3>{{ rec.courseTitle }}</h3>
         <div class="detail-tags">
           <nz-tag [nzColor]="tag.color"><nz-icon [nzType]="tag.icon"></nz-icon> {{ tag.label }}</nz-tag>

@@ -104,7 +104,10 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
         for (SopEnrollment e : enrollments) {
             SopProgress progress = SopProgress.of(modules.getOrDefault(e.getSopDocumentId(), List.of()), quizzes,
                     attempts.getOrDefault(e.getId(), List.of()), e.getPassMark());
-            dto.getRecords().add(record(e, docs.get(e.getSopDocumentId()), progress, staff.get(e.getStaffId())));
+            SopScoreboardRecordDto r = record(e, docs.get(e.getSopDocumentId()), progress, staff.get(e.getStaffId()));
+            // The person's whole training record: for HR and the Super Admin, and for their manager (FR-18-01).
+            r.setCanOpenRecord(seeAll || reports.contains(e.getStaffId()));
+            dto.getRecords().add(r);
         }
         dto.getRecords().sort(Comparator.comparing(SopScoreboardRecordDto::getStaffName, String.CASE_INSENSITIVE_ORDER)
                 .thenComparing(SopScoreboardRecordDto::getCourseTitle, String.CASE_INSENSITIVE_ORDER));

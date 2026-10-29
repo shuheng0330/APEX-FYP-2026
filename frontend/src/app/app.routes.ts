@@ -30,6 +30,7 @@ import { SopScoreboardComponent } from './pages/sop/sop-scoreboard/sop-scoreboar
 import { TrainerAccessComponent } from './pages/sop/trainer-access/trainer-access.component';
 import { TrainingCalendarComponent } from './pages/training/training-calendar/training-calendar.component';
 import { StaffSharingComponent } from './pages/training/staff-sharing/staff-sharing.component';
+import { TrainingRecordPageComponent } from './pages/training/training-record-page/training-record-page.component';
 import { MyLearningComponent } from './pages/learning-portal/my-learning/my-learning.component';
 import { CoursePlayerComponent } from './pages/learning-portal/course-player/course-player.component';
 
@@ -77,6 +78,12 @@ export const routes: Routes = [
       },
       {
         path: 'training/sharing', component: StaffSharingComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
+      },
+      {
+        // FR-18-01: the server lets the person's manager, HR and the Super Admin see it
+        path: 'training/records/:staffId', component: TrainingRecordPageComponent,
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'] },
       },

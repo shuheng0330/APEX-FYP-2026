@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -95,6 +96,22 @@ class SopScoreboardScopeTest {
         assertEquals("OWN_AND_TEAM", dto.getScope());
         assertEquals(List.of("Ahmad Farid / Forklift Safety", "Chong Mei Ling / Cash Handling", "Nur Aisyah / Cash Handling"), rows(dto));
         assertEquals("OWN", scoreboard.scoreboard(trainer.getId(), false, false).getScope());
+    }
+
+    @Test
+    @DisplayName("Only HR and the Super Admin, and a manager for their reports, get the link to a whole training record (FR-18-01)")
+    void trainingRecordLink() {
+        Staff farid = store.person("Ahmad Farid", null);
+        farid.setManager(trainer);
+        enrol(1L, farid);
+
+        assertTrue(scoreboard.scoreboard(UUID.randomUUID(), true, false).getRecords().stream()
+                .allMatch(SopScoreboardRecordDto::isCanOpenRecord));
+        assertTrue(scoreboard.scoreboard(jason.getId(), false, true).getRecords().stream()
+                .allMatch(SopScoreboardRecordDto::isCanOpenRecord));
+        List<String> trainers = scoreboard.scoreboard(trainer.getId(), false, true).getRecords().stream()
+                .filter(SopScoreboardRecordDto::isCanOpenRecord).map(SopScoreboardRecordDto::getStaffName).toList();
+        assertEquals(List.of("Ahmad Farid"), trainers); // the trainer's own report, not every learner on the course
     }
 
     @Test

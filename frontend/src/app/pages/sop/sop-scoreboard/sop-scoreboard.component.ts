@@ -2,6 +2,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { catchError, exhaustMap, filter, forkJoin, of, timer } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
@@ -73,7 +74,7 @@ const MODULE_TAGS: Record<LearningModuleState, { label: string; color: string }>
   selector: 'app-sop-scoreboard',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterLink,
     NzButtonModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzInputModule, NzSelectModule, NzSpinModule,
     NzSwitchModule, NzTableModule, NzTagModule
   ],
