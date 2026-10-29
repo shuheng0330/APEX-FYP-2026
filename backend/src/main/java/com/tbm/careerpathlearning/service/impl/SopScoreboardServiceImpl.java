@@ -123,7 +123,8 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
                 .orElseThrow(() -> new BadRequestException("Enrolment not found."));
         SopDocument doc = sopDocumentRepository.findById(e.getSopDocumentId()).filter(d -> !d.isDeleted())
                 .orElseThrow(() -> new BadRequestException("Course not found."));
-        if (!seeAll && !userId.equals(doc.getUploadedBy()) && !(team && teamOf(userId).contains(e.getStaffId()))) {
+        Set<UUID> reports = team && !seeAll ? teamOf(userId) : Set.of();
+        if (!seeAll && !userId.equals(doc.getUploadedBy()) && !reports.contains(e.getStaffId())) {
             throw new ForbiddenRequestException(team ? "You can only view progress on your team's training or courses you created."
                     : "You can only view progress on courses you created.");
         }
@@ -134,6 +135,8 @@ public class SopScoreboardServiceImpl implements SopScoreboardService {
 
         SopEnrollmentProgressDto dto = new SopEnrollmentProgressDto();
         dto.setRecord(record(e, doc, progress, staff));
+        // The details drawer shows the link to the whole training record, so it is worked out as on the list (FR-18-01).
+        dto.getRecord().setCanOpenRecord(seeAll || reports.contains(e.getStaffId()));
         for (SopProgress.Module m : progress.modules()) {
             SopEnrollmentProgressDto.Module md = new SopEnrollmentProgressDto.Module();
             md.setModuleId(m.module().getId());

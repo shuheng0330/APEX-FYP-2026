@@ -128,11 +128,6 @@ nz-tag nz-icon { margin-right: 2px; }
 .attempt-no { color: var(--tbm-muted); min-width: 64px; }
 .when { margin-left: auto; }
 .no-attempts { margin-top: 6px; }
-.competency { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.competency li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: var(--tbm-surface-subtle); font-size: 12px; }
-.competency .good { color: #0ca30c; }
-.competency-course { flex: 1; min-width: 0; font-weight: 600; }
-.competency li .muted { flex-basis: 100%; padding-left: 22px; font-size: 11px; }
 
 @media (max-width: 1280px) {
   .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
