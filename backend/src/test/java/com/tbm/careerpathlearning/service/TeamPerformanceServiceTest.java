@@ -143,7 +143,7 @@ class TeamPerformanceServiceTest {
 
     @Test void distributionsUseNeutralNumericBoundariesAndExcludeMissing() {
         population.clear(); assessments.clear(); attitudes.clear();
-        for (String score : List.of("0", "19.9999", "20", "39.9999", "40", "59.9999", "60", "79.9999", "80", "100"))
+        for (String score : List.of("0", "59.9999", "60", "69.9999", "70", "79.9999", "80", "89.9999", "90", "100"))
             enrol(personReportingToActor(score), current.getReviewPeriod(), score, score, score);
         var missing = enrol(personReportingToActor("Pending"), current.getReviewPeriod(), "80", "80", "80");
         attitudes.removeIf(a -> a.getParticipant() == missing);
