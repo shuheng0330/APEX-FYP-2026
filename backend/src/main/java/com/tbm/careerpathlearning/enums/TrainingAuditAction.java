@@ -18,5 +18,10 @@ public enum TrainingAuditAction {
     SESSION_CANCELLED,
     SESSION_DELETED,
     SESSION_ARCHIVED,
-    SESSION_RESTORED
+    SESSION_RESTORED,
+    /** The trainer's final confirmation of a session's attendance (FR-14-09). */
+    ATTENDANCE_SUBMITTED,
+    /** HR recorded or changed attendance after it was submitted or after the 7 days, with a reason (FR-14-01, FR-14-09). */
+    ATTENDANCE_CHANGED,
+    EVIDENCE_REMOVED
 }

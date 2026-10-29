@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.repository;
 
+import com.tbm.careerpathlearning.enums.TrainingSessionStatus;
 import com.tbm.careerpathlearning.model.TrainingProgram;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,6 +21,10 @@ public interface TrainingProgramRepository extends JpaRepository<TrainingProgram
                                                                                                        LocalDate to);
 
     Optional<TrainingProgram> findByTrainingIdAndDeletedFalse(Long trainingId);
+
+    /** Scheduled sessions up to a day whose attendance isn't submitted yet: the ones awaiting attendance (FR-14-10). */
+    List<TrainingProgram> findAllByDeletedFalseAndStatusAndAttendanceSubmittedAtIsNullAndSessionDateLessThanEqual(
+            TrainingSessionStatus status, LocalDate day);
 
     /**
      * The session, locked until the transaction ends. Every change to its seats goes through this, so two people

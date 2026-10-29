@@ -81,6 +81,10 @@ export class TrainingCalendarComponent implements OnInit {
   listDays: DayCell[] = [];
 
   selected: TrainingSession | null = null;
+  /** Which tab the details open on. */
+  openOn: 'details' | 'attendance' = 'details';
+  /** FR-14-10: started sessions whose attendance the viewer has still to submit. */
+  awaiting: TrainingSession[] = [];
   formOpen = false;
   editing: TrainingSession | null = null;
   formDate: Date | null = null;
@@ -99,10 +103,34 @@ export class TrainingCalendarComponent implements OnInit {
     } else {
       this.load();
     }
+    this.loadAwaiting();
     timer(REFRESH_SECONDS * 1000, REFRESH_SECONDS * 1000).pipe(
       filter(() => !document.hidden),
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(() => this.load(true));
+    ).subscribe(() => {
+      this.load(true);
+      this.loadAwaiting();
+    });
+  }
+
+  /** Only trainers and HR record attendance. */
+  loadAwaiting(): void {
+    if (!this.canSchedule) return;
+    this.sessionsApi.awaitingAttendance().subscribe({ next: list => (this.awaiting = list) });
+  }
+
+  /** When the trainer's 7 days end; after that only HR can record it (FR-14-01). */
+  trainerUntil(s: TrainingSession): Date {
+    return addDays(new Date(`${s.date}T${s.endTime}`), 7);
+  }
+
+  overdue(s: TrainingSession): boolean {
+    return this.trainerUntil(s).getTime() < Date.now();
+  }
+
+  openAttendance(s: TrainingSession): void {
+    this.openOn = 'attendance';
+    this.selected = s;
   }
 
   // --- period -------------------------------------------------------------------
@@ -236,6 +264,7 @@ export class TrainingCalendarComponent implements OnInit {
   }
 
   openDetails(s: TrainingSession): void {
+    this.openOn = 'details';
     this.selected = s;
   }
 
@@ -278,6 +307,7 @@ export class TrainingCalendarComponent implements OnInit {
       : this.sessions.map(s => (s.id === updated.id ? updated : s));
     this.selected = leaves ? null : updated;
     this.rebuild();
+    this.loadAwaiting();
   }
 
   onDeleted(id: number): void {

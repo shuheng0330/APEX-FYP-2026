@@ -20,6 +20,7 @@ import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.OrgChart;
 import com.tbm.careerpathlearning.model.Role;
 import com.tbm.careerpathlearning.model.Staff;
+import com.tbm.careerpathlearning.model.TrainingAttendance;
 import com.tbm.careerpathlearning.model.TrainingInvitation;
 import com.tbm.careerpathlearning.model.TrainingProgram;
 import com.tbm.careerpathlearning.model.TrainingRegistration;
@@ -139,6 +140,23 @@ public class TrainingServiceImpl implements TrainingService {
                 .toList();
         Lookup lookup = lookup(sessions, viewer);
         return sessions.stream().map(s -> toDto(s, viewer, lookup)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TrainingSessionDto> awaitingAttendance(TrainingViewer viewer) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        List<TrainingProgram> started = trainingProgramRepository
+                .findAllByDeletedFalseAndStatusAndAttendanceSubmittedAtIsNullAndSessionDateLessThanEqual(
+                        TrainingSessionStatus.SCHEDULED, now.toLocalDate()).stream()
+                .filter(s -> !now.isBefore(s.startsAt()) && TrainingAttendanceServiceImpl.recorder(s, viewer))
+                .toList();
+        Lookup lookup = lookup(started, viewer);
+        return started.stream()
+                .filter(s -> hasAttendees(s, lookup))
+                .sorted(Comparator.comparing(TrainingProgram::startsAt))
+                .map(s -> toDto(s, viewer, lookup))
+                .toList();
     }
 
     @Override
@@ -282,6 +300,13 @@ public class TrainingServiceImpl implements TrainingService {
         if (session.getStatus() == TrainingSessionStatus.SCHEDULED && now.isBefore(session.endsAt())) {
             throw new BadRequestException("Only a session that has ended, or was cancelled, can be archived. "
                     + "If it won't go ahead, cancel it.");
+        }
+        boolean attendees = trainingAttendanceRepository.existsByTrainingId(id)
+                || trainingRegistrationRepository.findAllByTrainingId(id).stream()
+                .anyMatch(r -> r.getStatus() == TrainingRegistrationStatus.REGISTERED);
+        if (session.getStatus() == TrainingSessionStatus.SCHEDULED && session.getAttendanceSubmittedAt() == null
+                && attendees) { // decision D, 28 Oct 2026
+            throw new BadRequestException("Submit the attendance first, then archive the session.");
         }
         session.setStatus(TrainingSessionStatus.ARCHIVED);
         session.setArchivedAt(now);
@@ -554,6 +579,13 @@ public class TrainingServiceImpl implements TrainingService {
                 || (session.getStatus() == TrainingSessionStatus.SCHEDULED && me != null && inAudience(session, me));
     }
 
+    /** Someone is registered or has attendance recorded, so the session has attendance to submit. */
+    private static boolean hasAttendees(TrainingProgram session, Lookup lookup) {
+        return lookup.attended().contains(session.getTrainingId())
+                || lookup.registrations().getOrDefault(session.getTrainingId(), List.of()).stream()
+                .anyMatch(r -> r.getStatus() == TrainingRegistrationStatus.REGISTERED);
+    }
+
     /** Active staff in the audience, not counting whoever runs the session. */
     private static int audienceSize(TrainingProgram session, Collection<Staff> active) {
         return (int) active.stream()
@@ -581,7 +613,8 @@ public class TrainingServiceImpl implements TrainingService {
     private record Lookup(Map<UUID, Staff> activeById, Map<Long, List<TrainingRegistration>> registrations,
                           Set<Long> invited, Set<Long> attended, Map<Long, String> departments,
                           Map<Long, String> roles, Map<UUID, String> names,
-                          Map<Long, TrainingInvitation> myInvitations, List<TrainingProgram> mySeats) {
+                          Map<Long, TrainingInvitation> myInvitations, List<TrainingProgram> mySeats,
+                          Map<Long, TrainingAttendance> myAttendance) {
     }
 
     private Lookup lookup(List<TrainingProgram> sessions, TrainingViewer viewer) {
@@ -621,7 +654,11 @@ public class TrainingServiceImpl implements TrainingService {
                         List.of(TrainingRegistrationStatus.REGISTERED, TrainingRegistrationStatus.OFFERED)).stream()
                 .map(TrainingRegistration::getTrainingId).collect(Collectors.toSet());
         List<TrainingProgram> mySeats = seatIds.isEmpty() ? List.of() : trainingProgramRepository.findAllById(seatIds);
-        return new Lookup(active, registrations, invited, attended, departments, roles, names, myInvitations, mySeats);
+        Map<Long, TrainingAttendance> myAttendance = ids.isEmpty() ? Map.of()
+                : trainingAttendanceRepository.findAllByStaffIdAndTrainingIdIn(viewer.userId(), ids).stream()
+                .collect(Collectors.toMap(TrainingAttendance::getTrainingId, a -> a, (a, b) -> a));
+        return new Lookup(active, registrations, invited, attended, departments, roles, names, myInvitations, mySeats,
+                myAttendance);
     }
 
     private TrainingSessionDto toDto(TrainingProgram s, TrainingViewer viewer, Lookup lookup) {
@@ -683,6 +720,14 @@ public class TrainingServiceImpl implements TrainingService {
         dto.setCanDelete(manage && registrations.isEmpty() && !lookup.invited().contains(id) && !attended);
         dto.setAttendanceRecorded(attended);
         dto.setCanSeePeople(manage || viewer.superAdmin() || viewer.userId().equals(s.getTrainerId()));
+        dto.setCanRecordAttendance(s.getStatus() == TrainingSessionStatus.SCHEDULED && !now.isBefore(s.startsAt())
+                && TrainingAttendanceServiceImpl.recorder(s, viewer));
+        dto.setAttendanceSubmittedAt(s.getAttendanceSubmittedAt());
+        TrainingAttendance myAttendance = lookup.myAttendance().get(id);
+        if (myAttendance != null && s.getAttendanceSubmittedAt() != null) { // shown once it is final (FR-14-09)
+            dto.setMyAttendance(myAttendance.getStatus().name());
+            dto.setMyQuizScore(myAttendance.getQuizScore());
+        }
         viewersPlace(dto, s, viewer, lookup, registrations, now);
         return dto;
     }

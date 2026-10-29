@@ -84,4 +84,11 @@ public class TrainingSessionDto {
     private String registerBlocker;
     /** Registering now would put the viewer on the waitlist (FR-13-02). */
     private boolean wouldWaitlist;
+    /** The viewer is the session's trainer or HR and it has started, so they can open its attendance (FR-14-01). */
+    private boolean canRecordAttendance;
+    /** When the attendance was submitted; until then it is awaiting attendance (FR-14-09, FR-14-10). */
+    private LocalDateTime attendanceSubmittedAt;
+    /** The viewer's own attendance, ATTENDED or ABSENT, once it is submitted (FR-14-04). */
+    private String myAttendance;
+    private Integer myQuizScore;
 }

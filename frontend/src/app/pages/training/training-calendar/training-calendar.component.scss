@@ -20,6 +20,16 @@
 .archived-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--tbm-text); }
 .archived-note { margin: -4px 0 12px; color: var(--tbm-muted); font-size: 12px; }
 
+.awaiting { margin-bottom: 14px; padding: 12px 16px; border-left: 3px solid var(--tbm-warning, #faad14); }
+.awaiting header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.awaiting header nz-icon { color: var(--tbm-warning, #faad14); }
+.awaiting .muted { color: var(--tbm-muted); font-size: 12px; }
+.awaiting ul { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.awaiting li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 6px; background: var(--tbm-surface-subtle); }
+.awaiting li nz-tag { margin: 0; }
+.awaiting-what { flex: 1; min-width: 180px; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.awaiting-title { font-size: 13px; font-weight: 600; }
+
 .add {
   display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
   border: 1px dashed var(--tbm-border); border-radius: 4px; background: transparent; color: var(--tbm-muted); cursor: pointer;

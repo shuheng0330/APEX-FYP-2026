@@ -39,6 +39,12 @@ public class TrainingProgramController {
         return ResponseEntity.ok(trainingService.mine(viewer(authentication)));
     }
 
+    /** Sessions whose attendance the viewer has still to submit (FR-14-10); empty for anyone who records none. */
+    @GetMapping("/awaiting-attendance")
+    public ResponseEntity<?> awaitingAttendance(Authentication authentication) {
+        return ResponseEntity.ok(trainingService.awaitingAttendance(viewer(authentication)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(trainingService.get(id, viewer(authentication)));
