@@ -319,7 +319,6 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
         if (s.getTrainerId() != null) lookup.add(s.getTrainerId());
         Map<UUID, Staff> staff = lookup.isEmpty() ? Map.of() : staffRepository.findAllWithRoleByIdIn(lookup).stream()
                 .collect(Collectors.toMap(Staff::getId, x -> x));
-        boolean fullIds = viewer.hr(); // decision D, 28 Oct 2026
         boolean exported = false;
         byte[] content;
         try (TrainingSpreadsheets.Book book = new TrainingSpreadsheets.Book()) {
@@ -338,9 +337,8 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
                 TrainingRegistration form = forms.get(id);
                 TrainingAttendance mark = rows.get(id);
                 OrgChart department = person == null ? null : SopAssignmentServiceImpl.department(person);
-                String idNumber = form == null || form.getIdNumber() == null ? null
-                        : fullIds ? form.getIdNumber() : TrainingRegistrationServiceImpl.masked(form.getIdNumber());
-                exported |= fullIds && idNumber != null;
+                String idNumber = form == null ? null : form.getIdNumber();
+                exported |= idNumber != null;
                 Row row = book.row(sheet, r++, null,
                         person == null ? null : person.getEmail(),
                         person == null ? "Unknown user" : person.getName(),
@@ -698,9 +696,15 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
         LocalDateTime now = LocalDateTime.now(clock);
         Long id = s.getTrainingId();
         Map<UUID, TrainingAttendance> rows = rowsBySession(id);
-        Set<UUID> people = new HashSet<>(registered(id));
+        Map<UUID, TrainingRegistration> forms = new HashMap<>();
+        trainingRegistrationRepository.findAllByTrainingId(id).stream()
+                .filter(r -> r.getStatus() == TrainingRegistrationStatus.REGISTERED)
+                .forEach(r -> forms.put(r.getStaffId(), r));
+        Set<UUID> people = new HashSet<>(forms.keySet());
         people.addAll(rows.keySet());
         List<TrainingEvidence> evidence = trainingEvidenceRepository.findAllByTrainingIdOrderByUploadedAtAscEvidenceIdAsc(id);
+        // Whoever records it checks each person against their IC or passport number (29 Oct 2026).
+        boolean recorder = recorder(s, viewer);
         Set<UUID> lookup = new HashSet<>(people);
         rows.values().stream().map(TrainingAttendance::getRecordedBy).filter(Objects::nonNull).forEach(lookup::add);
         evidence.forEach(e -> lookup.add(e.getUploadedBy()));
@@ -723,6 +727,10 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
                 r.setRoleName(person.getRole() == null ? null : person.getRole().getName());
                 r.setDepartmentName(department == null ? null : department.getName());
             }
+            TrainingRegistration form = forms.get(staffId);
+            if (recorder && form != null) {
+                r.setIdNumber(form.getIdNumber());
+            }
             r.setStatus(row == null ? "NOT_RECORDED" : row.getStatus().name());
             if (row != null) {
                 r.setQuizScore(row.getQuizScore());
@@ -742,7 +750,6 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
         boolean started = !now.isBefore(s.startsAt());
         boolean submitted = s.getAttendanceSubmittedAt() != null;
         boolean late = now.isAfter(trainerUntil(s));
-        boolean recorder = recorder(s, viewer);
         dto.setOpensAt(s.startsAt());
         dto.setTrainerUntil(trainerUntil(s));
         dto.setSubmitted(submitted);

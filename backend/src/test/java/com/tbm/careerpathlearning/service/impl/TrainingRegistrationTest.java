@@ -292,7 +292,7 @@ class TrainingRegistrationTest {
     }
 
     @Test
-    @DisplayName("The trainer and HR see the HRDC details with the IC masked; the Super Admin sees the list without them")
+    @DisplayName("The trainer and HR see the HRDC details, IC in full; the Super Admin sees the list without them")
     void peopleList() {
         Long id = session(r -> r.setRegistrationForm(true));
         registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village", true), asAisyah);
@@ -300,9 +300,9 @@ class TrainingRegistrationTest {
 
         TrainingPersonDto row = registrations.people(id, asWeiMing).get(0);
         assertEquals("REGISTERED", row.getStatus());
-        assertEquals("********5678", row.getIdNumber());
+        assertEquals("900101145678", row.getIdNumber());
         assertEquals("Bangsar Village", row.getBranch());
-        assertEquals("********5678", registrations.people(id, asHr).get(0).getIdNumber());
+        assertEquals("900101145678", registrations.people(id, asHr).get(0).getIdNumber());
         assertNull(registrations.people(id, asSuperAdmin).get(0).getIdNumber());
         assertThrows(ForbiddenRequestException.class, () -> registrations.people(id, asKarim));
         assertThrows(ForbiddenRequestException.class, () -> registrations.people(id, asRavi));

@@ -171,7 +171,7 @@ class TrainingReportTest {
     }
 
     @Test
-    @DisplayName("The report counts the session's people and its attendance; IC numbers show 4 characters on screen")
+    @DisplayName("The report counts the session's people and its attendance, with IC numbers in full for its trainer and HR")
     void numbers() {
         heldAndMarked();
 
@@ -195,7 +195,7 @@ class TrainingReportTest {
                 r.getPeople().stream().map(TrainingSessionReportDto.Person::getName).toList());
         TrainingSessionReportDto.Person a = r.getPeople().get(1);
         assertEquals("nur.aisyah@tbm.net", a.getEmail());
-        assertEquals("********1234", a.getIdNumber());
+        assertEquals("010203101234", a.getIdNumber());
         assertEquals("IOI Mall Damansara", a.getBranch());
         assertEquals("Sales Executive", a.getRoleName());
         assertEquals("Sales Department", a.getDepartmentName());
@@ -205,15 +205,17 @@ class TrainingReportTest {
         assertTrue(r.getPeople().get(0).isWalkIn());
         assertNull(r.getPeople().get(0).getIdNumber()); // a walk-in filled in no form
         assertEquals(List.of("group photo.png"), r.getEvidence().stream().map(e -> e.getFileName()).toList());
-        assertFalse(r.isFullIdNumbersInFile());
         assertEquals("Tan Wei Ming", r.getGeneratedByName());
+        // The Super Admin, without HR's permission, sees the report and attendance without the HRDC details.
+        assertNull(reports.report(id(), asSuperAdmin).getPeople().get(1).getIdNumber());
+        assertNull(attendance.sheet(id(), asSuperAdmin).getRows().stream()
+                .filter(x -> x.getName().equals("Nur Aisyah")).findFirst().orElseThrow().getIdNumber());
 
         attendance.submit(id(), null, asWeiMing);
         TrainingSessionReportDto submitted = reports.report(id(), asHr);
         assertTrue(submitted.isSubmitted());
         assertEquals("Tan Wei Ming", submitted.getSubmittedByName());
-        assertEquals("********1234", submitted.getPeople().get(1).getIdNumber()); // masked on screen, even for HR
-        assertTrue(submitted.isFullIdNumbersInFile());
+        assertEquals("010203101234", submitted.getPeople().get(1).getIdNumber());
     }
 
     @Test
@@ -229,7 +231,7 @@ class TrainingReportTest {
     }
 
     @Test
-    @DisplayName("The Excel report keeps IC numbers as text; only HR's copy has them in full, and that is logged (decision D)")
+    @DisplayName("The Excel report keeps IC numbers in full, as text; each download with them is logged (decision D)")
     void excel() throws IOException {
         heldAndMarked();
 
@@ -244,15 +246,14 @@ class TrainingReportTest {
             assertEquals("Not submitted yet", value(rows, "Attendance"));
             assertEquals("75%", value(rows, "Attendance rate"));
             assertEquals("9", value(rows, "Training hours (attended x length)"));
-            assertEquals(List.of("Nur Aisyah", "nur.aisyah@tbm.net", "********1234", "Sales Executive", "Sales Department",
+            assertEquals(List.of("Nur Aisyah", "nur.aisyah@tbm.net", "010203101234", "Sales Executive", "Sales Department",
                     "IOI Mall Damansara", "No", "Attended", "80", "By hand", "Tan Wei Ming", "20 Oct 2026, 12:30"),
                     person(rows, "Nur Aisyah"));
             assertEquals("Yes", person(rows, "Karim Abdullah").get(6));
             assertTrue(rows.stream().anyMatch(r -> !r.isEmpty() && r.get(0).equals("group photo.png")));
-            assertEquals("IC and passport numbers show their last 4 characters. HR's copy has them in full.",
-                    rows.get(rows.size() - 1).get(0));
+            assertEquals("Made by Tan Wei Ming on 20 Oct 2026, 12:30, Malaysia time.", rows.get(rows.size() - 1).get(0));
         }
-        assertTrue(exports().isEmpty());
+        assertEquals(1, exports().size());
 
         try (XSSFWorkbook workbook = open(reports.reportFile(id(), asHr))) {
             Sheet sheet = workbook.getSheet("Report");
@@ -266,7 +267,8 @@ class TrainingReportTest {
             assertEquals(CellType.STRING, ic.getCellType());
             assertEquals("010203101234", ic.getStringCellValue());
         }
-        assertEquals("Session report with IC numbers", exports().get(0).getDetail());
+        assertEquals(2, exports().size());
+        assertEquals("Session report with IC numbers", exports().get(1).getDetail());
     }
 
     @Test

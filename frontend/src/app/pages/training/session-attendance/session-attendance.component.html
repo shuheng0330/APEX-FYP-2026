@@ -78,7 +78,7 @@
     }
 
     @if (sh.rows.length > 6) {
-      <input nz-input class="search" [(ngModel)]="search" placeholder="Find by name or department" aria-label="Find a person" />
+      <input nz-input class="search" [(ngModel)]="search" placeholder="Find by name, department or IC" aria-label="Find a person" />
     }
     @if (editable && counts.notRecorded) {
       <button nz-button nzSize="small" class="rest" (click)="markRestAttended()">
@@ -91,6 +91,9 @@
         <div class="who">
           <strong>{{ r.name }}</strong>
           <span class="muted">{{ r.roleName || 'No job role' }}{{ r.departmentName ? ' · ' + r.departmentName : '' }}</span>
+          @if (r.idNumber) {
+            <span class="muted">IC or passport {{ r.idNumber }}</span>
+          }
           @if (r.recordedByName && !isChanged(r)) {
             <span class="muted">Recorded by {{ r.recordedByName }}, {{ r.recordedAt | date: 'd MMM, HH:mm' }}</span>
           }

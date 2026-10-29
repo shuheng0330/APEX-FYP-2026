@@ -12,7 +12,7 @@ import { saveFile, sessionFileName } from '../training.util';
 
 /**
  * A session's report (FR-12-07) for its trainer, HR and the Super Admin: its numbers, everyone on its attendance list
- * and its evidence, with an Excel copy to download. Only HR's copy has full IC numbers (decision D, 28 Oct 2026).
+ * and its evidence, with an Excel copy to download (decision D, 28 Oct 2026).
  */
 @Component({
   selector: 'app-session-report',

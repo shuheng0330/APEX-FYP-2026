@@ -23,7 +23,7 @@ public class TrainingPersonDto {
     private String note;
     /** The trainer or HR who added the person, if they didn't register themselves. */
     private String addedByName;
-    /** HRDC details (FR-13-03), for the session's trainer and HR only; the IC or passport number shows its last 4 characters. */
+    /** HRDC details (FR-13-03), for the session's trainer and HR only, with the IC or passport number in full. */
     private String idNumber;
     private String phone;
     private String branch;

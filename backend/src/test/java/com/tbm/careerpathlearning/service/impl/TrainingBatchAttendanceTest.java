@@ -198,7 +198,7 @@ class TrainingBatchAttendanceTest {
     }
 
     @Test
-    @DisplayName("The template lists everyone on the session with marks so far; only HR's copy has full IC numbers (FR-14-05)")
+    @DisplayName("The template lists everyone on the session with marks so far and IC numbers in full, logged (FR-14-05)")
     void template() throws IOException {
         Long id = started();
         mark(id, ravi, TrainingAttendanceStatus.ABSENT);
@@ -220,28 +220,32 @@ class TrainingBatchAttendanceTest {
             assertEquals("", text(sheet, 6, 2));
             assertEquals("Y", text(sheet, 6, 6));
             assertEquals("nur.aisyah@tbm.net", text(sheet, 7, 0));
-            assertEquals("********1234", text(sheet, 7, 2));
+            assertEquals("010203101234", text(sheet, 7, 2));
             assertEquals("Sales Executive", text(sheet, 7, 3));
             assertEquals("Sales Department", text(sheet, 7, 4));
             assertEquals("Bangsar Village", text(sheet, 7, 5));
             assertEquals("", text(sheet, 7, 6));
-            assertEquals("****4567", text(sheet, 8, 2));
+            assertEquals("A1234567", text(sheet, 8, 2));
             assertEquals("N", text(sheet, 8, 6));
             Sheet about = workbook.getSheet("About");
             assertTrue(workbook.isSheetHidden(workbook.getSheetIndex(about)));
             assertEquals(String.valueOf(id), text(about, 0, 1));
             assertEquals(2, sheet.getDataValidations().size());
         }
-        assertTrue(audits(TrainingAuditAction.IC_NUMBERS_EXPORTED).isEmpty());
+        TrainingAuditLog logged = audits(TrainingAuditAction.IC_NUMBERS_EXPORTED).get(0);
+        assertEquals("HRDC attendance template with IC numbers", logged.getDetail());
+        assertEquals(String.valueOf(id), logged.getTargetId());
+        assertEquals(weiMing.getId(), logged.getActorId());
 
         try (XSSFWorkbook workbook = open(attendance.hrdcTemplate(id, asHr))) {
             Cell ic = workbook.getSheet("Attendance").getRow(7).getCell(2);
             assertEquals(CellType.STRING, ic.getCellType());
             assertEquals("010203101234", ic.getStringCellValue()); // text, so Excel keeps the leading zero
         }
-        TrainingAuditLog logged = audits(TrainingAuditAction.IC_NUMBERS_EXPORTED).get(0);
-        assertEquals("HRDC attendance template with IC numbers", logged.getDetail());
-        assertEquals(String.valueOf(id), logged.getTargetId());
+        assertEquals(2, audits(TrainingAuditAction.IC_NUMBERS_EXPORTED).size());
+        // The Attendance tab shows it too, to check each person as they are marked.
+        assertEquals("010203101234", row(attendance.sheet(id, asWeiMing), aisyah).getIdNumber());
+        assertNull(row(attendance.sheet(id, asWeiMing), farid).getIdNumber()); // a walk-in filled in no form
 
         assertThrows(ForbiddenRequestException.class, () -> attendance.hrdcTemplate(id, asKarim));
         assertThrows(ForbiddenRequestException.class, () -> attendance.hrdcTemplate(id, asAisyah));

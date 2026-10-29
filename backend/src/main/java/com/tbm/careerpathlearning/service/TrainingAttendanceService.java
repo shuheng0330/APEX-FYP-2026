@@ -37,7 +37,7 @@ public interface TrainingAttendanceService {
 
     /**
      * The HRDC attendance template as an Excel workbook, listing everyone on the session with any marks so far
-     * (FR-14-05). HR's copy has full IC or passport numbers, and is logged; the trainer's shows their last 4 characters.
+     * (FR-14-05), with IC or passport numbers in full for the HRDC claim; a download with them is logged.
      */
     TrainingDownload hrdcTemplate(Long sessionId, TrainingViewer viewer);
 

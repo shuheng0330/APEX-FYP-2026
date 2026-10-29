@@ -40,6 +40,8 @@ public class TrainingAttendanceSheetDto {
         private String name;
         private String roleName;
         private String departmentName;
+        /** From the HRDC form, in full, for whoever records the attendance: to check each person as they are marked. */
+        private String idNumber;
         /** ATTENDED, ABSENT or NOT_RECORDED (FR-14-04). */
         private String status;
         private Integer quizScore;
