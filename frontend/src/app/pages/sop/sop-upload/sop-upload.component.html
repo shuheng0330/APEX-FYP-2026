@@ -54,6 +54,14 @@
         </div>
         <label><span>Version</span><input nz-input placeholder="e.g. 1.0" [(ngModel)]="version" /></label>
         <label><span>Department</span><input nz-input placeholder="e.g. Operations" [(ngModel)]="departmentTag" /></label>
+        <!-- FR-19-05: a new course's categories; a new version keeps the course's own -->
+        @if (!newVersionOf) {
+          <div class="categories">
+            <span>Categories</span>
+            <app-course-category-picker [(ids)]="categoryIds" [(primaryId)]="primaryCategoryId"
+                                        placeholder="General when none chosen"></app-course-category-picker>
+          </div>
+        }
         <button nz-button nzType="primary" nzSize="large" [nzLoading]="uploading" [disabled]="!selectedFile" (click)="upload()" class="upload-btn">
           <nz-icon nzType="cloud-upload"></nz-icon> Generate Material
         </button>
@@ -90,6 +98,15 @@
                   <nz-tag class="version-tag">v{{ doc.versionNo }}</nz-tag>
                 }
                 <small>{{ doc.originalFilename || 'SOP document' }}</small>
+                @if (doc.categories?.length) {
+                  <span class="category-chips">
+                    @for (c of doc.categories; track c.id ?? c.name) {
+                      <span class="category-chip" [style.background]="c.color + '1a'" [style.color]="c.color">
+                        <nz-icon [nzType]="c.icon"></nz-icon> {{ c.name }}
+                      </span>
+                    }
+                  </span>
+                }
               </td>
               <td>{{ doc.departmentTag || '-' }}</td>
               <td>{{ doc.version || '-' }}</td>

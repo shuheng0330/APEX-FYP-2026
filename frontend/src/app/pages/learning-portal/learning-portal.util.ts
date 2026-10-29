@@ -16,8 +16,14 @@ const THEMES: CategoryTheme[] = [
   { from: '#4d7c0f', to: '#84cc16', ink: '#4d7c0f', tint: '#f7fee7' },
 ];
 
-/** The same category always gets the same colours. */
-export function categoryTheme(category: string): CategoryTheme {
+/**
+ * A category's colours: from its own colour when it has one (FR-19-01), otherwise the same category always gets the
+ * same colours.
+ */
+export function categoryTheme(category: string, color?: string): CategoryTheme {
+  if (color && /^#[0-9a-f]{6}$/i.test(color)) {
+    return { from: color, to: color + '99', ink: color, tint: color + '14' };
+  }
   let hash = 0;
   for (const ch of category) {
     hash = (hash * 31 + ch.charCodeAt(0)) | 0;

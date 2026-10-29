@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tbm.careerpathlearning.dto.CourseCategoryChipDto;
 import com.tbm.careerpathlearning.dto.SopFeedbackRequest;
 import com.tbm.careerpathlearning.dto.SopLearningCourseDetailDto;
 import com.tbm.careerpathlearning.dto.SopLearningCourseDto;
@@ -35,6 +36,7 @@ import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
 import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.service.CourseCategoryService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopLearningService;
@@ -76,6 +78,7 @@ public class SopLearningServiceImpl implements SopLearningService {
     /** Failed attempts at one module that alert the course's trainer (FR-11-15). */
     static final int FAILS_TO_ALERT = 3;
 
+    @Autowired private CourseCategoryService courseCategoryService;
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
@@ -569,13 +572,18 @@ public class SopLearningServiceImpl implements SopLearningService {
         return dto;
     }
 
-    private static SopLearningCourseDto baseCourseDto(SopDocument doc, int moduleCount) {
+    private SopLearningCourseDto baseCourseDto(SopDocument doc, int moduleCount) {
         SopLearningCourseDto dto = new SopLearningCourseDto();
         dto.setSopDocumentId(doc.getId());
         dto.setTitle(doc.getTitle());
         dto.setVersion(doc.getVersion());
         dto.setVersionNo(doc.getVersionNo());
-        dto.setCategory(doc.getDepartmentTag() == null || doc.getDepartmentTag().isBlank() ? "General" : doc.getDepartmentTag());
+        // The course's categories, primary first; General when it has none (FR-19-04, FR-19-05).
+        List<CourseCategoryChipDto> categories = courseCategoryService.ofCourse(doc.courseKey());
+        dto.setCategory(categories.get(0).getName());
+        dto.setCategoryColor(categories.get(0).getColor());
+        dto.setCategoryIcon(categories.get(0).getIcon());
+        dto.setCategories(categories);
         dto.setModuleCount(moduleCount);
         return dto;
     }

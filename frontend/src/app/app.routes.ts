@@ -28,6 +28,7 @@ import { SopQuizReviewComponent } from './pages/sop/sop-quiz-review/sop-quiz-rev
 import { SopAssignComponent } from './pages/sop/sop-assign/sop-assign.component';
 import { SopScoreboardComponent } from './pages/sop/sop-scoreboard/sop-scoreboard.component';
 import { TrainerAccessComponent } from './pages/sop/trainer-access/trainer-access.component';
+import { CourseCategoriesComponent } from './pages/sop/course-categories/course-categories.component';
 import { TrainingCalendarComponent } from './pages/training/training-calendar/training-calendar.component';
 import { StaffSharingComponent } from './pages/training/staff-sharing/staff-sharing.component';
 import { TrainingRecordPageComponent } from './pages/training/training-record-page/training-record-page.component';
@@ -121,6 +122,11 @@ export const routes: Routes = [
         path: 'sop/scoreboard', component: SopScoreboardComponent,
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_VIEW_TEAM_TRAINING'] },
+      },
+      {
+        path: 'sop/categories', component: CourseCategoriesComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL', 'CAN_VIEW_TEAM_TRAINING'] },
       },
       {
         path: 'sop/trainer-access', component: TrainerAccessComponent,

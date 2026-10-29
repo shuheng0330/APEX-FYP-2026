@@ -20,7 +20,10 @@
 .metadata-grid label { display: flex; flex-direction: column; gap: 6px; color: var(--tbm-text); font-size: 12px; font-weight: 600; }
 .metadata-grid label:first-child { grid-column: 1 / -1; }
 .metadata-grid .version-of { display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1; color: var(--tbm-text); font-size: 12px; font-weight: 600; }
+.metadata-grid .categories { display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1; color: var(--tbm-text); font-size: 12px; font-weight: 600; }
 .version-tag { margin-left: 6px; }
+.category-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.category-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .upload-btn { grid-column: 1 / -1; width: 100%; margin-top: 4px; }
 .document-heading { margin-bottom: 14px; }
 .document-heading h2 { margin-top: 4px; font-size: 18px; }

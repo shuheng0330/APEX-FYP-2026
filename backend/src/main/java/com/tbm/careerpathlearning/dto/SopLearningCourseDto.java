@@ -6,6 +6,8 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /** A course on the learner's Learning Portal: one they are enrolled in, or an Open course they can join. */
 @Data
@@ -13,8 +15,12 @@ public class SopLearningCourseDto {
     private Long sopDocumentId;
     private String title;
     private String version;
-    /** The SOP's department, used as the course category (FR-11-09). */
+    /** The course's primary category (FR-11-09, FR-19-05), with its colour and icon... */
     private String category;
+    private String categoryColor;
+    private String categoryIcon;
+    /** ...and every category it carries, primary first, for the filters (FR-19-06). */
+    private List<CourseCategoryChipDto> categories = new ArrayList<>();
     private int moduleCount;
 
     /** Null for an Open course the learner has not enrolled in. */

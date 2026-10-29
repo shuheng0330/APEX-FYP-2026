@@ -50,6 +50,8 @@
               <div><dt>Prepared by</dt><dd>{{ document.preparedByName || '-' }}</dd></div>
               <div><dt>Date</dt><dd>{{ document.createdAt ? (document.createdAt | date: 'd MMM yyyy') : '-' }}</dd></div>
             </dl>
+            <!-- FR-19-05: at least one category, shared by every version -->
+            <app-course-category-editor [document]="document"></app-course-category-editor>
             <!-- FR-07-15: the course's own pass mark and estimated duration -->
             <div class="course-settings">
               <span class="settings-title">Course settings</span>

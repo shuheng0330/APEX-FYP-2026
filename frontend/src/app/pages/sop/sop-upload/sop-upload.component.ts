@@ -20,7 +20,9 @@ import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { SopService } from '../../../services/sop.service';
 import { SopDocument, SopGenerationStatus } from '../../../models/sop.model';
+import { CourseCategoryService } from '../../../services/course-category.service';
 import { CourseView, MAX_UPLOAD_MB, RESTORE_QUESTION, SOP_FILE_ACCEPT, SOP_FILE_TYPES } from '../sop.util';
+import { CourseCategoryPickerComponent } from '../course-category-picker/course-category-picker.component';
 
 @Component({
   selector: 'app-sop-upload',
@@ -29,7 +31,7 @@ import { CourseView, MAX_UPLOAD_MB, RESTORE_QUESTION, SOP_FILE_ACCEPT, SOP_FILE_
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzFormModule, NzTableModule,
     NzTagModule, NzIconModule, NzSpinModule, NzEmptyModule, NzProgressModule, NzPopconfirmModule, NzAlertModule,
-    NzModalModule, NzRadioModule, NzSelectModule
+    NzModalModule, NzRadioModule, NzSelectModule, CourseCategoryPickerComponent
   ],
   templateUrl: './sop-upload.component.html',
   styleUrls: ['./sop-upload.component.scss']
@@ -41,6 +43,9 @@ export class SopUploadComponent implements OnInit, OnDestroy {
   departmentTag = '';
   /** Upload as the next version of this course rather than as a new one (FR-06-06). */
   newVersionOf: number | null = null;
+  /** A new course's categories (FR-19-05); none leaves it under General. A new version keeps the course's own. */
+  categoryIds: number[] = [];
+  primaryCategoryId: number | null = null;
   selectedFile: File | null = null;
   uploading = false;
 
@@ -59,6 +64,7 @@ export class SopUploadComponent implements OnInit, OnDestroy {
 
   constructor(
     private sopService: SopService,
+    private courseCategoryService: CourseCategoryService,
     private message: NzMessageService,
     private modal: NzModalService,
     private router: Router
@@ -113,6 +119,8 @@ export class SopUploadComponent implements OnInit, OnDestroy {
     if (this.version.trim()) form.append('version', this.version.trim());
     if (this.departmentTag.trim()) form.append('departmentTag', this.departmentTag.trim());
     if (this.newVersionOf) form.append('newVersionOf', String(this.newVersionOf));
+    const categoryIds = this.newVersionOf ? [] : [...this.categoryIds];
+    const primaryCategoryId = this.primaryCategoryId;
 
     this.uploading = true;
     this.sopService.upload(form).subscribe({
@@ -122,14 +130,25 @@ export class SopUploadComponent implements OnInit, OnDestroy {
           ? `Uploaded as draft v${doc.versionNo} of "${doc.title}" and queued for AI generation. Staff keep the live version until you publish it.`
           : 'Uploaded and queued for AI generation.');
         this.title = ''; this.version = ''; this.departmentTag = ''; this.newVersionOf = null;
+        this.categoryIds = []; this.primaryCategoryId = null;
         this.selectedFile = null;
         this.documents = [doc, ...this.documents.filter(d => d.id !== doc.id)];
         this.startPolling(); // resume live updates for the new document
+        if (categoryIds.length) this.saveCategories(doc, categoryIds, primaryCategoryId);
       },
       error: err => {
         this.uploading = false;
         this.message.error(err?.error?.message || 'Upload failed.');
       }
+    });
+  }
+
+  /** The upload itself doesn't take categories, so they're set once the course exists. */
+  private saveCategories(doc: SopDocument, ids: number[], primaryId: number | null): void {
+    this.courseCategoryService.setCourse(doc.id, ids, primaryId).subscribe({
+      next: chips => (doc.categories = chips),
+      error: err => this.message.warning(`"${doc.title}" was uploaded, but its categories weren't saved: `
+        + (err?.error?.message || 'the server did not answer.') + ' Set them on Review Generated Training.')
     });
   }
 
