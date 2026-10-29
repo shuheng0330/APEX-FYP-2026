@@ -32,6 +32,9 @@ public interface TrainerAccessService {
      */
     List<Staff> trainersAndHr();
 
+    /** Every department in the org chart, by name, for the staff list's filter (FR-20-02). */
+    List<String> departments();
+
     /** Active staff whose job role has the Super Admin's permission (CAN_MANAGE_ACCESS_CONTROL). */
     List<Staff> superAdmins();
 

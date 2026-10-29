@@ -67,6 +67,28 @@ class TrainerAccessServiceImplTest {
     }
 
     @Test
+    @DisplayName("The list includes inactive accounts with their status; the filter offers every department (FR-20-02)")
+    void everyAccountAndDepartment() {
+        ravi.setAccountStatus(StaffAccountStatus.INACTIVE);
+        Staff gone = store.person("Former Staff", null);
+        gone.setDeleted(true);
+        store.department(13L, "Front Office Department"); // nobody in it yet
+
+        List<TrainerAccessStaffDto> list = service.list();
+
+        assertEquals(List.of("Nur Aisyah", "Ravi Kumar", "Super Admin", "Tan Wei Ming"),
+                list.stream().map(TrainerAccessStaffDto::getName).toList());
+        TrainerAccessStaffDto inactive = list.get(1);
+        assertFalse(inactive.isActive());
+        assertEquals("INACTIVE", inactive.getAccountStatus());
+        assertTrue(list.get(0).isActive());
+        assertEquals("ACTIVE", list.get(0).getAccountStatus());
+        assertEquals(List.of("Front Office Department", "HR Department", "Sales Department"), service.departments());
+        assertThrows(BadRequestException.class,
+                () -> service.grant(ravi.getId(), request(null, "Presents a session"), admin.getId()));
+    }
+
+    @Test
     @DisplayName("The list shows everyone, sorted by name, with access through their role kept apart from grants")
     void list() {
         service.grant(aisyah.getId(), request(null, "Sharing session"), admin.getId());

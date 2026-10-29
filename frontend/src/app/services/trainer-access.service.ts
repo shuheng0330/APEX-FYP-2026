@@ -19,6 +19,11 @@ export class TrainerAccessService {
     return this.http.get<TrainerAccessStaff[]>(this.baseUrl, { withCredentials: true });
   }
 
+  /** Every department in the org chart, for the filter (FR-20-02). */
+  departments(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/departments`, { withCredentials: true });
+  }
+
   grant(staffId: string, request: TrainerAccessRequest): Observable<TrainerAccessStaff> {
     return this.http.post<TrainerAccessStaff>(`${this.baseUrl}/${staffId}/grant`, request,
       { headers: this.quietErrors, withCredentials: true });

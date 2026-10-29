@@ -26,6 +26,7 @@ import { CourseOwnersComponent } from './course-owners/course-owners.component';
 import { MAX_REASON, auditAction, errorMessage, reasonMissing, showRefusal } from './trainer-access.util';
 
 type AccessFilter = 'ALL' | 'ANY' | 'GRANT' | 'ROLE' | 'NONE';
+type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 const ENDING_SOON_DAYS = 7;
 const NO_DEPARTMENT = 'No department';
@@ -71,6 +72,8 @@ export class TrainerAccessComponent implements OnInit {
   search = '';
   department: string | null = null;
   access: AccessFilter = 'ALL';
+  /** FR-20-02: every account is listed, inactive ones too. */
+  status: StatusFilter = 'ALL';
 
   /** The open tab: Staff, or Course owners (?tab=owners, where the lapse alert links). */
   tabIndex = STAFF_TAB;
@@ -133,7 +136,12 @@ export class TrainerAccessComponent implements OnInit {
     this.trainerAccess.list().subscribe({
       next: list => {
         this.staff = list;
-        this.departments = [...new Set(list.map(s => s.department || NO_DEPARTMENT))].sort();
+        // Every department in the org chart, as well as any shown on someone (FR-20-02).
+        this.trainerAccess.departments().subscribe({
+          next: all => this.departments = [...new Set([...all, ...list.map(s => s.department || NO_DEPARTMENT)])]
+            .sort((a, b) => a.localeCompare(b)),
+          error: () => this.departments = [...new Set(list.map(s => s.department || NO_DEPARTMENT))].sort()
+        });
         this.recount();
         this.applyFilters();
         this.loading = false;
@@ -152,17 +160,19 @@ export class TrainerAccessComponent implements OnInit {
     this.filtered = this.staff.filter(s =>
       (!q || [s.name, s.email, s.jobRole ?? ''].some(v => v.toLowerCase().includes(q)))
       && (!this.department || (s.department || NO_DEPARTMENT) === this.department)
+      && (this.status === 'ALL' || s.active === (this.status === 'ACTIVE'))
       && this.matchesAccess(s));
   }
 
   get hasFilters(): boolean {
-    return !!this.search.trim() || !!this.department || this.access !== 'ALL';
+    return !!this.search.trim() || !!this.department || this.access !== 'ALL' || this.status !== 'ALL';
   }
 
   clearFilters(): void {
     this.search = '';
     this.department = null;
     this.access = 'ALL';
+    this.status = 'ALL';
     this.applyFilters();
   }
 
@@ -176,12 +186,14 @@ export class TrainerAccessComponent implements OnInit {
     }
   }
 
+  /** Counts active accounts only: an inactive account can't sign in to use any access. */
   private recount(): void {
+    const active = this.staff.filter(s => s.active);
     this.counts = {
-      any: this.staff.filter(s => s.viaGrant || s.viaRole).length,
-      grant: this.staff.filter(s => s.viaGrant).length,
-      role: this.staff.filter(s => s.viaRole).length,
-      endingSoon: this.staff.filter(s => this.endingSoon(s)).length,
+      any: active.filter(s => s.viaGrant || s.viaRole).length,
+      grant: active.filter(s => s.viaGrant).length,
+      role: active.filter(s => s.viaRole).length,
+      endingSoon: active.filter(s => this.endingSoon(s)).length,
     };
   }
 
@@ -271,7 +283,7 @@ export class TrainerAccessComponent implements OnInit {
   /** Who can take the courses over: active staff with Trainer access, other than the person losing it. */
   get transferCandidates(): TrainerAccessStaff[] {
     const leaving = this.revokeTarget?.staffId;
-    return this.staff.filter(s => (s.viaRole || s.viaGrant) && s.staffId !== leaving);
+    return this.staff.filter(s => s.active && (s.viaRole || s.viaGrant) && s.staffId !== leaving);
   }
 
   /** What confirming will do, in a sentence or two. */

@@ -8,3 +8,6 @@
 
 @media (max-width: 900px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .page-heading { flex-direction: column; } }
+
+/* FR-20-02; on a phone it takes the full width like the other filters. */
+@media (min-width: 641px) { .filters .status-filter { width: 140px; } }

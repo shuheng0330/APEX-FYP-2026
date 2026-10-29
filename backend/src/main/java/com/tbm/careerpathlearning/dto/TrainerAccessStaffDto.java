@@ -24,4 +24,7 @@ public class TrainerAccessStaffDto {
     private OffsetDateTime grantedAt;
     /** Courses this person owns, which must be transferred before they lose Trainer access (FR-20-07). */
     private int ownedCourses;
+    /** The account's status (FR-20-02); only active accounts can be given Trainer access. */
+    private String accountStatus;
+    private boolean active;
 }
