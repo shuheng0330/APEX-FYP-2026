@@ -30,6 +30,8 @@ export interface ScoreboardRecord {
   selfEnrolled: boolean;
   /** Left the company: listed, but not counted in the figures (FR-10-12). */
   leftCompany: boolean;
+  /** The viewer may open the person's whole training record: HR, the Super Admin, or their manager (FR-18-01). */
+  canOpenRecord: boolean;
   passMark: number;
   /** Final score once certified, otherwise the average of the modules passed so far. */
   score?: number | null;

@@ -17,6 +17,9 @@ public interface TrainingAttendanceRepository extends JpaRepository<TrainingAtte
 
     List<TrainingAttendance> findAllByTrainingId(Long trainingId);
 
+    /** A person's attendance at every session, for their training record (FR-18-01). */
+    List<TrainingAttendance> findAllByStaffId(UUID staffId);
+
     /** The attendance at these sessions, for the staff sharing figures (FR-15-02). */
     List<TrainingAttendance> findAllByTrainingIdIn(Collection<Long> trainingIds);
 
