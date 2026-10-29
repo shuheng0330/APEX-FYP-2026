@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
+import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { EMPTY, Subject, catchError, combineLatest, finalize, map, merge, of, switchMap } from 'rxjs';
 import { KpiItem, KpiLevel, KpiPeriodContext } from '../../models/kpi-plan.model';
@@ -15,12 +16,13 @@ import { StaffPerformanceService } from '../../services/staff-performance.servic
 import { AnnualAppraisalPerformanceComponent } from '../annual-appraisal/annual-appraisal-performance.component';
 import { AnnualPerformanceTrendComponent, AnnualTrendResult } from '../annual-appraisal/annual-performance-trend.component';
 import { KpiScoringGuideComponent } from '../kpi-plan/kpi-scoring-guide.component';
+import { KpiScoreSummaryComponent } from '../kpi-assessment/kpi-score-summary.component';
 import { performanceEmployeeId, performanceId, performanceReturnUrl } from './staff-performance-navigation';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NzButtonModule, NzDrawerModule, NzSelectModule,
-    AnnualAppraisalPerformanceComponent, AnnualPerformanceTrendComponent, KpiScoringGuideComponent],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NzButtonModule, NzDrawerModule, NzModalModule, NzSelectModule,
+    AnnualAppraisalPerformanceComponent, AnnualPerformanceTrendComponent, KpiScoringGuideComponent, KpiScoreSummaryComponent],
   templateUrl: './staff-performance.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', './staff-performance.component.scss']
 })
@@ -49,6 +51,8 @@ export class StaffPerformanceComponent implements OnInit {
   appraisal: PerformanceApprovedAppraisal | null = null;
   appraisalLoading = false;
   appraisalError = false;
+  recordedCheckpointId: number | null = null;
+  scoringKpi: KpiItem | null = null;
   private selectedAppraisal: { participantId: number; appraisalId: number } | null = null;
 
   constructor(private api: StaffPerformanceService, public auth: AuthService, private router: Router) {}
@@ -71,13 +75,18 @@ export class StaffPerformanceComponent implements OnInit {
         return result;
       }), catchError(() => { this.appraisalError = true; return of(null); }),
       finalize(() => this.appraisalLoading = false)) : of(null);
-    }), takeUntilDestroyed(this.destroyRef)).subscribe(value => this.appraisal = value);
+    }), takeUntilDestroyed(this.destroyRef)).subscribe(value => {
+      this.appraisal = value;
+      const checkpoints = [...(this.recordedPerformance?.checkpoints ?? [])].sort((a, b) => a.endDate.localeCompare(b.endDate)
+        || a.sequenceNumber - b.sequenceNumber || a.checkpointId - b.checkpointId);
+      this.recordedCheckpointId = checkpoints.length ? checkpoints[checkpoints.length - 1].checkpointId : null;
+    });
 
     merge(combineLatest([this.route.paramMap, this.route.queryParamMap]), this.refresh.pipe(map(() =>
       [this.route.snapshot.paramMap, this.route.snapshot.queryParamMap] as const))).pipe(switchMap(([params, query]) => {
       this.data = null; this.periodId = null; this.empty = false; this.error = false; this.loading = true;
       this.summary = null; this.chartPeriod = null; this.trend = [];
-      this.drawer = null; this.checkpointId = null; this.checkpointRequests.next(null); this.appraisalRequests.next(null);
+      this.drawer = null; this.scoringKpi = null; this.checkpointId = null; this.checkpointRequests.next(null); this.appraisalRequests.next(null);
       this.selectedAppraisal = null; this.periods = [];
       const employeeId = this.staffView ? params.get('employeeId') : this.auth.userId;
       let requestedPeriod: number | null;
@@ -126,6 +135,18 @@ export class StaffPerformanceComponent implements OnInit {
     return this.checkpoint?.answers.map(row => ({ key: String(row.id), kpi: row.kpi, level: row.level, point: row.superiorPoint })) ?? [];
   }
   get internalAppraisal() { return !this.isSelf && this.data?.capabilities.canViewInternalAppraisal ? this.appraisal?.internalDetails : null; }
+  get selectedCheckpoint() { return this.data?.checkpoints.find(c => c.id === this.checkpointId) ?? null; }
+  get recordedPerformance() { return this.internalAppraisal?.recordedPerformance ?? null; }
+  get recordedCheckpoints() { return this.recordedPerformance?.checkpoints ?? []; }
+  get recordedCheckpoint() { return this.recordedCheckpoints.find(c => c.checkpointId === this.recordedCheckpointId) ?? null; }
+  get recordedVersions() { return this.recordedCheckpoint?.versions ?? []; }
+  recordedVersion(level: KpiLevel) { return this.recordedVersions.find(v => v.level === level); }
+  selectRecordedCheckpoint(id: number) {
+    if (this.recordedCheckpoints.some(c => c.checkpointId === id)) this.recordedCheckpointId = id;
+  }
+  showScoringDefinitions(kpi: KpiItem) { this.scoringKpi = kpi; }
+  closeScoringDefinitions() { this.scoringKpi = null; }
+  attitudeRatingLabel(point: number | null) { return this.data?.attitude.ratingDefinitions.find(r => r.point === point)?.label; }
   refreshDetails() { this.refresh.next(); }
   changePeriod(id: number) {
     if (this.loading || id === this.periodId) return;
@@ -142,6 +163,6 @@ export class StaffPerformanceComponent implements OnInit {
     this.appraisalRequests.next(this.selectedAppraisal);
   }
   retryAppraisal() { this.appraisalRequests.next(this.selectedAppraisal); }
-  closeDrawer() { this.drawer = null; this.appraisalRequests.next(null); this.selectedAppraisal = null; }
+  closeDrawer() { this.drawer = null; this.scoringKpi = null; this.appraisalRequests.next(null); this.selectedAppraisal = null; }
   scrollTo(id: string) { document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
 }

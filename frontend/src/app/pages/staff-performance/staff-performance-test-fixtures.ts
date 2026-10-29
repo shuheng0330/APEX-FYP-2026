@@ -1,4 +1,5 @@
 import { PerformanceApprovedAppraisal, PerformanceCheckpointDetails, PerformancePeriod, StaffPerformance } from '../../models/staff-performance.model';
+import { AnnualAppraisalSnapshot } from '../../models/annual-appraisal.model';
 
 export const performanceEmployee = '11111111-1111-1111-1111-111111111111';
 export function staffPeriod(id = 1): PerformancePeriod {
@@ -32,4 +33,30 @@ export function staffCheckpoint(period = staffPeriod()): PerformanceCheckpointDe
     answers: [{ id: 501, level: 'INDIVIDUAL', kpi: { id: 500, name: 'Support Resolution', description: null, perspective: null, kra: null,
       target: 'Resolve 90% within SLA', measurementUnit: null, weightage: 100, scoringDefinitions: { 4: 'Meets expectation' } },
       selfPoint: 3, selfComment: 'Submitted self comment', superiorPoint: 4, superiorComment: 'Submitted feedback' }] };
+}
+
+export function staffRecordedAppraisal(period = staffPeriod()): PerformanceApprovedAppraisal {
+  const individual = staffCheckpoint(period).breakdown!.levels[0];
+  const year = period.endDate.slice(0, 4);
+  const levels = [
+    { ...individual, level: 'COMPANY' as const, allocation: 15, contribution: 6, versionNumber: 3, resultEditionNumber: 2,
+      publishedAt: `${year}-07-01T10:00:00Z`, reportingCheckpoint: { id: 91, reviewFrequency: 'MONTHLY' as const, startDate: `${year}-06-01`, endDate: `${year}-06-30` },
+      items: [{ kpi: { ...individual.items[0].kpi, id: 510, name: 'Recorded Revenue' }, actualAchievement: 'Recorded Company achievement', point: 2 }] },
+    { ...individual, level: 'DEPARTMENT' as const, allocation: 15, contribution: 9, versionNumber: 4, resultEditionNumber: 1,
+      items: [{ kpi: { ...individual.items[0].kpi, id: 511, name: 'Recorded Department Service' }, actualAchievement: 'Recorded Department achievement', point: 3 }] },
+    { ...individual, versionNumber: 5 }
+  ];
+  const recordedPerformance: AnnualAppraisalSnapshot = { participantId: period.participantId, reviewPeriodId: period.id, employeeId: performanceEmployee,
+    reviewFrequency: period.reviewFrequency, consolidationMethod: 'FINAL_CHECKPOINT', kpiWeight: 50, attitudeWeight: 50,
+    annualKpiScore: 71, attitudeScore: 80, finalScore: 75.5,
+    checkpoints: [{ checkpointId: 301, sequenceNumber: 1, startDate: period.startDate, endDate: period.endDate,
+      assessmentId: 201, status: 'REVIEWED', score: 71, reviewedAt: null,
+      versions: [{ level: 'COMPANY', versionId: 903, versionNumber: 3 }, { level: 'DEPARTMENT', versionId: 904, versionNumber: 4 },
+        { level: 'INDIVIDUAL', versionId: 905, versionNumber: 5 }], breakdown: { assessmentId: 201, checkpointScore: 71, levels } }],
+    attitude: { assessmentId: 21, configurationId: 20, format: 'OTHERS', status: 'REVIEWED', reviewedAt: null,
+      criteria: [{ criterionId: 22, name: 'Recorded Integrity', description: 'Recorded criterion', superiorPoint: 4 }] } };
+  return { ...staffAppraisal(), period, finalDecision: 'PROMOTION', recordedScores: { annualKpiScore: 71, attitudeScore: 80, finalScore: 75.5,
+    kpiWeight: 50, attitudeWeight: 50, consolidationMethod: 'FINAL_CHECKPOINT' },
+    internalDetails: { recommendation: 'SALARY_INCREMENT', justification: 'Recorded recommendation justification', overrideReason: 'Recorded HR override',
+      reviewedLate: false, recordedPerformance } };
 }

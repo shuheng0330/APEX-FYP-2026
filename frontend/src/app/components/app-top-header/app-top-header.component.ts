@@ -31,10 +31,12 @@ export class AppTopHeaderComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
 
   private readonly pageMap: Array<{ prefix: string; page: PageContext }> = [
+    { prefix: '/team-performance/dashboard', page: { title: 'TEAM_PERFORMANCE.TITLE', group: 'NAV.TEAM_PERFORMANCE' } },
     { prefix: '/my-performance/dashboard', page: { title: 'STAFF_PERFORMANCE.MY_TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/my-performance/staff/', page: { title: 'STAFF_PERFORMANCE.STAFF_TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/team-performance/team-appraisals', page: { title: 'ANNUAL_APPRAISAL.TEAM_TITLE', group: 'NAV.TEAM_PERFORMANCE' } },
     { prefix: '/appraisals/review', page: { title: 'ANNUAL_APPRAISAL.HR_TITLE', group: 'NAV.PERFORMANCE_APPRAISAL' } },
+    { prefix: '/appraisals/organisation-performance', page: { title: 'ORG_PERFORMANCE.TITLE', group: 'NAV.PERFORMANCE_APPRAISAL' } },
     { prefix: '/my-performance/my-assessments', page: { title: 'MY_ASSESSMENTS.TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/my-performance/my-kpi-plan', page: { title: 'INDIVIDUAL_KPI.TITLE', group: 'NAV.MY_PERFORMANCE' } },
     { prefix: '/team-performance/team-reviews', page: { title: 'TEAM_REVIEWS.TITLE', group: 'NAV.TEAM_PERFORMANCE' } },

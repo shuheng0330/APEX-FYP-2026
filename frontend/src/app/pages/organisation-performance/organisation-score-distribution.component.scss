@@ -1,0 +1,7 @@
+:host { min-width: 0; display: block; }
+.distribution-chart { height: 280px; position: relative; min-width: 0; }
+.distribution-chart canvas { max-width: 100%; }
+.distribution-caption { border-top: 1px solid var(--tbm-border); padding-top: 12px; margin-top: 12px; }
+canvas:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 3px; border-radius: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 600px) { .distribution-chart { height: 265px; } }

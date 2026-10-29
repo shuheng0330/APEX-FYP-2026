@@ -1,0 +1,75 @@
+<main class="review-page team-performance-page" [attr.aria-busy]="loading">
+  @if (returnUrl) { <a class="back-link" [routerLink]="returnLink">{{ 'ORG_PERFORMANCE.BACK' | translate }}</a> }
+  <header class="page-heading">
+    <div><h2>{{ 'TEAM_PERFORMANCE.TITLE' | translate }}</h2><p class="help">{{ 'TEAM_PERFORMANCE.INTRO' | translate }}</p></div>
+    <div class="selection-controls">
+      @if (scopes.length > 1) {
+        <div class="field"><label for="team-scope">{{ 'TEAM_PERFORMANCE.SCOPE' | translate }}</label>
+          <nz-select nzId="team-scope" [ngModel]="scope ? scopeKey(scope) : null" (ngModelChange)="changeScope($event)" [nzDisabled]="loading">
+            @for (option of scopes; track scopeKey(option)) { <nz-option [nzValue]="scopeKey(option)" [nzLabel]="option.type === 'TEAM' ? ('TEAM_PERFORMANCE.DIRECT_REPORTS' | translate) : option.name" /> }
+          </nz-select></div>
+      } @else if (scope) { <p class="scope-name">{{ scope.type === 'TEAM' ? ('TEAM_PERFORMANCE.DIRECT_REPORTS' | translate) : scope.name }}</p> }
+      <div class="field period-field"><label for="team-period">{{ 'ANNUAL_APPRAISAL.PERIOD' | translate }}</label>
+        <nz-select nzId="team-period" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="loading || !periods.length" [nzPlaceHolder]="'STAFF_PERFORMANCE.SELECT_PERIOD' | translate">
+          @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
+        </nz-select></div>
+      <button nz-button type="button" [disabled]="loading" (click)="refresh()">{{ 'ANNUAL_APPRAISAL.REFRESH_DETAILS' | translate }}</button>
+    </div>
+  </header>
+  @if (loading) { <p role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
+  @if (error) { <section class="card card-body" role="alert"><h3>{{ 'TEAM_PERFORMANCE.UNAVAILABLE' | translate }}</h3><p>{{ 'TEAM_PERFORMANCE.UNAVAILABLE_HELP' | translate }}</p><a routerLink="/team-performance/dashboard">{{ 'TEAM_PERFORMANCE.RESET' | translate }}</a></section> }
+  @if (empty) { <section class="card empty"><h3>{{ 'TEAM_PERFORMANCE.EMPTY.' + empty | translate }}</h3></section> }
+  @if (data; as view) {
+    <p class="help period-context">{{ view.period.startDate | date:'dd MMM yyyy' }} - {{ view.period.endDate | date:'dd MMM yyyy' }} <span class="status" [attr.data-status]="view.period.status">{{ 'REVIEW_PERIOD.STATUS.' + view.period.status | translate }}</span></p>
+    <section class="team-summary" [attr.aria-label]="'TEAM_PERFORMANCE.SUMMARY' | translate">
+      <div class="card summary-card"><h3>{{ 'TEAM_PERFORMANCE.EMPLOYEES_WITH_RESULTS' | translate }}</h3><strong>{{ view.summary.employeesWithResults }}</strong><p class="help">{{ 'TEAM_PERFORMANCE.OUT_OF' | translate:{ count: view.summary.totalEmployees } }}</p></div>
+      @for (field of scoreFields; track field) {
+        <div class="card summary-card" [attr.data-metric]="field"><h3>{{ 'TEAM_PERFORMANCE.AVERAGES.' + field | translate }}</h3><strong>{{ view.summary[field].score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (view.summary[field].score | number:'1.2-2') + '%' }}</strong><p class="help">{{ 'TEAM_PERFORMANCE.CONTRIBUTORS' | translate:{ count: view.summary[field].contributingEmployees } }}</p></div>
+      }
+    </section>
+
+    <section class="card attention-section" aria-labelledby="your-actions-title">
+      <div class="card-body action-summary"><h3 id="your-actions-title">{{ 'TEAM_PERFORMANCE.YOUR_ACTIONS' | translate }}</h3>
+        @for (action of actions; track action.task) { <a class="action-link" routerLink="/team-performance/team-reviews" [queryParams]="action.parameters"><strong>{{ action.count }}</strong> {{ 'TEAM_PERFORMANCE.TASKS.' + action.task | translate }}</a> }
+        @if (!actions.length) { <p class="help">{{ 'TEAM_PERFORMANCE.NO_ACTIONS' | translate }}</p> }
+        @if (actions.length && view.attention.yourActions.overdueReviews > 0) { <span class="overdue-pill">{{ 'TEAM_PERFORMANCE.OVERDUE' | translate:{ count: view.attention.yourActions.overdueReviews } }}</span> }
+      </div>
+      <div class="progress-section"><button type="button" class="text-action" [attr.aria-expanded]="progressOpen" aria-controls="team-progress" (click)="progressOpen = !progressOpen">{{ (progressOpen ? 'TEAM_PERFORMANCE.HIDE_PROGRESS' : 'TEAM_PERFORMANCE.VIEW_PROGRESS') | translate }}</button>
+        @if (progressOpen) { <div id="team-progress"><p class="help">{{ 'TEAM_PERFORMANCE.PROGRESS_HELP' | translate }}</p><dl class="progress-counts">@for (field of progressFields; track field) { <div><dt>{{ 'TEAM_PERFORMANCE.PROGRESS.' + field | translate }}</dt><dd>{{ view.attention.scopeProgress[field] }}</dd></div> }</dl></div> }
+      </div>
+    </section>
+
+    <div class="analytics-heading"><p class="help">{{ 'TEAM_PERFORMANCE.LATEST_RESULTS' | translate }}</p><div class="field"><label for="team-metric">{{ 'TEAM_PERFORMANCE.SCORE_SHOWN' | translate }}</label><nz-select nzId="team-metric" [ngModel]="metric" (ngModelChange)="changeMetric($event)">@for (value of metrics; track value) { <nz-option [nzValue]="value" [nzLabel]="'TEAM_PERFORMANCE.METRICS.' + value | translate" /> }</nz-select></div></div>
+    <div class="analytics-grid">
+      <section class="card" aria-labelledby="team-trend-title"><div class="card-head section-heading"><div><h3 id="team-trend-title">{{ 'TEAM_PERFORMANCE.TREND' | translate }}</h3><p class="help">{{ 'TEAM_PERFORMANCE.TREND_HELP' | translate }}</p></div><div class="range-controls">@for (range of [3, 5]; track range) { <button nz-button type="button" [nzType]="years === range ? 'primary' : 'default'" [attr.aria-pressed]="years === range" (click)="changeYears(range)">{{ 'ANNUAL_TREND.YEARS' | translate:{ count: range } }}</button> }</div></div>
+        <div class="card-body"><app-team-performance-trend [points]="view.trend" [period]="view.period" [metric]="metric" [years]="years" /></div>
+      </section>
+      <section class="card" aria-labelledby="distribution-title"><div class="card-head"><h3 id="distribution-title">{{ 'TEAM_PERFORMANCE.DISTRIBUTION' | translate }}</h3><p class="help">{{ 'TEAM_PERFORMANCE.METRICS.' + metric | translate }}</p></div><div class="card-body">
+        @for (bin of view.distribution.bins; track bin.lowerInclusive) {
+          <div class="distribution-bin"><div class="bin-label"><span>{{ bin.lowerInclusive }}% - {{ bin.upperInclusive ? '' : '<' }}{{ bin.upper }}%</span><span><strong>{{ bin.employees }}</strong> <span class="help">({{ binPercent(bin.employees) | number:'1.0-1' }}%)</span></span></div><div class="bar-track" aria-hidden="true"><div class="bar-fill" [style.width.%]="binPercent(bin.employees)"></div></div></div>
+        }
+        <p class="help distribution-caption">{{ 'TEAM_PERFORMANCE.DISTRIBUTION_HELP' | translate:{ count: view.distribution.employeesWithResults, missing: view.distribution.missingResults } }}</p>
+      </div></section>
+    </div>
+
+    <section class="card" aria-labelledby="employee-performance-title"><div class="card-head section-heading"><div><h3 id="employee-performance-title">{{ 'TEAM_PERFORMANCE.EMPLOYEES' | translate }} <span class="status">{{ filteredEmployees.length }} / {{ view.employees.length }}</span></h3><p class="help">{{ 'TEAM_PERFORMANCE.EMPLOYEE_HELP' | translate }}</p></div>
+      <div class="employee-filters"><div class="field"><label for="team-search">{{ 'TEAM_PERFORMANCE.SEARCH' | translate }}</label><input nz-input id="team-search" type="search" [(ngModel)]="search" (ngModelChange)="filtersChanged()" /></div>
+        <div class="field"><label for="team-role">{{ 'TEAM_PERFORMANCE.ROLE' | translate }}</label><nz-select nzId="team-role" [(ngModel)]="role" (ngModelChange)="filtersChanged()"><nz-option nzValue="" [nzLabel]="'TEAM_PERFORMANCE.ALL_ROLES' | translate" />@for (value of roles; track value) { <nz-option [nzValue]="value" [nzLabel]="value" /> }</nz-select></div>
+        <div class="field"><label for="team-results">{{ 'TEAM_PERFORMANCE.RESULTS' | translate }}</label><nz-select nzId="team-results" [(ngModel)]="result" (ngModelChange)="filtersChanged()">@for (value of ['ALL', 'AVAILABLE', 'PENDING']; track value) { <nz-option [nzValue]="value" [nzLabel]="'TEAM_PERFORMANCE.RESULT_FILTER.' + value | translate" /> }</nz-select></div>
+      </div></div>
+      <div class="table-scroll" tabindex="0" [attr.aria-label]="'TEAM_PERFORMANCE.EMPLOYEES' | translate"><table class="data-table employee-table"><thead><tr>
+        @for (column of columns; track column) { <th [attr.aria-sort]="sort === column ? (descending ? 'descending' : 'ascending') : 'none'"><button type="button" class="sort-button" (click)="setSort(column)">{{ 'TEAM_PERFORMANCE.COLUMNS.' + column | translate }} @if (sort === column) { <span aria-hidden="true">{{ descending ? '↓' : '↑' }}</span> }</button></th> }
+        <th>{{ 'ANNUAL_APPRAISAL.ACTIONS' | translate }}</th>
+      </tr></thead><tbody>
+        @for (employee of rows; track employee.participantId) { <tr><td><strong>{{ employee.name || '-' }}</strong><p class="help">{{ employee.roleName || '-' }} · {{ employee.departmentName || '-' }}</p></td>
+          <td>{{ employee.scores.annualKpiScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (employee.scores.annualKpiScore | number:'1.2-2') + '%' }}</td>
+          <td>{{ employee.scores.attitudeScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (employee.scores.attitudeScore | number:'1.2-2') + '%' }}</td>
+          <td class="final-score">{{ employee.scores.finalScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (employee.scores.finalScore | number:'1.2-2') + '%' }}</td>
+          <td><span [attr.title]="'TEAM_PERFORMANCE.COMPARISON.' + employee.yearOnYear.status | translate">{{ changeValue(employee.yearOnYear) == null ? ('TEAM_PERFORMANCE.NOT_COMPARABLE' | translate) : ((employee.yearOnYear.percentagePoints! > 0 ? '+' : '') + (employee.yearOnYear.percentagePoints | number:'1.2-2') + ' ' + ('TEAM_PERFORMANCE.POINTS' | translate)) }}</span><span class="sr-only"> {{ 'TEAM_PERFORMANCE.COMPARISON.' + employee.yearOnYear.status | translate }}</span></td>
+          <td><a [routerLink]="employeeLink(employee)">{{ 'TEAM_PERFORMANCE.VIEW_EMPLOYEE' | translate }}</a></td>
+        } @empty { <tr><td colspan="6" class="empty">{{ (view.employees.length ? 'TEAM_PERFORMANCE.NO_MATCHES' : 'TEAM_PERFORMANCE.NO_EMPLOYEES') | translate }}</td></tr> }
+      </tbody></table></div>
+      <div class="table-footer"><nz-pagination [nzPageIndex]="currentPage" [nzPageSize]="pageSize" [nzTotal]="filteredEmployees.length" (nzPageIndexChange)="changePage($event)" /></div>
+    </section>
+  }
+</main>

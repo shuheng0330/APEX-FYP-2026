@@ -1,0 +1,33 @@
+.organisation-performance-page { max-width: 1680px; }
+.summary-card { display: flex; flex-direction: column; gap: 10px; padding: 20px; }
+.summary-card h3 { min-height: 34px; line-height: 1.4; }
+.summary-card > strong { margin-top: 0; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.summary-card > .help { margin-top: auto; }
+.analytics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.chart-controls { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.range-controls { flex-wrap: wrap; max-width: 100%; }
+.department-comparison { margin-bottom: 18px; }
+.department-search { width: 240px; }
+.progress-table { min-width: 900px; }
+.progress-table th, .progress-table td { padding: 12px 16px; }
+.progress-table th:not(:first-child), .progress-table td { text-align: center; font-variant-numeric: tabular-nums; }
+.progress-table thead tr:first-child th[colspan] { text-align: center; }
+.progress-table thead tr + tr th { text-align: center; border-top: 1px solid var(--tbm-border); font-weight: 400; }
+.progress-table tbody th { background: transparent; color: var(--tbm-text); font-size: 13px; border-top: 1px solid var(--tbm-border); }
+.department-table { min-width: 950px; }
+.department-table td { padding: 12px 18px; }
+.score-sample { appearance: none; border: 0; border-bottom: 1px dotted var(--tbm-muted); padding: 4px 0; background: transparent; color: var(--tbm-text); font: inherit; font-weight: 600; font-variant-numeric: tabular-nums; cursor: help; }
+.score-sample:hover { color: var(--tbm-primary); }
+.score-sample:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
+.department-table td:first-child { min-width: 160px; max-width: 260px; overflow-wrap: anywhere; }
+.department-table td:last-child { white-space: nowrap; }
+.decision-distribution .field { width: 270px; }
+.privacy-notice { padding: 12px 16px; background: var(--tbm-surface-subtle); border-radius: 8px; }
+.export-help { margin-bottom: 24px; }
+@media (max-width: 1050px) { .analytics-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+  .department-search, .decision-distribution .field, .chart-controls, .chart-controls .field { width: 100%; }
+  .chart-controls { align-items: stretch; }
+  .range-controls { align-self: flex-end; }
+  .selection-controls > button { white-space: normal; height: auto; min-height: 32px; }
+}
