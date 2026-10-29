@@ -1,0 +1,13 @@
+.templates { display: flex; flex-direction: column; gap: 10px; }
+.muted { margin: 0; color: var(--tbm-muted); font-size: 12px; }
+.loading { display: flex; justify-content: center; padding: 16px; }
+
+.template { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--tbm-border); border-radius: 8px; }
+.what { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.warn { color: #ad4e00; font-size: 12px; }
+.actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+@media (max-width: 480px) {
+  .template { flex-direction: column; }
+}

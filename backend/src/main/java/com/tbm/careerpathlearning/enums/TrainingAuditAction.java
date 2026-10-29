@@ -23,5 +23,7 @@ public enum TrainingAuditAction {
     ATTENDANCE_SUBMITTED,
     /** HR recorded or changed attendance after it was submitted or after the 7 days, with a reason (FR-14-01, FR-14-09). */
     ATTENDANCE_CHANGED,
-    EVIDENCE_REMOVED
+    EVIDENCE_REMOVED,
+    /** HR downloaded a session's report or attendance file with full IC or passport numbers (decision D, 28 Oct 2026). */
+    IC_NUMBERS_EXPORTED
 }

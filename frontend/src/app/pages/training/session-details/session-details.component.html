@@ -1,5 +1,5 @@
 @if (showPeople || showAttendance) {
-  <!-- Whoever runs or manages the session: its details, who is on it, and its attendance -->
+  <!-- Whoever runs or manages the session: its details, who is on it, its attendance and its report -->
   <nz-tabset [(nzSelectedIndex)]="tabIndex" nzSize="small" class="tabs">
     <nz-tab nzTitle="Details">
       <ng-container [ngTemplateOutlet]="details"></ng-container>
@@ -15,6 +15,13 @@
       <nz-tab [nzTitle]="attendanceTitle">
         <ng-template nz-tab>
           <app-session-attendance [session]="s" (changed)="refresh()"></app-session-attendance>
+        </ng-template>
+      </nz-tab>
+    }
+    @if (showReport) {
+      <nz-tab nzTitle="Report">
+        <ng-template nz-tab>
+          <app-session-report [session]="s"></app-session-report>
         </ng-template>
       </nz-tab>
     }

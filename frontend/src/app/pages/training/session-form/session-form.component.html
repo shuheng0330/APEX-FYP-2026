@@ -1,4 +1,12 @@
 <form class="session-form" (ngSubmit)="save()">
+  <!-- FR-12-09 -->
+  @if (template && !editing) {
+    <nz-alert nzType="info" nzShowIcon [nzMessage]="'From the template ' + template.name"
+              nzDescription="Choose the date. Everything else is filled in as saved; change anything you need."></nz-alert>
+    @for (note of template.leftOut; track note) {
+      <nz-alert nzType="warning" nzShowIcon [nzMessage]="note"></nz-alert>
+    }
+  }
   @if (started) {
     <nz-alert nzType="info" nzShowIcon
               nzMessage="This session has started, so only its title, description, trainer and training type can change."></nz-alert>
@@ -208,6 +216,25 @@
                       [nzDisabled]="started" nzFormat="EEE d MMM yyyy" nzPlaceHolder="No cut-off"></nz-date-picker>
     </label>
     <p class="note">Staff can register until the end of this day.</p>
+  </section>
+
+  <!-- FR-12-08: as in the prototype -->
+  <section class="block template-box" [class.on]="saveAsTemplate">
+    <div class="rule">
+      <nz-switch name="saveAsTemplate" [(ngModel)]="saveAsTemplate" aria-label="Save as a reusable template"></nz-switch>
+      <div>
+        <strong>Save as a reusable template</strong>
+        <span>Next time this training runs, pick it from Templates on the calendar and just choose a new date.</span>
+      </div>
+    </div>
+    @if (saveAsTemplate) {
+      <label class="field">Template name
+        <input nz-input name="templateName" [(ngModel)]="templateName" maxlength="100"
+               [placeholder]="title.trim() || 'For example: Inverter launch'" />
+      </label>
+      <p class="note">Everything but the date and the registration cut-off is saved. You and HR can see it; left empty,
+        it takes the session's title.</p>
+    }
   </section>
 
   <div class="form-footer">

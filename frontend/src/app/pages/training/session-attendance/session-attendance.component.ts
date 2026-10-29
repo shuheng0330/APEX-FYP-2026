@@ -13,22 +13,26 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AudiencePerson } from '../../../models/sop-assignment.model';
 import {
-  TrainingAttendanceEntry, TrainingAttendanceRow, TrainingAttendanceSheet, TrainingAttendanceStatus, TrainingEvidence,
-  TrainingSession
+  TrainingAttendanceEntry, TrainingAttendanceRow, TrainingAttendanceSheet, TrainingAttendanceStatus, TrainingBatchResult,
+  TrainingEvidence, TrainingSession
 } from '../../../models/training-session.model';
 import { SopAssignmentService } from '../../../services/sop-assignment.service';
 import { TrainingSessionService } from '../../../services/training-session.service';
+import { saveFile, sessionFileName } from '../training.util';
 
 type Mark = TrainingAttendanceStatus | null;
 
 /** Evidence per session (decision B, 28 Oct 2026); the server checks the same. */
 const MAX_FILES = 5;
 const MAX_BYTES = 10 * 1024 * 1024;
+/** The largest HRDC attendance file the server reads. */
+const MAX_SHEET_BYTES = 2 * 1024 * 1024;
 
 /**
  * A session's attendance, for its trainer and HR (FR-14): mark each person Attended or Absent with any quiz score,
  * add walk-ins, attach evidence, then submit once everyone is marked. From then on, or after the trainer's 7 days,
- * only HR changes it, giving a reason that is logged. The Super Admin sees it without changing it.
+ * only HR changes it, giving a reason that is logged. The Super Admin sees it without changing it. Everyone can also be
+ * marked at once from the HRDC attendance file (FR-14-05 to FR-14-07).
  */
 @Component({
   selector: 'app-session-attendance',
@@ -56,6 +60,10 @@ export class SessionAttendanceComponent implements OnChanges {
   reason = '';
   staff: AudiencePerson[] = [];
   walkIn: string | null = null;
+  downloading = false;
+  /** What the last uploaded attendance file did, or why it was refused. */
+  batch: TrainingBatchResult | null = null;
+  batchError: string | null = null;
 
   constructor(private sessions: TrainingSessionService, private assignments: SopAssignmentService,
               private message: NzMessageService) {}
@@ -68,6 +76,8 @@ export class SessionAttendanceComponent implements OnChanges {
       this.search = '';
       this.reason = '';
       this.walkIn = null;
+      this.batch = null;
+      this.batchError = null;
       this.load();
     }
   }
@@ -117,6 +127,16 @@ export class SessionAttendanceComponent implements OnChanges {
   /** Evidence can be added while attendance can be recorded; after that by HR. */
   get canChangeEvidence(): boolean {
     return this.editable;
+  }
+
+  /** "10 of 12 rows matched: 8 attended, 1 absent, 1 left blank (not changed). 9 marks changed." */
+  get batchSummary(): string {
+    const b = this.batch;
+    if (!b) return '';
+    const marks = [`${b.attended} attended`, `${b.absent} absent`];
+    if (b.leftBlank) marks.push(`${b.leftBlank} left blank (not changed)`);
+    return `${b.matched} of ${b.rows} ${b.rows === 1 ? 'row' : 'rows'} matched: ${marks.join(', ')}. `
+      + (b.changed ? `${b.changed} ${b.changed === 1 ? 'mark' : 'marks'} changed.` : 'Nothing needed changing.');
   }
 
   markOf(r: TrainingAttendanceRow): Mark {
@@ -217,6 +237,49 @@ export class SessionAttendanceComponent implements OnChanges {
 
   removeEvidence(e: TrainingEvidence): void {
     this.run(this.sessions.removeEvidence(this.session.id, e.id), `${e.fileName} removed.`);
+  }
+
+  /** FR-14-05: everyone on the session, with any marks so far, to fill in Excel. */
+  downloadTemplate(): void {
+    if (this.downloading) return;
+    this.downloading = true;
+    this.sessions.hrdcTemplate(this.session.id).subscribe({
+      next: blob => {
+        this.downloading = false;
+        saveFile(blob, sessionFileName('HRDC attendance', this.session));
+      },
+      error: () => {
+        this.downloading = false;
+        this.message.error('Could not download the template. Reload the calendar and try again.');
+      }
+    });
+  }
+
+  /** FR-14-06, FR-14-07: the filled-in file, applied in one go; a refused file's reasons stay on screen. */
+  uploadSheet(input: HTMLInputElement): void {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || this.busy || this.unsaved || !this.reasonGiven) return;
+    if (file.size > MAX_SHEET_BYTES) {
+      this.batch = null;
+      this.batchError = 'The attendance file can be up to 2 MB.';
+      return;
+    }
+    this.busy = true;
+    this.batch = null;
+    this.batchError = null;
+    this.sessions.uploadAttendance(this.session.id, file, this.reasonFor()).subscribe({
+      next: result => {
+        this.busy = false;
+        this.sheet = result.sheet;
+        this.batch = result;
+        if (this.needsReason) this.reason = '';
+      },
+      error: err => {
+        this.busy = false;
+        this.batchError = err?.error?.message || 'Could not read the file. Check it is the filled-in template, then try again.';
+      }
+    });
   }
 
   size(bytes: number): string {

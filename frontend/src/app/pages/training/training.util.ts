@@ -78,3 +78,24 @@ export function mapsLink(s: TrainingSession): string | null {
 export function isLink(text: string | null | undefined): boolean {
   return !!text && /^https?:\/\/\S+$/i.test(text.trim());
 }
+
+/**
+ * "Session report - Title - 2026-10-20.xlsx", named as the server names it: the browser can't read the server's
+ * file name from another origin.
+ */
+export function sessionFileName(prefix: string, s: { title: string; date: string }): string {
+  const title = s.title.replace(/[\/:*?"<>|\p{Cc}]/gu, '-').trim().slice(0, 80).trim();
+  return `${prefix} - ${title} - ${s.date}.xlsx`;
+}
+
+/** Saves a downloaded file under its name. */
+export function saveFile(blob: Blob, name: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

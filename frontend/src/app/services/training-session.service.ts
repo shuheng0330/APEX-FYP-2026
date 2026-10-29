@@ -3,8 +3,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  TrainingAttendanceEntry, TrainingAttendanceSheet, TrainingAudienceCheck, TrainingPerson, TrainingRegistrationForm,
-  TrainingRegistrationRequest, TrainingSession, TrainingSessionRequest, TrainingTrainer
+  TrainingAttendanceEntry, TrainingAttendanceSheet, TrainingAudienceCheck, TrainingBatchResult, TrainingPerson,
+  TrainingRegistrationForm, TrainingRegistrationRequest, TrainingSession, TrainingSessionReport, TrainingSessionRequest,
+  TrainingTemplate, TrainingTrainer
 } from '../models/training-session.model';
 
 /** Client for the Training Calendar's sessions (/api/trainings, FR-12). */
@@ -145,5 +146,37 @@ export class TrainingSessionService {
   /** The file itself, fetched with the sign-in so it can be opened in a new tab. */
   evidenceFile(id: number, evidenceId: number): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/${id}/attendance/evidence/${evidenceId}`, { responseType: 'blob', withCredentials: true });
+  }
+
+  /** The HRDC attendance template as an Excel file, listing everyone on the session (FR-14-05). */
+  hrdcTemplate(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${id}/attendance/hrdc-template`, { responseType: 'blob', withCredentials: true });
+  }
+
+  /** A filled-in template, or a CSV with its columns, applied in one go (FR-14-06). */
+  uploadAttendance(id: number, file: File, reason?: string): Observable<TrainingBatchResult> {
+    const form = new FormData();
+    form.append('file', file);
+    if (reason) form.append('reason', reason);
+    return this.http.post<TrainingBatchResult>(`${this.baseUrl}/${id}/attendance/batch`, form, { withCredentials: true });
+  }
+
+  // --- reports and templates (FR-12-07 to FR-12-10) -----------------------------------------
+
+  report(id: number): Observable<TrainingSessionReport> {
+    return this.http.get<TrainingSessionReport>(`${this.baseUrl}/${id}/report`, { withCredentials: true });
+  }
+
+  reportFile(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${id}/report/file`, { responseType: 'blob', withCredentials: true });
+  }
+
+  /** The signed-in user's templates; every template for HR. */
+  templates(): Observable<TrainingTemplate[]> {
+    return this.http.get<TrainingTemplate[]>(`${this.baseUrl}/templates`, { withCredentials: true });
+  }
+
+  deleteTemplate(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/templates/${id}`, { withCredentials: true });
   }
 }

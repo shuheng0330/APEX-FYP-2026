@@ -1,0 +1,43 @@
+<section class="templates" aria-label="Session templates">
+  <p class="muted">Set-ups saved when scheduling a session. Use one to run the same training again: only the date is
+    left to choose.</p>
+
+  @if (loading) {
+    <div class="loading"><nz-spin nzSimple></nz-spin></div>
+  }
+
+  @for (t of templates; track t.id) {
+    <article class="template">
+      <div class="what">
+        <strong>{{ t.name }}</strong>
+        @if (t.setup.title && t.setup.title !== t.name) {
+          <span>{{ t.setup.title }}</span>
+        }
+        <span class="muted">{{ summary(t) }}{{ t.trainerName ? ' · ' + t.trainerName : '' }}</span>
+        <span class="muted">
+          {{ t.timesUsed ? 'Used ' + t.timesUsed + (t.timesUsed === 1 ? ' time' : ' times') + ', last on ' + (t.lastUsedAt | date: 'd MMM yyyy') : 'Not used yet' }}
+          @if (!t.mine) {
+            · saved by {{ t.createdByName || 'Unknown user' }}
+          }
+        </span>
+        @if (t.leftOut.length) {
+          <span class="warn"><nz-icon nzType="warning"></nz-icon> Some of it no longer applies; the form says what.</span>
+        }
+      </div>
+      <div class="actions">
+        <button nz-button nzType="primary" nzSize="small" (click)="use.emit(t)">Use</button>
+        @if (t.canDelete) {
+          <button nz-button nzSize="small" nzType="text" nzDanger [disabled]="busy" nz-popconfirm
+                  [nzPopconfirmTitle]="'Delete the template ' + t.name + '? Sessions scheduled from it stay.'"
+                  (nzOnConfirm)="remove(t)" [attr.aria-label]="'Delete the template ' + t.name">
+            <nz-icon nzType="delete"></nz-icon>
+          </button>
+        }
+      </div>
+    </article>
+  } @empty {
+    @if (!loading) {
+      <nz-empty nzNotFoundContent="No templates yet. Turn on Save as a reusable template when you schedule a session."></nz-empty>
+    }
+  }
+</section>

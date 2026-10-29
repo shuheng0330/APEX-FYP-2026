@@ -17,7 +17,8 @@ import { NzTimePickerModule } from 'ng-zorro-antd/time-picker';
 import { environment } from '../../../../environments/environment';
 import { Audience } from '../../../models/sop-assignment.model';
 import {
-  TrainingDelivery, TrainingSession, TrainingSessionKind, TrainingSessionRequest, TrainingTrainer, TrainingType
+  TrainingDelivery, TrainingSession, TrainingSessionKind, TrainingSessionRequest, TrainingTemplate, TrainingTrainer,
+  TrainingType
 } from '../../../models/training-session.model';
 import { AuthService } from '../../../services/auth.service';
 import { MapsLoaderService } from '../../../services/maps-loader.service';
@@ -32,7 +33,8 @@ import {
 /**
  * Schedules a session, or changes one (FR-12-01 to FR-12-04, FR-12-12, FR-12-13, FR-12-15, FR-15-05, FR-17-01,
  * FR-17-05). Once a session has started, only its title, description, trainer and training type can change, and the
- * training type only until attendance is recorded; the server applies the same rules.
+ * training type only until attendance is recorded; the server applies the same rules. The form can start from a saved
+ * template, and save its set-up as one (FR-12-08, FR-12-09).
  */
 @Component({
   selector: 'app-session-form',
@@ -53,6 +55,8 @@ export class SessionFormComponent implements OnInit {
   @Input() session: TrainingSession | null = null;
   /** For a new session: the day picked on the calendar. */
   @Input() defaultDate: Date | null = null;
+  /** For a new session: the template to fill the form from, leaving the date to choose. */
+  @Input() template: TrainingTemplate | null = null;
   @Output() saved = new EventEmitter<TrainingSession>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -87,6 +91,9 @@ export class SessionFormComponent implements OnInit {
   registrationForm = false;
   registrationCutoff: Date | null = null;
   waitlistEnabled = true;
+  /** Also save the set-up as a reusable template (FR-12-08). */
+  saveAsTemplate = false;
+  templateName = '';
 
   trainers: TrainingTrainer[] = [];
   audience: Audience = { departments: [], roles: [], staff: [] };
@@ -114,6 +121,7 @@ export class SessionFormComponent implements OnInit {
     if (this.session) {
       this.fill(this.session);
     } else {
+      if (this.template) this.fillFrom(this.template.setup);
       this.date = this.defaultDate;
     }
     this.audienceTrigger.pipe(
@@ -127,9 +135,9 @@ export class SessionFormComponent implements OnInit {
     this.sessions.trainers().subscribe({
       next: list => {
         this.trainers = this.withCurrentTrainer(list);
-        // Whoever schedules a session usually runs it.
+        // Whoever schedules a session usually runs it; a template names its own trainer, or asks for one.
         const me = this.auth.userId;
-        if (!this.session && !this.trainerId && me && list.some(t => t.id === me)) {
+        if (!this.session && !this.template && !this.trainerId && me && list.some(t => t.id === me)) {
           this.trainerId = me;
           this.checkAudience();
         }
@@ -233,7 +241,9 @@ export class SessionFormComponent implements OnInit {
     call.subscribe({
       next: saved => {
         this.saving = false;
-        this.message.success(this.session ? 'Session saved.' : `Session scheduled for ${formatDate(saved.date, 'EEE d MMM', 'en-US')}.`);
+        const template = request.templateName ? ` Its set-up is saved as the template "${request.templateName}".` : '';
+        this.message.success((this.session ? 'Session saved.' : `Session scheduled for ${formatDate(saved.date, 'EEE d MMM', 'en-US')}.`)
+          + template);
         this.saved.emit(saved);
       },
       error: err => {
@@ -267,8 +277,37 @@ export class SessionFormComponent implements OnInit {
       selfRegistration: this.selfRegistration,
       registrationForm: this.registrationForm,
       registrationCutoff: this.registrationCutoff ? formatDate(this.registrationCutoff, 'yyyy-MM-dd', 'en-US') : null,
-      waitlistEnabled: this.waitlistEnabled
+      waitlistEnabled: this.waitlistEnabled,
+      templateName: this.saveAsTemplate ? (this.templateName.trim() || this.title.trim()) : null,
+      templateId: this.session ? null : this.template?.id ?? null
     };
+  }
+
+  /** A saved template's set-up; the date and the cut-off are the trainer's to choose (FR-12-09). */
+  private fillFrom(r: TrainingSessionRequest): void {
+    this.title = r.title ?? '';
+    this.description = r.description ?? '';
+    this.kind = r.kind ?? 'TRAINING';
+    this.delivery = r.delivery ?? 'PHYSICAL';
+    this.trainingType = r.trainingType ?? null;
+    if (r.startTime) this.start = this.timeOf(r.startTime);
+    if (r.endTime) this.end = this.timeOf(r.endTime);
+    this.venue = r.venue ?? '';
+    this.locationName = r.locationName ?? null;
+    this.latitude = r.latitude ?? null;
+    this.longitude = r.longitude ?? null;
+    this.pinnedVenue = this.latitude != null ? this.venue : null;
+    this.capacity = r.capacity ?? 20;
+    this.mandatory = !!r.mandatory;
+    this.trainerMode = !r.trainerId && r.trainerName ? 'EXTERNAL' : 'STAFF';
+    this.trainerId = r.trainerId ?? null;
+    this.trainerName = !r.trainerId ? (r.trainerName ?? '') : '';
+    this.departmentIds = [...(r.departmentIds ?? [])];
+    this.roleIds = [...(r.roleIds ?? [])];
+    this.staffIds = [...(r.staffIds ?? [])];
+    this.selfRegistration = r.selfRegistration ?? true;
+    this.registrationForm = !!r.registrationForm;
+    this.waitlistEnabled = r.waitlistEnabled ?? true;
   }
 
   private fill(s: TrainingSession): void {

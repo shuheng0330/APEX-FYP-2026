@@ -169,6 +169,97 @@ export interface TrainingSessionRequest {
   registrationForm: boolean;
   registrationCutoff: string | null;
   waitlistEnabled: boolean;
+  /** Also save this set-up as a reusable template, under this name (FR-12-08). */
+  templateName?: string | null;
+  /** The template the form was filled from, counted once the session is scheduled (FR-12-09). */
+  templateId?: number | null;
+}
+
+/** A saved session set-up (FR-12-08 to FR-12-10): a trainer sees their own; HR sees everyone's. */
+export interface TrainingTemplate {
+  id: number;
+  name: string;
+  createdByName?: string;
+  createdAt: string;
+  timesUsed: number;
+  lastUsedAt?: string;
+  mine: boolean;
+  canDelete: boolean;
+  trainerName?: string;
+  /** The form as saved; its date and cut-off are left for the trainer to choose. */
+  setup: TrainingSessionRequest;
+  /** What was left out because it no longer exists or is no longer allowed. */
+  leftOut: string[];
+}
+
+/** What an uploaded HRDC attendance file did (FR-14-07). */
+export interface TrainingBatchResult {
+  rows: number;
+  matched: number;
+  attended: number;
+  absent: number;
+  /** Matched, with Attended left empty, so not changed. */
+  leftBlank: number;
+  changed: number;
+  /** "Row 5, Ali Bakar: not on this session" */
+  unmatched: string[];
+  sheet: TrainingAttendanceSheet;
+}
+
+/** A session's report (FR-12-07). */
+export interface TrainingSessionReport {
+  sessionId: number;
+  title: string;
+  kind: TrainingSessionKind;
+  delivery: TrainingDelivery;
+  trainingType?: TrainingType;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  venue?: string;
+  trainerName?: string;
+  externalTrainer: boolean;
+  mandatory: boolean;
+  status: TrainingSessionStatus;
+  timing: TrainingSessionTiming;
+  cancelReason?: string;
+  capacity: number;
+  registered: number;
+  waitlisted: number;
+  walkIns: number;
+  attended: number;
+  absent: number;
+  notRecorded: number;
+  /** Attended, as a share of everyone on the list; absent when nobody is on it. */
+  attendanceRate?: number;
+  trainingHours: number;
+  averageQuizScore?: number;
+  submitted: boolean;
+  submittedAt?: string;
+  submittedByName?: string;
+  people: TrainingReportPerson[];
+  evidence: TrainingEvidence[];
+  generatedAt: string;
+  generatedByName?: string;
+  /** The signed-in user's Excel copy has full IC or passport numbers: HR only. */
+  fullIdNumbersInFile: boolean;
+}
+
+export interface TrainingReportPerson {
+  name: string;
+  email?: string;
+  roleName?: string;
+  departmentName?: string;
+  branch?: string;
+  /** Its last 4 characters only. */
+  idNumber?: string;
+  walkIn: boolean;
+  status: TrainingAttendanceStatus | 'NOT_RECORDED';
+  quizScore?: number;
+  method?: 'MANUAL' | 'BATCH';
+  recordedByName?: string;
+  recordedAt?: string;
 }
 
 /** How many staff an audience covers, against the seats (FR-12-15). */

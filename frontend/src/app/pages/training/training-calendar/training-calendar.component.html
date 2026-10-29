@@ -6,7 +6,10 @@
       <p>Training and staff sharing sessions, with the seats booked and left. Open a session to register.</p>
     </div>
     @if (canSchedule) {
-      <button nz-button nzType="primary" (click)="openNew()"><nz-icon nzType="plus"></nz-icon> Schedule session</button>
+      <div class="heading-actions">
+        <button nz-button (click)="templatesOpen = true"><nz-icon nzType="snippets"></nz-icon> Templates</button>
+        <button nz-button nzType="primary" (click)="openNew()"><nz-icon nzType="plus"></nz-icon> Schedule session</button>
+      </div>
     }
   </div>
 
@@ -198,11 +201,21 @@
 </nz-drawer>
 
 <nz-drawer [nzVisible]="formOpen" nzPlacement="right" nzWidth="min(680px, 100vw)" [nzMaskClosable]="false"
-           [nzTitle]="editing ? 'Change ' + editing.title : 'Schedule a session'" (nzOnClose)="closeForm()">
+           [nzTitle]="formTitle" (nzOnClose)="closeForm()">
   <ng-container *nzDrawerContent>
     @if (formOpen) {
-      <app-session-form [session]="editing" [defaultDate]="formDate" (saved)="onSaved($event)"
+      <app-session-form [session]="editing" [defaultDate]="formDate" [template]="formTemplate" (saved)="onSaved($event)"
                         (cancelled)="closeForm()"></app-session-form>
     }
   </ng-container>
 </nz-drawer>
+
+<!-- FR-12-08 to FR-12-10 -->
+<nz-modal [(nzVisible)]="templatesOpen" nzTitle="Session templates" [nzFooter]="null" nzWidth="640px"
+          (nzOnCancel)="templatesOpen = false">
+  <ng-container *nzModalContent>
+    @if (templatesOpen) {
+      <app-session-templates (use)="useTemplate($event)"></app-session-templates>
+    }
+  </ng-container>
+</nz-modal>

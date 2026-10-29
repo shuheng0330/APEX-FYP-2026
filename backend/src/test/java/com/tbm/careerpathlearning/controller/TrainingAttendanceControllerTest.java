@@ -1,8 +1,10 @@
 package com.tbm.careerpathlearning.controller;
 
 import com.tbm.careerpathlearning.dto.TrainingAttendanceSheetDto;
+import com.tbm.careerpathlearning.dto.TrainingBatchResultDto;
 import com.tbm.careerpathlearning.service.TokenService;
 import com.tbm.careerpathlearning.service.TrainingAttendanceService;
+import com.tbm.careerpathlearning.service.TrainingDownload;
 import com.tbm.careerpathlearning.service.TrainingViewer;
 import com.tbm.careerpathlearning.service.ValidationService;
 import org.junit.jupiter.api.AfterEach;
@@ -107,6 +109,33 @@ class TrainingAttendanceControllerTest {
                 .andExpect(header().string("Content-Disposition", startsWith("inline;")))
                 .andExpect(header().string("Content-Disposition", containsString("filename*=UTF-8''sign-in%20sheet.pdf")));
         verify(attendance).evidenceFile(7L, 3L, new TrainingViewer(user, false, true, false));
+    }
+
+    @Test
+    @DisplayName("The HRDC template is an Excel file to save, never cached; only trainers and HR fetch or upload it")
+    void hrdcFile() throws Exception {
+        String xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        when(attendance.hrdcTemplate(any(), any()))
+                .thenReturn(new TrainingDownload("PK".getBytes(), "HRDC attendance - Launch - 2026-10-20.xlsx", xlsx));
+        when(attendance.uploadBatch(any(), any(), any(), any())).thenReturn(new TrainingBatchResultDto());
+        MockMultipartFile filled = new MockMultipartFile("file", "filled.xlsx", "application/octet-stream", new byte[]{1});
+
+        mockMvc.perform(as(get("/api/trainings/7/attendance/hrdc-template"), "ROLE_USER")).andExpect(status().isForbidden());
+        mockMvc.perform(as(multipart("/api/trainings/7/attendance/batch").file(filled), "ROLE_USER"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(attendance);
+
+        mockMvc.perform(as(get("/api/trainings/7/attendance/hrdc-template"), "ROLE_USER", "CAN_MANAGE_TRAINING"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(xlsx))
+                .andExpect(content().bytes("PK".getBytes()))
+                .andExpect(header().string("Content-Disposition", startsWith("attachment;")))
+                .andExpect(header().string("Content-Disposition",
+                        containsString("filename*=UTF-8''HRDC%20attendance%20-%20Launch%20-%202026-10-20.xlsx")))
+                .andExpect(header().string("Cache-Control", containsString("no-store")));
+        mockMvc.perform(as(multipart("/api/trainings/7/attendance/batch").file(filled).param("reason", "Sheet came late"),
+                "ROLE_USER", "CAN_ASSIGN_TRAINING")).andExpect(status().isOk());
+        verify(attendance).uploadBatch(eq(7L), any(), eq("Sheet came late"), eq(new TrainingViewer(user, false, true, false)));
     }
 
     /** Signs the request in with the given permissions, the way the JWT filter does. */

@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.service;
 
 import com.tbm.careerpathlearning.dto.TrainingAttendanceRequest;
 import com.tbm.careerpathlearning.dto.TrainingAttendanceSheetDto;
+import com.tbm.careerpathlearning.dto.TrainingBatchResultDto;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
@@ -33,6 +34,19 @@ public interface TrainingAttendanceService {
 
     /** An evidence file, for whoever may see the session's attendance. */
     EvidenceFile evidenceFile(Long sessionId, Long evidenceId, TrainingViewer viewer);
+
+    /**
+     * The HRDC attendance template as an Excel workbook, listing everyone on the session with any marks so far
+     * (FR-14-05). HR's copy has full IC or passport numbers, and is logged; the trainer's shows their last 4 characters.
+     */
+    TrainingDownload hrdcTemplate(Long sessionId, TrainingViewer viewer);
+
+    /**
+     * Applies a filled-in template, or a CSV with the same columns, in one go: rows are matched by email, then by
+     * exact name; a blank Attended cell changes nothing; rows for people not on the session are listed and skipped
+     * (FR-14-06, FR-14-07, decisions B1 and B2 of 28 Oct 2026). Any invalid row refuses the whole file.
+     */
+    TrainingBatchResultDto uploadBatch(Long sessionId, MultipartFile file, String reason, TrainingViewer viewer);
 
     record EvidenceFile(Path path, String fileName, String contentType) {
     }

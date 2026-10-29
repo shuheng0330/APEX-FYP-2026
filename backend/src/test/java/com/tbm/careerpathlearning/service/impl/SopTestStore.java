@@ -31,6 +31,7 @@ import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainerAccessGrant;
 import com.tbm.careerpathlearning.model.TrainingAttendance;
 import com.tbm.careerpathlearning.model.TrainingEvidence;
+import com.tbm.careerpathlearning.model.TrainingSessionTemplate;
 import com.tbm.careerpathlearning.model.TrainingAuditLog;
 import com.tbm.careerpathlearning.model.TrainingInvitation;
 import com.tbm.careerpathlearning.model.TrainingProgram;
@@ -54,6 +55,7 @@ import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
 import com.tbm.careerpathlearning.repository.TrainingAttendanceRepository;
 import com.tbm.careerpathlearning.repository.TrainingEvidenceRepository;
+import com.tbm.careerpathlearning.repository.TrainingSessionTemplateRepository;
 import com.tbm.careerpathlearning.repository.TrainingAuditLogRepository;
 import com.tbm.careerpathlearning.repository.TrainingInvitationRepository;
 import com.tbm.careerpathlearning.repository.TrainingProgramRepository;
@@ -65,6 +67,7 @@ import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopVersionService;
 import com.tbm.careerpathlearning.service.TrainerAccessService;
 import com.tbm.careerpathlearning.service.TrainingRegistrationService;
+import com.tbm.careerpathlearning.service.TrainingTemplateService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -113,7 +116,7 @@ class SopTestStore {
             StaffRepository.class, TrainerAccessGrantRepository.class, TrainingAuditLogRepository.class,
             AuthorityRepository.class, RoleAuthorityRepository.class, OrgChartRepository.class, RoleRepository.class,
             TrainingProgramRepository.class, TrainingRegistrationRepository.class, TrainingInvitationRepository.class,
-            TrainingAttendanceRepository.class, TrainingEvidenceRepository.class);
+            TrainingAttendanceRepository.class, TrainingEvidenceRepository.class, TrainingSessionTemplateRepository.class);
 
     final Map<Long, SopDocument> docs = new LinkedHashMap<>();
     final Map<Long, SopModule> modules = new LinkedHashMap<>();
@@ -138,6 +141,7 @@ class SopTestStore {
     final Map<Long, TrainingInvitation> invitations = new LinkedHashMap<>();
     final Map<Long, TrainingAttendance> attendance = new LinkedHashMap<>();
     final Map<Long, TrainingEvidence> evidence = new LinkedHashMap<>();
+    final Map<Long, TrainingSessionTemplate> templates = new LinkedHashMap<>();
     final List<RoleAuthority> roleAuthorities = new ArrayList<>();
     /** Notifications the services sent, in order. */
     final List<Sent> notifications = new ArrayList<>();
@@ -152,6 +156,7 @@ class SopTestStore {
     private SopNewJoiners newJoiners;
     private TrainerAccessService trainerAccess;
     private TrainingRegistrationService sessionRegistrations;
+    private TrainingTemplateService sessionTemplates;
     private final NotificationService notifier = new RecordingNotifications();
     private FolderFiles files;
 
@@ -168,6 +173,7 @@ class SopTestStore {
                         : f.getType() == SopNewJoiners.class ? newJoiners()
                         : f.getType() == TrainerAccessService.class ? trainerAccess()
                         : f.getType() == TrainingRegistrationService.class ? sessionRegistrations()
+                        : f.getType() == TrainingTemplateService.class ? sessionTemplates()
                         : f.getType() == NotificationService.class ? notifier
                         : f.getType() == FileService.class ? files()
                         : null;
@@ -220,6 +226,13 @@ class SopTestStore {
             sessionRegistrations = wire(new TrainingRegistrationServiceImpl());
         }
         return sessionRegistrations;
+    }
+
+    TrainingTemplateService sessionTemplates() {
+        if (sessionTemplates == null) {
+            sessionTemplates = wire(new TrainingTemplateServiceImpl());
+        }
+        return sessionTemplates;
     }
 
     /** The generation queue, without a generation service: tests that run it set one. */
@@ -654,6 +667,16 @@ class SopTestStore {
                     .sorted(Comparator.comparing(TrainingEvidence::getUploadedAt).thenComparing(TrainingEvidence::getEvidenceId))
                     .toList();
         }
+        if (type == TrainingSessionTemplateRepository.class) {
+            switch (method) {
+                case "findAllByCreatedBy":
+                    return templates.values().stream().filter(t -> t.getCreatedBy().equals(a[0])).toList();
+                case "existsByCreatedByAndNameIgnoreCase":
+                    return templates.values().stream()
+                            .anyMatch(t -> t.getCreatedBy().equals(a[0]) && t.getName().equalsIgnoreCase((String) a[1]));
+                default:
+            }
+        }
         if (type == TrainingAuditLogRepository.class && method.equals("findAllByTargetTypeAndTargetIdOrderByCreatedAtDescIdDesc")) {
             return auditLog.values().stream().filter(e -> e.getTargetType().equals(a[0]) && e.getTargetId().equals(a[1]))
                     .sorted(Comparator.comparing(TrainingAuditLog::getCreatedAt).thenComparing(TrainingAuditLog::getId).reversed())
@@ -698,6 +721,7 @@ class SopTestStore {
         if (type == TrainingInvitationRepository.class) return invitations;
         if (type == TrainingAttendanceRepository.class) return attendance;
         if (type == TrainingEvidenceRepository.class) return evidence;
+        if (type == TrainingSessionTemplateRepository.class) return templates;
         return staff;
     }
 
@@ -755,6 +779,9 @@ class SopTestStore {
         } else if (entity instanceof TrainingEvidence x) {
             if (x.getEvidenceId() == null) x.setEvidenceId(ids.incrementAndGet());
             evidence.put(x.getEvidenceId(), x);
+        } else if (entity instanceof TrainingSessionTemplate x) {
+            if (x.getTemplateId() == null) x.setTemplateId(ids.incrementAndGet());
+            templates.put(x.getTemplateId(), x);
         } else {
             throw new UnsupportedOperationException("save " + entity.getClass().getSimpleName());
         }

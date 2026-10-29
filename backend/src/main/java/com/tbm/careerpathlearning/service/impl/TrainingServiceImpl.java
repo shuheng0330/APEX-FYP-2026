@@ -36,6 +36,7 @@ import com.tbm.careerpathlearning.service.TrainerAccessService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import com.tbm.careerpathlearning.service.TrainingRegistrationService;
 import com.tbm.careerpathlearning.service.TrainingService;
+import com.tbm.careerpathlearning.service.TrainingTemplateService;
 import com.tbm.careerpathlearning.service.TrainingViewer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -101,6 +102,7 @@ public class TrainingServiceImpl implements TrainingService {
     @Autowired private NotificationService notificationService;
     @Autowired private TrainingAuditService trainingAuditService;
     @Autowired private TrainingRegistrationService trainingRegistrationService;
+    @Autowired private TrainingTemplateService trainingTemplateService;
     /** Malaysia time, whatever time zone the server runs in. */
     @Autowired private Clock clock;
 
@@ -178,6 +180,7 @@ public class TrainingServiceImpl implements TrainingService {
         }
         LocalDateTime now = LocalDateTime.now(clock);
         TrainingProgram session = checked(request, null, now);
+        saveAsTemplate(request, viewer);
         session.setStatus(TrainingSessionStatus.SCHEDULED);
         session.setCreatedBy(viewer.userId());
         session.setCreatedAt(now);
@@ -185,6 +188,9 @@ public class TrainingServiceImpl implements TrainingService {
         session.setUpdatedAt(now);
         trainingProgramRepository.save(session);
         trainingRegistrationService.inviteAudience(session, viewer.userId());
+        if (request.getTemplateId() != null) {
+            trainingTemplateService.markUsed(request.getTemplateId(), viewer); // FR-12-09: only once it is scheduled
+        }
         return toDto(session, viewer, lookup(List.of(session), viewer));
     }
 
@@ -217,6 +223,7 @@ public class TrainingServiceImpl implements TrainingService {
             throw new BadRequestException(booked + " people already have a seat, so the session needs at least "
                     + booked + " seats.");
         }
+        saveAsTemplate(request, viewer);
         boolean moved = !arrangements(session).equals(arrangements(changed));
         boolean moreSeats = changed.getCapacity() > session.getCapacity();
         copy(changed, session);
@@ -600,6 +607,13 @@ public class TrainingServiceImpl implements TrainingService {
         trainingInvitationRepository.findAllByTrainingIdAndStatus(session.getTrainingId(), TrainingInvitationStatus.PENDING)
                 .stream().map(TrainingInvitation::getStaffId).forEach(people::add);
         return people;
+    }
+
+    /** "Save as a reusable template" on the form (FR-12-08); a name already used refuses the whole save. */
+    private void saveAsTemplate(TrainingSessionRequest request, TrainingViewer viewer) {
+        if (request.getTemplateName() != null && !request.getTemplateName().isBlank()) {
+            trainingTemplateService.save(request.getTemplateName(), request, viewer);
+        }
     }
 
     private void audit(TrainingViewer viewer, TrainingAuditAction action, TrainingProgram session, String reason) {

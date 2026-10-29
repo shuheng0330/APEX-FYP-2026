@@ -16,6 +16,7 @@ import { TrainingSessionService } from '../../../services/training-session.servi
 import { formatDuration } from '../../sop/sop.util';
 import { SessionAttendanceComponent } from '../session-attendance/session-attendance.component';
 import { SessionPeopleComponent } from '../session-people/session-people.component';
+import { SessionReportComponent } from '../session-report/session-report.component';
 import { SessionSignupComponent } from '../session-signup/session-signup.component';
 import {
   DELIVERY_LABELS, KIND_LABELS, STATUS_LABELS, TIMING_LABELS, TRAINING_TYPE_LABELS, isLink, mapsLink, timeRange
@@ -31,7 +32,7 @@ import {
   standalone: true,
   imports: [
     CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule, NzPopconfirmModule, NzTabsModule,
-    NzTagModule, SessionAttendanceComponent, SessionPeopleComponent, SessionSignupComponent
+    NzTagModule, SessionAttendanceComponent, SessionPeopleComponent, SessionReportComponent, SessionSignupComponent
   ],
   templateUrl: './session-details.component.html',
   styleUrls: ['./session-details.component.scss']
@@ -121,6 +122,11 @@ export class SessionDetailsComponent implements OnChanges {
   /** Once it starts, for its trainer, HR and the Super Admin; a cancelled session has none. */
   get showAttendance(): boolean {
     return this.s.canSeePeople && !this.s.cancelledAt && this.s.timing !== 'UPCOMING';
+  }
+
+  /** FR-12-07: for the session's trainer, HR and the Super Admin, like its people. */
+  get showReport(): boolean {
+    return this.s.canSeePeople;
   }
 
   get attendanceTabIndex(): number {
