@@ -77,17 +77,3 @@ export interface EnrollmentProgress {
   record: ScoreboardRecord;
   modules: EnrollmentModuleProgress[];
 }
-
-/** A completed SOP course's final score, as the Staff Appraisal module reads it (FR-10-06). */
-export interface CompetencyScore {
-  staffId: string;
-  staffName: string;
-  sopDocumentId: number;
-  courseTitle: string;
-  version?: string | null;
-  category?: string | null;
-  finalScore: number;
-  passMark: number;
-  completedAt: string;
-  certificateNo: string;
-}

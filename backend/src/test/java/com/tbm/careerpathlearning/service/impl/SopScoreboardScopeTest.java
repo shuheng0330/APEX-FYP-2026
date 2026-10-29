@@ -112,6 +112,11 @@ class SopScoreboardScopeTest {
         List<String> trainers = scoreboard.scoreboard(trainer.getId(), false, true).getRecords().stream()
                 .filter(SopScoreboardRecordDto::isCanOpenRecord).map(SopScoreboardRecordDto::getStaffName).toList();
         assertEquals(List.of("Ahmad Farid"), trainers); // the trainer's own report, not every learner on the course
+
+        // The details drawer, where the link is shown, says the same as the list.
+        assertTrue(scoreboard.enrollment(aisyahCash.getId(), UUID.randomUUID(), true, false).getRecord().isCanOpenRecord());
+        assertTrue(scoreboard.enrollment(raviForklift.getId(), jason.getId(), false, true).getRecord().isCanOpenRecord());
+        assertFalse(scoreboard.enrollment(aisyahCash.getId(), trainer.getId(), false, true).getRecord().isCanOpenRecord());
     }
 
     @Test

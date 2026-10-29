@@ -322,24 +322,6 @@
             }
           </div>
         }
-
-        <!-- FR-10-06: final scores the Staff Appraisal module reads -->
-        <h4>Competency scores for appraisal</h4>
-        <p class="muted">Final scores from {{ rec.staffName }}'s completed SOP courses, available read-only to the Staff Appraisal module.</p>
-        @if (competency.length) {
-          <ul class="competency">
-            @for (c of competency; track c.certificateNo) {
-              <li>
-                <nz-icon nzType="safety-certificate" class="good"></nz-icon>
-                <span class="competency-course">{{ c.courseTitle }}</span>
-                <strong>{{ c.finalScore }}%</strong>
-                <span class="muted">{{ c.completedAt | date: 'd MMM yyyy' }} · {{ c.certificateNo }}</span>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="muted no-attempts">No completed SOP courses yet.</p>
-        }
       </div>
     }
   </ng-container>

@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { catchError, exhaustMap, filter, forkJoin, of, timer } from 'rxjs';
+import { catchError, exhaustMap, filter, of, timer } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
@@ -16,7 +16,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { SopScoreboardService } from '../../../services/sop-scoreboard.service';
 import {
-  CompetencyScore, EnrollmentProgress, Scoreboard, ScoreboardRecord, ScoreboardStatus
+  EnrollmentProgress, Scoreboard, ScoreboardRecord, ScoreboardStatus
 } from '../../../models/sop-scoreboard.model';
 import { LearningModuleState } from '../../../models/sop-learning.model';
 
@@ -115,8 +115,6 @@ export class SopScoreboardComponent implements OnInit {
   detailOpen = false;
   detailLoading = false;
   detail?: EnrollmentProgress;
-  /** The staff member's final scores as the Staff Appraisal module reads them (FR-10-06). */
-  competency: CompetencyScore[] = [];
 
   constructor(private scoreboardService: SopScoreboardService) {}
 
@@ -276,14 +274,9 @@ export class SopScoreboardComponent implements OnInit {
     this.detailOpen = true;
     this.detailLoading = true;
     this.detail = undefined;
-    this.competency = [];
-    forkJoin({
-      detail: this.scoreboardService.enrollment(r.enrollmentId),
-      competency: this.scoreboardService.competencyScores(r.staffId).pipe(catchError(() => of([] as CompetencyScore[])))
-    }).subscribe({
-      next: ({ detail, competency }) => {
+    this.scoreboardService.enrollment(r.enrollmentId).subscribe({
+      next: detail => {
         this.detail = detail;
-        this.competency = competency;
         this.detailLoading = false;
       },
       error: () => { this.detailLoading = false; this.detailOpen = false; }
