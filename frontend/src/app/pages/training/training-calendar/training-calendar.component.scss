@@ -119,3 +119,7 @@
   .list-row { grid-template-columns: 1fr; gap: 4px; }
   .list-tags { justify-content: flex-start; }
 }
+
+/* Templates beside Schedule session, wrapping under the heading on a phone. */
+.heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.training-calendar .page-heading { flex-wrap: wrap; }

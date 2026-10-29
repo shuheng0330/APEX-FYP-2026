@@ -37,6 +37,11 @@ h4 { margin: 0; font-size: 14px; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions.sticky { position: sticky; bottom: 0; z-index: 1; padding: 10px 0; background: var(--tbm-surface, #fff); border-top: 1px solid var(--tbm-border); }
 
+.batch { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--tbm-border); border-radius: 8px; }
+.batch header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.skipped { margin: 0 0 4px; padding-left: 18px; font-size: 12px; }
+p.skipped { padding-left: 0; }
+
 .walk-in, .evidence { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--tbm-border); }
 .add-row { display: flex; gap: 8px; }
 .add-row nz-select { flex: 1; min-width: 0; }

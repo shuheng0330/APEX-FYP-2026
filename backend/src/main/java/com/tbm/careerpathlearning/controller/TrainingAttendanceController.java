@@ -72,6 +72,22 @@ public class TrainingAttendanceController {
         return ResponseEntity.ok(attendance.removeEvidence(id, evidenceId, TrainingViewers.of(authentication)));
     }
 
+    /** FR-14-05: everyone on the session, to fill in Y or N and any quiz score. */
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @GetMapping("/{id}/attendance/hrdc-template")
+    public ResponseEntity<byte[]> hrdcTemplate(@PathVariable Long id, Authentication authentication) {
+        return TrainingDownloads.of(attendance.hrdcTemplate(id, TrainingViewers.of(authentication)));
+    }
+
+    /** FR-14-06, FR-14-07: the filled-in template, or a CSV with its columns; the reason only when HR must give one. */
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping(value = "/{id}/attendance/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadBatch(@PathVariable Long id, @RequestParam("file") MultipartFile file,
+                                         @RequestParam(value = "reason", required = false) String reason,
+                                         Authentication authentication) {
+        return ResponseEntity.ok(attendance.uploadBatch(id, file, reason, TrainingViewers.of(authentication)));
+    }
+
     @GetMapping("/{id}/attendance/evidence/{evidenceId}")
     public ResponseEntity<Resource> evidence(@PathVariable Long id, @PathVariable Long evidenceId,
                                              Authentication authentication) {

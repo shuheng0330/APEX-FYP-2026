@@ -1,0 +1,101 @@
+<section class="report" aria-label="Session report">
+  @if (loading && !report) {
+    <p class="muted">Loading the report…</p>
+  }
+
+  @if (report; as r) {
+    @if (r.status === 'CANCELLED') {
+      <nz-alert nzType="error" nzShowIcon nzMessage="This session was cancelled" [nzDescription]="r.cancelReason || ''"></nz-alert>
+    } @else if (r.timing === 'UPCOMING') {
+      <nz-alert nzType="info" nzShowIcon nzMessage="This session hasn't started"
+                nzDescription="The attendance numbers fill in once it is recorded."></nz-alert>
+    } @else if (!r.submitted) {
+      <nz-alert nzType="warning" nzShowIcon nzMessage="Attendance not submitted yet"
+                nzDescription="The numbers can still change until it is submitted."></nz-alert>
+    } @else {
+      <nz-alert nzType="success" nzShowIcon
+                [nzMessage]="'Attendance submitted by ' + (r.submittedByName || 'Unknown user') + ' on ' + (r.submittedAt | date: 'd MMM yyyy, HH:mm')"></nz-alert>
+    }
+
+    <div class="download">
+      <button nz-button nzType="primary" [nzLoading]="downloading" (click)="download()">
+        <nz-icon nzType="file-excel"></nz-icon> Download Excel
+      </button>
+      <span class="muted">{{ r.fullIdNumbersInFile
+        ? 'Your copy has full IC and passport numbers, for HRDC claims. Each download is logged.'
+        : "IC and passport numbers show their last 4 characters; HR's copy has them in full." }}</span>
+    </div>
+
+    <!-- The numbers -->
+    <div class="tiles">
+      <div class="tile">
+        <span class="label">Registered</span>
+        <strong>{{ r.registered }}</strong>
+        <span class="muted">of {{ r.capacity }} seats{{ r.waitlisted ? ' · ' + r.waitlisted + ' waitlisted' : '' }}</span>
+      </div>
+      <div class="tile good">
+        <span class="label">Attended</span>
+        <strong>{{ r.attended }}</strong>
+        <span class="muted">{{ r.walkIns ? r.walkIns + (r.walkIns === 1 ? ' walk-in' : ' walk-ins') : 'no walk-ins' }}</span>
+      </div>
+      <div class="tile bad">
+        <span class="label">Absent</span>
+        <strong>{{ r.absent }}</strong>
+        <span class="muted">{{ r.notRecorded }} not recorded</span>
+      </div>
+      <div class="tile">
+        <span class="label">Attendance rate</span>
+        <strong>{{ r.attendanceRate != null ? r.attendanceRate + '%' : '–' }}</strong>
+        <span class="muted">of everyone on the list</span>
+      </div>
+      <div class="tile">
+        <span class="label">Training hours</span>
+        <strong>{{ r.trainingHours }}</strong>
+        <span class="muted">attended × {{ formatDuration(r.durationMinutes) }}</span>
+      </div>
+      <div class="tile">
+        <span class="label">Average quiz</span>
+        <strong>{{ r.averageQuizScore != null ? r.averageQuizScore + '%' : '–' }}</strong>
+        <span class="muted">of the scores recorded</span>
+      </div>
+    </div>
+
+    <h4>People</h4>
+    @for (p of r.people; track p.email ?? p.name) {
+      <div class="person">
+        <div class="who">
+          <strong>{{ p.name }}
+            @if (p.walkIn) { <nz-tag nzColor="purple">Walk-in</nz-tag> }
+          </strong>
+          <span class="muted">{{ p.roleName || 'No job role' }}{{ p.departmentName ? ' · ' + p.departmentName : '' }}{{ p.branch ? ' · ' + p.branch : '' }}</span>
+          @if (p.idNumber) {
+            <span class="muted">IC or passport {{ p.idNumber }}</span>
+          }
+        </div>
+        <div class="mark">
+          @switch (p.status) {
+            @case ('ATTENDED') { <nz-tag nzColor="green">Attended</nz-tag> }
+            @case ('ABSENT') { <nz-tag nzColor="red">Absent</nz-tag> }
+            @default { <nz-tag>Not recorded</nz-tag> }
+          }
+          @if (p.quizScore != null) {
+            <span class="muted">Quiz {{ p.quizScore }}%</span>
+          }
+          @if (p.method) {
+            <span class="muted">{{ p.method === 'BATCH' ? 'From the file' : 'By hand' }}</span>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p class="muted">Nobody registered or attended.</p>
+    }
+
+    <h4>Evidence</h4>
+    @for (e of r.evidence; track e.id) {
+      <p class="muted"><nz-icon [nzType]="e.contentType === 'application/pdf' ? 'file-pdf' : 'file-image'"></nz-icon>
+        {{ e.fileName }} · {{ e.uploadedByName || 'Unknown user' }}, {{ e.uploadedAt | date: 'd MMM, HH:mm' }}</p>
+    } @empty {
+      <p class="muted">None attached.</p>
+    }
+  }
+</section>

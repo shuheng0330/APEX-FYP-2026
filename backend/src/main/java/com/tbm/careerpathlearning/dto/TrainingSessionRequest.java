@@ -41,4 +41,8 @@ public class TrainingSessionRequest {
     private boolean registrationForm;
     private LocalDate registrationCutoff;
     private boolean waitlistEnabled = true;
+    /** Also save this set-up as a reusable template, under this name (FR-12-08). */
+    private String templateName;
+    /** The template the form was filled from, counted as used once the session is scheduled (FR-12-09). */
+    private Long templateId;
 }

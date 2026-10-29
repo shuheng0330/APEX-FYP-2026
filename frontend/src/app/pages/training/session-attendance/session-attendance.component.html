@@ -32,6 +32,51 @@
       </div>
     </div>
 
+    <!-- FR-14-05 to FR-14-07: the HRDC attendance file, for whoever records it -->
+    @if (session.canRecordAttendance) {
+      <div class="batch">
+        <header>
+          <h4>HRDC attendance file</h4>
+          <span class="muted">Mark everyone at once in Excel</span>
+        </header>
+        <p class="muted">Download the list, fill in Attended with Y or N and any quiz score, then upload it. Rows left blank
+          stay as they are; people who aren't on this session are skipped.</p>
+        <div class="actions">
+          <button nz-button nzSize="small" [nzLoading]="downloading" (click)="downloadTemplate()">
+            <nz-icon nzType="download"></nz-icon> Download template
+          </button>
+          @if (editable) {
+            <input #sheetPicker type="file" hidden (change)="uploadSheet(sheetPicker)"
+                   accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" />
+            <button nz-button nzSize="small" [nzLoading]="busy" [disabled]="!!unsaved || !reasonGiven" (click)="sheetPicker.click()">
+              <nz-icon nzType="upload"></nz-icon> Upload filled file
+            </button>
+          }
+        </div>
+        @if (editable && unsaved) {
+          <span class="muted">Save or undo your changes first.</span>
+        } @else if (editable && !reasonGiven) {
+          <span class="muted">Give the reason for the change below first.</span>
+        }
+        @if (batchError) {
+          <nz-alert nzType="error" nzShowIcon nzCloseable nzMessage="The file wasn't applied" [nzDescription]="batchError"
+                    (nzOnClose)="batchError = null"></nz-alert>
+        }
+        @if (batch) {
+          <nz-alert [nzType]="batch.unmatched.length ? 'warning' : 'success'" nzShowIcon nzCloseable [nzMessage]="batchSummary"
+                    [nzDescription]="batch.unmatched.length ? unmatchedList : null" (nzOnClose)="batch = null"></nz-alert>
+          <ng-template #unmatchedList>
+            <p class="skipped">Skipped, as they aren't on this session. Add anyone who came as a walk-in, then mark them:</p>
+            <ul class="skipped">
+              @for (u of batch.unmatched; track u) {
+                <li>{{ u }}</li>
+              }
+            </ul>
+          </ng-template>
+        }
+      </div>
+    }
+
     @if (sh.rows.length > 6) {
       <input nz-input class="search" [(ngModel)]="search" placeholder="Find by name or department" aria-label="Find a person" />
     }

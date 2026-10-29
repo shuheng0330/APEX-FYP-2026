@@ -17,6 +17,9 @@
 .rule div { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
 .rule div span { color: var(--tbm-muted); }
 
+.template-box { padding: 12px 14px; border: 1px solid var(--tbm-border); border-radius: 8px; background: var(--tbm-surface-subtle); }
+.template-box.on { border-color: var(--tbm-primary); }
+
 /* Sticks to the bottom of the drawer while the form scrolls. */
 .form-footer {
   position: sticky; bottom: 0; z-index: 1;

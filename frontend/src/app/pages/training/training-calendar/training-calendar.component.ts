@@ -9,16 +9,18 @@ import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { TrainingSession, TrainingSessionKind } from '../../../models/training-session.model';
+import { TrainingSession, TrainingSessionKind, TrainingTemplate } from '../../../models/training-session.model';
 import { AuthService } from '../../../services/auth.service';
 import { TrainingSessionService } from '../../../services/training-session.service';
 import { SessionDetailsComponent } from '../session-details/session-details.component';
 import { SessionFormComponent } from '../session-form/session-form.component';
+import { SessionTemplatesComponent } from '../session-templates/session-templates.component';
 import {
   DELIVERY_LABELS, KIND_LABELS, STATUS_LABELS, TIMING_LABELS, addDays, dayKey, hhmm, parseDay, startOfDay, startOfWeek,
   timeRange
@@ -49,8 +51,9 @@ interface DayCell {
   selector: 'app-training-calendar',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, NzButtonModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzRadioModule, NzSelectModule,
-    NzSpinModule, NzSwitchModule, NzTagModule, SessionDetailsComponent, SessionFormComponent
+    CommonModule, FormsModule, NzButtonModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzModalModule, NzRadioModule,
+    NzSelectModule, NzSpinModule, NzSwitchModule, NzTagModule, SessionDetailsComponent, SessionFormComponent,
+    SessionTemplatesComponent
   ],
   templateUrl: './training-calendar.component.html',
   styleUrls: ['./training-calendar.component.scss']
@@ -88,6 +91,9 @@ export class TrainingCalendarComponent implements OnInit {
   formOpen = false;
   editing: TrainingSession | null = null;
   formDate: Date | null = null;
+  /** The saved template a new session is scheduled from (FR-12-09). */
+  formTemplate: TrainingTemplate | null = null;
+  templatesOpen = false;
 
   private loadSeq = 0;
 
@@ -277,12 +283,28 @@ export class TrainingCalendarComponent implements OnInit {
 
   openNew(day?: Date): void {
     this.editing = null;
+    this.formTemplate = null;
     this.formDate = day ?? null;
     this.formOpen = true;
   }
 
+  /** Opens the scheduling form filled in from a template, with the date to choose. */
+  useTemplate(t: TrainingTemplate): void {
+    this.templatesOpen = false;
+    this.editing = null;
+    this.formDate = null;
+    this.formTemplate = t;
+    this.formOpen = true;
+  }
+
+  get formTitle(): string {
+    if (this.editing) return 'Change ' + this.editing.title;
+    return this.formTemplate ? 'Schedule from ' + this.formTemplate.name : 'Schedule a session';
+  }
+
   openEdit(s: TrainingSession): void {
     this.editing = s;
+    this.formTemplate = null;
     this.formDate = null;
     this.selected = null;
     this.formOpen = true;
@@ -291,6 +313,7 @@ export class TrainingCalendarComponent implements OnInit {
   closeForm(): void {
     this.formOpen = false;
     this.editing = null;
+    this.formTemplate = null;
   }
 
   /** Shows the saved session on the calendar, at its date, with its details open. */
