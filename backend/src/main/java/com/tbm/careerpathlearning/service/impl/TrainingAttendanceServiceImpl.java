@@ -3,13 +3,16 @@ package com.tbm.careerpathlearning.service.impl;
 import com.tbm.careerpathlearning.dto.TrainingAttendanceRequest;
 import com.tbm.careerpathlearning.dto.TrainingAttendanceSheetDto;
 import com.tbm.careerpathlearning.dto.TrainingBatchResultDto;
+import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
 import com.tbm.careerpathlearning.enums.TrainingAttendanceMethod;
 import com.tbm.careerpathlearning.enums.TrainingAttendanceStatus;
 import com.tbm.careerpathlearning.enums.TrainingAuditAction;
 import com.tbm.careerpathlearning.enums.TrainingAuditTarget;
 import com.tbm.careerpathlearning.enums.TrainingRegistrationStatus;
+import com.tbm.careerpathlearning.enums.TrainingSessionKind;
 import com.tbm.careerpathlearning.enums.TrainingSessionStatus;
+import com.tbm.careerpathlearning.enums.TrainingType;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.OrgChart;
@@ -24,6 +27,8 @@ import com.tbm.careerpathlearning.repository.TrainingEvidenceRepository;
 import com.tbm.careerpathlearning.repository.TrainingProgramRepository;
 import com.tbm.careerpathlearning.repository.TrainingRegistrationRepository;
 import com.tbm.careerpathlearning.service.FileService;
+import com.tbm.careerpathlearning.service.NotificationService;
+import com.tbm.careerpathlearning.service.TrainerAccessService;
 import com.tbm.careerpathlearning.service.TrainingAttendanceService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import com.tbm.careerpathlearning.service.TrainingDownload;
@@ -80,6 +85,8 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
     @Autowired private StaffRepository staffRepository;
     @Autowired private TrainingAuditService trainingAuditService;
     @Autowired private FileService fileService;
+    @Autowired private NotificationService notificationService;
+    @Autowired private TrainerAccessService trainerAccessService;
     /** Malaysia time, whatever time zone the server runs in. */
     @Autowired private Clock clock;
 
@@ -164,6 +171,7 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
         if (logged && !changes.isEmpty()) {
             audit(viewer, TrainingAuditAction.ATTENDANCE_CHANGED, s, request.getReason().trim(), String.join("; ", changes));
         }
+        suggestSharing(s);
         return sheetOf(s, viewer);
     }
 
@@ -196,6 +204,7 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
         if (logged) {
             audit(viewer, TrainingAuditAction.ATTENDANCE_CHANGED, s, reason.trim(), person.getName() + ": walk-in, Attended");
         }
+        suggestSharing(s);
         return sheetOf(s, viewer);
     }
 
@@ -222,6 +231,7 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
         s.setAttendanceSubmittedBy(viewer.userId());
         audit(viewer, TrainingAuditAction.ATTENDANCE_SUBMITTED, s, logged ? reason.trim() : null,
                 sheet.getAttended() + " attended, " + sheet.getAbsent() + " absent");
+        suggestSharing(s);
         return sheetOf(s, viewer);
     }
 
@@ -499,6 +509,7 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
             audit(viewer, TrainingAuditAction.ATTENDANCE_CHANGED, s, reason.trim(),
                     "From an uploaded attendance file: " + String.join("; ", changes));
         }
+        suggestSharing(s);
         result.setSheet(sheetOf(s, viewer));
         return result;
     }
@@ -626,6 +637,39 @@ public class TrainingAttendanceServiceImpl implements TrainingAttendanceService 
     private static List<UUID> byName(Set<UUID> ids, Map<UUID, Staff> staff) {
         return ids.stream().sorted(Comparator.comparing((UUID id) -> staff.get(id) == null ? "" : Objects.toString(
                 staff.get(id).getName(), ""), String.CASE_INSENSITIVE_ORDER)).toList();
+    }
+
+    // --- sharing what was learned (FR-15-06) -----------------------------------------------
+
+    /** A Physical or Hybrid Product Training session, which those who attended are asked to share (FR-15-06). */
+    static boolean sharingFollowsOn(TrainingProgram s) {
+        return s.getKind() == TrainingSessionKind.TRAINING && s.getTrainingType() == TrainingType.PRODUCT;
+    }
+
+    /**
+     * Once a Product Training session's attendance is submitted, everyone who attended is asked, once, to share what
+     * they learned in a staff sharing session; HR marking someone Attended later asks them too. Staff without Trainer
+     * access are pointed to the session's page, where they can ask the Super Admin for it.
+     */
+    private void suggestSharing(TrainingProgram s) {
+        if (s.getAttendanceSubmittedAt() == null || !sharingFollowsOn(s)) {
+            return;
+        }
+        List<UUID> attended = trainingAttendanceRepository.findAllByTrainingId(s.getTrainingId()).stream()
+                .filter(a -> a.getStatus() == TrainingAttendanceStatus.ATTENDED && !a.getStaffId().equals(s.getTrainerId()))
+                .map(TrainingAttendance::getStaffId).toList();
+        if (attended.isEmpty()) {
+            return;
+        }
+        Set<UUID> canPresent = trainerAccessService.trainersAndHr().stream().map(Staff::getId).collect(Collectors.toSet());
+        String attendedLine = "You attended \"" + s.getTitle() + "\" on " + s.getSessionDate().format(TrainingSpreadsheets.DAY) + ". ";
+        for (UUID staffId : attended) {
+            notificationService.notifyOnce("sharing-suggested:" + s.getTrainingId() + ":" + staffId, staffId,
+                    NotificationType.SHARING_SUGGESTED, "Share what you learned", attendedLine + (canPresent.contains(staffId)
+                            ? "Pass it on to colleagues: schedule a staff sharing session from the Training Calendar."
+                            : "To pass it on in a staff sharing session, open the session and ask for Trainer access."),
+                    TrainingServiceImpl.link(s));
+        }
     }
 
     // --- rules ---------------------------------------------------------------------------

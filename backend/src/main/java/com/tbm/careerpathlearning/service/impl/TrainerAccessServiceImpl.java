@@ -91,6 +91,14 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Staff> superAdmins() {
+        List<Staff> active = staffRepository.findAllActiveWithRole();
+        Set<Long> adminRoles = rolesWith(AuthorityName.CAN_MANAGE_ACCESS_CONTROL, active);
+        return active.stream().filter(s -> s.getRole() != null && adminRoles.contains(s.getRole().getId())).toList();
+    }
+
+    @Override
     public boolean hasActiveGrant(UUID staffId) {
         LocalDate today = LocalDate.now(clock);
         return trainerAccessGrantRepository.findById(staffId).map(g -> g.activeOn(today)).orElse(false);
@@ -222,9 +230,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
             return 0;
         }
         OffsetDateTime now = OffsetDateTime.now(clock);
-        List<Staff> active = staffRepository.findAllActiveWithRole();
-        Set<Long> adminRoles = rolesWith(AuthorityName.CAN_MANAGE_ACCESS_CONTROL, active);
-        List<Staff> admins = active.stream().filter(s -> s.getRole() != null && adminRoles.contains(s.getRole().getId())).toList();
+        List<Staff> admins = superAdmins();
 
         for (TrainerAccessGrant grant : expired) {
             grant.setLapsedAt(now);

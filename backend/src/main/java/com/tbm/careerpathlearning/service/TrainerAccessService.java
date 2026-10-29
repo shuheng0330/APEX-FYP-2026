@@ -32,6 +32,9 @@ public interface TrainerAccessService {
      */
     List<Staff> trainersAndHr();
 
+    /** Active staff whose job role has the Super Admin's permission (CAN_MANAGE_ACCESS_CONTROL). */
+    List<Staff> superAdmins();
+
     /** Every active staff member, with whether and how they have Trainer access. */
     List<TrainerAccessStaffDto> list();
 

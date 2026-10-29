@@ -63,6 +63,30 @@
                 : 'You were recorded as absent from this session.'"></nz-alert>
   }
 
+  <!-- FR-15-06: after a Product Training they attended -->
+  @if (s.sharingInvite) {
+    <div class="share-box">
+      <strong><nz-icon nzType="bulb"></nz-icon> Share what you learned</strong>
+      @switch (s.sharingInvite) {
+        @case ('CAN_PRESENT') {
+          <span>You can pass it on to colleagues: schedule a staff sharing session with Schedule session on the calendar.</span>
+        }
+        @case ('REQUESTED') {
+          <span>You asked for Trainer access on {{ s.trainerAccessRequestedAt | date: 'd MMM yyyy' }}. The Super Admin has
+            been told and can give it to you.</span>
+        }
+        @default {
+          <span>Staff sharing sessions are presented by staff with Trainer access. Ask the Super Admin for it, to pass on
+            what you learned here to colleagues.</span>
+          <button nz-button nzType="primary" nzSize="small" [nzLoading]="busy" nz-popconfirm
+                  nzPopconfirmTitle="Ask the Super Admin for Trainer access?" (nzOnConfirm)="requestTrainerAccess()">
+            Request Trainer access
+          </button>
+        }
+      }
+    </div>
+  }
+
   <!-- FR-13: the signed-in person's own place on the session -->
   <app-session-signup [session]="s" (changed)="changed.emit($event)"></app-session-signup>
 

@@ -29,6 +29,7 @@ import { SopAssignComponent } from './pages/sop/sop-assign/sop-assign.component'
 import { SopScoreboardComponent } from './pages/sop/sop-scoreboard/sop-scoreboard.component';
 import { TrainerAccessComponent } from './pages/sop/trainer-access/trainer-access.component';
 import { TrainingCalendarComponent } from './pages/training/training-calendar/training-calendar.component';
+import { StaffSharingComponent } from './pages/training/staff-sharing/staff-sharing.component';
 import { MyLearningComponent } from './pages/learning-portal/my-learning/my-learning.component';
 import { CoursePlayerComponent } from './pages/learning-portal/course-player/course-player.component';
 
@@ -71,6 +72,11 @@ export const routes: Routes = [
       },
       {
         path: 'training/calendar', component: TrainingCalendarComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
+      },
+      {
+        path: 'training/sharing', component: StaffSharingComponent,
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'] },
       },

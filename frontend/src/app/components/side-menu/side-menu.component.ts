@@ -76,7 +76,8 @@ export class SideMenuComponent {
       requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL', 'CAN_VIEW_TEAM_TRAINING']
     },
     { key: 'NAV.MY_LEARNING', icon: 'read', route: '/my-learning', requiredRoles: ['ROLE_USER'] },
-    { key: 'NAV.TRAINING_CALENDAR', icon: 'calendar', route: '/training/calendar', requiredRoles: ['ROLE_USER'] }
+    { key: 'NAV.TRAINING_CALENDAR', icon: 'calendar', route: '/training/calendar', requiredRoles: ['ROLE_USER'] },
+    { key: 'NAV.STAFF_SHARING', icon: 'team', route: '/training/sharing', requiredRoles: ['ROLE_USER'] }
   ];
 
   constructor(private router: Router, public authService: AuthService) {
