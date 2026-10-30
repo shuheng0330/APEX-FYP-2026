@@ -101,14 +101,18 @@ export class SideMenuComponent {
   }
 
   onProfileClick(): void {
-    this.isCollapsed = true;
-    this.isCollapsedChange.emit(this.isCollapsed);
+    if (this.isMobile) {
+      this.isCollapsed = true;
+      this.isCollapsedChange.emit(this.isCollapsed);
+    }
     this.router.navigate(['/profile']);
   }
 
   onLogout(): void {
-    this.isCollapsed = true;
-    this.isCollapsedChange.emit(this.isCollapsed);
+    if (this.isMobile) {
+      this.isCollapsed = true;
+      this.isCollapsedChange.emit(this.isCollapsed);
+    }
     this.authService.logout().subscribe({
       next: () => {
         this.router.navigate(['/login']);
