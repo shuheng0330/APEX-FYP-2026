@@ -3,13 +3,16 @@ package com.tbm.careerpathlearning.service.impl;
 import com.tbm.careerpathlearning.dto.CourseCategoryChipDto;
 import com.tbm.careerpathlearning.dto.CourseCategoryDto;
 import com.tbm.careerpathlearning.dto.CourseCategoryRequest;
+import com.tbm.careerpathlearning.dto.CourseTransferRequest;
 import com.tbm.careerpathlearning.dto.SopLearningCourseDto;
+import com.tbm.careerpathlearning.enums.AuthorityName;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.SopCourseStatus;
 import com.tbm.careerpathlearning.enums.TrainingAuditAction;
 import com.tbm.careerpathlearning.exception.BadRequestException;
 import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
 import com.tbm.careerpathlearning.model.CourseCategory;
+import com.tbm.careerpathlearning.model.Role;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainingAuditLog;
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.function.Executable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -226,6 +230,28 @@ class CourseCategoryTest {
         store.docs.get(1L).setCourseStatus(SopCourseStatus.ARCHIVED);
         refused("This course is archived. Restore it to change its categories.",
                 () -> categories.setCourse(1L, course(null, sales.getCategoryId()), owner(weiMing)));
+        assertEquals(List.of("Leadership (primary)", "Sales"), names(categories.ofCourse(1L)), "kept while archived");
+        store.docs.get(1L).setCourseStatus(SopCourseStatus.LIVE);
+        assertEquals(List.of("Leadership (primary)", "Sales"), names(categories.ofCourse(1L)), "and once restored");
+    }
+
+    @Test
+    @DisplayName("A course transferred on Trainer Access has its categories set by its new owner, not its old one")
+    void transferredCourse() {
+        Role trainer = store.role(22L, "Trainer", store.department(12L, "Human Resources"));
+        store.permit(trainer, AuthorityName.CAN_MANAGE_TRAINING);
+        Staff siti = store.person("Siti Aminah", trainer);
+        categories.setCourse(1L, course(null, sales.getCategoryId()), owner(weiMing));
+        CourseTransferRequest request = new CourseTransferRequest();
+        request.setNewOwnerId(siti.getId());
+        request.setReason("Tan Wei Ming no longer has Trainer access.");
+
+        store.trainerAccess().transferCourse(1L, request, UUID.randomUUID()); // Tan Wei Ming has no Trainer access here
+
+        assertThrows(ForbiddenRequestException.class,
+                () -> categories.setCourse(1L, course(null, leadership.getCategoryId()), owner(weiMing)));
+        assertEquals(List.of("Leadership (primary)"),
+                names(categories.setCourse(1L, course(null, leadership.getCategoryId()), owner(siti))));
     }
 
     @Test

@@ -109,10 +109,16 @@ public class SopLearningServiceImpl implements SopLearningService {
             log.warn("New-joiner check for staff {} failed; the daily run will add them: {}", staffId, ex.getMessage());
         }
         SopLearningHomeDto dto = new SopLearningHomeDto();
+        // Every course, and every course's categories, looked up once rather than course by course.
+        List<SopDocument> docs = sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc();
+        Map<Long, SopDocument> byId = new HashMap<>();
+        docs.forEach(d -> byId.put(d.getId(), d));
+        Map<Long, List<CourseCategoryChipDto>> categories = courseCategoryService.ofCourses(
+                docs.stream().map(SopDocument::courseKey).toList());
         Set<Long> enrolled = new HashSet<>();
         for (SopEnrollment e : sopEnrollmentRepository.findAllByStaffId(staffId)) {
-            SopDocument doc = sopDocumentRepository.findById(e.getSopDocumentId()).orElse(null);
-            if (doc == null || doc.isDeleted()) {
+            SopDocument doc = byId.get(e.getSopDocumentId());
+            if (doc == null) { // deleted
                 continue;
             }
             if (e.getStatus() != SopEnrollmentStatus.WITHDRAWN) {
@@ -120,16 +126,16 @@ public class SopLearningServiceImpl implements SopLearningService {
                 // withdrawn can join an Open course again once it is restored.
                 enrolled.add(doc.courseKey());
             }
-            dto.getCourses().add(toCourseDto(progress(e, doc)));
+            dto.getCourses().add(toCourseDto(progress(e, doc), categories.get(doc.courseKey())));
         }
         dto.getCourses().sort(Comparator
                 .comparing((SopLearningCourseDto c) -> c.getDueDate() == null ? LocalDate.MAX : c.getDueDate())
                 .thenComparing(SopLearningCourseDto::getTitle, String.CASE_INSENSITIVE_ORDER));
-        for (SopDocument doc : sopDocumentRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc()) {
+        for (SopDocument doc : docs) {
             if (doc.isLive() && doc.getVisibility() == SopVisibility.OPEN && !enrolled.contains(doc.courseKey())) {
                 SopCourseReadiness.Readiness readiness = sopCourseReadiness.of(doc);
                 if (readiness.ready()) {
-                    dto.getOpenCourses().add(openCourseDto(doc, readiness.modules()));
+                    dto.getOpenCourses().add(openCourseDto(doc, readiness.modules(), categories.get(doc.courseKey())));
                 }
             }
         }
@@ -538,8 +544,12 @@ public class SopLearningServiceImpl implements SopLearningService {
     }
 
     private SopLearningCourseDto toCourseDto(Progress p) {
+        return toCourseDto(p, courseCategoryService.ofCourse(p.doc().courseKey()));
+    }
+
+    private SopLearningCourseDto toCourseDto(Progress p, List<CourseCategoryChipDto> categories) {
         SopEnrollment e = p.enrollment();
-        SopLearningCourseDto dto = baseCourseDto(p.doc(), p.course().modules().size());
+        SopLearningCourseDto dto = baseCourseDto(p.doc(), p.course().modules().size(), categories);
         LocalDate today = LocalDate.now(clock);
         LocalDate due = e.dueDate();
         dto.setEnrollmentId(e.getId());
@@ -565,21 +575,20 @@ public class SopLearningServiceImpl implements SopLearningService {
         return dto;
     }
 
-    private SopLearningCourseDto openCourseDto(SopDocument doc, int moduleCount) {
-        SopLearningCourseDto dto = baseCourseDto(doc, moduleCount);
+    private SopLearningCourseDto openCourseDto(SopDocument doc, int moduleCount, List<CourseCategoryChipDto> categories) {
+        SopLearningCourseDto dto = baseCourseDto(doc, moduleCount, categories);
         dto.setPassMark(doc.getPassMark());
         dto.setAvailable(true);
         return dto;
     }
 
-    private SopLearningCourseDto baseCourseDto(SopDocument doc, int moduleCount) {
+    /** With the course's categories, primary first; General when it has none (FR-19-04, FR-19-05). */
+    private SopLearningCourseDto baseCourseDto(SopDocument doc, int moduleCount, List<CourseCategoryChipDto> categories) {
         SopLearningCourseDto dto = new SopLearningCourseDto();
         dto.setSopDocumentId(doc.getId());
         dto.setTitle(doc.getTitle());
         dto.setVersion(doc.getVersion());
         dto.setVersionNo(doc.getVersionNo());
-        // The course's categories, primary first; General when it has none (FR-19-04, FR-19-05).
-        List<CourseCategoryChipDto> categories = courseCategoryService.ofCourse(doc.courseKey());
         dto.setCategory(categories.get(0).getName());
         dto.setCategoryColor(categories.get(0).getColor());
         dto.setCategoryIcon(categories.get(0).getIcon());
