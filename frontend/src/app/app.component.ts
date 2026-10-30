@@ -27,7 +27,7 @@ import { filter } from 'rxjs';
 export class AppComponent implements OnInit {
     isLoading$: any;
     isLoggedIn$: any;
-    isCollapsed = true;
+    isCollapsed = false;
     isDrawerVisible = false;
     isEvaluationDrawerVisible = false;
     isAuthRoute = false;
