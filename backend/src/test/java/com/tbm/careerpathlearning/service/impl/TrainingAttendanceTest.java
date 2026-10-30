@@ -3,6 +3,7 @@ package com.tbm.careerpathlearning.service.impl;
 import com.tbm.careerpathlearning.config.ClockConfig;
 import com.tbm.careerpathlearning.dto.TrainingAttendanceRequest;
 import com.tbm.careerpathlearning.dto.TrainingAttendanceSheetDto;
+import com.tbm.careerpathlearning.dto.TrainingRecordDto;
 import com.tbm.careerpathlearning.dto.TrainingRegistrationRequest;
 import com.tbm.careerpathlearning.dto.TrainingSessionDto;
 import com.tbm.careerpathlearning.dto.TrainingSessionRequest;
@@ -323,6 +324,35 @@ class TrainingAttendanceTest {
         assertEquals("Siti Aminah: Absent to Attended", changed.getDetail());
         attendance.addWalkIn(id, farid.getId(), "Joined from the service centre.", asHr);
         assertEquals("Ahmad Farid: walk-in, Attended", lastAudit().getDetail());
+    }
+
+    @Test
+    @DisplayName("A session reaches someone's training record once submitted, and HR's later change shows there too (FR-18-01)")
+    void trainingRecordFollowsAttendance() {
+        TrainingRecordServiceImpl records = store.wire(new TrainingRecordServiceImpl());
+        Long id = session(r -> { });
+        register(id, asAisyah, asSiti);
+        at(today.plusDays(8), 12, 30);
+        record(id, asWeiMing, entry(aisyah, ATTENDED, 90), entry(siti, ABSENT, null));
+
+        assertTrue(records.record(siti.getId(), asSiti).getItems().isEmpty(), "not on the record until submitted");
+
+        attendance.submit(id, null, asWeiMing);
+        TrainingRecordDto absent = records.record(siti.getId(), asSiti);
+        assertEquals("ABSENT", absent.getItems().get(0).getStatus());
+        assertNull(absent.getItems().get(0).getHours());
+        assertEquals(0, absent.getCompletedItems());
+        assertEquals(0.0, absent.getSessionHours());
+
+        record(id, asHr, "Came late and signed the paper sheet.", entry(siti, ATTENDED, 75));
+        TrainingRecordDto attended = records.record(siti.getId(), asSiti);
+        assertEquals(1, attended.getItems().size(), "the change updates the session's row, not a second one");
+        assertEquals("ATTENDED", attended.getItems().get(0).getStatus());
+        assertEquals(75, attended.getItems().get(0).getScore());
+        assertEquals(3.0, attended.getItems().get(0).getHours());
+        assertEquals(1, attended.getCompletedItems());
+        assertEquals(3.0, attended.getSessionHours());
+        assertEquals(3.0, records.record(aisyah.getId(), asHr).getSessionHours());
     }
 
     @Test

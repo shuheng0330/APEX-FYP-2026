@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tbm.careerpathlearning.dto.CourseCategoryChipDto;
 import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
@@ -182,9 +183,12 @@ public class SopServiceImpl implements SopService {
         Map<Long, List<SopEnrollment>> enrollments = docs.isEmpty() ? Map.of()
                 : sopEnrollmentRepository.findAllBySopDocumentIdIn(docs.stream().map(SopDocument::getId).toList()).stream()
                 .collect(Collectors.groupingBy(SopEnrollment::getSopDocumentId));
+        Map<Long, List<CourseCategoryChipDto>> categories = courseCategoryService.ofCourses(
+                docs.stream().map(SopDocument::courseKey).collect(Collectors.toSet()));
         return docs.stream()
                 .map(d -> toDocDto(d, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(d.getId()).size(),
-                        viewer, enrollments.getOrDefault(d.getId(), List.of()), versions.getOrDefault(d.courseKey(), List.of(d))))
+                        viewer, enrollments.getOrDefault(d.getId(), List.of()), versions.getOrDefault(d.courseKey(), List.of(d)),
+                        categories.get(d.courseKey())))
                 .toList();
     }
 
@@ -798,13 +802,19 @@ public class SopServiceImpl implements SopService {
 
     private SopDocumentDto toDocDto(SopDocument d, int moduleCount, SopViewer viewer, List<SopEnrollment> enrollments,
                                     List<SopDocument> versions) {
+        return toDocDto(d, moduleCount, viewer, enrollments, versions, courseCategoryService.ofCourse(d.courseKey()));
+    }
+
+    /** As above, with the course's categories already looked up, as a list does for all its courses at once. */
+    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, SopViewer viewer, List<SopEnrollment> enrollments,
+                                    List<SopDocument> versions, List<CourseCategoryChipDto> categories) {
         SopDocumentDto dto = new SopDocumentDto();
         dto.setId(d.getId());
         dto.setTitle(d.getTitle());
         dto.setVersion(d.getVersion());
         dto.setOriginalFilename(d.getOriginalFilename());
         dto.setDepartmentTag(d.getDepartmentTag());
-        dto.setCategories(courseCategoryService.ofCourse(d.courseKey()));
+        dto.setCategories(categories);
         dto.setGenerationStatus(d.getGenerationStatus());
         dto.setStatusMessage(d.getStatusMessage());
         dto.setModuleCount(moduleCount);
