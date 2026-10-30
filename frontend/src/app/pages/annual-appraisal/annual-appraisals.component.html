@@ -1,0 +1,58 @@
+<div class="review-page">
+  <app-notification-target [unavailable]="target.unavailable" />
+  <header class="page-heading">
+    <div><h2>{{ titleKey | translate }}</h2><p class="help">{{ (hrReview ? 'ANNUAL_APPRAISAL.HR_HELP' : 'ANNUAL_APPRAISAL.TEAM_HELP') | translate }}</p></div>
+    <app-review-task-guide [disabled]="locked"></app-review-task-guide>
+  </header>
+  @if (!authorised) { <div class="notice">{{ 'ANNUAL_APPRAISAL.NO_ACCESS' | translate }}</div> }
+  @else {
+    <section class="card"><div class="card-body appraisal-filters">
+      <div class="field"><label for="appraisal-period">{{ 'ANNUAL_APPRAISAL.PERIOD' | translate }}</label>
+        <nz-select nzId="appraisal-period" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="locked" [nzLoading]="periodLoading"
+          [nzPlaceHolder]="'ANNUAL_APPRAISAL.SELECT_PERIOD' | translate">
+          @for (p of periods; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="(p.name || '-') + ' (' + ('REVIEW_PERIOD.STATUS.' + p.status | translate) + ')'" /> }
+        </nz-select>
+      </div>
+      <label class="field"><span>{{ 'ANNUAL_APPRAISAL.SEARCH' | translate }}</span><input type="search" [(ngModel)]="search" (ngModelChange)="pageIndex = 1" [disabled]="locked" /></label>
+      <div class="field"><label for="appraisal-department">{{ 'ANNUAL_APPRAISAL.DEPARTMENT' | translate }}</label>
+        <nz-select nzId="appraisal-department" [(ngModel)]="department" (ngModelChange)="pageIndex = 1" nzAllowClear [nzDisabled]="locked"
+          [nzPlaceHolder]="'ANNUAL_APPRAISAL.ALL_DEPARTMENTS' | translate">
+          @for (d of departments; track d) { <nz-option [nzValue]="d" [nzLabel]="d" /> }
+        </nz-select>
+      </div>
+      <button type="button" nz-button [disabled]="locked" (click)="periodError || !periodId ? loadPeriods() : loadQueue()">{{ 'ANNUAL_APPRAISAL.REFRESH' | translate }}</button>
+    </div></section>
+    @if (periodError) { <div class="error-box" role="alert">{{ periodError }}</div> }
+    @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
+    @if (period && period.status !== 'OPEN') { <div class="notice">{{ 'ANNUAL_APPRAISAL.READ_ONLY_PERIOD' | translate }}</div> }
+    @if (loading) { <p role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
+    @if (periodId && !periodError) {
+      <section class="review-status-tabs appraisal-status-tabs" [attr.aria-label]="'ANNUAL_APPRAISAL.STATUS_LABEL' | translate">
+        @for (s of statuses; track s) { <button type="button" class="review-status-tab" [class.active]="filter === s" [attr.aria-pressed]="filter === s"
+          [disabled]="locked" (click)="setFilter(s)"><span>{{ 'ANNUAL_APPRAISAL.STATUS.' + s | translate }}</span><strong>{{ count(s) }}</strong></button> }
+      </section>
+      @if (queueLoaded) {
+        <p class="help queue-count" aria-live="polite">{{ 'ANNUAL_APPRAISAL.COUNT' | translate:{ shown: filteredRows.length, total: rows.length } }}</p>
+        <section class="card"><div class="table-scroll"><table class="data-table">
+          <thead><tr><th>{{ 'ANNUAL_APPRAISAL.EMPLOYEE' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.DEPARTMENT' | translate }}</th>
+            <th>{{ 'ANNUAL_APPRAISAL.FINAL_SCORE' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.STATUS_LABEL' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.ACTIONS' | translate }}</th></tr></thead>
+          <tbody>@for (row of visibleRows; track row.participantId) {
+            <tr><td><strong>{{ row.employeeName || '-' }}</strong><div class="help">{{ row.roleName || '-' }}</div></td><td>{{ row.departmentName || '-' }}</td>
+              <td>@if (!hrReview && row.status === 'PENDING_REVIEW') { <span class="help">{{ 'ANNUAL_APPRAISAL.SCORE_IN_SUBMISSION' | translate }}</span> }
+                @else { {{ queueScore(row) == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (queueScore(row) | number:'1.2-2') }} }</td>
+              <td><span class="status" [attr.data-status]="status(row)">{{ 'ANNUAL_APPRAISAL.STATUS.' + status(row) | translate }}</span></td>
+              <td><button nz-button type="button" [disabled]="locked" (click)="open(row)">{{ rowAction(row) | translate }}</button></td></tr>
+          } @empty {
+            <tr><td colspan="5" class="empty"><strong>{{ (rows.length ? 'ANNUAL_APPRAISAL.NO_MATCHES' : hrReview ? 'ANNUAL_APPRAISAL.NO_SUBMISSIONS' : 'ANNUAL_APPRAISAL.NO_EMPLOYEES') | translate }}</strong>
+              <p class="help">{{ (hrReview ? 'ANNUAL_APPRAISAL.HR_EMPTY_HELP' : 'ANNUAL_APPRAISAL.TEAM_EMPTY_HELP') | translate }}</p></td></tr>
+          }</tbody>
+        </table></div>
+        @if (filteredRows.length) { <div class="appraisal-pagination">
+          <app-table-page-size-selector [pageSize]="pageSize" (pageSizeChange)="pageSize = $event; pageIndex = 1" />
+          <nz-pagination [nzPageIndex]="pageIndex" (nzPageIndexChange)="pageIndex = $event" [nzPageSize]="pageSize" [nzTotal]="filteredRows.length" [nzSimple]="true" />
+        </div> }
+        </section>
+      }
+    } @else if (!periodLoading && !periodError) { <div class="notice">{{ (periods.length ? 'ANNUAL_APPRAISAL.SELECT_PERIOD' : 'ANNUAL_APPRAISAL.NO_PERIODS') | translate }}</div> }
+  }
+</div>

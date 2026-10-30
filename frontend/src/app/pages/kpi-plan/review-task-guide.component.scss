@@ -1,0 +1,7 @@
+.task-guide { max-height: 65vh; overflow-y: auto; color: var(--tbm-text); overflow-wrap: anywhere; }
+.guide-help { color: var(--tbm-muted); font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
+ul { list-style: none; padding: 0; margin: 0 0 20px; }
+li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 24px; padding: 12px 0; border-bottom: 1px solid var(--tbm-border); }
+a { color: var(--tbm-primary); line-height: 1.5; }
+a:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 3px; border-radius: 3px; }
+@media (max-width: 600px) { li { grid-template-columns: 1fr; gap: 6px; } }

@@ -66,6 +66,8 @@ public class FileController {
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                     .body(resource);
+        } catch (org.springframework.security.access.AccessDeniedException e) {
+            throw e;
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }

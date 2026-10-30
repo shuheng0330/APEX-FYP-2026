@@ -1,42 +1,34 @@
-<div class="first-time-login-wrapper">
-  <div class="first-time-login-left">
-    <div class="first-time-login-image-container">
-      <img src="assets\first-time-login-illustration.svg" alt="First Time Login Illustration"
-        class="first-time-login-image" />
-    </div>
+<app-auth-shell>
+  <div class="auth-form-header">
+    <span class="eyebrow">{{ 'AUTH.FIRST_TIME_LOGIN.EYEBROW' | translate }}</span>
+    <h1>{{ 'AUTH.FIRST_TIME_LOGIN.TITLE' | translate }}</h1>
+    <p>{{ 'AUTH.FIRST_TIME_LOGIN.INSTRUCTION' | translate }}</p>
   </div>
 
-  <div class="first-time-login-right">
-    <div class="first-time-login-text">
-      <h1>{{ 'AUTH.FIRST_TIME_LOGIN.TITLE' | translate }}</h1>
-      <span>{{ 'AUTH.FIRST_TIME_LOGIN.INSTRUCTION' | translate }}</span>
+  @if (hasError) {
+    <div class="auth-error">
+      <nz-alert nzType="error" [nzMessage]="errorTitle" [nzDescription]="errorMessage" nzShowIcon></nz-alert>
     </div>
+  }
 
-    <div class="first-time-login-error-container" *ngIf="hasError">
-      <nz-alert *ngIf="hasError" nzType="error" [nzMessage]="errorTitle" [nzDescription]="errorMessage" nzShowIcon>
-      </nz-alert>
-    </div>
+  <form nz-form [formGroup]="validateForm" class="auth-form auth-panel-form" (ngSubmit)="submitForm()">
+    <label class="field-label" for="first-login-email">{{ 'AUTH.FIRST_TIME_LOGIN.INPUT.EMAIL' | translate }}</label>
+    <nz-form-item>
+      <nz-form-control nzErrorTip="{{ 'AUTH.FIRST_TIME_LOGIN.ERR.EMAIL' | translate }}">
+        <nz-input-group nzPrefixIcon="mail">
+          <input id="first-login-email" type="email" nz-input formControlName="email"
+            oninput="this.value = this.value.trim().toLowerCase();" maxlength="255"
+            placeholder="{{ 'AUTH.FIRST_TIME_LOGIN.INPUT.EMAIL' | translate }}" autocomplete="username" />
+        </nz-input-group>
+      </nz-form-control>
+    </nz-form-item>
 
-    <form nz-form [formGroup]="validateForm" class="first-time-login-form" (ngSubmit)="submitForm()">
-      <nz-form-item>
-        <nz-form-control nzErrorTip="{{ 'AUTH.FIRST_TIME_LOGIN.ERR.EMAIL' | translate }}">
-          <nz-input-group nzPrefixIcon="mail">
-            <input type="text" nz-input formControlName="email" class="first-time-login-input"
-              oninput="this.value = this.value.trim().toLowerCase();" maxlength="255"
-              placeholder="{{ 'AUTH.FIRST_TIME_LOGIN.INPUT.EMAIL' | translate }}" />
-          </nz-input-group>
-        </nz-form-control>
-      </nz-form-item>
-
-      <div class="first-time-login-form-button-container">
-        <button [disabled]="!validateForm.valid" nz-button class="first-time-login-form-button"
-          [nzType]="'primary'">{{'AUTH.FIRST_TIME_LOGIN.SEND' | translate}}</button>
-        <span (click)="backToLogin()">
-          <nz-icon nzType="left" nzTheme="outline" />
-          {{'AUTH.FIRST_TIME_LOGIN.BACK' |
-          translate}}
-        </span>
-      </div>
-    </form>
-  </div>
-</div>
+    <button [disabled]="!validateForm.valid" nz-button class="auth-primary-button" nzType="primary">
+      {{ 'AUTH.FIRST_TIME_LOGIN.SEND' | translate }}
+    </button>
+    <a class="auth-back-link" (click)="backToLogin()">
+      <nz-icon nzType="left" nzTheme="outline" />
+      {{ 'AUTH.FIRST_TIME_LOGIN.BACK' | translate }}
+    </a>
+  </form>
+</app-auth-shell>

@@ -1,0 +1,4 @@
+.archived-note { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin: 10px 0; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: var(--tbm-text); font-size: 12px; }
+.archived-icon { margin-top: 2px; color: #475569; font-size: 16px; }
+.archived-copy { display: flex; flex: 1 1 180px; flex-direction: column; gap: 3px; }
+.archived-copy span { color: var(--tbm-muted); line-height: 1.5; }

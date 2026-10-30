@@ -1,0 +1,101 @@
+<div class="page-heading">
+  <app-notification-target [unavailable]="target.unavailable" />
+  <div><h3>{{ (superiorOnly ? 'KPI_REVISIONS.INDIVIDUAL_TITLE' : 'KPI_REVISIONS.TITLE') | translate }}</h3><p class="help">{{ (superiorOnly ? 'KPI_REVISIONS.SUPERIOR_HELP' : 'KPI_REVISIONS.HELP') | translate }}</p></div>
+  <div class="revision-heading-actions">
+  @if (!sharedPeriod) {
+  <div class="field"><label for="revision-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+    <nz-select nzId="revision-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="locked">
+      @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" /> }
+    </nz-select>
+  </div>
+  }
+  <app-kpi-revision-guide />
+  </div>
+</div>
+@if (error && !target.unavailable) { <p class="error-box" role="alert">{{ error }}</p> }
+@if (success) { <p class="notice" role="status">{{ success }}</p> }
+@if (busy) { <p role="status">{{ 'KPI_PLAN.LOADING' | translate }}</p> }
+@if (!sharedPeriod && !busy && !periods.length) { <p class="empty">{{ 'KPI_REVISIONS.NO_PERIODS' | translate }}</p> }
+@if (selectedPeriod?.status === 'CLOSED') { <p class="notice">{{ 'KPI_REVISIONS.CLOSED' | translate }}</p> }
+@if (access && canManageAccess) {
+  <section class="card revision-access"><div class="card-head"><h3>{{ 'KPI_REVISIONS.ACCESS_TITLE' | translate }}</h3>
+    <p class="help">{{ 'KPI_REVISIONS.ACCESS_HELP' | translate }}</p></div><div class="card-body">
+    <p class="notice">{{ (access.available ? 'KPI_REVISIONS.ACCESS_OPEN' : access.expired ? 'KPI_REVISIONS.ACCESS_EXPIRED' : 'KPI_REVISIONS.ACCESS_DISABLED') | translate }}</p>
+    <div class="actions">
+      <label class="field"><span><input type="checkbox" [(ngModel)]="enabled" [disabled]="locked || access.periodStatus === 'CLOSED'"> {{ 'KPI_REVISIONS.ENABLE' | translate }}</span></label>
+      <label class="field">{{ 'KPI_REVISIONS.CLOSING_DATE' | translate }}<input nz-input type="date" [(ngModel)]="closeDate" [disabled]="locked || access.periodStatus === 'CLOSED'"></label>
+      <button nz-button nzType="primary" [disabled]="locked || !accessDirty || access.periodStatus === 'CLOSED'" (click)="saveAccess()">{{ 'KPI_REVISIONS.SAVE_ACCESS' | translate }}</button>
+    </div>
+  </div></section>
+}
+@if (periodId !== null) {
+  <h3 class="revision-section-title">{{ 'KPI_REVISIONS.REQUESTS' | translate }}</h3><div class="revision-filters">
+    <div class="field"><label for="revision-search">{{ 'TEAM_REVIEWS.SEARCH' | translate }}</label><input nz-input id="revision-search" type="search" [(ngModel)]="search" [disabled]="locked" [placeholder]="'TEAM_REVIEWS.SEARCH_PLACEHOLDER' | translate"></div>
+    @if (!superiorOnly) {
+      <div class="field"><label for="revision-level">{{ 'KPI_REVISIONS.LEVEL' | translate }}</label><nz-select nzId="revision-level" [(ngModel)]="level" [nzDisabled]="locked">
+        <nz-option nzValue="" [nzLabel]="'KPI_REVISIONS.ALL_LEVELS' | translate" />
+        @for (scope of ['COMPANY', 'DEPARTMENT', 'INDIVIDUAL']; track scope) { <nz-option [nzValue]="scope" [nzLabel]="'INDIVIDUAL_KPI.LEVEL.' + scope | translate" /> }
+      </nz-select></div>
+    }
+    <div class="field"><label for="revision-status">{{ 'KPI_REVISIONS.REVISION_STATUS' | translate }}</label><nz-select nzId="revision-status" [(ngModel)]="filter" [nzDisabled]="locked">
+      <nz-option nzValue="" [nzLabel]="'KPI_REVISIONS.ALL' | translate" />
+      @for (status of availableStatuses; track status) { <nz-option [nzValue]="status" [nzLabel]="'KPI_REVISIONS.STATUS.' + status | translate" /> }
+    </nz-select></div><button nz-button [disabled]="locked || accessDirty" (click)="load()">{{ 'KPI_REVISIONS.REFRESH' | translate }}</button></div>
+  <section class="card"><div class="table-scroll"><table class="data-table"><thead><tr>
+    <th>{{ 'KPI_REVISIONS.PLAN' | translate }}</th><th>{{ 'KPI_REVISIONS.VERSION_LABEL' | translate }}</th><th>{{ 'KPI_REVISIONS.REQUESTER' | translate }}</th>
+    <th>{{ 'KPI_REVISIONS.REVISION_STATUS' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th></tr></thead><tbody>
+    @for (revision of visibleRevisions; track revision.id) { <tr><td>@if (revision.employeeName) { <strong>{{ revision.employeeName }}</strong><br> }{{ 'INDIVIDUAL_KPI.LEVEL.' + revision.level | translate }}<p class="help">{{ revision.departmentName }}</p></td>
+      <td>{{ revision.versionNumber }}</td><td>{{ revision.actorNames[revision.requestedBy || revision.createdBy] || '-' }}</td>
+      <td><span class="status" [attr.data-status]="revision.status">{{ 'KPI_REVISIONS.STATUS.' + revision.status | translate }}</span></td><td>
+        <button nz-button [disabled]="locked" (click)="workspace.open(revision.id)">{{ (revision.allowedActions.length ? 'KPI_REVISIONS.OPEN' : 'REVIEW_PERIOD.VIEW') | translate }}</button></td></tr>
+    } @empty { <tr><td colspan="5" class="empty">{{ 'KPI_REVISIONS.NO_REQUESTS' | translate }}</td></tr> }
+  </tbody></table></div></section>
+  @if (!superiorOnly) {
+  <h3 class="revision-section-title">{{ 'KPI_REVISIONS.CONFIRMED_PLANS' | translate }}</h3>
+  <h4>{{ 'KPI_REVISIONS.SUMMARY_PLANS' | translate }}</h4>
+  @for (plan of summaryPlans; track plan.id) { <section class="card"><div class="card-body">
+    <h4>{{ 'INDIVIDUAL_KPI.LEVEL.' + plan.level | translate }} @if (plan.employeeName) { / {{ plan.employeeName }} } @if (plan.departmentName) { / {{ plan.departmentName }} }</h4>
+    <app-kpi-revision-panel [plan]="plan" [workingRevision]="workingFor(plan.id)" [disabled]="busy || !!workspace.locked || accessDirty" (changed)="updated($event)" />
+  </div></section> } @empty { <p class="empty">{{ 'KPI_REVISIONS.NO_SUMMARY_PLANS' | translate }}</p> }
+  <section class="card employee-plans">
+    <div class="card-head"><h3>{{ 'KPI_REVISIONS.EMPLOYEE_PLANS' | translate }}</h3>
+      <p class="help">{{ 'KPI_REVISIONS.EMPLOYEE_SCOPE_HELP' | translate }}</p>
+      <strong>{{ 'KPI_REVISIONS.EMPLOYEE_TOTAL' | translate:{ count: individualPlans.length } }}</strong>
+    </div>
+    <div class="card-body revision-filters employee-filters">
+      <div class="field"><label for="revision-employee-search">{{ 'TEAM_REVIEWS.SEARCH' | translate }}</label>
+        <input nz-input id="revision-employee-search" type="search" [(ngModel)]="employeeSearch" (ngModelChange)="employeeFiltersChanged()"
+          [disabled]="locked" [placeholder]="'KPI_REVISIONS.EMPLOYEE_SEARCH' | translate"></div>
+      <div class="field"><label for="revision-employee-department">{{ 'TEAM_REVIEWS.DEPARTMENT' | translate }}</label>
+        <nz-select nzId="revision-employee-department" [(ngModel)]="employeeDepartment" (ngModelChange)="employeeFiltersChanged()" [nzDisabled]="locked">
+          <nz-option nzValue="" [nzLabel]="'KPI_REVISIONS.ALL_DEPARTMENTS' | translate" />
+          @for (department of employeeDepartments; track department) { <nz-option [nzValue]="department" [nzLabel]="department" /> }
+        </nz-select></div>
+      <div class="field"><label for="revision-employee-role">{{ 'KPI_REVISIONS.ROLE' | translate }}</label>
+        <nz-select nzId="revision-employee-role" [(ngModel)]="employeeRole" (ngModelChange)="employeeFiltersChanged()" [nzDisabled]="locked">
+          <nz-option nzValue="" [nzLabel]="'KPI_REVISIONS.ALL_ROLES' | translate" />
+          @for (role of employeeRoles; track role) { <nz-option [nzValue]="role" [nzLabel]="role" /> }
+        </nz-select></div>
+    </div>
+    <div class="table-scroll"><table class="data-table"><thead><tr>
+      <th>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}</th><th>{{ 'TEAM_REVIEWS.DEPARTMENT' | translate }}</th>
+      <th>{{ 'KPI_REVISIONS.ROLE' | translate }}</th><th>{{ 'KPI_REVISIONS.CURRENT_VERSION_LABEL' | translate }}</th>
+      <th>{{ 'KPI_PLAN.PLAN_STATUS' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th>
+    </tr></thead><tbody>
+      @for (plan of pagedEmployees; track plan.id) {
+        <tr><td><strong>{{ plan.employeeName || '-' }}</strong></td><td>{{ plan.departmentName || '-' }}</td><td>{{ plan.roleName || '-' }}</td>
+          <td>{{ 'KPI_REVISIONS.VERSION' | translate:{ number: plan.currentVersionNumber || 1 } }}</td>
+          <td><span class="status" [attr.data-status]="plan.status">{{ 'KPI_PLAN.STATUS.' + plan.status | translate }}</span></td>
+          <td><app-kpi-revision-panel [plan]="plan" [compact]="true" [workingRevision]="workingFor(plan.id)"
+            [disabled]="busy || !!workspace.locked || accessDirty" (changed)="updated($event)" /></td></tr>
+      } @empty { <tr><td colspan="6" class="empty">{{ (individualPlans.length ? 'KPI_REVISIONS.NO_EMPLOYEE_MATCHES' : 'KPI_REVISIONS.NO_EMPLOYEE_PLANS') | translate }}</td></tr> }
+    </tbody></table></div>
+    <div class="employee-pagination">
+      @if (employeeFiltered) { <span class="help">{{ 'KPI_REVISIONS.EMPLOYEE_MATCHES' | translate:{ count: filteredEmployees.length, total: individualPlans.length } }}</span> }
+      @if (filteredEmployees.length > employeePageSize) { <nz-pagination [(nzPageIndex)]="employeePage" [nzTotal]="filteredEmployees.length"
+        [nzPageSize]="employeePageSize" [nzDisabled]="locked" /> }
+    </div>
+  </section>
+  }
+}
+<app-kpi-revision-workspace #workspace (changed)="updated($event)" />

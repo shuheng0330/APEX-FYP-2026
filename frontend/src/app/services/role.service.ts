@@ -3,7 +3,7 @@ import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { Observable } from 'rxjs';
 import { CreateRoleResponse, Role, RoleJobScopeMap, UpdateRoleResponse } from '../models/role.model';
-import { RoleOverview, RoleCreation, RoleEdit } from '../models/role.model';
+import { EmployeeLevel, RoleOverview, RoleCreation, RoleEdit } from '../models/role.model';
 
 @Injectable({
   providedIn: 'root',
@@ -12,6 +12,10 @@ export class RoleService {
   private baseUrl = environment.apiBaseUrl + "/role";
 
   constructor(private http: HttpClient) { }
+
+  getEmployeeLevels(): Observable<EmployeeLevel[]> {
+    return this.http.get<EmployeeLevel[]>(environment.apiBaseUrl + '/employee-levels', { withCredentials: true });
+  }
 
   getAllRoles(): Observable<Role[]> {
     return this.http.get<Role[]>(`${this.baseUrl}`, { withCredentials: true });

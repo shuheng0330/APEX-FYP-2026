@@ -172,6 +172,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         dto.setCreatedAt(evaluation.getCreatedAt());
         if (evaluation.getEvaluationCycle() != null) {
             dto.setEvaluationCycleEndDate(evaluation.getEvaluationCycle().getEndDate().toString());
+            dto.setEvaluationCycleStatus(evaluation.getEvaluationCycle().getStatus().name());
         }
 
         List<RatingDTO> ratingDTOs = evaluation.getRatings().stream()

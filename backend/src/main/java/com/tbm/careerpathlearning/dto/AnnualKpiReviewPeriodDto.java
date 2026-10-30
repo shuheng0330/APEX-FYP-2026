@@ -1,0 +1,70 @@
+package com.tbm.careerpathlearning.dto;
+
+import com.tbm.careerpathlearning.enums.*;
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Data
+public class AnnualKpiReviewPeriodDto {
+    private Long id;
+    private String referenceNumber;
+    private AnnualKpiReviewPeriodStatus status;
+    private KpiAssessmentModel assessmentModel;
+    private KpiFrequencyPolicy frequencyPolicy;
+    private List<ReviewPeriodDepartmentConfigurationDto> departmentConfigurations = new ArrayList<>();
+    private String name;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private List<ReviewPeriodEmployeeLevelConfigurationDto> employeeLevelConfigurations = new ArrayList<>();
+    private BigDecimal kpiPerformanceWeight;
+    private BigDecimal attitudeEvaluationWeight;
+    private AnnualKpiConsolidationMethod annualKpiConsolidationMethod;
+    private LocalDate kpiSetupDeadline;
+    private Integer selfAssessmentDaysAfterCheckpoint;
+    private Integer superiorAssessmentDaysAfterSelfDeadline;
+    private LocalDate attitudeSelfAssessmentStartDate;
+    private LocalDate attitudeSelfAssessmentDeadline;
+    private LocalDate superiorAttitudeEvaluationDeadline;
+    private LocalDate appraisalRecommendationDeadline;
+    private LocalDate hrFinalisationDeadline;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private OffsetDateTime openedAt;
+    private OffsetDateTime closedAt;
+    private OffsetDateTime participantsSnapshottedAt;
+    private Long attitudeConfigurationId;
+    private String attitudeConfigurationName;
+    private String editMode;
+    private boolean canDelete;
+    private UUID createdBy;
+    private UUID updatedBy;
+    private List<RoleConfiguration> roleConfigurations = new ArrayList<>();
+    private List<Checkpoint> checkpoints = new ArrayList<>();
+
+    @Data
+    public static class RoleConfiguration {
+        private Long roleId;
+        private String roleName;
+        private String departmentName;
+        private Long departmentId;
+        private ReviewFrequency reviewFrequency;
+        private Long employeeLevelId;
+        private String employeeLevelName;
+    }
+
+    @Data
+    public static class Checkpoint {
+        private Long id;
+        private ReviewFrequency reviewFrequency;
+        private Integer sequenceNumber;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private LocalDate selfAssessmentDeadline;
+        private LocalDate superiorAssessmentDeadline;
+    }
+}

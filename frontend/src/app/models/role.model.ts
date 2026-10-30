@@ -5,6 +5,9 @@ import { RoleCompetencyDto } from "./role-compotency.model";
 import { Staff } from "./staff.model";
 
 export interface Role {
+    employeeLevelId?: number | null;
+    employeeLevelName?: string;
+    employeeLevelCode?: string;
     id?: number;
     name: string;
     description: string;
@@ -18,6 +21,9 @@ export interface Role {
 }
 
 export interface RoleOverview {
+    employeeLevelId?: number | null;
+    employeeLevelName?: string;
+    employeeLevelCode?: string;
     orgChartId: number;
     orgChartName: string;
     orgChartDeleted: boolean;
@@ -29,6 +35,7 @@ export interface RoleOverview {
 }
 
 export interface RoleEdit {
+    employeeLevelId: number;
     orgChartId: number;
     roleId: number;
     roleName: string;
@@ -38,6 +45,7 @@ export interface RoleEdit {
 }
 
 export interface RoleCreation {
+    employeeLevelId: number;
     orgChartId: number;
     roleName: string;
     visibility: boolean;
@@ -51,6 +59,9 @@ export interface RoleJobScopeMap {
 }
 
 export interface RoleDetailsData {
+    employeeLevelId?: number | null;
+    employeeLevelName?: string;
+    employeeLevelCode?: string;
     orgChartId: number;
     orgChartName: string;
     roleId: number;
@@ -72,4 +83,14 @@ export interface CreateRoleResponse {
 export interface UpdateRoleResponse {
     message: string;
     updatedRole: Role;
+}
+
+export interface EmployeeLevel {
+    id: number;
+    code: string;
+    name: string;
+    displayOrder: number;
+    defaultCompanyKpiWeight: number;
+    defaultDepartmentKpiWeight: number;
+    defaultIndividualKpiWeight: number;
 }

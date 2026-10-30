@@ -1,0 +1,62 @@
+<section class="card" [class.dashboard-summary]="summaryOnly" [attr.aria-label]="'ANNUAL_APPRAISAL.RESULTS' | translate">
+  @if (!summaryOnly) {
+  <div class="card-head">
+    <h3>{{ 'ANNUAL_APPRAISAL.RESULTS' | translate }}</h3>
+    <p class="help">{{ (frozen ? 'ANNUAL_APPRAISAL.SNAPSHOT_HELP' : 'ANNUAL_APPRAISAL.LIVE_HELP') | translate }}</p>
+  </div>
+  }
+  <div class="card-body">
+    <dl class="score-grid">
+      <div><dt>{{ 'ANNUAL_APPRAISAL.ANNUAL_KPI' | translate }}</dt><dd>{{ performance.annualKpiScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (performance.annualKpiScore | number:'1.2-2') }}</dd>
+        <span class="help">{{ 'ANNUAL_APPRAISAL.WEIGHT' | translate }}: {{ performance.kpiWeight == null ? '-' : performance.kpiWeight + '%' }}</span></div>
+      <div><dt>{{ 'ANNUAL_APPRAISAL.ATTITUDE_SCORE' | translate }}</dt><dd>{{ performance.attitudeScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (performance.attitudeScore | number:'1.2-2') }}</dd>
+        <span class="help">{{ 'ANNUAL_APPRAISAL.WEIGHT' | translate }}: {{ performance.attitudeWeight == null ? '-' : performance.attitudeWeight + '%' }}</span></div>
+      <div class="final-score"><dt>{{ 'ANNUAL_APPRAISAL.FINAL_SCORE' | translate }}</dt><dd>{{ performance.finalScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (performance.finalScore | number:'1.2-2') }}</dd>
+        <span class="help">{{ 'ANNUAL_APPRAISAL.OUT_OF_100' | translate }}</span></div>
+    </dl>
+    @if (!summaryOnly) {
+    <div class="performance-metadata help">
+      <span>{{ 'ANNUAL_APPRAISAL.FREQUENCY' | translate }}: <span class="status">{{ 'ANNUAL_APPRAISAL.FREQUENCIES.' + performance.reviewFrequency | translate }}</span></span>
+      <span>{{ 'ANNUAL_APPRAISAL.CONSOLIDATION' | translate }}: <span class="status">{{ performance.consolidationMethod ? ('ANNUAL_APPRAISAL.METHODS.' + performance.consolidationMethod | translate) : '-' }}</span></span>
+    </div>
+    <button type="button" class="text-action" [attr.aria-expanded]="details" [attr.aria-controls]="'performance-' + contextId" (click)="details = !details">
+      {{ (details ? 'ANNUAL_APPRAISAL.HIDE_RESULTS' : 'ANNUAL_APPRAISAL.VIEW_RESULTS') | translate }}</button>
+    }
+  </div>
+  @if (details && !summaryOnly) {
+    <div [id]="'performance-' + contextId">
+      <div class="table-scroll"><table class="data-table">
+        <thead><tr><th>{{ 'ANNUAL_APPRAISAL.CHECKPOINT' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.STATUS_LABEL' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.SCORE' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.ACTIONS' | translate }}</th></tr></thead>
+        <tbody>@for (checkpoint of performance.checkpoints ?? []; track checkpoint.checkpointId) {
+          <tr><td>{{ checkpoint.startDate | date:'dd MMM yyyy' }} - {{ checkpoint.endDate | date:'dd MMM yyyy' }}</td>
+            <td>{{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + (checkpoint.status || 'NOT_STARTED') | translate }}</td>
+            <td>{{ checkpoint.score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (checkpoint.score | number:'1.2-2') }}</td>
+            <td>@if (checkpoint.breakdown) { <button type="button" class="text-action" [attr.aria-expanded]="checkpointId === checkpoint.checkpointId" [attr.aria-controls]="contextId + '-checkpoint-' + checkpoint.checkpointId"
+              (click)="checkpointId = checkpointId === checkpoint.checkpointId ? null : checkpoint.checkpointId">{{ (checkpointId === checkpoint.checkpointId ? 'ANNUAL_APPRAISAL.HIDE_KPIS' : 'ANNUAL_APPRAISAL.VIEW_KPIS') | translate }}</button> } @else { - }</td></tr>
+          @if (checkpointId === checkpoint.checkpointId && checkpoint.breakdown) {
+            <tr><td colspan="4"><div [id]="contextId + '-checkpoint-' + checkpoint.checkpointId">
+              @for (level of checkpoint.breakdown.levels; track level.level) {
+                <h4>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }} · {{ 'ANNUAL_APPRAISAL.WEIGHT' | translate }}: {{ level.allocation }}%</h4>
+                <p class="help">{{ 'ANNUAL_APPRAISAL.VERSION' | translate }}: {{ level.versionNumber ?? '-' }} · {{ 'ANNUAL_APPRAISAL.CONTRIBUTION' | translate }}: {{ level.contribution == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (level.contribution | number:'1.2-2') }}</p>
+                <ul class="result-items">@for (item of level.items; track $index) {
+                  <li><strong>{{ item.kpi.name }}</strong><div>{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target || '-' }}</div>
+                    <div>{{ 'ANNUAL_APPRAISAL.ACTUAL' | translate }}: {{ item.actualAchievement || '-' }}</div>
+                    <div>{{ 'ANNUAL_APPRAISAL.POINT' | translate }}: {{ item.point }} / 5</div>
+                    <div class="help">{{ item.kpi.scoringDefinitions[item.point] }}</div></li>
+                } @empty { <li>{{ 'ANNUAL_APPRAISAL.NO_RESULT_ITEMS' | translate }}</li> }</ul>
+              }
+            </div></td></tr>
+          }
+        } @empty { <tr><td colspan="4">{{ 'ANNUAL_APPRAISAL.NO_CHECKPOINTS' | translate }}</td></tr> }</tbody>
+      </table></div>
+      <div class="card-body"><h4>{{ 'ANNUAL_APPRAISAL.ATTITUDE_SCORE' | translate }}</h4>
+        @if (performance.attitude; as attitude) {
+          <p class="help">{{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + attitude.status | translate }} · {{ attitude.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</p>
+          <dl class="criteria-list">@for (criterion of attitude.criteria; track criterion.criterionId) {
+            <div><dt>{{ criterion.name }}<span class="help">{{ criterion.description }}</span></dt><dd>{{ criterion.superiorPoint ?? '-' }} / 5</dd></div>
+          }</dl>
+        } @else { <p class="help">{{ 'ANNUAL_APPRAISAL.ATTITUDE_PENDING' | translate }}</p> }
+      </div>
+    </div>
+  }
+</section>

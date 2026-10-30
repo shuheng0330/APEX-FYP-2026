@@ -220,6 +220,9 @@ public class RoleCompetenciesController {
                 ));
 
         RoleDetailsDto roleDetailsDto = new RoleDetailsDto(
+                selectedRoleDto.getEmployeeLevelId(),
+                selectedRoleDto.getEmployeeLevelName(),
+                selectedRoleDto.getEmployeeLevelCode(),
                 selectedRoleDto.getOrgChart().getId(),
                 selectedRoleDto.getOrgChart().getName(),
                 selectedRoleDto.getId(),
@@ -287,6 +290,9 @@ public class RoleCompetenciesController {
                             ));
 
                     return new RoleDetailsDto(
+                            dto.getEmployeeLevelId(),
+                            dto.getEmployeeLevelName(),
+                            dto.getEmployeeLevelCode(),
                             dto.getOrgChart().getId(),
                             dto.getOrgChart().getName(),
                             dto.getId(),

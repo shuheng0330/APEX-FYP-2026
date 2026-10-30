@@ -1,0 +1,109 @@
+<nz-drawer [nzVisible]="visible" [nzTitle]="'KPI_REVISIONS.WORKSPACE' | translate" nzWidth="min(1100px, 100vw)"
+  [nzFooter]="footer" [nzMaskClosable]="false" [nzClosable]="!busy" [nzKeyboard]="!busy" (nzOnClose)="close()">
+  <ng-container *nzDrawerContent>
+    @if (error) { <p class="error-box" role="alert">{{ error }}</p> }
+    @if (success) { <p class="notice" role="status">{{ success }}</p> }
+    @if (busy) { <p role="status">{{ 'KPI_PLAN.LOADING' | translate }}</p> }
+    @if (revision; as version) {
+      <section class="version-summary">
+        <h3>{{ 'INDIVIDUAL_KPI.LEVEL.' + version.level | translate }}
+          <span class="status" [attr.data-status]="version.status">{{ 'KPI_REVISIONS.STATUS.' + version.status | translate }}</span>
+          <span class="version-number">{{ 'KPI_REVISIONS.VERSION' | translate:{ number: version.versionNumber } }}</span></h3>
+        <p class="help">{{ version.reviewPeriodName }} @if (version.departmentName) { / {{ version.departmentName }} }</p>
+        @if (version.level === 'INDIVIDUAL') {
+          <p><strong>{{ 'TEAM_REVIEWS.EMPLOYEE' | translate }}: {{ version.employeeName }}</strong></p>
+        }
+        <p class="preserve"><strong>{{ 'KPI_REVISIONS.REASON' | translate }}:</strong> {{ version.revisionReason }}</p>
+        <p class="revision-next"><strong>{{ 'KPI_REVISIONS.NEXT_STEP' | translate }}:</strong> {{ nextStep | translate }}</p>
+        @if (version.cancelledAt) { <p class="preserve">{{ 'KPI_REVISIONS.CANCEL_REASON' | translate }}: {{ version.cancellationReason }}</p> }
+      </section>
+      <ol class="revision-stepper" [attr.aria-label]="'KPI_REVISIONS.PROGRESS' | translate">
+        @for (step of steps; track step.label; let i = $index) {
+          <li [attr.data-state]="step.state" [attr.aria-current]="step.state === 'current' ? 'step' : null">
+            <span class="step-marker" aria-hidden="true">{{ step.state === 'complete' ? '✓' : step.state === 'stopped' ? '×' : i + 1 }}</span>
+            <span>{{ step.label | translate }}<small>{{ 'KPI_REVISIONS.STEP_STATE.' + step.state | translate }}</small></span>
+          </li>
+        }
+      </ol>
+      @if (!['EFFECTIVE', 'SUPERSEDED', 'CANCELLED'].includes(version.status)) { <p class="notice">{{ 'KPI_REVISIONS.CURRENT_UNCHANGED' | translate }}</p> }
+      @if (version.latestReturnReason) { <div class="return-note"><strong>{{ 'DEPARTMENT_KPI.RETURN_REASON' | translate }}</strong>
+        <p class="preserve">{{ version.latestReturnReason }}</p><p class="help">{{ actorName(version.latestReturnedBy) }} · {{ version.latestReturnedAt | date:'dd MMM yyyy, h:mm a' }}</p></div> }
+      @if (visibleBlockers.length) { <div class="warning" role="status"><ul>@for (blocker of visibleBlockers; track $index) { <li>{{ blocker }}</li> }</ul></div> }
+      @if (stale) { <div class="error-box">{{ 'KPI_REVISIONS.STALE' | translate }}
+        <button nz-button [disabled]="busy || dirty" (click)="refresh()">{{ 'KPI_REVISIONS.REFRESH' | translate }}</button></div> }
+      <section class="revision-comparison">
+        <div class="comparison-heading"><h3>{{ 'KPI_REVISIONS.CHANGES' | translate }}</h3>
+          <button type="button" nz-button nzType="link" class="revision-disclosure" [disabled]="busy" [attr.aria-expanded]="fullPlanVisible" [attr.aria-controls]="disclosureId + '-plan'"
+            (click)="fullPlanVisible = !fullPlanVisible">{{ (fullPlanVisible ? 'KPI_REVISIONS.HIDE_FULL_PLAN' : 'KPI_REVISIONS.VIEW_FULL_PLAN') | translate }}</button></div>
+        @if (baseVersionNumber !== null) { <p class="help">{{ 'KPI_REVISIONS.COMPARING' | translate:{ from: baseVersionNumber, to: version.versionNumber } }}</p> }
+        <app-kpi-changes [changes]="version.changes" [summaryTable]="true" emptyKey="KPI_REVISIONS.NO_CHANGES" />
+      </section>
+      <div [id]="disclosureId + '-plan'" [hidden]="!fullPlanVisible">
+      @if (fullPlanVisible) {
+      <section class="card revision-items">
+        <div class="card-head plan-summary"><div><h3>{{ 'KPI_REVISIONS.PROPOSED_PLAN' | translate }}</h3>
+          <p class="help">{{ 'KPI_PLAN.TOTAL' | translate }}: {{ version.totalWeightage | number:'1.0-2' }}% / 100%</p>
+          @if (weightageState !== 'valid') {
+            <div class="revision-weightage-warning" [attr.data-state]="weightageState" [id]="disclosureId + '-weightage-warning'" role="status">
+              <strong>{{ 'KPI_REVISIONS.WEIGHTAGE_WARNING' | translate }}</strong>
+              <p>{{ 'KPI_REVISIONS.WEIGHTAGE_CURRENT' | translate }}: <strong>{{ version.totalWeightage | number:'1.0-2' }}%</strong>.
+                {{ (weightageState === 'over' ? 'KPI_REVISIONS.WEIGHTAGE_REDUCE' : 'KPI_REVISIONS.WEIGHTAGE_INCREASE') | translate }}
+                <strong>{{ weightageDifference | number:'1.0-2' }}%</strong> {{ 'KPI_REVISIONS.WEIGHTAGE_FINALISE' | translate }}</p>
+            </div>
+          }
+          <div class="weight-progress revision-weight-progress" [attr.data-state]="weightageState" role="progressbar"
+            aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="weightageProgress"
+            [attr.aria-valuetext]="'KPI_REVISIONS.WEIGHTAGE_ACCESSIBLE' | translate:{ total: (version.totalWeightage | number:'1.0-2') }"
+            [attr.aria-describedby]="weightageState !== 'valid' ? disclosureId + '-weightage-warning' : null"
+            [attr.aria-label]="'KPI_PLAN.TOTAL' | translate"><span [style.width.%]="weightageProgress"></span></div></div>
+          @if (can('EDIT')) { <button nz-button nzType="primary" [disabled]="busy" (click)="openItem(null)">{{ 'KPI_PLAN.ADD_ITEM' | translate }}</button> }
+        </div>
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th>
+          <th>{{ 'KPI_PLAN.WEIGHT' | translate }}</th><th>{{ 'REVIEW_PERIOD.ACTIONS' | translate }}</th></tr></thead><tbody>
+          @for (item of version.items; track item.id; let index = $index) {
+            <tr><td><strong>{{ item.name || '-' }}</strong><p class="help">{{ item.perspective }} / {{ item.kra }}</p></td><td class="target-cell">{{ item.target || '-' }}</td>
+              <td>{{ item.weightage }}%</td><td><div class="actions"><button nz-button [disabled]="busy" (click)="openItem(index, true)">{{ 'REVIEW_PERIOD.VIEW' | translate }}</button>
+                @if (can('EDIT')) { <button nz-button [disabled]="busy" (click)="openItem(index)">{{ 'REVIEW_PERIOD.EDIT' | translate }}</button>
+                  <button nz-button nzDanger [disabled]="busy" (click)="removeItem(index)">{{ 'KPI_PLAN.REMOVE' | translate }}</button> }</div></td></tr>
+          } @empty { <tr><td colspan="4" class="empty">{{ 'KPI_PLAN.EMPTY_PLAN' | translate }}</td></tr> }
+        </tbody></table></div>
+      </section>
+      }
+      </div>
+      <section class="revision-activity">
+        <button type="button" nz-button nzType="link" class="revision-disclosure" [attr.aria-expanded]="activityVisible"
+          [attr.aria-controls]="disclosureId + '-activity'" (click)="activityVisible = !activityVisible">
+          {{ (activityVisible ? 'KPI_REVISIONS.HIDE_ACTIVITY' : 'KPI_REVISIONS.VIEW_ACTIVITY') | translate }}
+        </button>
+        <div [id]="disclosureId + '-activity'" [hidden]="!activityVisible">
+          @if (activityVisible) { <app-kpi-revision-activity [revision]="version" [returnFeedbackVisible]="true" /> }
+        </div>
+      </section>
+      @if (reasonAction) { <section class="revision-reason field">
+        <p>{{ (reasonAction === 'CANCEL' ? 'KPI_REVISIONS.CANCEL_HELP' : version.level === 'INDIVIDUAL' ? 'KPI_REVISIONS.INDIVIDUAL_RETURN_HELP' : 'KPI_REVISIONS.RETURN_HELP') | translate }}</p>
+        <label for="revision-decision-reason">{{ (reasonAction === 'CANCEL' ? 'KPI_REVISIONS.CANCEL_REASON' : 'DEPARTMENT_KPI.RETURN_REASON') | translate }} <span class="required-mark">*</span></label>
+        <textarea nz-input id="revision-decision-reason" [(ngModel)]="reason" maxlength="10000" [disabled]="busy"
+          [attr.aria-invalid]="reasonError" [placeholder]="'KPI_REVISIONS.REASON_PLACEHOLDER' | translate"></textarea>
+        @if (reasonError) { <span class="field-error" role="alert">{{ 'KPI_REVISIONS.REASON_REQUIRED' | translate }}</span> }
+        <div class="actions"><button nz-button [disabled]="busy" (click)="reasonAction = null; reason = ''">{{ 'REVIEW_PERIOD.CANCEL' | translate }}</button>
+          <button nz-button nzDanger [disabled]="busy || !can(reasonAction)" (click)="submitReason()">{{ label(reasonAction) | translate }}</button></div></section> }
+    }
+  </ng-container>
+</nz-drawer>
+<ng-template #footer><div class="revision-footer"><button nz-button [disabled]="busy" (click)="close()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
+  @if (!reasonAction) { @for (action of transitions; track action) { @if (can(action)) {
+    <button nz-button [nzType]="action === 'CANCEL' || action === 'RETURN' ? 'default' : 'primary'" [nzDanger]="action === 'CANCEL'"
+      [disabled]="busy || editorVisible" (click)="act(action)">{{ label(action) | translate }}</button>
+  } } }
+</div></ng-template>
+<nz-drawer [nzVisible]="editorVisible" [nzTitle]="(editorReadonly ? 'KPI_PLAN.VIEW_ITEM' : 'KPI_PLAN.EDIT_ITEM') | translate"
+  nzWidth="min(720px, 100vw)" [nzFooter]="itemFooter" [nzMaskClosable]="false" [nzClosable]="!busy" [nzKeyboard]="!busy" (nzOnClose)="closeItem()">
+  <ng-container *nzDrawerContent>
+    @if (itemError) { <p class="error-box" role="alert">{{ itemError }}</p> }
+    <app-kpi-item-editor [items]="editorItems" [singleItem]="true" [readonly]="editorReadonly" [errors]="fieldErrors"
+      [scope]="revision?.level || 'COMPANY'" [baselineItems]="baselineItems" />
+  </ng-container>
+</nz-drawer>
+<ng-template #itemFooter><div class="actions drawer-actions"><button nz-button [disabled]="busy" (click)="closeItem()">{{ 'KPI_PLAN.CLOSE' | translate }}</button>
+  @if (!editorReadonly) { <button nz-button nzType="primary" [disabled]="busy || !can('EDIT')" (click)="applyItem()">{{ 'KPI_PLAN.APPLY_ITEM' | translate }}</button> }
+</div></ng-template>

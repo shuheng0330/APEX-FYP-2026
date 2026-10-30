@@ -11,6 +11,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RoleDto {
+    private Long employeeLevelId;
+    private String employeeLevelName;
+    private String employeeLevelCode;
     private Long id;
     private String name;
     private String description;

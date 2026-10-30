@@ -1,0 +1,207 @@
+<nz-card class="hr-review-panel">
+  <nz-spin [nzSpinning]="loading || actionLoading">
+    <div class="panel-header">
+      <div>
+        <h2>Appraisal Review — HR Admin</h2>
+        <p>Read-only manager submission + HR actions</p>
+      </div>
+      <div *ngIf="record?.status" class="status-pill" [attr.data-status]="record?.status">
+        <nz-icon [nzType]="statusIcon" nzTheme="outline"></nz-icon>
+        <span>{{ statusLabel }}</span>
+      </div>
+    </div>
+
+    <nz-alert
+      *ngIf="!loading && !record"
+      nzType="info"
+      nzMessage="No appraisal submitted yet. The manager has not submitted an appraisal for this staff member."
+      nzShowIcon>
+    </nz-alert>
+
+    <div *ngIf="record" class="review-content">
+      <div class="review-metadata">
+        <div><span>Review Period</span><strong>{{ formatReviewPeriod(record.reviewPeriodYears) }}</strong></div>
+        <div><span>Decision Type</span><nz-tag color="cyan">{{ formatValue(record.decisionType) }}</nz-tag></div>
+        <div><span>Evaluation Cycle</span><strong>{{ record.evaluationCycleEndDate | date: 'yyyy-MM-dd' }}</strong></div>
+        <div><span>Submitted By</span><strong>{{ record.managerName || '-' }}</strong></div>
+      </div>
+
+      <div class="decision-grid">
+        @for (card of decisionCards; track card.title) {
+          <div class="decision-card">
+          <h3>{{ card.title }}</h3>
+          <div class="field-label">Readiness Score</div>
+          <div class="score-value">{{ card.readinessScore ?? '-' }}</div>
+
+          <div class="field-label">System Category</div>
+          <nz-tag [nzColor]="getCategoryColor(card.systemCategory)">
+            {{ formatValue(card.systemCategory) }}
+          </nz-tag>
+
+          <div class="manager-override">
+            <div class="field-label">Manager Override</div>
+            @if (card.hasManagerOverride) {
+              <div class="category-change">
+                <span>{{ formatValue(card.systemCategory) }}</span>
+                <nz-icon nzType="arrow-right" nzTheme="outline"></nz-icon>
+                <nz-tag [nzColor]="getCategoryColor(card.managerCategory)">
+                  {{ formatValue(card.managerCategory) }}
+                </nz-tag>
+              </div>
+              <p>“{{ card.managerOverrideReason }}”</p>
+            } @else {
+              <span class="muted">No override</span>
+            }
+          </div>
+
+          @if (record.status === 'APPROVED') {
+            <div class="manager-override">
+              <div class="field-label">HR Final Decision</div>
+              @if (card.hasHrOverride) {
+                <div class="category-change">
+                  <span>{{ formatValue(card.managerCategory) }}</span>
+                  <nz-icon nzType="arrow-right" nzTheme="outline"></nz-icon>
+                  <nz-tag [nzColor]="getCategoryColor(card.effectiveCategory)">
+                    {{ formatValue(card.effectiveCategory) }}
+                  </nz-tag>
+                </div>
+                <p>{{ card.hrOverrideReason }}</p>
+              } @else {
+                <nz-tag [nzColor]="getCategoryColor(card.effectiveCategory)">
+                  {{ formatValue(card.effectiveCategory) }}
+                </nz-tag>
+                <span class="muted">Approved as recommended</span>
+              }
+            </div>
+          }
+          </div>
+        }
+      </div>
+
+      <div class="read-only-block">
+        <div class="field-label">AI-generated Insight</div>
+        <p>{{ record.aiInsight || 'No AI-generated insight provided.' }}</p>
+      </div>
+
+      <div class="read-only-block manager-comment">
+        <div class="field-label">Manager Comment</div>
+        <p>“{{ record.managerComment || '-' }}”</p>
+      </div>
+
+      <div
+        *ngIf="record.hrReturnReason || record.hrReviewerName"
+        class="hr-outcome">
+        <div *ngIf="record.hrReturnReason">
+          <span>Return Reason</span>
+          <p>{{ record.hrReturnReason }}</p>
+        </div>
+        <div *ngIf="record.hrReviewerName">
+          <span>Reviewed By</span>
+          <strong>{{ record.hrReviewerName }}</strong>
+          <small *ngIf="record.approvedAt">Approved {{ record.approvedAt | date: 'yyyy-MM-dd' }}</small>
+        </div>
+      </div>
+
+      <div *ngIf="canReview" class="action-row">
+        <button nz-button nzType="primary" class="approve-button" (click)="approve()">
+          <nz-icon nzType="check-circle" nzTheme="outline"></nz-icon>
+          Approve
+        </button>
+        <button nz-button nzType="primary" class="override-button" (click)="openOverrideModal()">
+          <nz-icon nzType="exclamation-circle" nzTheme="outline"></nz-icon>
+          Override and Approve
+        </button>
+        <button nz-button nzDanger class="return-button" (click)="openReturnModal()">
+          <nz-icon nzType="close-circle" nzTheme="outline"></nz-icon>
+          Return for Revision
+        </button>
+      </div>
+    </div>
+  </nz-spin>
+</nz-card>
+
+<ng-template #overrideModalTemplate>
+  <div class="modal-form">
+    @if (canOverridePromotion) {
+      <section class="override-decision-section">
+        @if (isBothDecision) {
+          <label nz-checkbox [(ngModel)]="promotionOverrideSelected">Override Promotion</label>
+        } @else {
+          <h4>Promotion</h4>
+        }
+        @if (promotionOverrideSelected) {
+          <label for="hr-promotion-category">Promotion Override Category <span class="required">*</span></label>
+          <nz-select nzId="hr-promotion-category" class="full-width" [(ngModel)]="promotionOverrideCategory" nzPlaceHolder="Select final category"
+            [attr.aria-invalid]="!!overrideCategoryError('promotion')" [attr.aria-describedby]="overrideCategoryError('promotion') ? 'hr-promotion-category-error' : null">
+            @for (category of getPromotionOverrideOptions(); track category) {
+              <nz-option [nzValue]="category" [nzLabel]="formatValue(category)"></nz-option>
+            }
+          </nz-select>
+          @if (overrideCategoryError('promotion'); as error) { <p id="hr-promotion-category-error" class="field-error">{{ error | translate }}</p> }
+          <label for="hr-promotion-reason">Promotion Override Reason <span class="required">*</span></label>
+          <textarea
+            nz-input
+            rows="3"
+            [(ngModel)]="promotionOverrideReason"
+            id="hr-promotion-reason" [attr.aria-invalid]="overrideReasonError('promotion')" [attr.aria-describedby]="overrideReasonError('promotion') ? 'hr-promotion-reason-error' : null"
+            placeholder="Explain the Promotion override decision..."></textarea>
+          @if (overrideReasonError('promotion')) { <p id="hr-promotion-reason-error" class="field-error">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
+        }
+      </section>
+    }
+
+    @if (canOverrideSalary) {
+      <section class="override-decision-section">
+        @if (isBothDecision) {
+          <label nz-checkbox [(ngModel)]="salaryOverrideSelected">Override Salary Increment</label>
+        } @else {
+          <h4>Salary Increment</h4>
+        }
+        @if (salaryOverrideSelected) {
+          <label for="hr-salary-category">Salary Increment Override Category <span class="required">*</span></label>
+          <nz-select nzId="hr-salary-category" class="full-width" [(ngModel)]="salaryOverrideCategory" nzPlaceHolder="Select final category"
+            [attr.aria-invalid]="!!overrideCategoryError('salary')" [attr.aria-describedby]="overrideCategoryError('salary') ? 'hr-salary-category-error' : null">
+            @for (category of getSalaryOverrideOptions(); track category) {
+              <nz-option [nzValue]="category" [nzLabel]="formatValue(category)"></nz-option>
+            }
+          </nz-select>
+          @if (overrideCategoryError('salary'); as error) { <p id="hr-salary-category-error" class="field-error">{{ error | translate }}</p> }
+          <label for="hr-salary-reason">Salary Increment Override Reason <span class="required">*</span></label>
+          <textarea
+            nz-input
+            rows="3"
+            [(ngModel)]="salaryOverrideReason"
+            id="hr-salary-reason" [attr.aria-invalid]="overrideReasonError('salary')" [attr.aria-describedby]="overrideReasonError('salary') ? 'hr-salary-reason-error' : null"
+            placeholder="Explain the Salary Increment override decision..."></textarea>
+          @if (overrideReasonError('salary')) { <p id="hr-salary-reason-error" class="field-error">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
+        }
+      </section>
+    }
+
+    @if (isBothDecision && !promotionOverrideSelected && !salaryOverrideSelected) {
+      <nz-alert
+        nzType="info"
+        nzMessage="Select Promotion, Salary Increment, or both to override."
+        nzShowIcon>
+      </nz-alert>
+    }
+    <div class="modal-actions">
+      <button nz-button (click)="closeActionModal()">Cancel</button>
+      <button nz-button nzType="primary" class="override-button" [nzLoading]="actionLoading" (click)="submitOverride()">
+        Override and Approve
+      </button>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #returnModalTemplate>
+  <div class="modal-form">
+    <label for="hr-return-reason">Return Reason <span class="required">*</span></label>
+    <textarea nz-input id="hr-return-reason" rows="4" [(ngModel)]="returnReason" [attr.aria-invalid]="validationVisible && !returnReason.trim()" [attr.aria-describedby]="validationVisible && !returnReason.trim() ? 'hr-return-error' : null" placeholder="Explain what the manager must revise..."></textarea>
+    @if (validationVisible && !returnReason.trim()) { <p id="hr-return-error" class="field-error" role="alert">{{ 'FORM_VALIDATION.REASON_REQUIRED' | translate }}</p> }
+    <div class="modal-actions">
+      <button nz-button (click)="closeActionModal()">Cancel</button>
+      <button nz-button nzDanger [nzLoading]="actionLoading" (click)="submitReturn()">Return for Revision</button>
+    </div>
+  </div>
+</ng-template>

@@ -1,0 +1,130 @@
+package com.tbm.careerpathlearning.model;
+
+import com.tbm.careerpathlearning.enums.AnnualKpiConsolidationMethod;
+import com.tbm.careerpathlearning.enums.AnnualKpiReviewPeriodStatus;
+import com.tbm.careerpathlearning.enums.KpiAssessmentModel;
+import com.tbm.careerpathlearning.enums.KpiFrequencyPolicy;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "annual_kpi_review_period", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_annual_kpi_period_name", columnNames = "name"),
+        @UniqueConstraint(name = "uq_annual_kpi_period_reference", columnNames = "reference_number")
+}, indexes = @Index(name = "idx_annual_kpi_period_status_dates", columnList = "status,start_date,end_date"))
+public class AnnualKpiReviewPeriod {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "reference_number", nullable = false, updatable = false, length = 36)
+    private String referenceNumber = UUID.randomUUID().toString();
+
+    @Column(length = 255)
+    private String name;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AnnualKpiReviewPeriodStatus status = AnnualKpiReviewPeriodStatus.DRAFT;
+
+    // The new assessment workflow is activated in its integration slice, not by this foundation.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assessment_model", nullable = false, length = 24)
+    private KpiAssessmentModel assessmentModel = KpiAssessmentModel.LEGACY_ALL_LEVELS;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "frequency_policy", nullable = false, length = 24)
+    private KpiFrequencyPolicy frequencyPolicy = KpiFrequencyPolicy.ROLE_BASED;
+
+    @OneToMany(mappedBy = "reviewPeriod", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private java.util.List<ReviewPeriodDepartmentConfiguration> departmentConfigurations = new java.util.ArrayList<>();
+
+    @Column(name = "kpi_performance_weight", precision = 5, scale = 2)
+    private BigDecimal kpiPerformanceWeight = new BigDecimal("50.00");
+
+    @Column(name = "attitude_evaluation_weight", precision = 5, scale = 2)
+    private BigDecimal attitudeEvaluationWeight = new BigDecimal("50.00");
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "annual_kpi_consolidation_method", length = 30)
+    private AnnualKpiConsolidationMethod annualKpiConsolidationMethod;
+
+    @Column(name = "kpi_setup_deadline")
+    private LocalDate kpiSetupDeadline;
+
+    @Column(name = "self_assessment_days_after_checkpoint")
+    private Integer selfAssessmentDaysAfterCheckpoint;
+
+    @Column(name = "superior_assessment_days_after_self_deadline")
+    private Integer superiorAssessmentDaysAfterSelfDeadline;
+
+    @Column(name = "attitude_self_assessment_start_date")
+    private LocalDate attitudeSelfAssessmentStartDate;
+
+    @Column(name = "attitude_self_assessment_deadline")
+    private LocalDate attitudeSelfAssessmentDeadline;
+
+    @Column(name = "superior_attitude_evaluation_deadline")
+    private LocalDate superiorAttitudeEvaluationDeadline;
+
+    @Column(name = "appraisal_recommendation_deadline")
+    private LocalDate appraisalRecommendationDeadline;
+
+    @Column(name = "hr_finalisation_deadline")
+    private LocalDate hrFinalisationDeadline;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private OffsetDateTime updatedAt;
+
+    @Column(name = "created_by", updatable = false)
+    private UUID createdBy;
+
+    @Column(name = "updated_by")
+    private UUID updatedBy;
+
+    @Column(name = "opened_at")
+    private OffsetDateTime openedAt;
+
+    @Column(name = "closed_at")
+    private OffsetDateTime closedAt;
+    @Column(name="participants_snapshotted_at")
+    private OffsetDateTime participantsSnapshottedAt;
+    @Column(nullable=false) private boolean kpiAmendmentsEnabled;
+    private LocalDate kpiAmendmentsCloseDate;
+    private OffsetDateTime kpiAmendmentsChangedAt;
+    private UUID kpiAmendmentsChangedBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attitude_configuration_id")
+    private AttitudeConfiguration attitudeConfiguration;
+
+    @PrePersist
+    void initialiseTimestamps() {
+        OffsetDateTime now = OffsetDateTime.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+    }
+
+    @PreUpdate
+    void updateTimestamp() {
+        updatedAt = OffsetDateTime.now();
+    }
+}

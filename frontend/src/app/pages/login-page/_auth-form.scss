@@ -1,0 +1,122 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+
+.auth-form-header {
+  margin-bottom: 24px;
+
+  .eyebrow {
+    color: var(--tbm-brand);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 6px 0 7px;
+    color: var(--tbm-text);
+    font-size: 26px;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0;
+    color: var(--tbm-muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+}
+
+.auth-error {
+  margin-bottom: 18px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--tbm-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+::ng-deep .auth-panel-form {
+  .ant-form-item {
+    margin-bottom: 16px;
+  }
+
+  .ant-input-affix-wrapper {
+    min-height: 44px;
+    border-color: var(--tbm-border);
+    border-radius: 6px;
+
+    &:focus,
+    &-focused {
+      border-color: var(--tbm-primary);
+      box-shadow: 0 0 0 2px rgba(31, 94, 178, 0.12);
+    }
+  }
+
+  .ant-input-prefix {
+    margin-right: 9px;
+    color: var(--tbm-primary);
+  }
+
+  .ant-form-item-explain-error {
+    color: var(--tbm-brand);
+    font-size: 11px;
+  }
+}
+
+.password-toggle {
+  margin-left: 8px;
+  color: var(--tbm-primary);
+  cursor: pointer;
+}
+
+.auth-links {
+  margin: 2px 0 22px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+
+  a {
+    color: var(--tbm-primary);
+    cursor: pointer;
+  }
+}
+
+.auth-primary-button {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.auth-back-link {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--tbm-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .auth-form-header h1 {
+    font-size: 23px;
+  }
+
+  .auth-links {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

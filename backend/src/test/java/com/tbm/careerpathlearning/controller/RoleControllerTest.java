@@ -23,10 +23,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.*;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -35,6 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = RoleController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class RoleControllerTest {
+    @MockitoBean
+    private EmployeeLevelService employeeLevelService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -447,12 +451,20 @@ class RoleControllerTest {
     // --- Export ---
     @Test
     void export_ShouldReturnExcel() throws Exception {
+        mockRole.setEmployeeLevelId(4L);
+        mockRole.setEmployeeLevelCode("EXECUTIVE");
         when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(mockRole));
         when(roleJobScopeService.findAll()).thenReturn(Collections.emptyList());
 
-        mockMvc.perform(get("/api/role/export").principal(authentication))
+        var response = mockMvc.perform(get("/api/role/export").principal(authentication))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Exported_Role_Overview_Data.xlsx"));
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Exported_Role_Overview_Data.xlsx"))
+                .andReturn().getResponse();
+        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()))) {
+            var sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getRow(0).getCell(8).getStringCellValue()).isEqualTo("Employee Level Code");
+            assertThat(sheet.getRow(1).getCell(8).getStringCellValue()).isEqualTo("EXECUTIVE");
+        }
     }
 
     @Test
@@ -468,7 +480,8 @@ class RoleControllerTest {
     @Test
     void import_ShouldProcessValidExcel() throws Exception {
         // 1. Excel Input Data
-        List<String[]> data = new ArrayList<>(Collections.singleton(new String[]{"IT Dept", "New Role", "Desc", "Scope 1", "Yes", "", "", ""}));
+        List<String[]> data = new ArrayList<>(Collections.singleton(new String[]{"IT Dept", "New Role", "Desc", "Scope 1", "Yes", "", "", "", "EXECUTIVE"}));
+        when(employeeLevelService.resolveCode("EXECUTIVE")).thenReturn(4L);
         byte[] excelBytes = createExcelFromData(data);
         MockMultipartFile file = new MockMultipartFile("file", "import.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
@@ -501,7 +514,7 @@ class RoleControllerTest {
         mockMvc.perform(multipart("/api/role/import").file(file).principal(authentication))
                 .andExpect(status().isOk());
 
-        verify(roleService).createAndUpdateAll(anyList());
+        verify(roleService).createAndUpdateAll(argThat(list -> list.get(0).getEmployeeLevelId().equals(4L)));
         verify(roleAuthorityService).createAll(anyList());
         verify(roleJobScopeService).createAll(anyList());
     }
@@ -528,6 +541,7 @@ class RoleControllerTest {
         existingRole.setId(1L);
         existingRole.setName("Dev");
         existingRole.setOrgChart(itDept);
+        existingRole.setEmployeeLevelId(4L);
         when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(existingRole));
 
         // Mock Validation
@@ -549,8 +563,28 @@ class RoleControllerTest {
         // Verify Update called with new Name and new OrgChart
         verify(roleService).createAndUpdateAll(argThat(list -> {
             RoleDto dto = (RoleDto) list.get(0);
-            return dto.getName().equals("HR Lead") && dto.getOrgChart().getId().equals(200L);
+            return dto.getName().equals("HR Lead") && dto.getOrgChart().getId().equals(200L)
+                    && Objects.equals(dto.getEmployeeLevelId(), 4L);
         }));
+        verifyNoInteractions(employeeLevelService);
+    }
+
+    @Test
+    void import_ShouldRejectNewRoleWithoutEmployeeLevel() throws Exception {
+        byte[] bytes = createExcelFromData(Collections.singletonList(
+                new String[]{"IT Dept", "New Role", "", "", "Yes", "", "", ""}));
+        var file = new MockMultipartFile("file", "old-format.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+        when(orgChartService.findAllByIsDeletedIsFalse()).thenReturn(List.of(mockOrg));
+        when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of());
+        when(validationService.isNullOrBlank(any())).thenAnswer(inv -> {
+            String value = inv.getArgument(0);
+            return value == null || value.isBlank();
+        });
+
+        mockMvc.perform(multipart("/api/role/import").file(file).principal(authentication))
+                .andExpect(status().isBadRequest());
+        verify(roleService, never()).createAndUpdateAll(anyList());
     }
 
     @Test
@@ -578,6 +612,8 @@ class RoleControllerTest {
             row.createCell(4).setCellValue(true);
             // Others empty
             for (int i = 5; i <= 7; i++) row.createCell(i).setCellValue("");
+            header.createCell(8).setCellValue("Employee Level Code");
+            row.createCell(8).setCellValue("EXECUTIVE");
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -602,6 +638,7 @@ class RoleControllerTest {
         numericRole.setOrgChart(org);
 
         // We expect it to try and create a role named "123"
+        when(employeeLevelService.resolveCode("EXECUTIVE")).thenReturn(4L);
         when(roleService.createAndUpdateAll(anyList())).thenReturn(List.of(numericRole));
 
         AuthorityDto auth = new AuthorityDto(); auth.setId(1L);
@@ -770,6 +807,7 @@ class RoleControllerTest {
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }
+            if (rowsData.stream().anyMatch(row -> row.length > 8)) header.createCell(8).setCellValue("Employee Level Code");
 
             int rowIdx = 1;
             for (String[] rowData : rowsData) {

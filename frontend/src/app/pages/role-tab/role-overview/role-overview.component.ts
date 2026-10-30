@@ -1,4 +1,5 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, inject, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -45,7 +46,31 @@ interface Option {
   templateUrl: './role-overview.component.html',
   styleUrl: './role-overview.component.scss'
 })
-export class RoleOverviewComponent implements OnInit {
+export class RoleOverviewComponent implements OnInit, AfterViewInit {
+  private readonly route = inject(ActivatedRoute, { optional: true });
+  private readonly destroyRef = inject(DestroyRef);
+  private destroyed = false;
+  private viewReady = false;
+  private deepLinkHandled = false;
+  deepLinkError = false;
+
+  ngAfterViewInit(): void {
+    this.destroyRef.onDestroy(() => this.destroyed = true);
+    this.viewReady = true;
+    queueMicrotask(() => { if (!this.destroyed) this.openRequestedRole(); });
+  }
+
+  openRequestedRole(): void {
+    if (!this.viewReady || !this.isLoaded || this.deepLinkHandled) return;
+    const value = this.route?.snapshot.queryParamMap.get('editRoleId');
+    if (value === null || value === undefined) return;
+    this.deepLinkHandled = true;
+    const id = Number(value);
+    const role = /^\d+$/.test(value) && Number.isSafeInteger(id) && id > 0
+      ? this.orgChartRoleJobScopeList.find(item => item.roleId === id) : undefined;
+    if (!role || !this.authService.hasRole('CAN_MANAGE_ROLE')) { this.deepLinkError = true; return; }
+    this.editRole(role);
+  }
   @ViewChild(AddRoleComponent) addRoleComponent!: AddRoleComponent;
   @ViewChild(EditRoleComponent) editRoleComponent!: EditRoleComponent;
   @ViewChild(ViewRoleComponent) viewRoleComponent!: ViewRoleComponent;
@@ -151,6 +176,7 @@ export class RoleOverviewComponent implements OnInit {
         this.listOfDisplayData = this.orgChartRoleJobScopeList;
 
         this.isLoaded = true;
+        this.openRequestedRole();
       }
     })
   }

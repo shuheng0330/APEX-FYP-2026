@@ -11,6 +11,22 @@ import java.util.UUID;
 public interface EmailService {
 
     @Async
+    void sendAnnualAppraisalReviewedEmail(String to, String employee, String period, String decision, Locale locale);
+
+    @Async
+    void sendIndividualKpiRevisionEmail(String to, String employee, String period, boolean awaitingApproval, Locale locale);
+
+    @Async
+    void sendAttitudeSelfAssessmentSubmittedEmail(String to, String employee, String period, Locale locale);
+    void sendAttitudeAssessmentReviewedEmail(String to, String employee, String period, Locale locale);
+
+    @Async
+    void sendKpiSelfAssessmentSubmittedEmail(String to, String employee, String period, String checkpoint, Locale locale);
+
+    @Async
+    void sendKpiAssessmentReviewedEmail(String to, String employee, String period, String checkpoint, Locale locale);
+
+    @Async
     void sendPasswordResetEmail(String to, String otp, Locale locale);
 
     @Async

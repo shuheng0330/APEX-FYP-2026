@@ -14,12 +14,13 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 
 import { AuthService } from '../../../services/auth.service';
 import { LoadingService } from '../../../services/loading.service';
+import { AuthShellComponent } from '../../../components/auth-shell/auth-shell.component';
 
 @Component({
   selector: 'app-first-time-login',
   imports: [CommonModule, ReactiveFormsModule, NzCardModule, NzFormModule,
     NzIconModule, NzButtonModule, NzCheckboxModule, NzInputModule, TranslateModule,
-    NzAlertModule],
+    NzAlertModule, AuthShellComponent],
   templateUrl: './first-time-login.component.html',
   styleUrl: './first-time-login.component.scss'
 })

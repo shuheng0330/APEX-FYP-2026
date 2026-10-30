@@ -1,7 +1,27 @@
 .evaluation-overview-container {
-  max-width: 1400px;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
+}
+
+.local-page-heading {
+  margin-bottom: 20px;
+
+  h1 {
+    margin-top: 4px;
+    font-size: 24px;
+  }
+
+  > p {
+    margin: 5px 0 0;
+    color: var(--tbm-muted);
+  }
+}
+
+.department-filter-context {
+  margin: 8px 0 0;
+  color: #667085;
+  font-size: 14px;
 }
 
 // Top Section - Summary Cards
@@ -75,6 +95,27 @@
   margin-bottom: 30px;
 
   .chart-card {
+    .chart-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 12px;
+    }
+
+    .chart-card-title {
+      font-size: 16px;
+      color: #1f1f1f;
+    }
+
+    .trend-range-toggle {
+      display: inline-flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
     .chart-container {
       height: 300px;
       position: relative;
@@ -181,8 +222,9 @@
 
 // Card styling
 ::ng-deep .ant-card {
+  border-color: var(--tbm-border);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--tbm-shadow);
 }
 
 ::ng-deep .ant-statistic-title {
@@ -222,4 +264,25 @@
 .no-data {
   color: #999;
   font-size: 14px;
+}
+
+.appraisal-category-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.appraisal-category-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.appraisal-category-label {
+  width: 18px;
+  color: #5f6f86;
+  font-weight: 700;
+  line-height: 1;
 }

@@ -1,0 +1,53 @@
+package com.tbm.careerpathlearning.dto;
+import com.tbm.careerpathlearning.enums.*;
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+@Data
+public class KpiPlanDto {
+    private Long id;
+    private Long reviewPeriodId;
+    private String reviewPeriodName;
+    private AnnualKpiReviewPeriodStatus reviewPeriodStatus;
+    private LocalDate kpiSetupDeadline;
+    private KpiLevel level;
+    private KpiPlanStatus status;
+    private Long departmentId;
+    private String departmentName;
+    private Long ownerParticipantId;
+    private String employeeName;
+    private String roleName;
+    private List<KpiItemDto> items;
+    private BigDecimal totalWeightage;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private UUID createdBy;
+    private UUID updatedBy;
+    private boolean overdue;
+    private OffsetDateTime publishedAt;
+    private UUID publishedBy;
+    private Boolean publishedLate;
+    private OffsetDateTime submittedAt;
+    private UUID submittedBy;
+    private String submittedByName;
+    private UUID submittedToSuperiorId;
+    private String submittedToSuperiorName;
+    private Boolean submittedLate;
+    private OffsetDateTime reviewedAt;
+    private UUID reviewedBy;
+    private Boolean reviewedLate;
+    private String returnReason;
+    private String latestReturnReason;
+    private OffsetDateTime latestReturnedAt;
+    private UUID latestReturnedBy;
+    private String latestReturnedByName;
+    private boolean returnComparisonAvailable;
+    private List<KpiPlanChangeDto> changesSinceReturn;
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private boolean revisionRequired;
+    private Long assistanceAuthorizationId;
+    private Long currentVersionId;
+    private Integer currentVersionNumber;
+    private OffsetDateTime currentVersionEffectiveAt;
+}

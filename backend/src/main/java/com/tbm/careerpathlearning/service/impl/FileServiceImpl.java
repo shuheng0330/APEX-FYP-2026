@@ -21,14 +21,16 @@ public class FileServiceImpl implements FileService {
     @Override
     public String uploadFile(MultipartFile file, String folderName) {
         try {
-            Path targetDir = Paths.get(FILE_UPLOAD_DIR, folderName); // file dir with folder name ( join safely)
-            Files.createDirectories(targetDir);
+            Path targetDir = getFilePath(folderName);
 
             String originalFileName = file.getOriginalFilename();
             String uniqueFileName = UUID.randomUUID() + "-" + originalFileName;
 
-            Path targetPath = targetDir.resolve(uniqueFileName);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            Path targetPath = getFilePath(targetDir.resolve(uniqueFileName).toString());
+            Files.createDirectories(targetDir);
+            try(var input=file.getInputStream()) {
+                Files.copy(input, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
 
             return folderName + "/" + uniqueFileName;
 
@@ -39,13 +41,26 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public Path getFilePath(String relativePath) {
-        return Paths.get(FILE_UPLOAD_DIR).resolve(relativePath).normalize();
+        Path root=Paths.get(FILE_UPLOAD_DIR).toAbsolutePath().normalize();
+        Path target=root.resolve(relativePath).normalize();
+        if(!target.startsWith(root) || target.startsWith(root.resolve(
+                com.tbm.careerpathlearning.service.KpiAssessmentEvidenceStorage.PRIVATE_FOLDER)))
+            throw new org.springframework.security.access.AccessDeniedException("Assessment evidence requires scoped access");
+        Path current=root;
+        if(Files.isSymbolicLink(current))
+            throw new org.springframework.security.access.AccessDeniedException("Symbolic file paths are not allowed");
+        for(Path part:root.relativize(target)) {
+            current=current.resolve(part);
+            if(Files.isSymbolicLink(current))
+                throw new org.springframework.security.access.AccessDeniedException("Symbolic file paths are not allowed");
+        }
+        return target;
     }
 
     @Override
     public void deleteFile(String filePath) {
         try {
-            Path targetPath = Paths.get(FILE_UPLOAD_DIR).resolve(filePath).normalize();
+            Path targetPath = getFilePath(filePath);
             Files.deleteIfExists(targetPath);
         } catch (IOException e) {
             throw new RuntimeException("Failed to delete file", e);

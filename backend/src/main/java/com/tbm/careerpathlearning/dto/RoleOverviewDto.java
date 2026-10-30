@@ -6,6 +6,9 @@ import java.util.List;
 
 @Data
 public class RoleOverviewDto {
+    private Long employeeLevelId;
+    private String employeeLevelName;
+    private String employeeLevelCode;
 
     private Long orgChartId;
     private String orgChartName;

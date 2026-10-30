@@ -1,0 +1,454 @@
+<div class="sop-review page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Manual review gate</span>
+      <h1>Generated Material Review</h1>
+      <p>Review and approve AI-generated training material before it becomes a course.</p>
+    </div>
+    <div class="course-picker">
+      <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" aria-label="Which courses">
+        <label nz-radio-button nzValue="CURRENT">Current</label>
+        <label nz-radio-button nzValue="ARCHIVED">Archived</label>
+      </nz-radio-group>
+      <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
+                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a completed SOP'">
+        @for (s of completedSops; track s.id) {
+          <nz-option [nzValue]="s.id" [nzLabel]="optionLabel(s)"></nz-option>
+        }
+      </nz-select>
+    </div>
+  </div>
+
+  <nz-spin [nzSpinning]="loading">
+    @if (!loading && !document) {
+      <div class="empty-workbench surface-panel">
+        <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'Select an archived course to view or restore it' : 'Select a completed SOP to begin reviewing'"></nz-empty>
+      </div>
+    }
+
+    @if (document) {
+      <div class="workbench">
+
+        <!-- Left sidebar: SOP info + module list -->
+        <aside class="navigator surface-panel">
+          <div class="document-summary">
+            <span class="section-kicker">Selected SOP</span>
+            <h2>{{ document.title }}</h2>
+            @if (document.courseStatus === 'ARCHIVED') {
+              <app-course-archived-note [document]="document" (restored)="onRestored($event)"></app-course-archived-note>
+            } @else if (!document.editable && !document.draftId && document.courseStatus !== 'SUPERSEDED') {
+              <p class="read-only-note"><nz-icon nzType="lock"></nz-icon>
+                Read only. Only {{ document.preparedByName || 'the course owner' }} can edit, approve or reject it.</p>
+            }
+            <app-course-version-note [document]="document" [ready]="ready" (published)="onPublished($event)"
+                                     (discarded)="onDiscarded($event)" (openVersion)="onSelectSop($event)"></app-course-version-note>
+            <dl>
+              <div><dt>Department</dt><dd>{{ document.departmentTag || '-' }}</dd></div>
+              <div><dt>Course version</dt><dd>v{{ document.versionNo }}{{ document.courseStatus === 'DRAFT' ? ' (draft)' : '' }}</dd></div>
+              <div><dt>SOP version</dt><dd>{{ document.version || '-' }}</dd></div>
+              <!-- FR-07-07: preparer and date shown on the material -->
+              <div><dt>Prepared by</dt><dd>{{ document.preparedByName || '-' }}</dd></div>
+              <div><dt>Date</dt><dd>{{ document.createdAt ? (document.createdAt | date: 'd MMM yyyy') : '-' }}</dd></div>
+            </dl>
+            <!-- FR-07-15: the course's own pass mark and estimated duration -->
+            <div class="course-settings">
+              <span class="settings-title">Course settings</span>
+              @if (document.editable) {
+                @if (!document.durationSet) {
+                  <p class="settings-reminder"><nz-icon nzType="clock-circle"></nz-icon>
+                    <span>Set the estimated duration. Until you do, this course counts as {{ formatDuration(document.durationMinutes) }}
+                      of training for everyone who completes it.</span></p>
+                }
+                <label class="settings-field">
+                  <span>Pass mark (%)</span>
+                  <nz-input-number [(ngModel)]="settingsPassMark" [nzMin]="1" [nzMax]="100" [nzStep]="5" [nzPrecision]="0"
+                                   aria-label="Pass mark in percent"></nz-input-number>
+                </label>
+                <div class="settings-field">
+                  <span>Estimated duration</span>
+                  <div class="duration-inputs">
+                    <nz-input-number [(ngModel)]="settingsHours" [nzMin]="0" [nzMax]="24" [nzPrecision]="0" aria-label="Hours"></nz-input-number>
+                    <span>h</span>
+                    <nz-input-number [(ngModel)]="settingsMinutes" [nzMin]="0" [nzMax]="59" [nzStep]="15" [nzPrecision]="0" aria-label="Minutes"></nz-input-number>
+                    <span>min</span>
+                  </div>
+                </div>
+                @if (settingsError) {
+                  <p class="settings-error" role="alert">{{ settingsError }}</p>
+                }
+                <button nz-button nzType="primary" nzSize="small" (click)="saveSettings()" [nzLoading]="savingSettings" [disabled]="!!settingsError">
+                  Save settings
+                </button>
+                <p class="settings-hint">Changes apply to new assignments and enrolments. Staff already assigned keep theirs.</p>
+              } @else {
+                <dl>
+                  <div><dt>Pass mark</dt><dd>{{ document.passMark }}%</dd></div>
+                  <div><dt>Duration</dt><dd>{{ formatDuration(document.durationMinutes) }}{{ document.durationSet ? '' : ' (default)' }}</dd></div>
+                </dl>
+              }
+            </div>
+
+            <div class="review-progress">
+              <div><span>Material approved</span><strong>{{ approvedMaterialCount }}/{{ modules.length }}</strong></div>
+              <nz-progress [nzPercent]="overallProgress" [nzShowInfo]="false"></nz-progress>
+            </div>
+          </div>
+
+          <div class="module-list">
+            <span class="section-kicker">Generated modules</span>
+            @for (module of modules; track module.id) {
+              <button type="button" class="module-item" [class.active]="module.id === selectedModuleId" (click)="selectModule(module)">
+                <span class="module-order">{{ module.moduleOrder }}</span>
+                <span class="module-copy">
+                  <strong>{{ module.title }}</strong>
+                  <small>{{ module.reviewStatus }}</small>
+                </span>
+                <span class="status-dot" [class.approved]="module.reviewStatus === 'APPROVED'"></span>
+              </button>
+            }
+          </div>
+        </aside>
+
+        <!-- Main: rich material view -->
+        @if (selectedModule; as module) {
+          <main class="material-panel surface-panel">
+
+            <!-- Panel heading -->
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">Module {{ module.moduleOrder }} of {{ modules.length }}</span>
+                <h2>{{ module.title }}</h2>
+              </div>
+              <div class="heading-actions">
+                <nz-tag [nzColor]="statusColor(module.reviewStatus)">{{ module.reviewStatus }}</nz-tag>
+                <!-- FR-07-14: anyone who can open the course sees how its material was reviewed -->
+                <button nz-button nzSize="small" (click)="openHistory(module)">
+                  <nz-icon nzType="history"></nz-icon> History
+                </button>
+                @if (document.editable) {
+                  <button nz-button nzSize="small" (click)="toggleEdit(module)">
+                    <nz-icon [nzType]="editMode[module.id] ? 'eye' : 'edit'"></nz-icon>
+                    {{ editMode[module.id] ? 'Preview' : 'Edit' }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <!-- Edit mode: per-field editors that preserve rich structure -->
+            @if (editMode[module.id]) {
+              @let er = editRich[module.id];
+              @if (er) {
+                <div class="edit-area">
+                  <label class="edit-field-label">Module title
+                    <input nz-input [(ngModel)]="module.title" />
+                  </label>
+                  <label class="edit-field-label">AI Summary
+                    <textarea nz-input [(ngModel)]="er.summary" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+                  </label>
+
+                  <div class="edit-group">
+                    <span class="edit-group-label">Learning Objectives</span>
+                    @for (obj of er.learningObjectives; track $index; let i = $index) {
+                      <div class="row-line">
+                        <input nz-input [(ngModel)]="er.learningObjectives[i]" class="edit-list-item" aria-label="Learning objective" />
+                        <button nz-button nzType="text" nzSize="small" type="button" aria-label="Remove learning objective"
+                                (click)="removeAt(er.learningObjectives, i)">
+                          <nz-icon nzType="delete"></nz-icon>
+                        </button>
+                      </div>
+                    }
+                    <button nz-button nzSize="small" nzType="dashed" type="button" class="add-list-item" (click)="addObjective(er)">
+                      <nz-icon nzType="plus"></nz-icon>Add objective
+                    </button>
+                  </div>
+
+                  <div class="edit-group">
+                    <span class="edit-group-label">Tools & Materials</span>
+                    @for (tool of er.tools; track $index; let i = $index) {
+                      <div class="row-line">
+                        <input nz-input [(ngModel)]="er.tools[i]" class="edit-list-item" aria-label="Tool or material" />
+                        <button nz-button nzType="text" nzSize="small" type="button" aria-label="Remove tool or material"
+                                (click)="removeAt(er.tools, i)">
+                          <nz-icon nzType="delete"></nz-icon>
+                        </button>
+                      </div>
+                    }
+                    <button nz-button nzSize="small" nzType="dashed" type="button" class="add-list-item" (click)="addTool(er)">
+                      <nz-icon nzType="plus"></nz-icon>Add tool or material
+                    </button>
+                  </div>
+
+                  <!-- Content blocks: insert toolbar + drag-reorderable list (FR-07-06) -->
+                  <div class="blocks-head">
+                    <span class="edit-group-label">Content Blocks</span>
+                    <div class="insert-bar">
+                      <span class="insert-label">Insert:</span>
+                      @for (bt of blockTypes; track bt.type) {
+                        <button nz-button nzSize="small" type="button"
+                                (click)="addBlock(module.id, bt.type)">
+                          <nz-icon [nzType]="bt.icon"></nz-icon>{{ bt.label }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <div cdkDropList class="block-list"
+                       (cdkDropListDropped)="dropBlock(module.id, $event)">
+                    @for (section of er.sections; track $index; let bi = $index) {
+                      <div class="block-card" cdkDrag>
+                        <div class="block-bar" cdkDragHandle>
+                          <nz-icon nzType="holder" class="drag-dots"></nz-icon>
+                          <span class="block-kind">{{ section.type }}</span>
+                          <button nz-button nzType="text" nzSize="small" class="block-remove"
+                                  type="button" (click)="removeBlock(module.id, bi)"
+                                  title="Remove block">
+                            <nz-icon nzType="close"></nz-icon>
+                          </button>
+                        </div>
+
+                        <input nz-input [(ngModel)]="section.heading"
+                               [ngModelOptions]="{ standalone: true }"
+                               class="edit-list-item" placeholder="Block heading" />
+
+                        @switch (section.type) {
+                          @case ('paragraph') {
+                            <textarea nz-input [(ngModel)]="section.body"
+                                      [ngModelOptions]="{ standalone: true }"
+                                      [nzAutosize]="{ minRows: 3, maxRows: 10 }"
+                                      class="edit-list-item" placeholder="Body text"></textarea>
+                          }
+
+                          @case ('steps') {
+                            @for (item of section.items; track $index; let ii = $index) {
+                              <div class="row-line">
+                                <span class="row-index">{{ ii + 1 }}</span>
+                                <input nz-input [(ngModel)]="section.items![ii]"
+                                       [ngModelOptions]="{ standalone: true }" />
+                                <button nz-button nzType="text" nzSize="small" type="button"
+                                        (click)="removeItem(section, ii)">
+                                  <nz-icon nzType="delete"></nz-icon>
+                                </button>
+                              </div>
+                            }
+                            <button nz-button nzSize="small" nzType="dashed" type="button"
+                                    (click)="addItem(section)">
+                              <nz-icon nzType="plus"></nz-icon>Add step
+                            </button>
+                          }
+
+                          @case ('warnings') {
+                            @for (item of section.items; track $index; let ii = $index) {
+                              <div class="row-line">
+                                <nz-icon nzType="warning" class="warn-dot"></nz-icon>
+                                <textarea nz-input [(ngModel)]="section.items![ii]"
+                                          [ngModelOptions]="{ standalone: true }"
+                                          [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+                                <button nz-button nzType="text" nzSize="small" type="button"
+                                        (click)="removeItem(section, ii)">
+                                  <nz-icon nzType="delete"></nz-icon>
+                                </button>
+                              </div>
+                            }
+                            <button nz-button nzSize="small" nzType="dashed" type="button"
+                                    (click)="addItem(section)">
+                              <nz-icon nzType="plus"></nz-icon>Add warning
+                            </button>
+                          }
+
+                          @case ('table') {
+                            <div class="table-edit-scroll">
+                              <table class="table-edit">
+                                <thead>
+                                  <tr>
+                                    @for (h of section.headers; track $index; let ci = $index) {
+                                      <th>
+                                        <input nz-input [(ngModel)]="section.headers![ci]"
+                                               [ngModelOptions]="{ standalone: true }" />
+                                        <button nz-button nzType="text" nzSize="small" type="button"
+                                                (click)="removeColumn(section, ci)" title="Remove column">
+                                          <nz-icon nzType="close"></nz-icon>
+                                        </button>
+                                      </th>
+                                    }
+                                    <th class="col-add">
+                                      <button nz-button nzSize="small" nzType="dashed" type="button"
+                                              (click)="addColumn(section)">
+                                        <nz-icon nzType="plus"></nz-icon>
+                                      </button>
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  @for (row of section.rows; track $index; let ri = $index) {
+                                    <tr>
+                                      @for (cell of row; track $index; let ci = $index) {
+                                        <td>
+                                          <input nz-input [(ngModel)]="section.rows![ri][ci]"
+                                                 [ngModelOptions]="{ standalone: true }" />
+                                        </td>
+                                      }
+                                      <td class="col-add">
+                                        <button nz-button nzType="text" nzSize="small" type="button"
+                                                (click)="removeRow(section, ri)" title="Remove row">
+                                          <nz-icon nzType="delete"></nz-icon>
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
+                            <button nz-button nzSize="small" nzType="dashed" type="button"
+                                    (click)="addRow(section)">
+                              <nz-icon nzType="plus"></nz-icon>Add row
+                            </button>
+                          }
+
+                          @case ('image') {
+                            <div class="media-edit">
+                              @if (section.url) {
+                                <img [src]="mediaSrc(section.url)" [alt]="section.alt || ''"
+                                     class="media-preview" />
+                              }
+                              <div class="media-actions">
+                                <label class="file-btn">
+                                  <input type="file" accept="image/*" hidden
+                                         (change)="onMediaPicked($event, module.id, bi, section)" />
+                                  <nz-icon [nzType]="uploading[module.id + ':' + bi] ? 'loading' : 'upload'"></nz-icon>
+                                  {{ section.url ? 'Replace image' : 'Upload image' }}
+                                </label>
+                                <span class="media-hint">PNG, JPEG, GIF, WEBP or SVG - max 10 MB</span>
+                              </div>
+                              <input nz-input [(ngModel)]="section.caption"
+                                     [ngModelOptions]="{ standalone: true }"
+                                     class="edit-list-item" placeholder="Caption (optional)" />
+                              <input nz-input [(ngModel)]="section.alt"
+                                     [ngModelOptions]="{ standalone: true }"
+                                     class="edit-list-item" placeholder="Alt text for screen readers" />
+                            </div>
+                          }
+
+                          @case ('video') {
+                            <div class="media-edit">
+                              @if (section.url) {
+                                <video [src]="mediaSrc(section.url)" class="media-preview" controls></video>
+                              }
+                              <div class="media-actions">
+                                <label class="file-btn">
+                                  <input type="file" accept="video/*" hidden
+                                         (change)="onMediaPicked($event, module.id, bi, section)" />
+                                  <nz-icon [nzType]="uploading[module.id + ':' + bi] ? 'loading' : 'upload'"></nz-icon>
+                                  {{ section.url ? 'Replace video' : 'Upload video' }}
+                                </label>
+                                <span class="media-hint">MP4, WEBM, OGG or MOV - max 200 MB</span>
+                              </div>
+                              <input nz-input [(ngModel)]="section.caption"
+                                     [ngModelOptions]="{ standalone: true }"
+                                     class="edit-list-item" placeholder="Caption (optional)" />
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+
+                    @if (!er.sections || !er.sections.length) {
+                      <p class="blocks-empty">No content blocks yet - use the Insert buttons above to add one.</p>
+                    }
+                  </div>
+
+                  <div class="edit-group">
+                    <span class="edit-group-label">Key Terms</span>
+                    @for (kt of er.keyTerms; track $index; let i = $index) {
+                      <div class="edit-term-pair">
+                        <input nz-input [(ngModel)]="kt.term" placeholder="Term" aria-label="Key term" />
+                        <input nz-input [(ngModel)]="kt.definition" placeholder="Definition" aria-label="Definition" />
+                        <button nz-button nzType="text" nzSize="small" type="button" aria-label="Remove key term"
+                                (click)="removeAt(er.keyTerms, i)">
+                          <nz-icon nzType="delete"></nz-icon>
+                        </button>
+                      </div>
+                    }
+                    <button nz-button nzSize="small" nzType="dashed" type="button" class="add-list-item" (click)="addKeyTerm(er)">
+                      <nz-icon nzType="plus"></nz-icon>Add key term
+                    </button>
+                  </div>
+                </div>
+              }
+            }
+
+            <!-- Preview mode: rich rendered content -->
+            @if (!editMode[module.id]) {
+              <div class="content-scroll">
+                <app-sop-content-view [content]="module.content" [reviewer]="true"></app-sop-content-view>
+              </div>
+            }
+
+            <!-- Previous rejection reason -->
+            @if (module.rejectionReason) {
+              <div class="previous-reason">
+                <nz-icon nzType="history"></nz-icon>
+                <span><strong>Previous rejection reason</strong>{{ module.rejectionReason }}</span>
+              </div>
+            }
+
+            <!-- Reject reason input -->
+            @if (document.editable && showModuleReject[module.id]) {
+              <div class="reject-box">
+                <label>Reason for regeneration
+                  <textarea nz-input placeholder="Explain what the generated material needs to improve" [(ngModel)]="moduleRejectReason[module.id]" [nzAutosize]="{ minRows: 3, maxRows: 5 }"></textarea>
+                </label>
+                <button nz-button nzType="primary" nzDanger (click)="confirmRejectModule(module)" [nzLoading]="busy[module.id]">Confirm reject and regenerate</button>
+              </div>
+            }
+
+            <!-- Action bar: only the course's owner reviews it (FR-07-08) -->
+            @if (document.editable) {
+            <div class="panel-actions">
+              @if (editMode[module.id]) {
+                <button nz-button (click)="saveModule(module)" [nzLoading]="busy[module.id]"><nz-icon nzType="save"></nz-icon> Save Edits</button>
+              }
+              <button nz-button nzType="primary" (click)="approveModule(module)" [nzLoading]="busy[module.id]" [disabled]="module.reviewStatus === 'APPROVED'">
+                <nz-icon nzType="check"></nz-icon> Approve Material
+              </button>
+              <button nz-button nzDanger (click)="showModuleReject[module.id] = !showModuleReject[module.id]">
+                <nz-icon nzType="reload"></nz-icon> Reject & Regenerate
+              </button>
+            </div>
+            }
+
+          </main>
+        }
+
+      </div>
+    }
+  </nz-spin>
+
+  <!-- Material review history (FR-07-14) -->
+  <nz-drawer [nzVisible]="historyOpen" nzPlacement="right" [nzWidth]="'min(420px, 100vw)'" nzTitle="Material history"
+             (nzOnClose)="closeHistory()">
+    <ng-container *nzDrawerContent>
+      @if (historyModule; as hm) {
+        <p class="history-module">Module {{ hm.moduleOrder }}: {{ hm.title }}</p>
+      }
+      <nz-spin [nzSpinning]="historyLoading" nzSize="small">
+        @if (!history.length && !historyLoading) {
+          <p class="history-empty">No review history yet.</p>
+        }
+        @for (e of history; track e.id) {
+          <div class="history-item" [attr.data-action]="e.action">
+            <div class="history-top">
+              <nz-tag [nzColor]="historyColor(e.action)">{{ historyLabel(e.action) }}</nz-tag>
+              <span>{{ e.createdAt | date: 'd MMM yyyy, HH:mm' }}</span>
+            </div>
+            @if (historyBy(e); as by) {
+              <p class="by">{{ by }}</p>
+            }
+            @if (e.detail) {
+              <p class="detail">{{ e.detail }}</p>
+            }
+          </div>
+        }
+      </nz-spin>
+    </ng-container>
+  </nz-drawer>
+</div>

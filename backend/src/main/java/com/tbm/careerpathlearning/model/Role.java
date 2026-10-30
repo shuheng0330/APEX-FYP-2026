@@ -1,6 +1,7 @@
 package com.tbm.careerpathlearning.model;
 
 import com.tbm.careerpathlearning.dto.OrgChartDto;
+import com.tbm.careerpathlearning.enums.ReviewFrequency;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
@@ -26,6 +27,10 @@ public class Role {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 
+    // System-role eligibility is independent of permissions and Employee Level.
+    @Column(name = "performance_review_eligible", nullable = false)
+    private boolean performanceReviewEligible = true;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
@@ -41,6 +46,19 @@ public class Role {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "org_chart_id", referencedColumnName = "id")
     private OrgChart orgChart;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "default_review_frequency", length = 20)
+    private ReviewFrequency defaultReviewFrequency;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_level_id", foreignKey = @ForeignKey(name = "fk_role_employee_level"))
+    private EmployeeLevel employeeLevel;
+
+    public EmployeeLevel getEmployeeLevel() { return employeeLevel; }
+    public void setEmployeeLevel(EmployeeLevel employeeLevel) { this.employeeLevel = employeeLevel; }
+    public boolean isPerformanceReviewEligible() { return performanceReviewEligible; }
+    public void setPerformanceReviewEligible(boolean eligible) { this.performanceReviewEligible = eligible; }
 
     public Role() {
     }
@@ -130,5 +148,13 @@ public class Role {
 
     public void setOrgChart(OrgChart orgChart) {
         this.orgChart = orgChart;
+    }
+
+    public ReviewFrequency getDefaultReviewFrequency() {
+        return defaultReviewFrequency;
+    }
+
+    public void setDefaultReviewFrequency(ReviewFrequency defaultReviewFrequency) {
+        this.defaultReviewFrequency = defaultReviewFrequency;
     }
 }

@@ -72,6 +72,61 @@ class EmailServiceImplTest {
     }
 
     @Test
+    void kpiAssessmentSubmissionNotifiesTheSuperior() {
+        emailService.sendKpiSelfAssessmentSubmittedEmail(RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE);
+        verify(messageSource).getMessage(eq("email.kpi.assessment.submitted.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.kpi.assessment.submitted.body"),any(),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void attitudeAssessmentSubmissionNotifiesTheSuperior() {
+        emailService.sendAttitudeSelfAssessmentSubmittedEmail(RECIPIENT,"Amir","Annual Review",LOCALE);
+        verify(messageSource).getMessage(eq("email.attitude.assessment.submitted.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.attitude.assessment.submitted.body"),
+                argThat(args->args.length==3 && args[2].equals("http://localhost:3000/team-performance/team-reviews")),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void attitudeEvaluationCompletionNotifiesEmployeeWithMyAssessmentsLink() {
+        emailService.sendAttitudeAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review",LOCALE);
+        verify(messageSource).getMessage(eq("email.attitude.assessment.reviewed.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.attitude.assessment.reviewed.body"),
+                eq(new Object[]{"Amir","Annual Review","http://localhost:3000/my-performance/my-assessments"}),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void attitudeEvaluationMailFailureIsNonFatal() {
+        doThrow(new MailSendException("Mail unavailable")).when(mailSender).send(any(MimeMessage.class));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendAttitudeAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review",LOCALE));
+    }
+
+    @Test
+    void kpiAssessmentReviewNotifiesTheEmployeeWithAssessmentLink() {
+        emailService.sendKpiAssessmentReviewedEmail(RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE);
+        verify(messageSource).getMessage(eq("email.kpi.assessment.reviewed.title"),any(),eq(LOCALE));
+        verify(messageSource).getMessage(eq("email.kpi.assessment.reviewed.body"),
+                argThat(args->args.length==4 && args[3].equals("http://localhost:3000/my-performance/my-assessments")),eq(LOCALE));
+        verify(mailSender).send(mimeMessage);
+    }
+
+    @Test
+    void notificationFailureDoesNotUndoAssessmentReview() {
+        doThrow(new MailSendException("Server down")).when(mailSender).send(any(MimeMessage.class));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendKpiAssessmentReviewedEmail(
+                RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE));
+    }
+
+    @Test
+    void notificationFailureDoesNotUndoAssessmentSubmission() {
+        doThrow(new MailSendException("Server down")).when(mailSender).send(any(MimeMessage.class));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(()->emailService.sendKpiSelfAssessmentSubmittedEmail(
+                RECIPIENT,"Amir","Annual Review","2027-01-31",LOCALE));
+    }
+
+    @Test
     void sendAccountRegisteredEmail_Success() {
         emailService.sendAccountRegisteredEmail(RECIPIENT, LOCALE);
 
