@@ -72,6 +72,7 @@ final class OrganisationPerformanceReport {
     }
 
     void build() {
+        supportingData();
         executive();
         departments();
         progress();
@@ -79,6 +80,7 @@ final class OrganisationPerformanceReport {
         distribution();
         decisions();
         departmentTrends();
+        book.setSheetOrder("Report Data", book.getNumberOfSheets() - 1);
         book.setActiveSheet(0);
         book.setSelectedTab(0);
         book.getCreationHelper().createFormulaEvaluator().evaluateAll();
@@ -87,23 +89,23 @@ final class OrganisationPerformanceReport {
     private void executive() {
         var s = sheet("Executive Summary", "Organisation Performance Analysis Report", 12);
         for (int c = 1; c <= 12; c++) s.setColumnWidth(c, 11 * 256);
-        var summary = report.summary();
+        var a = report.summary();
         card(
                 s,
                 6,
                 1,
                 "Participating Employees",
-                summary.totalEmployees(),
+                a.totalEmployees(),
                 count,
                 "Selected Review Period");
         card(
                 s,
                 6,
                 5,
-                "Employees with Final Scores",
-                summary.employeesWithResults(),
-                count,
-                "Of " + summary.totalEmployees() + " participating employees");
+                "Average Final Appraisal Score",
+                a.finalScore().score(),
+                score,
+                employeesWithResults(a.finalScore().contributingEmployees()));
         card(
                 s,
                 6,
@@ -111,9 +113,9 @@ final class OrganisationPerformanceReport {
                 "Final Score Coverage",
                 null,
                 percentage,
-                "Share of employees with a Final Score");
+                a.employeesWithResults() + " of " + a.totalEmployees() + " employees");
         var coverage = s.getRow(7).getCell(9);
-        coverage.setCellFormula("IF(B8=0,\"Not Available\",F8/B8)");
+        coverage.setCellFormula("IF(B8=0,\"Not Available\",'Report Data'!C14/B8)");
         var coverageStyle = book.createCellStyle();
         coverageStyle.cloneStyleFrom(cardValue);
         coverageStyle.setDataFormat(percentage.getDataFormat());
@@ -123,86 +125,80 @@ final class OrganisationPerformanceReport {
                 11,
                 1,
                 "Average KPI Performance Score",
-                summary.kpi().score(),
+                a.kpi().score(),
                 score,
-                contributors(summary.kpi().contributingEmployees()));
+                employeesWithResults(a.kpi().contributingEmployees()));
         card(
                 s,
                 11,
                 5,
                 "Average Attitude Evaluation Score",
-                summary.attitude().score(),
+                a.attitude().score(),
                 score,
-                contributors(summary.attitude().contributingEmployees()));
+                employeesWithResults(a.attitude().contributingEmployees()));
+        int tasks = report.departments().stream().mapToInt(this::outstandingTasks).sum();
         card(
                 s,
                 11,
                 9,
-                "Average Final Appraisal Score",
-                summary.finalScore().score(),
-                score,
-                contributors(summary.finalScore().contributingEmployees()));
-        span(s, 17, 1, 12, "Key Observations", section, 25);
-        String coverageText =
-                summary.totalEmployees() == 0
-                        ? "No employees are included in this Review Period."
-                        : "Final Scores are available for "
-                                + summary.employeesWithResults()
-                                + " of "
-                                + summary.totalEmployees()
-                                + " employees. "
-                                + (summary.employeesWithResults() < summary.totalEmployees()
-                                        ? "The current average may change as more assessments are"
-                                              + " completed."
-                                        : "All participating employees have a Final Score.");
-        span(s, 18, 1, 12, coverageText, body, 38);
-        int tasks =
-                report.departments().stream()
-                        .mapToInt(
-                                d -> {
-                                    var p = d.assessmentProgress();
-                                    return p.kpiSelfAssessments()
-                                            + p.kpiSuperiorReviews()
-                                            + p.attitudeSelfAssessments()
-                                            + p.attitudeSuperiorReviews()
-                                            + p.returnedIndividualPlans()
-                                            + d.pendingHrReview();
-                                })
-                        .sum();
+                "Outstanding Tasks",
+                tasks,
+                count,
+                "An employee may have more than one task");
+        span(s, 16, 1, 12, "Key Observations", section, 25);
+        String coverageNote =
+                a.employeesWithResults() == 0
+                        ? "No Final Scores are available yet."
+                        : a.employeesWithResults() == 1
+                                ? "The Average Final Score is based on only one employee."
+                                : "The Average Final Score is based on "
+                                        + a.employeesWithResults()
+                                        + " employees.";
+        span(s, 17, 1, 12, coverageNote, body, 30);
         span(
                 s,
-                20,
+                18,
+                1,
+                12,
+                a.totalEmployees() == 0
+                        ? "No employees are included in this Review Period."
+                        : (a.totalEmployees() - a.employeesWithResults())
+                                + " employees are awaiting Final Scores.",
+                body,
+                30);
+        span(
+                s,
+                19,
                 1,
                 12,
                 tasks
                         + " outstanding tasks across "
                         + report.departments().size()
-                        + " Departments. See Assessment Progress for the task breakdown; one"
-                        + " employee may have several tasks.",
+                        + " Departments.",
                 body,
-                38);
+                30);
         span(
                 s,
-                22,
+                21,
                 1,
                 12,
-                "Year-on-year Final Score comparison: "
+                "Previous-year Final Score comparison: "
                         + comparison(report.yearOnYear())
                         + ". "
                         + comparisonReason(report.yearOnYear()),
-                body,
-                38);
-        span(s, 25, 1, 12, "Explore the Report", section, 25);
-        link(s, 26, 1, 4, "Department Performance");
-        link(s, 26, 5, 8, "Assessment Progress");
-        link(s, 26, 9, 12, "Performance Trends");
-        link(s, 27, 1, 4, "Score Distribution");
-        link(s, 27, 5, 8, "Appraisal Decisions");
-        link(s, 27, 9, 12, "Department Trends");
-        span(s, 29, 1, 12, "Report Context", section, 25);
+                note,
+                36);
+        span(s, 24, 1, 12, "Explore the Report", section, 25);
+        link(s, 25, 1, 4, "Department Performance");
+        link(s, 25, 5, 8, "Assessment Progress");
+        link(s, 25, 9, 12, "Performance Trends");
+        link(s, 26, 1, 4, "Score Distribution");
+        link(s, 26, 5, 8, "Appraisal Decisions");
+        link(s, 26, 9, 12, "Department Trends");
+        span(s, 28, 1, 12, "About These Results", section, 25);
         span(
                 s,
-                30,
+                29,
                 1,
                 12,
                 "Generated "
@@ -214,195 +210,152 @@ final class OrganisationPerformanceReport {
                         + " years | Distribution: "
                         + metric(report.distribution().metric()),
                 note,
-                24);
+                28);
+        span(
+                s,
+                30,
+                1,
+                12,
+                "Each average uses only employees with that result. Pending scores are excluded;"
+                    + " zero is a valid score.",
+                note,
+                30);
         span(
                 s,
                 31,
                 1,
                 12,
-                "Averages use each metric's completed results. Missing scores are excluded; zero is"
-                    + " a valid score. Department search and chart selections do not filter this"
-                    + " export.",
-                note,
-                36);
-        span(
-                s,
-                33,
-                1,
-                12,
-                "Current completed performance results are shown. Recorded appraisal"
-                    + " recommendations and HR decisions remain unchanged.",
+                "Results may change as assessments are completed. Recorded appraisal decisions"
+                    + " remain unchanged.",
                 note,
                 30);
-        context(
+        span(
                 s,
-                35,
-                "Review Period ID",
-                report.period().id(),
-                "Period Status",
-                friendly(report.period().status().name()));
-        context(
-                s,
-                36,
-                "Annual KPI Calculation",
-                report.period().consolidationMethod() == null
-                        ? "Not Available"
-                        : friendly(report.period().consolidationMethod().name()),
-                "KPI Allocation",
-                report.period().kpiWeight());
-        s.getRow(36).getCell(10).setCellStyle(score);
-        context(
-                s,
-                37,
-                "Appraisal Privacy Minimum",
-                report.appraisalDistribution().minimumGroupSize(),
-                "YoY Comparison Code",
-                report.yearOnYear().status().name());
-        context(
-                s,
-                38,
-                "Previous Review Period ID",
-                report.yearOnYear().previousPeriodId() == null
-                        ? "Not Available"
-                        : report.yearOnYear().previousPeriodId(),
-                "Final Score YoY Change",
-                report.yearOnYear().percentagePoints() == null
-                        ? "Not Comparable"
-                        : report.yearOnYear().percentagePoints());
-        if (report.yearOnYear().percentagePoints() != null)
-            s.getRow(38).getCell(10).setCellStyle(pp);
-        context(
-                s,
-                39,
-                "Attitude Allocation",
-                report.period().attitudeWeight(),
-                "Generated At",
-                generated.toString());
-        s.getRow(39).getCell(4).setCellStyle(score);
-        span(s, 34, 1, 12, "Report metadata (expand the grouped rows below)", note, 24);
-        s.groupRow(35, 39);
-        s.setRowGroupCollapsed(35, true);
-        finish(s, 12, 40);
+                32,
+                1,
+                12,
+                "Department search and chart selections do not filter this report.",
+                note,
+                25);
+        link(s, 34, 1, 4, "Report Data");
+        span(s, 34, 5, 12, "Reference fields and chart source data", note, 25);
+        finish(s, 12, 35);
         s.getPrintSetup().setFitHeight((short) 1);
     }
 
     private void departments() {
-        var s = sheet("Department Performance", "Department Performance", 12);
+        var s = sheet("Department Performance", "Department Performance", 6);
         span(
                 s,
                 4,
                 1,
-                12,
-                "Each average uses its own contributor count. Small samples may not reflect the"
-                    + " whole Department. Pending results are not plotted as zero.",
+                6,
+                "Employees with results are listed below each Department name. Averages based on"
+                    + " one or a few employees may not reflect the whole Department.",
                 note,
-                35);
+                38);
         int head = 6, r = head;
-        String[] headers = {
-            "Department",
-            "Employees",
-            "Employees with Final Scores",
-            "KPI Score",
-            "KPI Contributors",
-            "Attitude Score",
-            "Attitude Contributors",
-            "Final Score",
-            "Final Contributors",
-            "Final YoY Change",
-            "YoY Comparison",
-            "Comparison Detail",
-            "Department ID",
-            "Comparison Code",
-            "Previous Period ID"
-        };
-        headings(s, head, headers);
+        headings(
+                s,
+                head,
+                "Department",
+                "Employees",
+                "KPI Score",
+                "Attitude Score",
+                "Final Score",
+                "Previous Period Comparison");
         for (var d : report.departments()) {
             var a = d.summary();
             values(
                     s,
                     ++r,
-                    d.name(),
+                    d.name()
+                            + "\nEmployees with results: KPI "
+                            + a.kpi().contributingEmployees()
+                            + " | Attitude "
+                            + a.attitude().contributingEmployees()
+                            + " | Final "
+                            + a.finalScore().contributingEmployees(),
                     a.totalEmployees(),
-                    a.employeesWithResults(),
                     a.kpi().score(),
-                    a.kpi().contributingEmployees(),
                     a.attitude().score(),
-                    a.attitude().contributingEmployees(),
                     a.finalScore().score(),
-                    a.finalScore().contributingEmployees(),
-                    d.yearOnYear().percentagePoints() == null
-                            ? "Not Comparable"
-                            : d.yearOnYear().percentagePoints(),
-                    comparison(d.yearOnYear()),
-                    comparisonReason(d.yearOnYear()),
-                    d.departmentId() == null ? "Unassigned" : d.departmentId(),
-                    d.yearOnYear().status().name(),
-                    d.yearOnYear().previousPeriodId() == null
-                            ? "Not Available"
-                            : d.yearOnYear().previousPeriodId());
-            formats(s, r, new int[] {4, 6, 8}, score);
-            formats(s, r, new int[] {10}, pp);
+                    comparison(d.yearOnYear()) + "\n" + comparisonReason(d.yearOnYear()));
+            formats(s, r, new int[] {3, 4, 5}, score);
+            s.getRow(r).setHeightInPoints(66);
         }
-        table(s, "DepartmentPerformance", head, r, headers.length);
-        s.setColumnWidth(1, 34 * 256);
-        s.setColumnWidth(11, 22 * 256);
-        s.setColumnWidth(12, 46 * 256);
-        s.groupColumn(13, 15);
-        s.setColumnGroupCollapsed(13, true);
-        availableFormatting(s, head + 1, r, new int[] {4, 6, 8});
-        int end = r + 4 + Math.max(17, report.departments().size() * 2 + 5);
-        if (report.departments().stream().anyMatch(d -> d.summary().finalScore().score() != null))
+        table(s, "DepartmentPerformance", head, r, 6);
+        s.setColumnWidth(1, 46 * 256);
+        s.setColumnWidth(2, 13 * 256);
+        for (int c = 3; c <= 5; c++) s.setColumnWidth(c, 18 * 256);
+        s.setColumnWidth(6, 42 * 256);
+        availableFormatting(s, head + 1, r, new int[] {3, 4, 5});
+        var source = sources.get("DepartmentFinalScores");
+        int bottom = r + 4 + Math.max(12, (source.last() - source.first() + 1) * 2 + 5);
+        if (source.last() >= source.first())
             chart(
                     s,
                     "Available Final Scores by Department",
                     r + 3,
-                    end,
-                    s,
-                    head + 1,
-                    r,
+                    bottom,
+                    source.sheet(),
+                    source.first(),
+                    source.last(),
                     1,
-                    new int[] {8},
+                    new int[] {2},
                     new String[] {"Final Appraisal Score"},
                     ChartTypes.BAR,
                     true,
                     false,
                     true);
-        else
-            span(
-                    s,
-                    r + 3,
-                    1,
-                    12,
-                    "No Final Scores are available for a Department comparison yet.",
-                    note,
-                    32);
-        finish(s, 12, end + 1);
+        else span(s, r + 3, 1, 6, "No Department Final Scores are available yet.", note, 30);
+        finish(s, 6, bottom + 1);
     }
 
     private void progress() {
-        var s = sheet("Assessment Progress", "Outstanding Assessment Tasks", 8);
+        var s = sheet("Assessment Progress", "Outstanding Assessment Tasks", 9);
         span(
                 s,
                 4,
                 1,
-                8,
-                "Counts are outstanding tasks, not unique employees. An employee may have more than"
-                    + " one task. Viewing these counts does not assign review authority.",
+                9,
+                "Counts show outstanding tasks, not unique employees. An employee can have several"
+                    + " tasks.",
                 note,
-                36);
-        int head = 6, r = head;
-        String[] headers = {
-            "Department",
-            "Employees",
-            "KPI Self-Assessments",
-            "Superior KPI Reviews",
-            "Attitude Self-Assessments",
-            "Superior Attitude Reviews",
-            "Returned Individual KPI Plans",
-            "HR Reviews",
-            "Department ID"
-        };
-        headings(s, head, headers);
+                32);
+        var source = sources.get("TaskTotals");
+        int bottom = 7 + Math.max(12, report.departments().size() * 2 + 5);
+        if (source.last() >= source.first())
+            chart(
+                    s,
+                    "Total Outstanding Tasks by Department",
+                    6,
+                    bottom,
+                    source.sheet(),
+                    source.first(),
+                    source.last(),
+                    1,
+                    new int[] {2},
+                    new String[] {"Outstanding Tasks"},
+                    ChartTypes.BAR,
+                    true,
+                    false,
+                    false);
+        else span(s, 6, 1, 9, "No Departments are included in this Review Period.", note, 30);
+        int head = bottom + 3, r = head;
+        span(s, head - 1, 1, 9, "Task Breakdown", section, 25);
+        headings(
+                s,
+                head,
+                "Department",
+                "Employees",
+                "KPI Self",
+                "KPI Review",
+                "Attitude Self",
+                "Attitude Review",
+                "Returned KPI Plans",
+                "HR Review",
+                "Total Outstanding Tasks");
         for (var d : report.departments()) {
             var p = d.assessmentProgress();
             values(
@@ -416,49 +369,34 @@ final class OrganisationPerformanceReport {
                     p.attitudeSuperiorReviews(),
                     p.returnedIndividualPlans(),
                     d.pendingHrReview(),
-                    d.departmentId() == null ? "Unassigned" : d.departmentId());
+                    outstandingTasks(d));
         }
-        table(s, "AssessmentProgress", head, r, headers.length);
+        table(s, "AssessmentProgress", head, r, 9);
+        s.createFreezePane(2, 6);
         s.setColumnWidth(1, 34 * 256);
-        s.setColumnWidth(3, 22 * 256);
-        s.setColumnWidth(5, 22 * 256);
-        s.groupColumn(9, 9);
-        s.setColumnGroupCollapsed(9, true);
+        s.setColumnWidth(2, 12 * 256);
+        s.setColumnWidth(9, 22 * 256);
         if (r > head) {
-            var cf = s.getSheetConditionalFormatting();
-            var rule = cf.createConditionalFormattingRule(ComparisonOperator.GT, "0");
+            var rule =
+                    s.getSheetConditionalFormatting()
+                            .createConditionalFormattingRule(ComparisonOperator.GT, "0");
             var fill = rule.createPatternFormatting();
             fill.setFillBackgroundColor(IndexedColors.LIGHT_YELLOW.index);
             fill.setFillPattern(PatternFormatting.SOLID_FOREGROUND);
-            cf.addConditionalFormatting(
-                    new CellRangeAddress[] {new CellRangeAddress(head + 1, r, 3, 8)}, rule);
+            s.getSheetConditionalFormatting()
+                    .addConditionalFormatting(
+                            new CellRangeAddress[] {new CellRangeAddress(head + 1, r, 3, 9)}, rule);
         }
-        int end = r + 4 + Math.max(19, report.departments().size() * 2 + 5);
-        if (r > head)
-            chart(
-                    s,
-                    "Outstanding Tasks by Department",
-                    r + 3,
-                    end,
-                    s,
-                    head + 1,
-                    r,
-                    1,
-                    new int[] {3, 4, 5, 6, 7, 8},
-                    new String[] {
-                        "KPI Self-Assessment",
-                        "Superior KPI Review",
-                        "Attitude Self-Assessment",
-                        "Superior Attitude Review",
-                        "Returned KPI Plan",
-                        "HR Review"
-                    },
-                    ChartTypes.BAR,
-                    true,
-                    true,
-                    false);
-        else span(s, r + 3, 1, 9, "No Departments are included in this Review Period.", note, 30);
-        finish(s, 9, end + 1);
+        span(
+                s,
+                r + 2,
+                1,
+                9,
+                "Self = employee self-assessment. KPI and Attitude Review = Superior review. HR"
+                    + " Review = appraisal review.",
+                note,
+                34);
+        finish(s, 9, r + 3);
     }
 
     private void trends() {
@@ -468,28 +406,51 @@ final class OrganisationPerformanceReport {
                 4,
                 1,
                 11,
-                "Periods follow their actual dates and may cover different lengths of time. Gaps"
-                    + " mean results are unavailable; contributor counts show the coverage behind"
-                    + " each average.",
+                "Review Periods can cover different lengths of time. Each average uses the"
+                    + " employees with results shown in the table. Gaps mean results are Pending.",
                 note,
                 36);
-        int head = 6, r = head;
-        String[] headers = {
-            "Review Period",
-            "Start Date",
-            "End Date",
-            "Date Span",
-            "Employees",
-            "KPI Score",
-            "KPI Contributors",
-            "Attitude Score",
-            "Attitude Contributors",
-            "Final Score",
-            "Final Contributors",
-            "Period ID",
-            "Chart Label"
-        };
-        headings(s, head, headers);
+        var source = sources.get("PeriodHistory");
+        boolean available =
+                report.trend().stream()
+                        .anyMatch(
+                                p ->
+                                        p.summary().kpi().score() != null
+                                                || p.summary().attitude().score() != null
+                                                || p.summary().finalScore().score() != null);
+        if (available)
+            chart(
+                    s,
+                    "Organisation Scores by Review Period",
+                    6,
+                    26,
+                    source.sheet(),
+                    source.first(),
+                    source.last(),
+                    1,
+                    new int[] {7, 9, 11},
+                    new String[] {"KPI Performance", "Attitude Evaluation", "Final Appraisal"},
+                    ChartTypes.LINE,
+                    false,
+                    false,
+                    true);
+        else span(s, 6, 1, 11, "No completed historical scores are available yet.", note, 30);
+        int head = 29, r = head;
+        span(s, head - 1, 1, 11, "Review Periods and Employees with Results", section, 25);
+        headings(
+                s,
+                head,
+                "Review Period",
+                "Start Date",
+                "End Date",
+                "Period Length",
+                "Employees",
+                "KPI Score",
+                "KPI Employees with Results",
+                "Attitude Score",
+                "Attitude Employees with Results",
+                "Final Score",
+                "Final Employees with Results");
         for (var point : report.trend()) {
             var p = point.period();
             var a = point.summary();
@@ -506,40 +467,18 @@ final class OrganisationPerformanceReport {
                     a.attitude().score(),
                     a.attitude().contributingEmployees(),
                     a.finalScore().score(),
-                    a.finalScore().contributingEmployees(),
-                    p.id(),
-                    chartLabel(p));
+                    a.finalScore().contributingEmployees());
             formats(s, r, new int[] {6, 8, 10}, score);
+            s.getRow(r).setHeightInPoints(44);
         }
-        table(s, "OrganisationHistory", head, r, headers.length);
-        s.setColumnWidth(1, 46 * 256);
-        s.setColumnWidth(4, 24 * 256);
-        s.groupColumn(12, 13);
-        s.setColumnGroupCollapsed(12, true);
+        table(s, "OrganisationHistory", head, r, 11);
+        s.createFreezePane(2, 6);
+        s.setColumnWidth(1, 42 * 256);
+        s.setColumnWidth(4, 23 * 256);
+        for (int c : new int[] {7, 9, 11}) s.setColumnWidth(c, 23 * 256);
+        s.getRow(head).setHeightInPoints(62);
         availableFormatting(s, head + 1, r, new int[] {6, 8, 10});
-        if (report.trend().stream()
-                .anyMatch(
-                        p ->
-                                p.summary().kpi().score() != null
-                                        || p.summary().attitude().score() != null
-                                        || p.summary().finalScore().score() != null))
-            chart(
-                    s,
-                    "Organisation Scores by Review Period",
-                    r + 3,
-                    r + 28,
-                    s,
-                    head + 1,
-                    r,
-                    13,
-                    new int[] {6, 8, 10},
-                    new String[] {"KPI Performance", "Attitude Evaluation", "Final Appraisal"},
-                    ChartTypes.LINE,
-                    false,
-                    false,
-                    true);
-        else span(s, r + 3, 1, 12, "No completed historical scores are available yet.", note, 30);
-        finish(s, 11, r + 29);
+        finish(s, 11, r + 1);
     }
 
     private void departmentTrends() {
@@ -549,17 +488,18 @@ final class OrganisationPerformanceReport {
                 4,
                 1,
                 11,
-                "Final Score comparison by Review Period. Read each period's dates and contributor"
-                    + " counts in the detailed history below before drawing comparisons.",
+                "Final Scores by Review Period. Pending = no completed score yet. Not Available ="
+                    + " no Department record for that period. See dates and employees with results"
+                    + " below.",
                 note,
-                36);
+                38);
         var periods = new LinkedHashMap<Long, Period>();
         report.trend().forEach(p -> periods.put(p.period().id(), p.period()));
         var labels = new ArrayList<String>();
         labels.add("Department");
-        periods.values().forEach(p -> labels.add(p.name()));
+        periods.values().forEach(p -> labels.add(chartLabel(p)));
         headings(s, 6, labels.toArray(String[]::new));
-        s.getRow(6).setHeightInPoints(72);
+        s.getRow(6).setHeightInPoints(42);
         int r = 6;
         for (var d : report.departmentTrends()) {
             var byId = new HashMap<Long, Average>();
@@ -571,25 +511,23 @@ final class OrganisationPerformanceReport {
             values(s, ++r, values.toArray());
             for (int c = 2; c <= labels.size(); c++) s.getRow(r).getCell(c).setCellStyle(score);
         }
-        for (int c = 2; c <= labels.size(); c++) s.setColumnWidth(c, 24 * 256);
+        for (int c = 2; c <= labels.size(); c++) s.setColumnWidth(c, 23 * 256);
         int head = r + 4;
-        span(s, head - 1, 1, 11, "Detailed History and Contributor Counts", section, 25);
-        String[] headers = {
-            "Department",
-            "Review Period",
-            "Start Date",
-            "End Date",
-            "Employees",
-            "KPI Score",
-            "KPI Contributors",
-            "Attitude Score",
-            "Attitude Contributors",
-            "Final Score",
-            "Final Contributors",
-            "Department ID",
-            "Period ID"
-        };
-        headings(s, head, headers);
+        span(s, head - 1, 1, 11, "Detailed History and Employees with Results", section, 25);
+        headings(
+                s,
+                head,
+                "Department",
+                "Review Period",
+                "Start Date",
+                "End Date",
+                "Employees",
+                "KPI Score",
+                "KPI Employees with Results",
+                "Attitude Score",
+                "Attitude Employees with Results",
+                "Final Score",
+                "Final Employees with Results");
         r = head;
         for (var d : report.departmentTrends())
             for (var point : d.periods()) {
@@ -608,20 +546,16 @@ final class OrganisationPerformanceReport {
                         a.attitude().score(),
                         a.attitude().contributingEmployees(),
                         a.finalScore().score(),
-                        a.finalScore().contributingEmployees(),
-                        d.departmentId() == null ? "Unassigned" : d.departmentId(),
-                        p.id());
+                        a.finalScore().contributingEmployees());
                 formats(s, r, new int[] {6, 8, 10}, score);
                 s.getRow(r).setHeightInPoints(46);
             }
-        table(s, "DepartmentHistory", head, r, headers.length);
+        table(s, "DepartmentHistory", head, r, 11);
         s.createFreezePane(2, 7);
         s.setColumnWidth(1, 34 * 256);
-        s.setColumnWidth(2, 46 * 256);
-        if (labels.size() < 12) {
-            s.groupColumn(12, 13);
-            s.setColumnGroupCollapsed(12, true);
-        }
+        s.setColumnWidth(2, 42 * 256);
+        for (int c : new int[] {7, 9, 11}) s.setColumnWidth(c, 23 * 256);
+        s.getRow(head).setHeightInPoints(62);
         availableFormatting(s, head + 1, r, new int[] {6, 8, 10});
         finish(s, Math.max(11, labels.size()), r + 1);
     }
@@ -629,30 +563,25 @@ final class OrganisationPerformanceReport {
     private void distribution() {
         var s = sheet("Score Distribution", "Employee Score Distribution", 9);
         var d = report.distribution();
-        span(
+        span(s, 4, 1, 9, metric(d.metric()), section, 25);
+        card(
                 s,
-                4,
+                6,
                 1,
-                9,
-                metric(d.metric())
-                        + " | Employees with results: "
-                        + d.employeesWithResults()
-                        + " | Awaiting results: "
-                        + d.missingResults(),
-                note,
-                28);
-        span(
+                "Employees with Results",
+                d.employeesWithResults(),
+                count,
+                "Included in this distribution");
+        card(
                 s,
+                6,
                 5,
-                1,
-                9,
-                "Scores are grouped before display rounding. For example, 69.5% is in 60%-69% (60%"
-                    + " to less than 70%).",
-                note,
-                28);
-        int head = 7, r = head;
-        String[] headers = {"Score Range", "Employees", "Share of Available Results"};
-        headings(s, head, headers);
+                "Awaiting Results",
+                d.missingResults(),
+                count,
+                "Excluded until results are available");
+        int head = 11, r = head;
+        headings(s, head, "Score Range", "Employees", "Share of Available Results");
         for (var b : d.bins()) {
             values(
                     s,
@@ -664,7 +593,7 @@ final class OrganisationPerformanceReport {
                             : (double) b.employees() / d.employeesWithResults());
             formats(s, r, new int[] {3}, percentage);
         }
-        table(s, "ScoreDistribution", head, r, headers.length);
+        table(s, "ScoreDistribution", head, r, 3);
         s.setColumnWidth(1, 28 * 256);
         s.setColumnWidth(3, 26 * 256);
         if (d.employeesWithResults() > 0 && r > head)
@@ -672,7 +601,7 @@ final class OrganisationPerformanceReport {
                     s,
                     metric(d.metric()) + " Distribution",
                     r + 3,
-                    r + 23,
+                    r + 21,
                     s,
                     head + 1,
                     r,
@@ -688,41 +617,41 @@ final class OrganisationPerformanceReport {
                     s,
                     r + 3,
                     1,
-                    3,
+                    9,
                     "No completed results are available for this score yet.",
                     note,
-                    45);
-        int definitions = r + 26;
-        headings(
+                    32);
+        span(
                 s,
-                definitions,
-                "Score Metric",
-                "Lower Bound (inclusive)",
-                "Upper Bound",
-                "Upper Bound Inclusive",
-                "Employees with Results",
-                "Awaiting Results");
-        int last = definitions;
-        for (var b : d.bins())
-            values(
-                    s,
-                    ++last,
-                    d.metric().name(),
-                    b.lowerInclusive(),
-                    b.upper(),
-                    b.upperInclusive(),
-                    d.employeesWithResults(),
-                    d.missingResults());
-        table(s, "ScoreBandDefinitions", definitions, last, 6);
-        s.createFreezePane(2, head + 1);
-        s.setRepeatingRows(new CellRangeAddress(head, head, -1, -1));
-        finish(s, 12, last + 1);
+                r + 23,
+                1,
+                9,
+                "Scores are grouped before rounding: 69.5% belongs to 60%-69%.",
+                note,
+                28);
+        finish(s, 9, r + 24);
     }
 
     private void decisions() {
         var s = sheet("Appraisal Decisions", "Appraisal Recommendation and Decision Summary", 12);
         var superior = report.appraisalDistribution().superiorRecommendations();
         var hr = report.appraisalDistribution().hrFinalDecisions();
+        if (superior.disclosure() == Disclosure.SUPPRESSED
+                && hr.disclosure() == Disclosure.SUPPRESSED) {
+            span(s, 4, 1, 12, "Appraisal Statistics Withheld", section, 25);
+            span(
+                    s,
+                    5,
+                    1,
+                    12,
+                    "Superior Recommendation and HR Final Decision statistics are withheld to"
+                        + " protect employee privacy when the available data could identify"
+                        + " individual outcomes.",
+                    note,
+                    42);
+            finish(s, 12, 7);
+            return;
+        }
         decisionNotice(s, 4, "Superior Recommendations", superior);
         decisionNotice(s, 8, "HR Final Decisions", hr);
         boolean showSuperior = superior.disclosure() == Disclosure.AVAILABLE,
@@ -791,10 +720,236 @@ final class OrganisationPerformanceReport {
                     case NO_DATA -> "No appraisal data available.";
                     case SUPPRESSED ->
                             "Not enough data to show appraisal statistics safely. Counts are"
-                                + " withheld when limited data could identify an employee's"
-                                + " appraisal outcome.";
+                                    + " withheld when limited data could identify an employee's"
+                                    + " appraisal outcome.";
                 };
         span(s, row + 1, 1, 12, text, note, 40);
+    }
+
+    private record DataRange(XSSFSheet sheet, int first, int last) {}
+
+    private final Map<String, DataRange> sources = new HashMap<>();
+
+    private void supportingData() {
+        var s = sheet("Report Data", "Report Reference and Chart Data", 13);
+        span(
+                s,
+                4,
+                1,
+                13,
+                "Reference fields for audit and analysis. Management-facing results are on the"
+                    + " other worksheets.",
+                note,
+                30);
+        headings(s, 6, "Field", "Value");
+        Object[][] metadata = {
+            {"Review Period ID", report.period().id()},
+            {"Period Status", report.period().status().name()},
+            {"Generated At", generated.toString()},
+            {"History Range (years)", report.historyYears()},
+            {"Distribution Metric", report.distribution().metric().name()},
+            {"Total Employees", report.summary().totalEmployees()},
+            {"Employees with Final Scores", report.summary().employeesWithResults()},
+            {
+                "Final Score Employees with Results",
+                report.summary().finalScore().contributingEmployees()
+            },
+            {"KPI Employees with Results", report.summary().kpi().contributingEmployees()},
+            {
+                "Attitude Employees with Results",
+                report.summary().attitude().contributingEmployees()
+            },
+            {
+                "Annual KPI Calculation",
+                report.period().consolidationMethod() == null
+                        ? "Not Available"
+                        : report.period().consolidationMethod().name()
+            },
+            {"KPI Allocation (%)", report.period().kpiWeight()},
+            {"Attitude Allocation (%)", report.period().attitudeWeight()},
+            {"Appraisal Privacy Minimum", report.appraisalDistribution().minimumGroupSize()},
+            {"Comparison Code", report.yearOnYear().status().name()},
+            {
+                "Previous Review Period ID",
+                report.yearOnYear().previousPeriodId() == null
+                        ? "Not Available"
+                        : report.yearOnYear().previousPeriodId()
+            },
+            {
+                "Final Score YoY Change (pp)",
+                report.yearOnYear().percentagePoints() == null
+                        ? "Not Comparable"
+                        : report.yearOnYear().percentagePoints()
+            },
+            {
+                "Frequency Policy",
+                report.period().frequencyPolicy() == null
+                        ? "Not Available"
+                        : report.period().frequencyPolicy().name()
+            },
+            {
+                "Assessment Model",
+                report.period().assessmentModel() == null
+                        ? "Not Available"
+                        : report.period().assessmentModel().name()
+            }
+        };
+        int r = 6;
+        for (var entry : metadata) values(s, ++r, entry);
+        table(s, "ReportReference", 6, r, 2);
+        int head = r + 3;
+        r = head;
+        headings(s, head, "Department", "Final Score", "Employees with Final Results");
+        for (var d : report.departments())
+            if (d.summary().finalScore().score() != null) {
+                values(
+                        s,
+                        ++r,
+                        d.name(),
+                        d.summary().finalScore().score(),
+                        d.summary().finalScore().contributingEmployees());
+                formats(s, r, new int[] {2}, score);
+            }
+        register(s, "DepartmentFinalScores", head, r, 3);
+        head = r + 3;
+        r = head;
+        headings(s, head, "Department", "Total Outstanding Tasks");
+        for (var d : report.departments()) values(s, ++r, d.name(), outstandingTasks(d));
+        register(s, "TaskTotals", head, r, 2);
+        head = r + 3;
+        r = head;
+        headings(
+                s,
+                head,
+                "Short Period Label",
+                "Review Period",
+                "Start Date",
+                "End Date",
+                "Period ID",
+                "Employees",
+                "KPI Score",
+                "KPI Employees with Results",
+                "Attitude Score",
+                "Attitude Employees with Results",
+                "Final Score",
+                "Final Employees with Results");
+        for (var point : report.trend()) {
+            var p = point.period();
+            var a = point.summary();
+            values(
+                    s,
+                    ++r,
+                    chartLabel(p),
+                    p.name(),
+                    p.startDate(),
+                    p.endDate(),
+                    p.id(),
+                    a.totalEmployees(),
+                    a.kpi().score(),
+                    a.kpi().contributingEmployees(),
+                    a.attitude().score(),
+                    a.attitude().contributingEmployees(),
+                    a.finalScore().score(),
+                    a.finalScore().contributingEmployees());
+            formats(s, r, new int[] {7, 9, 11}, score);
+        }
+        register(s, "PeriodHistory", head, r, 12);
+        head = r + 3;
+        r = head;
+        headings(
+                s,
+                head,
+                "Department ID",
+                "Department",
+                "Employees",
+                "Employees with Final Scores",
+                "KPI Employees with Results",
+                "Attitude Employees with Results",
+                "Final Employees with Results",
+                "YoY Change (pp)",
+                "Comparison Code",
+                "Previous Period ID");
+        for (var d : report.departments()) {
+            var a = d.summary();
+            values(
+                    s,
+                    ++r,
+                    d.departmentId() == null ? "Unassigned" : d.departmentId(),
+                    d.name(),
+                    a.totalEmployees(),
+                    a.employeesWithResults(),
+                    a.kpi().contributingEmployees(),
+                    a.attitude().contributingEmployees(),
+                    a.finalScore().contributingEmployees(),
+                    d.yearOnYear().percentagePoints() == null
+                            ? "Not Comparable"
+                            : d.yearOnYear().percentagePoints(),
+                    d.yearOnYear().status().name(),
+                    d.yearOnYear().previousPeriodId() == null
+                            ? "Not Available"
+                            : d.yearOnYear().previousPeriodId());
+            formats(s, r, new int[] {8}, pp);
+        }
+        register(s, "DepartmentReferences", head, r, 10);
+        head = r + 3;
+        r = head;
+        headings(s, head, "Department ID", "Department", "Period ID", "Review Period");
+        for (var d : report.departmentTrends())
+            for (var p : d.periods())
+                values(
+                        s,
+                        ++r,
+                        d.departmentId() == null ? "Unassigned" : d.departmentId(),
+                        d.name(),
+                        p.period().id(),
+                        p.period().name());
+        register(s, "DepartmentHistoryReferences", head, r, 4);
+        head = r + 3;
+        r = head;
+        headings(
+                s,
+                head,
+                "Score Metric",
+                "Lower Bound (inclusive)",
+                "Upper Bound",
+                "Upper Bound Inclusive",
+                "Employees with Results",
+                "Awaiting Results");
+        var distribution = report.distribution();
+        for (var b : distribution.bins())
+            values(
+                    s,
+                    ++r,
+                    distribution.metric().name(),
+                    b.lowerInclusive(),
+                    b.upper(),
+                    b.upperInclusive(),
+                    distribution.employeesWithResults(),
+                    distribution.missingResults());
+        register(s, "ScoreBandDefinitions", head, r, 6);
+        s.setColumnWidth(1, 38 * 256);
+        s.setColumnWidth(2, 48 * 256);
+        s.createFreezePane(2, 7);
+        finish(s, 13, r + 1);
+    }
+
+    private void register(XSSFSheet s, String name, int head, int last, int width) {
+        table(s, name, head, last, width);
+        sources.put(name, new DataRange(s, head + 1, last));
+    }
+
+    private int outstandingTasks(Department d) {
+        var p = d.assessmentProgress();
+        return p.kpiSelfAssessments()
+                + p.kpiSuperiorReviews()
+                + p.attitudeSelfAssessments()
+                + p.attitudeSuperiorReviews()
+                + p.returnedIndividualPlans()
+                + d.pendingHrReview();
+    }
+
+    private static String employeesWithResults(int count) {
+        return count + " employee" + (count == 1 ? "" : "s") + " with results";
     }
 
     private void chart(
@@ -834,12 +989,13 @@ final class OrganisationPerformanceReport {
         value.setTitle(
                 scores
                         ? "Score (%)"
-                        : stacked
+                        : target.getSheetName().equals("Assessment Progress")
                                 ? "Outstanding Tasks"
                                 : target.getSheetName().equals("Appraisal Decisions")
                                         ? "Recorded Outcomes"
                                         : "Number of Employees");
         value.setNumberFormat(scores ? "0\"%\"" : "0");
+        chart.getCTChart().getPlotArea().getValAxArray(0).getNumFmt().setSourceLinked(false);
         if (target.getSheetName().equals("Score Distribution")) category.setTitle("Score Range");
         if (scores) {
             value.setMaximum(100);
@@ -865,8 +1021,8 @@ final class OrganisationPerformanceReport {
         value.crossAxis(category);
         if (horizontal) {
             category.setOrientation(AxisOrientation.MAX_MIN);
-            category.setCrosses(AxisCrosses.MAX);
-            value.setCrosses(AxisCrosses.AUTO_ZERO);
+            category.setCrosses(AxisCrosses.AUTO_ZERO);
+            value.setCrosses(AxisCrosses.MAX);
         }
         var data = chart.createData(type, category, value);
         if (data instanceof XDDFBarChartData bars) {
@@ -913,10 +1069,23 @@ final class OrganisationPerformanceReport {
         if (valueColumns.length > 1) chart.getOrAddLegend().setPosition(LegendPosition.BOTTOM);
         else chart.deleteLegend();
         chart.plot(data);
+        if (target.getSheetName().equals("Score Distribution")) {
+            var labels = chart.getCTChart().getPlotArea().getBarChartArray(0).addNewDLbls();
+            labels.addNewShowVal().setVal(true);
+            labels.addNewShowLegendKey().setVal(false);
+            labels.addNewShowCatName().setVal(false);
+            labels.addNewShowSerName().setVal(false);
+            labels.addNewDLblPos()
+                    .setVal(org.openxmlformats.schemas.drawingml.x2006.chart.STDLblPos.OUT_END);
+        }
     }
 
     private int visibleEnd(XSSFSheet s) {
-        return Math.max(4, s.getSheetName().equals("Assessment Progress") ? 9 : 12);
+        return switch (s.getSheetName()) {
+            case "Department Performance" -> 7;
+            case "Assessment Progress", "Score Distribution" -> 10;
+            default -> 12;
+        };
     }
 
     private XSSFSheet sheet(String name, String heading, int lastColumn) {
@@ -1150,11 +1319,21 @@ final class OrganisationPerformanceReport {
     }
 
     private static String chartLabel(Period p) {
-        return p.name().replaceAll("(.{20,32})\\s+", "$1\n")
-                + "\n"
-                + p.startDate()
-                + " to "
-                + p.endDate();
+        if (dateSpan(p).equals("Full calendar year")) return p.startDate().getYear() + " Annual";
+        if (dateSpan(p).equals("Calendar quarter"))
+            return p.startDate().getYear() + " Q" + ((p.startDate().getMonthValue() - 1) / 3 + 1);
+        var month = DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH);
+        if (p.startDate().getDayOfMonth() == 1
+                && p.endDate().getDayOfMonth() == p.endDate().lengthOfMonth()
+                && p.startDate().getYear() == p.endDate().getYear())
+            return p.startDate().getYear()
+                    + " "
+                    + p.startDate().format(month)
+                    + (p.startDate().getMonth() == p.endDate().getMonth()
+                            ? ""
+                            : "-" + p.endDate().format(month));
+        var day = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
+        return p.startDate().format(day) + " - " + p.endDate().format(day);
     }
 
     private static String bandLabel(Bin b) {
