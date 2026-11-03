@@ -4,6 +4,10 @@
     <nz-tab nzTitle="{{ 'PAGE.PROFILE.GENERAL.TITLE' | translate }}">
         <ng-template nz-tab><app-general-information></app-general-information></ng-template>
     </nz-tab>
+    <!-- FR-18-04: the training record, the profile's person's or one's own -->
+    <nz-tab nzTitle="{{ 'PAGE.PROFILE.TRAINING_HISTORY.TITLE' | translate }}">
+        <ng-template nz-tab><app-training-record [staffId]="profileStaffId"></app-training-record></ng-template>
+    </nz-tab>
     <nz-tab nzTitle="{{ 'PAGE.PROFILE.CAREER_PATHWAY.TITLE' | translate }}">
         <ng-template nz-tab>
             <app-my-career-pathway></app-my-career-pathway>

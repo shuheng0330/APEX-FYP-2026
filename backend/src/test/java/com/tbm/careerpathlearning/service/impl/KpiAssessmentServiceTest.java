@@ -1,0 +1,566 @@
+package com.tbm.careerpathlearning.service.impl;
+
+import com.tbm.careerpathlearning.dto.*;
+import com.tbm.careerpathlearning.enums.*;
+import com.tbm.careerpathlearning.exception.BadRequestException;
+import com.tbm.careerpathlearning.mapper.*;
+import com.tbm.careerpathlearning.model.*;
+import com.tbm.careerpathlearning.repository.*;
+import com.tbm.careerpathlearning.service.*;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mapstruct.factory.Mappers;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.support.*;
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class KpiAssessmentServiceTest {
+    KpiAssessmentRepository assessments=mock(KpiAssessmentRepository.class);
+    KpiAssessmentItemRepository items=mock(KpiAssessmentItemRepository.class);
+    KpiAssessmentEvidenceRepository files=mock(KpiAssessmentEvidenceRepository.class);
+    ReviewPeriodParticipantRepository participants=mock(ReviewPeriodParticipantRepository.class);
+    ReviewCheckpointRepository checkpoints=mock(ReviewCheckpointRepository.class);
+    EmployeeKpiAssignmentRepository assignments=mock(EmployeeKpiAssignmentRepository.class);
+    AnnualKpiReviewPeriodRepository periods=mock(AnnualKpiReviewPeriodRepository.class);
+    StaffRepository staff=mock(StaffRepository.class);
+    KpiAssessmentEvidenceStorage storage=mock(KpiAssessmentEvidenceStorage.class);
+    EmailService email=mock(EmailService.class);
+    KpiCheckpointAggregateService aggregates=mock(KpiCheckpointAggregateService.class);
+    UUID owner=UUID.randomUUID(),superiorId=UUID.randomUUID(),outsider=UUID.randomUUID();
+    Staff employee,superior;
+    AnnualKpiReviewPeriod period;
+    ReviewPeriodParticipant participant;
+    ReviewCheckpoint checkpoint;
+    KpiAssessment assessment;
+    List<EmployeeKpiAssignment> assigned=new ArrayList<>();
+    KpiAssessmentServiceImpl service;
+
+    void date(String day) {
+        service=new KpiAssessmentServiceImpl(assessments,items,files,participants,checkpoints,assignments,periods,staff,
+                Mappers.getMapper(KpiPlanMapper.class),Mappers.getMapper(KpiAssessmentMapper.class),storage,email,new KpiCheckpointScoreCalculator(),
+                aggregates,new CompanyKpiCheckpointResolver(checkpoints),
+                Clock.fixed(Instant.parse(day+"T12:00:00Z"),ZoneOffset.UTC),mock(org.springframework.context.ApplicationEventPublisher.class));
+    }
+    @BeforeEach void setup() {
+        date("2027-02-01");
+        superior=new Staff();superior.setId(superiorId);superior.setAccountStatus(StaffAccountStatus.ACTIVE);superior.setEmail("superior@example.test");
+        employee=new Staff();employee.setId(owner);employee.setAccountStatus(StaffAccountStatus.ACTIVE);employee.setManager(superior);
+        var stranger=new Staff();stranger.setId(outsider);stranger.setAccountStatus(StaffAccountStatus.ACTIVE);
+        when(staff.findById(owner)).thenReturn(Optional.of(employee));when(staff.findById(superiorId)).thenReturn(Optional.of(superior));
+        when(staff.findById(outsider)).thenReturn(Optional.of(stranger));
+        period=new AnnualKpiReviewPeriod();period.setId(1L);period.setName("Annual Review");period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);
+        var allocation=new ReviewPeriodEmployeeLevelConfiguration();allocation.setCompanyKpiWeight(new BigDecimal("15"));
+        allocation.setDepartmentKpiWeight(new BigDecimal("25"));allocation.setIndividualKpiWeight(new BigDecimal("60"));
+        participant=new ReviewPeriodParticipant();participant.setId(7L);participant.setStaff(employee);participant.setStaffName("Amir");
+        participant.setReviewPeriod(period);participant.setReviewFrequency(ReviewFrequency.MONTHLY);participant.setEmployeeLevelConfiguration(allocation);
+        checkpoint=new ReviewCheckpoint();checkpoint.setId(11L);checkpoint.setReviewPeriod(period);checkpoint.setReviewFrequency(ReviewFrequency.MONTHLY);
+        checkpoint.setSequenceNumber(1);checkpoint.setStartDate(LocalDate.of(2027,1,1));checkpoint.setEndDate(LocalDate.of(2027,1,31));
+        checkpoint.setSelfAssessmentDeadline(LocalDate.of(2027,2,5));checkpoint.setSuperiorAssessmentDeadline(LocalDate.of(2027,2,10));
+        when(participants.findByReviewPeriodIdAndStaffId(1L,owner)).thenReturn(Optional.of(participant));
+        when(checkpoints.findById(11L)).thenReturn(Optional.of(checkpoint));
+        when(checkpoints.findAllByReviewPeriodIdAndReviewFrequencyOrderBySequenceNumberAsc(1L,ReviewFrequency.MONTHLY)).thenReturn(List.of(checkpoint));
+        when(assignments.findAllByParticipantId(7L)).thenAnswer(i->new ArrayList<>(assigned));
+        when(assessments.saveAndFlush(any())).thenAnswer(i->{KpiAssessment a=i.getArgument(0);a.setId(20L);assessment=a;
+            when(assessments.findById(20L)).thenReturn(Optional.of(a));when(assessments.lockById(20L)).thenReturn(Optional.of(a));return a;});
+    }
+    @AfterEach void cleanup() {
+        SecurityContextHolder.clearContext();
+        if(TransactionSynchronizationManager.isSynchronizationActive()) TransactionSynchronizationManager.clearSynchronization();
+    }
+    KpiAssessmentRequest request() {var r=new KpiAssessmentRequest();r.setCheckpointId(11L);return r;}
+    KpiAssessmentRequest.Answer answer(long id,Integer point) {var a=new KpiAssessmentRequest.Answer();a.setAssignmentId(id);a.setSelfPoint(point);a.setSelfComment("Evidence reviewed");return a;}
+    void assign(KpiLevel level,long id) {
+        var plan=new KpiPlan();plan.setId(id);plan.setReviewPeriod(period);plan.setLevel(level);
+        plan.setStatus(level==KpiLevel.COMPANY?KpiPlanStatus.PUBLISHED:KpiPlanStatus.APPROVED);
+        var kpi=new Kpi();kpi.setId(id);kpi.setName(level+" KPI");kpi.setPlan(plan);kpi.setPlanId(id);
+        kpi.setWeightage(new BigDecimal("100"));plan.getItems().add(kpi);
+        var a=new EmployeeKpiAssignment();a.setId(id);a.setKpi(kpi);a.setKpiId(id);a.setParticipant(participant);
+        a.setParticipantId(7L);a.setReviewPeriodId(1L);assigned.add(a);
+    }
+    void complete() {assign(KpiLevel.COMPANY,1);assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);
+        var r=request();r.setItems(List.of(answer(1,1),answer(2,2),answer(3,5)));service.create(r,owner);}
+
+    @Test void scoreBreakdownRequiresActiveOwnerEvenWhenAnotherUserIsTheSuperior() {
+        complete();assessment.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        var expected=new KpiScoreBreakdownDto(20L,null,List.of());
+        when(aggregates.breakdown(assessment)).thenReturn(expected);
+        assertSame(expected,service.scoreBreakdown(20L,owner));
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,outsider));
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,superiorId));
+        verify(aggregates,times(1)).breakdown(assessment);
+        employee.setAccountStatus(StaffAccountStatus.INACTIVE);
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,owner));
+    }
+
+    @Test void authorisedDetailsExposeMonthlyCompanySourceWithoutWritesOrExpandedScoreAccess() {
+        complete();service.submit(20L,owner);
+        period.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        assessment.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        checkpoint.setReviewFrequency(ReviewFrequency.QUARTERLY);checkpoint.setEndDate(LocalDate.of(2027,3,31));
+        var march=new ReviewCheckpoint();march.setId(13L);march.setReviewFrequency(ReviewFrequency.MONTHLY);
+        march.setStartDate(LocalDate.of(2027,3,1));march.setEndDate(checkpoint.getEndDate());
+        when(checkpoints.findByReviewPeriodIdAndReviewFrequencyAndEndDate(1L,ReviewFrequency.MONTHLY,checkpoint.getEndDate())).thenReturn(Optional.of(march));
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");clearInvocations(assessments,aggregates,email);
+        var dto=service.get(20L,superiorId);
+        assertEquals(KpiFrequencyPolicy.DEPARTMENT_BASED,dto.getFrequencyPolicy());
+        assertEquals(13L,dto.getCompanyReportingCheckpoint().id());
+        assertEquals(LocalDate.of(2027,3,1),dto.getCompanyReportingCheckpoint().startDate());
+        assertThrows(AccessDeniedException.class,()->service.get(20L,outsider));
+        assertThrows(AccessDeniedException.class,()->service.scoreBreakdown(20L,superiorId));
+        verify(assessments,never()).saveAndFlush(any());verify(aggregates,never()).refresh(any(),any(),any());verifyNoInteractions(email);
+        assertEquals(KpiFrequencyPolicy.DEPARTMENT_BASED,Mappers.getMapper(KpiPlanMapper.class).toContext(period).getFrequencyPolicy());
+    }
+
+    @Test void displayMetadataIsOptionalAndDoesNotCreateAReportingSource() {
+        complete();assessment.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        period.setFrequencyPolicy(KpiFrequencyPolicy.DEPARTMENT_BASED);
+        var dto=service.get(20L,owner);assertNull(dto.getCompanyReportingCheckpoint());
+        verify(checkpoints,never()).save(any());
+    }
+
+    @Test void scoreBreakdownDoesNotChangeLegacyAssessments() {
+        complete();
+        assertThrows(BadRequestException.class,()->service.scoreBreakdown(20L,owner));
+        verify(aggregates,never()).breakdown(any());
+    }
+
+    @Test void centralModelShowsOnlyIndividualAnswersAndDoesNotWaitForCentralPublication() {
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);
+        versionAssignments();
+        var virtual=service.mine(11L,owner);
+        assertEquals(KpiAssessmentModel.CENTRAL_RESULTS,virtual.getAssessmentModel());
+        assertEquals(List.of(KpiLevel.INDIVIDUAL),virtual.getItems().stream().map(KpiAssessmentItemDto::getLevel).toList());
+        assertEquals(3,virtual.getPlanVersionIds().size());
+        var request=request();request.setPlanVersionIds(virtual.getPlanVersionIds());request.setItems(List.of(answer(3,4)));
+        service.create(request,owner);
+        assertEquals(1,assessment.getItems().size());assertEquals(3,assessment.getPlanVersions().size());
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,service.submit(20L,owner).getStatus());
+        assertNull(assessment.getCheckpointScore());
+        verify(aggregates,never()).refresh(any(),any(),any());
+    }
+
+    @Test void centralModelRejectsCompanyAnswersAndKeepsSuperiorReviewIndividualOnly() {
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        var foreign=request();foreign.setItems(List.of(answer(1,3)));
+        assertThrows(AccessDeniedException.class,()->service.create(foreign,owner));
+        var request=request();request.setItems(List.of(answer(3,4)));service.create(request,owner);service.submit(20L,owner);
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");assessment.getItems().get(0).setId(8L);
+        var review=new KpiSuperiorAssessmentRequest();var answer=new KpiSuperiorAssessmentRequest.Answer();
+        answer.setItemId(8L);answer.setSuperiorPoint(5);review.setItems(List.of(answer));
+        service.saveSuperiorDraft(20L,review,superiorId);
+        var completed=service.completeReview(20L,superiorId);
+        assertEquals(KpiAssessmentStatus.REVIEWED,completed.getStatus());assertNull(completed.getCheckpointScore());
+        verify(aggregates).refresh(assessment,superiorId,"Individual KPI review completed");
+    }
+    void reviewer(UUID id,String permission) {SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(id,null,List.of(new SimpleGrantedAuthority(permission))));}
+
+    @Test void getNeverCreatesRecordAndExplainsMissingAssignments() {
+        var dto=service.mine(11L,owner);assertNull(dto.getId());assertNull(dto.getCreatedAt());
+        assertTrue(dto.isCanSaveDraft());assertFalse(dto.isCanSubmit());assertEquals(3,dto.getMissingLevels().size());
+        assertTrue(dto.getItems().isEmpty());verify(assessments,never()).saveAndFlush(any());
+    }
+
+    @Test void notificationAvailabilityReusesRecordedFrequencyAndAssignedIndividualKpisWithoutCentralResultsOrDraftWrites() {
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        assertTrue(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        var draft=new KpiAssessment();draft.setParticipant(participant);draft.setCheckpoint(checkpoint);draft.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
+        assertTrue(service.actionableSelfAssessmentForNotification(participant,checkpoint,draft));
+        assertTrue(draft.getItems().isEmpty());assertTrue(draft.getPlanVersions().isEmpty());
+        date("2027-01-31");assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        date("2027-02-01");checkpoint.setReviewFrequency(ReviewFrequency.QUARTERLY);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        checkpoint.setReviewFrequency(ReviewFrequency.MONTHLY);draft.setStatus(KpiAssessmentStatus.PENDING_REVIEW);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,draft));
+        checkpoint.setSelfAssessmentDeadline(null);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        verify(assessments,never()).saveAndFlush(any());verifyNoInteractions(aggregates,email);
+    }
+
+    @Test void notificationAvailabilitySkipsMissingPlansUpcomingAndClosedPeriodsAndMissingSuperior() {
+        assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        period.setStatus(AnnualKpiReviewPeriodStatus.UPCOMING);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);employee.setManager(null);assertFalse(service.actionableSelfAssessmentForNotification(participant,checkpoint,null));
+        verify(assessments,never()).saveAndFlush(any());
+    }
+    void versionAssignments() {
+        for(var assignment:assigned) {
+            var k=assignment.getKpi();var plan=k.getPlan();var v=new KpiPlanVersion();v.setId(k.getId());
+            v.setVersionNumber(1);v.setLevel(plan.getLevel());v.setPlan(plan);v.setReviewPeriodId(1L);v.setStatus(KpiVersionStatus.EFFECTIVE);
+            v.getItems().add(k);k.setVersion(v);plan.setCurrentVersion(v);
+        }
+    }
+    void reviseCompany() {
+        reviseLevel(KpiLevel.COMPANY);
+    }
+    void reviseLevel(KpiLevel level) {
+        var old=assigned.stream().map(EmployeeKpiAssignment::getKpi).filter(k->k.getPlan().getLevel()==level).findFirst().orElseThrow();
+        var plan=old.getPlan();old.getVersion().setStatus(KpiVersionStatus.SUPERSEDED);
+        var version=new KpiPlanVersion();version.setId(101L);version.setVersionNumber(2);version.setLevel(level);
+        version.setPlan(plan);version.setReviewPeriodId(1L);version.setStatus(KpiVersionStatus.EFFECTIVE);
+        var item=new Kpi();item.setId(101L);item.setName("Revised company");item.setPlan(plan);item.setPlanId(plan.getId());
+        item.setVersion(version);item.setWeightage(new BigDecimal("100"));version.getItems().add(item);plan.setCurrentVersion(version);
+        var assignment=new EmployeeKpiAssignment();assignment.setId(101L);assignment.setKpi(item);assignment.setKpiId(101L);
+        assignment.setParticipant(participant);assignment.setParticipantId(7L);assignment.setReviewPeriodId(1L);assigned.add(assignment);
+    }
+    @ParameterizedTest @EnumSource(KpiLevel.class)
+    void persistedEmptyDraftFreezesAvailableVersionsAndLaterBindsMissingLevels(KpiLevel level) {
+        assign(level,1);versionAssignments();service.create(request(),owner);
+        assertEquals(1,assessment.getPlanVersions().size());assertNull(assessment.getItems().get(0).getSelfPoint());
+        reviseLevel(level);assign(level==KpiLevel.DEPARTMENT?KpiLevel.COMPANY:KpiLevel.DEPARTMENT,2);
+        var detail=service.get(20L,owner);assertEquals(2,detail.getItems().size());
+        assertEquals(1L,detail.getPlanVersionIds().get(level));
+        assertEquals(1,assessment.getPlanVersions().size());service.update(20L,request(),owner);
+        assertEquals(2,assessment.getItems().size());assertEquals(1L,assessment.getItems().get(0).getAssignment().getId());
+        assertFalse(service.get(20L,owner).getMissingLevels().contains(level));
+    }
+    @ParameterizedTest @EnumSource(KpiLevel.class)
+    void staleFirstSaveRejectedButFreshFirstSaveUsesCurrentVersion(KpiLevel level) {
+        assign(level,1);versionAssignments();var virtual=service.mine(11L,owner);assertEquals(1L,virtual.getPlanVersionIds().get(level));
+        reviseLevel(level);var stale=request();stale.setPlanVersionIds(virtual.getPlanVersionIds());
+        assertThrows(com.tbm.careerpathlearning.exception.KpiVersionConflictException.class,()->service.create(stale,owner));
+        assertThrows(com.tbm.careerpathlearning.exception.KpiVersionConflictException.class,()->service.create(request(),owner));
+        var fresh=request();fresh.setPlanVersionIds(service.mine(11L,owner).getPlanVersionIds());service.create(fresh,owner);
+        assertEquals(101L,assessment.getItems().get(0).getAssignment().getId());assertEquals(101L,assessment.getPlanVersions().get(0).getVersion().getId());
+    }
+    @ParameterizedTest @EnumSource(KpiLevel.class)
+    void submittedAndReviewedDefinitionsAnswersAndScoreStayOriginalAfterRevision(KpiLevel level) {
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);versionAssignments();
+        var r=request();r.setItems(List.of(answer(1,4),answer(2,3),answer(3,5)));service.create(r,owner);service.submit(20L,owner);
+        var original=assigned.stream().filter(a->a.getKpi().getPlan().getLevel()==level).findFirst().orElseThrow();
+        reviseLevel(level);reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");
+        var superiorRequest=new KpiSuperiorAssessmentRequest();var answers=new ArrayList<KpiSuperiorAssessmentRequest.Answer>();
+        for(var item:assessment.getItems()) {item.setId(item.getAssignment().getId());var answer=new KpiSuperiorAssessmentRequest.Answer();answer.setItemId(item.getId());answer.setSuperiorPoint(item.getSelfPoint());answers.add(answer);}
+        superiorRequest.setItems(answers);service.saveSuperiorDraft(20L,superiorRequest,superiorId);var result=service.completeReview(20L,superiorId);
+        assertEquals(0,new BigDecimal("87").compareTo(result.getCheckpointScore()));
+        var preserved=result.getItems().stream().filter(i->i.getAssignmentId().equals(original.getId())).findFirst().orElseThrow();
+        assertEquals(level+" KPI",preserved.getKpi().getName());
+        assertEquals(original.getKpi().getVersion().getId(),result.getPlanVersionIds().get(level));
+    }
+    @Test void employeeDetailsUseRecordedParticipantContext() {
+        participant.setRoleName("Sales Executive");
+        var currentRole=new Role();currentRole.setName("Current Role");participant.setRole(currentRole);
+        var level=new EmployeeLevel();level.setId(4L);level.setName("Executive");
+        participant.getEmployeeLevelConfiguration().setEmployeeLevel(level);
+        var dto=service.mine(11L,owner);
+        assertEquals("Amir",dto.getEmployeeName());assertEquals("Sales Executive",dto.getRoleName());
+        assertEquals("Executive",dto.getKpiAllocation().getEmployeeLevelName());
+        verify(assessments,never()).saveAndFlush(any());
+    }
+    @Test void emptyDraftSavesEvenWithoutAssignmentsOrSuperior() {
+        employee.setManager(null);var dto=service.create(request(),owner);
+        assertEquals(KpiAssessmentStatus.DRAFT,dto.getStatus());assertTrue(dto.getItems().isEmpty());
+        assertThrows(BadRequestException.class,()->service.submit(20L,owner));verifyNoInteractions(email);
+    }
+    @Test void openingIsTheDayAfterEndDateForAllFrequencies() {
+        for(var frequency:ReviewFrequency.values()) {
+            participant.setReviewFrequency(frequency);checkpoint.setReviewFrequency(frequency);
+            var end=switch(frequency) {
+                case MONTHLY->LocalDate.of(2027,1,31);
+                case QUARTERLY->LocalDate.of(2027,3,31);
+                case ANNUALLY->LocalDate.of(2027,12,31);
+            };
+            checkpoint.setEndDate(end);checkpoint.setSelfAssessmentDeadline(end.plusDays(5));
+            checkpoint.setSuperiorAssessmentDeadline(end.plusDays(10));
+            date(end.toString());assertFalse(service.mine(11L,owner).getCheckpoint().isAvailable());
+            assertThrows(BadRequestException.class,()->service.create(request(),owner));
+            date(end.plusDays(1).toString());assertTrue(service.mine(11L,owner).getCheckpoint().isAvailable());
+        }
+    }
+    @Test void deadlineDayIsOnTimeAndFollowingDayIsLate() {
+        complete();date("2027-02-05");var submitted=service.submit(20L,owner);assertFalse(submitted.getSubmittedLate());
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,submitted.getStatus());assertEquals(superiorId,submitted.getSubmittedToSuperiorId());
+        assertNull(submitted.getCheckpointScore());assessment.setStatus(KpiAssessmentStatus.DRAFT);
+        date("2027-02-06");assertTrue(service.submit(20L,owner).getSubmittedLate());
+    }
+    @Test void finalCheckpointCanBeSubmittedAfterAnnualEndDate() {
+        checkpoint.setReviewFrequency(ReviewFrequency.ANNUALLY);participant.setReviewFrequency(ReviewFrequency.ANNUALLY);
+        checkpoint.setEndDate(LocalDate.of(2027,12,31));period.setEndDate(LocalDate.of(2027,12,31));
+        checkpoint.setSelfAssessmentDeadline(LocalDate.of(2028,1,5));date("2028-01-01");complete();
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,service.submit(20L,owner).getStatus());
+    }
+    @Test void draftAnswersSurviveLateAssignmentAndSubmissionRequiresNewPoint() {
+        assign(KpiLevel.COMPANY,1);var r=request();r.setItems(List.of(answer(1,4)));service.create(r,owner);
+        assign(KpiLevel.DEPARTMENT,2);assign(KpiLevel.INDIVIDUAL,3);
+        var projected=service.get(20L,owner);assertEquals(3,projected.getItems().size());assertEquals(1,assessment.getItems().size());
+        assertEquals(4,projected.getItems().get(0).getSelfPoint());
+        assertThrows(BadRequestException.class,()->service.submit(20L,owner));
+        r.setItems(List.of(answer(2,3),answer(3,5)));service.update(20L,r,owner);
+        assertEquals(4,assessment.getItems().get(0).getSelfPoint());assertTrue(service.get(20L,owner).isCanSubmit());
+    }
+    @Test void missingRequiredLevelHasSpecificReason() {
+        assign(KpiLevel.COMPANY,1);var r=request();r.setItems(List.of(answer(1,5)));service.create(r,owner);
+        var failure=assertThrows(BadRequestException.class,()->service.submit(20L,owner));assertTrue(failure.getMessage().contains("Department KPIs"));
+    }
+    @Test void zeroAllocatedLevelDoesNotRequireAPlan() {
+        participant.getEmployeeLevelConfiguration().setDepartmentKpiWeight(BigDecimal.ZERO);
+        assign(KpiLevel.COMPANY,1);assign(KpiLevel.INDIVIDUAL,3);var r=request();r.setItems(List.of(answer(1,4),answer(3,4)));
+        service.create(r,owner);assertTrue(service.get(20L,owner).isCanSubmit());
+    }
+    @Test void incompleteAssignmentOfConfirmedPlanStillBlocksSubmission() {
+        complete();var extra=new Kpi();extra.setId(100L);assigned.get(0).getKpi().getPlan().getItems().add(extra);
+        assertTrue(service.get(20L,owner).getMissingLevels().contains(KpiLevel.COMPANY));
+        assertThrows(BadRequestException.class,()->service.submit(20L,owner));
+    }
+    @Test void draftOrPendingPlansAreNotAssessmentItems() {
+        assign(KpiLevel.DEPARTMENT,1);assigned.get(0).getKpi().getPlan().setStatus(KpiPlanStatus.PENDING_APPROVAL);
+        assertTrue(service.mine(11L,owner).getItems().isEmpty());
+    }
+    @Test void invalidDuplicateAndForeignAnswersAreRejected() {
+        assign(KpiLevel.COMPANY,1);var r=request();r.setItems(List.of(answer(1,0)));assertThrows(BadRequestException.class,()->service.create(r,owner));
+        r.setItems(List.of(answer(1,6)));assertThrows(BadRequestException.class,()->service.create(r,owner));
+        r.setItems(List.of(answer(1,3),answer(1,4)));assertThrows(BadRequestException.class,()->service.create(r,owner));
+        r.setItems(List.of(answer(99,3)));assertThrows(AccessDeniedException.class,()->service.create(r,owner));
+    }
+    @Test void ownershipFrequencyAndDuplicateCheckpointAreProtected() {
+        assertThrows(AccessDeniedException.class,()->service.create(request(),outsider));
+        participant.setReviewFrequency(ReviewFrequency.QUARTERLY);assertThrows(AccessDeniedException.class,()->service.mine(11L,owner));
+        participant.setReviewFrequency(ReviewFrequency.MONTHLY);complete();
+        assertThrows(AccessDeniedException.class,()->service.update(20L,request(),outsider));
+        when(assessments.findByParticipantIdAndCheckpointId(7L,11L)).thenReturn(Optional.of(assessment));
+        assertThrows(BadRequestException.class,()->service.create(request(),owner));
+    }
+    @Test void pendingAndClosedAssessmentsAreReadOnlyAndFrozen() {
+        complete();service.submit(20L,owner);assign(KpiLevel.COMPANY,9);assertEquals(3,service.get(20L,owner).getItems().size());
+        assertThrows(BadRequestException.class,()->service.update(20L,request(),owner));
+        assertThrows(BadRequestException.class,()->service.submit(20L,owner));
+        assessment.setStatus(KpiAssessmentStatus.DRAFT);period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);
+        assertThrows(BadRequestException.class,()->service.update(20L,request(),owner));
+    }
+    @Test void missingInactiveDeletedOrSelfSuperiorBlocksOnlySubmission() {
+        complete();for(int i=0;i<4;i++) {
+            employee.setManager(i==0?null:i==3?employee:superior);superior.setDeleted(i==1);
+            superior.setAccountStatus(i==2?StaffAccountStatus.INACTIVE:StaffAccountStatus.ACTIVE);
+            assertThrows(BadRequestException.class,()->service.submit(20L,owner));
+            assertDoesNotThrow(()->service.update(20L,request(),owner));
+        }
+    }
+    @Test void reviewerNeedsPermissionCurrentRelationshipAndSavedRoute() {
+        complete();service.submit(20L,owner);reviewer(superiorId,"CAN_REVIEW_INDIVIDUAL_KPI");
+        assertThrows(AccessDeniedException.class,()->service.get(20L,superiorId));
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");assertDoesNotThrow(()->service.get(20L,superiorId));
+        employee.setManager(null);assertThrows(AccessDeniedException.class,()->service.get(20L,superiorId));
+        assertDoesNotThrow(()->service.get(20L,owner));
+    }
+    @Test void supervisorCannotSeeEmployeeDraftOrUnfinishedSuperiorPoints() {
+        complete();reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.get(20L,superiorId));
+        service.submit(20L,owner);assessment.getItems().get(0).setSuperiorPoint(5);
+        assertNull(service.get(20L,owner).getItems().get(0).getSuperiorPoint());
+    }
+    @Test void notificationWaitsForCommitAndSubmissionFailureSendsNothing() {
+        complete();TransactionSynchronizationManager.initSynchronization();service.submit(20L,owner);
+        verifyNoInteractions(email);TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+        verify(email).sendKpiSelfAssessmentSubmittedEmail(eq("superior@example.test"),eq("Amir"),eq("Annual Review"),eq("2027-01-31"),any());
+    }
+    @Test void evidenceMutationRequiresOwnerDraftAndFailedSaveCleansStorage() {
+        complete();var item=assessment.getItems().get(0);item.setId(30L);when(items.findById(30L)).thenReturn(Optional.of(item));
+        var upload=mock(org.springframework.web.multipart.MultipartFile.class);
+        assertThrows(AccessDeniedException.class,()->service.upload(30L,upload,outsider));verifyNoInteractions(storage);
+        var stored=new KpiAssessmentEvidenceStorage.Stored(UUID.randomUUID().toString(),"proof.pdf","application/pdf",20);
+        when(storage.store(upload)).thenReturn(stored);when(files.saveAndFlush(any())).thenThrow(new IllegalStateException("DB failed"));
+        assertThrows(IllegalStateException.class,()->service.upload(30L,upload,owner));verify(storage).delete(stored.key());
+        assessment.setStatus(KpiAssessmentStatus.PENDING_REVIEW);assertThrows(BadRequestException.class,()->service.upload(30L,upload,owner));
+    }
+    @Test void evidenceDownloadAndDeletionAreScopedAndDeletionWaitsForCommit() {
+        complete();var item=assessment.getItems().get(0);item.setId(30L);
+        var file=new KpiAssessmentEvidence();file.setId(40L);file.setItem(item);file.setStorageKey(UUID.randomUUID().toString());
+        when(files.findById(40L)).thenReturn(Optional.of(file));
+        assertThrows(AccessDeniedException.class,()->service.download(40L,outsider));
+        TransactionSynchronizationManager.initSynchronization();service.deleteEvidence(40L,owner);
+        verify(storage,never()).delete(any());TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+        verify(storage).delete(file.getStorageKey());
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);assertThrows(BadRequestException.class,()->service.deleteEvidence(40L,owner));
+    }
+    @Test void evidenceUploadIsCleanedAfterTransactionRollback() {
+        complete();var item=assessment.getItems().get(0);item.setId(30L);when(items.findById(30L)).thenReturn(Optional.of(item));
+        var upload=mock(org.springframework.web.multipart.MultipartFile.class);
+        var stored=new KpiAssessmentEvidenceStorage.Stored(UUID.randomUUID().toString(),"proof.pdf","application/pdf",20);
+        when(storage.store(upload)).thenReturn(stored);TransactionSynchronizationManager.initSynchronization();
+        service.upload(30L,upload,owner);verify(storage,never()).delete(any());
+        TransactionSynchronizationManager.getSynchronizations().forEach(s->s.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+        verify(storage).delete(stored.key());
+    }
+    @Test void inactiveEmployeeCannotSaveReadOrSubmit() {
+        complete();employee.setAccountStatus(StaffAccountStatus.INACTIVE);
+        assertThrows(AccessDeniedException.class,()->service.get(20L,owner));
+        assertThrows(AccessDeniedException.class,()->service.update(20L,request(),owner));
+        assertThrows(AccessDeniedException.class,()->service.submit(20L,owner));
+    }
+
+    void pendingReview() {
+        complete();service.submit(20L,owner);
+        long id=30;for(var item:assessment.getItems()) item.setId(id++);
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");clearInvocations(email);
+    }
+    KpiSuperiorAssessmentRequest superiorRequest(Integer... points) {
+        var request=new KpiSuperiorAssessmentRequest();var answers=new ArrayList<KpiSuperiorAssessmentRequest.Answer>();
+        for(int i=0;i<points.length;i++) {
+            var answer=new KpiSuperiorAssessmentRequest.Answer();answer.setItemId(30L+i);
+            answer.setSuperiorPoint(points[i]);answer.setSuperiorComment("  Supported by evidence  ");answers.add(answer);
+        }
+        request.setItems(answers);return request;
+    }
+    @Test void superiorDraftIsIncompletePendingAndVisibleOnlyToReviewer() {
+        pendingReview();var draft=service.saveSuperiorDraft(20L,superiorRequest(4),superiorId);
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,draft.getStatus());assertEquals(4,draft.getItems().get(0).getSuperiorPoint());
+        assertEquals("Supported by evidence",draft.getItems().get(0).getSuperiorComment());
+        assertTrue(draft.isCanSaveSuperiorDraft());assertFalse(draft.isCanCompleteReview());assertNull(draft.getCheckpointScore());
+        assertTrue(draft.isSuperiorDraftSaved());
+        assertNull(draft.getReviewedAt());assertEquals(2,draft.getReviewBlockers().size());
+        var ownerView=service.get(20L,owner);assertNull(ownerView.getItems().get(0).getSuperiorPoint());
+        assertNull(ownerView.getItems().get(0).getSuperiorComment());assertFalse(ownerView.isCanSaveSuperiorDraft());
+        assertFalse(ownerView.isSuperiorDraftSaved());assertEquals(KpiAssessmentStatus.PENDING_REVIEW,ownerView.getStatus());
+        assertDoesNotThrow(()->service.saveSuperiorDraft(20L,new KpiSuperiorAssessmentRequest(),superiorId));
+        assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));verifyNoInteractions(email);
+        assertEquals(1,assessment.getItems().get(0).getSelfPoint());assertEquals("Evidence reviewed",assessment.getItems().get(0).getSelfComment());
+    }
+    @Test void openingDoesNotStartSuperiorDraftButEvenAnEmptySavePersistsProgress() {
+        pendingReview();var updatedAt=assessment.getUpdatedAt();
+        assertFalse(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertFalse(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertEquals(owner,assessment.getUpdatedBy());assertEquals(updatedAt,assessment.getUpdatedAt());
+        clearInvocations(assessments);
+        service.get(20L,superiorId);verify(assessments,never()).saveAndFlush(any());
+        var saved=service.saveSuperiorDraft(20L,new KpiSuperiorAssessmentRequest(),superiorId);
+        assertTrue(saved.isSuperiorDraftSaved());assertEquals(KpiAssessmentStatus.PENDING_REVIEW,saved.getStatus());
+        assertTrue(saved.getItems().stream().allMatch(i->i.getSuperiorPoint()==null));
+        assertTrue(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertThrows(BadRequestException.class,()->service.update(20L,request(),owner));
+    }
+    @Test void savedSuperiorProgressAppearsInQueueAndSurvivesClearingAnswers() {
+        pendingReview();
+        when(assessments.findReviewAssessments(superiorId,List.of(KpiAssessmentStatus.PENDING_REVIEW),1L)).thenReturn(List.of(assessment));
+        assertFalse(service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId).get(0).isSuperiorDraftSaved());
+        service.saveSuperiorDraft(20L,superiorRequest(4),superiorId);
+        var cleared=superiorRequest((Integer)null);cleared.getItems().get(0).setSuperiorComment(null);
+        service.saveSuperiorDraft(20L,cleared,superiorId);
+        var row=service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId).get(0);
+        assertTrue(row.isSuperiorDraftSaved());assertTrue(row.isCanReview());
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,row.getStatus());
+        assertTrue(service.get(20L,superiorId).isSuperiorDraftSaved());
+        assertNull(assessment.getItems().get(0).getSuperiorPoint());assertNull(assessment.getItems().get(0).getSuperiorComment());
+    }
+    @Test void completionUsesOnlySuperiorPointsAndRevealsOfficialResultToEmployee() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        assertTrue(service.get(20L,superiorId).isCanCompleteReview());
+        var reviewed=service.completeReview(20L,superiorId);
+        assertEquals(KpiAssessmentStatus.REVIEWED,reviewed.getStatus());assertEquals(new BigDecimal("87.0000"),reviewed.getCheckpointScore());
+        assertEquals(superiorId,reviewed.getReviewedBy());assertNotNull(reviewed.getReviewedAt());assertFalse(reviewed.getReviewedLate());
+        assertFalse(reviewed.isCanSaveSuperiorDraft());assertFalse(reviewed.isCanCompleteReview());
+        assertFalse(reviewed.isSuperiorDraftSaved());
+        assertEquals(4,service.get(20L,owner).getItems().get(0).getSuperiorPoint());
+        assertEquals(1,assessment.getItems().get(0).getSelfPoint());
+        assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,superiorRequest(1),superiorId));
+        assertThrows(BadRequestException.class,()->service.update(20L,request(),owner));
+    }
+    @Test void superiorDeadlineDayIsOnTimeAndLateReviewIsAllowedAfterAnnualEnd() {
+        pendingReview();period.setEndDate(LocalDate.of(2027,1,31));service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        date("2027-02-10");assertFalse(service.get(20L,superiorId).isSuperiorOverdue());
+        assertFalse(service.completeReview(20L,superiorId).getReviewedLate());
+        assessment.setStatus(KpiAssessmentStatus.PENDING_REVIEW);date("2027-02-11");
+        assertTrue(service.get(20L,superiorId).isSuperiorOverdue());
+        assertTrue(service.completeReview(20L,superiorId).getReviewedLate());assertFalse(service.get(20L,owner).isSuperiorOverdue());
+    }
+    @Test void permissionAndBothReportingRelationshipsAreRequiredForWrites() {
+        pendingReview();reviewer(superiorId,"ROLE_USER");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+        assertThrows(AccessDeniedException.class,()->service.completeReview(20L,superiorId));
+        reviewer(owner,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),owner));
+        reviewer(outsider,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),outsider));
+        employee.setManager(staff.findById(outsider).orElseThrow());
+        assertThrows(AccessDeniedException.class,()->service.completeReview(20L,outsider));
+        reviewer(superiorId,"CAN_REVIEW_KPI_ASSESSMENT");
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+        employee.setManager(superior);superior.setAccountStatus(StaffAccountStatus.INACTIVE);
+        assertThrows(AccessDeniedException.class,()->service.completeReview(20L,superiorId));
+    }
+    @Test void employeeDraftAndNonOpenPeriodsCannotReceiveSuperiorAnswers() {
+        pendingReview();assessment.setStatus(KpiAssessmentStatus.DRAFT);
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+        assessment.setStatus(KpiAssessmentStatus.PENDING_REVIEW);
+        for(var status:List.of(AnnualKpiReviewPeriodStatus.CLOSED,AnnualKpiReviewPeriodStatus.UPCOMING)) {
+            period.setStatus(status);var dto=service.get(20L,superiorId);
+            assertFalse(dto.isCanSaveSuperiorDraft());assertFalse(dto.isCanCompleteReview());
+            assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,superiorRequest(4),superiorId));
+            assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));
+        }
+    }
+    @Test void invalidSuperiorAnswersCannotChangeAnyItem() {
+        pendingReview();
+        for(var point:List.of(0,6)) assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,superiorRequest(point),superiorId));
+        var duplicate=superiorRequest(4,3);duplicate.getItems().get(1).setItemId(30L);
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,duplicate,superiorId));
+        var foreign=superiorRequest(4,3);foreign.getItems().get(1).setItemId(999L);
+        assertThrows(AccessDeniedException.class,()->service.saveSuperiorDraft(20L,foreign,superiorId));
+        var longComment=superiorRequest(4);longComment.getItems().get(0).setSuperiorComment("x".repeat(10001));
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,longComment,superiorId));
+        var missingId=superiorRequest(4);missingId.getItems().get(0).setItemId(null);
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,missingId,superiorId));
+        var nullItems=new KpiSuperiorAssessmentRequest();nullItems.setItems(null);
+        assertThrows(BadRequestException.class,()->service.saveSuperiorDraft(20L,nullItems,superiorId));
+        assertTrue(assessment.getItems().stream().allMatch(i->i.getSuperiorPoint()==null));
+        service.saveSuperiorDraft(20L,superiorRequest(4),superiorId);
+        service.saveSuperiorDraft(20L,superiorRequest((Integer)null),superiorId);
+        assertNull(assessment.getItems().get(0).getSuperiorPoint());
+    }
+    @Test void reviewUsesFrozenSubmissionEvenWhenMoreKpisAreLaterAssigned() {
+        pendingReview();assign(KpiLevel.COMPANY,9);
+        service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        assertEquals(3,service.completeReview(20L,superiorId).getItems().size());
+        assertEquals(new BigDecimal("87.0000"),assessment.getCheckpointScore());
+    }
+    @Test void invalidRecordedWeightsPreventCompletionWithoutTransitionOrNotification() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        assigned.get(0).getKpi().setWeightage(new BigDecimal("60"));
+        assertThrows(BadRequestException.class,()->service.completeReview(20L,superiorId));
+        assertEquals(KpiAssessmentStatus.PENDING_REVIEW,assessment.getStatus());assertNull(assessment.getReviewedAt());
+        assertNull(assessment.getCheckpointScore());verifyNoInteractions(email);
+    }
+    @Test void superiorQueueIsScopedFilteredAndIncludesRecordedContext() {
+        pendingReview();participant.setDepartmentName("Recorded Sales");participant.setRoleName("Recorded Executive");
+        when(assessments.findReviewAssessments(superiorId,List.of(KpiAssessmentStatus.PENDING_REVIEW),1L)).thenReturn(List.of(assessment));
+        var queue=service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId);
+        assertEquals(1,queue.size());assertEquals("Recorded Sales",queue.get(0).getDepartmentName());assertEquals("Recorded Executive",queue.get(0).getRoleName());
+        assertTrue(queue.get(0).isCanReview());assertEquals(owner,queue.get(0).getEmployeeId());
+        employee.setManager(null);assertTrue(service.reviews(1L,KpiAssessmentStatus.PENDING_REVIEW,superiorId).isEmpty());
+        assertThrows(BadRequestException.class,()->service.reviews(null,KpiAssessmentStatus.DRAFT,superiorId));
+        reviewer(superiorId,"ROLE_USER");assertThrows(AccessDeniedException.class,()->service.reviews(null,null,superiorId));
+    }
+    @Test void reviewedNotificationWaitsForCommitAndFailureDoesNotUndoResult() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        employee.setEmail("employee@example.test");TransactionSynchronizationManager.initSynchronization();
+        service.completeReview(20L,superiorId);verifyNoInteractions(email);
+        doThrow(new IllegalStateException("Mail unavailable")).when(email).sendKpiAssessmentReviewedEmail(any(),any(),any(),any(),any());
+        assertDoesNotThrow(()->TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit));
+        verify(email).sendKpiAssessmentReviewedEmail(eq("employee@example.test"),eq("Amir"),eq("Annual Review"),eq("2027-01-31"),any());
+        assertEquals(KpiAssessmentStatus.REVIEWED,assessment.getStatus());
+    }
+    @Test void failedReviewPersistenceDoesNotSendEmail() {
+        pendingReview();service.saveSuperiorDraft(20L,superiorRequest(4,3,5),superiorId);
+        doThrow(new IllegalStateException("Persistence failed")).when(assessments).saveAndFlush(any());
+        assertThrows(IllegalStateException.class,()->service.completeReview(20L,superiorId));verifyNoInteractions(email);
+    }
+    @Test void routedReviewerCanReadEvidenceButCannotUploadOrDeleteEmployeeFiles() {
+        pendingReview();var item=assessment.getItems().get(0);
+        var evidence=new KpiAssessmentEvidence();evidence.setId(40L);evidence.setItem(item);evidence.setStorageKey(UUID.randomUUID().toString());
+        item.getEvidence().add(evidence);when(items.findById(30L)).thenReturn(Optional.of(item));
+        when(files.findById(40L)).thenReturn(Optional.of(evidence));
+        assertEquals(1,service.evidence(30L,superiorId).size());assertDoesNotThrow(()->service.download(40L,superiorId));
+        assertThrows(AccessDeniedException.class,()->service.upload(30L,mock(org.springframework.web.multipart.MultipartFile.class),superiorId));
+        assertThrows(AccessDeniedException.class,()->service.deleteEvidence(40L,superiorId));
+        employee.setManager(null);assertThrows(AccessDeniedException.class,()->service.download(40L,superiorId));
+        assertDoesNotThrow(()->service.download(40L,owner));verify(files,never()).delete(any());
+    }
+}

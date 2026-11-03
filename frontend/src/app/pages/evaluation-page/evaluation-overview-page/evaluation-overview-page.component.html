@@ -1,6 +1,11 @@
 <div class="centered-padding-body">
-  <div>
-    <h1 class="text-center">{{ titleKey | translate }}</h1>
+  <div class="local-page-heading">
+    <span class="section-kicker">Performance and Appraisal</span>
+    <h1>{{ titleKey | translate }}</h1>
+    <p>Monitor team outcomes, trends, competency strengths, and appraisal readiness.</p>
+    <p *ngIf="selectedDepartmentName" class="department-filter-context">
+      Filtered by {{ selectedDepartmentName }}
+    </p>
   </div>
 
   <nz-skeleton *ngIf="loading"></nz-skeleton>
@@ -24,7 +29,7 @@
             <nz-statistic [nzValue]="staffEvaluatedCount" [nzSuffix]="'/' + totalStaffCount"
               [nzTitle]="'Staff Evaluated'" [nzValueStyle]="{ color: '#52c41a' }">
             </nz-statistic>
-            <button nz-button nzType="primary" (click)="navigateToEvaluation()" [disabled]="!isEvaluationOpen">
+            <button *ngIf="canManageEvaluation" nz-button nzType="primary" (click)="navigateToEvaluation()" [disabled]="!isEvaluationOpen">
               Evaluate
             </button>
           </div>
@@ -91,7 +96,20 @@
     <div class="charts-section">
       <!-- Performance Trend Line Chart -->
       <div class="chart-card">
-        <nz-card [nzTitle]="'Performance Trend'">
+        <nz-card>
+          <div class="chart-card-header">
+            <div class="chart-card-title">Performance Trend</div>
+            <div class="trend-range-toggle" aria-label="Performance trend range">
+              <button
+                *ngFor="let years of trendRangeOptions"
+                nz-button
+                nzSize="small"
+                [nzType]="selectedTrendRangeYears === years ? 'primary' : 'default'"
+                (click)="setTrendRange(years)">
+                {{ years }}Y
+              </button>
+            </div>
+          </div>
           <div class="chart-container">
             <canvas baseChart [data]="lineChartData" [options]="lineChartOptions" [type]="'line'">
             </canvas>
@@ -265,6 +283,8 @@
                   </div>
                 </nz-dropdown-menu>
                 <th>Status</th>
+                <th>Appraisal Status</th>
+                <th>Appraisal Category</th>
                 <th>Trend</th>
                 <th>Action</th>
               </tr>
@@ -282,6 +302,26 @@
                   <nz-tag [nzColor]="getPerformanceCategory(performer.averageScore || 0).color">
                     {{ getPerformanceCategory(performer.averageScore || 0).label }}
                   </nz-tag>
+                </td>
+                <td>
+                  <nz-tag *ngIf="getAppraisalStatus(performer.staff.id) as appraisalStatus; else noAppraisalStatus"
+                    [nzColor]="getAppraisalStatusColor(appraisalStatus)">
+                    {{ formatAppraisalValue(appraisalStatus) }}
+                  </nz-tag>
+                  <ng-template #noAppraisalStatus>—</ng-template>
+                </td>
+                <td>
+                  <ng-container *ngIf="getAppraisalCategoryItems(performer.staff.id) as appraisalCategories">
+                    <div *ngIf="appraisalCategories.length > 0; else noAppraisalCategory" class="appraisal-category-tags">
+                      <div *ngFor="let item of appraisalCategories" class="appraisal-category-row">
+                        <span class="appraisal-category-label">{{ item.label }}:</span>
+                        <nz-tag [nzColor]="getAppraisalCategoryColor(item.category)">
+                          {{ formatAppraisalValue(item.category) }}
+                        </nz-tag>
+                      </div>
+                    </div>
+                  </ng-container>
+                  <ng-template #noAppraisalCategory>—</ng-template>
                 </td>
                 <td>
                   <nz-icon [nzType]="getTrendIcon(performer.trend)"

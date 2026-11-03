@@ -1,0 +1,93 @@
+import { KpiItem, KpiLevel, KpiPeriodContext } from './kpi-plan.model';
+
+export type KpiAssessmentStatus = 'DRAFT' | 'PENDING_REVIEW' | 'REVIEWED';
+export type KpiAssessmentModel = 'LEGACY_ALL_LEVELS' | 'CENTRAL_RESULTS';
+export interface KpiScoreBreakdown {
+  assessmentId: number;
+  checkpointScore: number | null;
+  levels: {
+    level: KpiLevel;
+    allocation: number;
+    versionNumber: number | null;
+    resultEditionNumber: number | null;
+    publishedAt: string | null;
+    reportingCheckpoint?: { id: number; reviewFrequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'; startDate: string; endDate: string } | null;
+    status: 'PENDING' | 'AVAILABLE' | 'NOT_APPLICABLE';
+    contribution: number | null;
+    items: { kpi: KpiItem; actualAchievement: string | null; point: number }[];
+  }[];
+}
+export interface KpiAssessmentCheckpoint {
+  id: number; reviewFrequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'; sequenceNumber: number;
+  startDate: string; endDate: string; availableFrom: string;
+  selfAssessmentDeadline: string; superiorAssessmentDeadline: string;
+  available: boolean; overdue: boolean; assessmentId: number | null; assessmentStatus: KpiAssessmentStatus | null;
+}
+export interface KpiAssessmentEvidence {
+  id: number; originalFilename: string; contentType: string; sizeBytes: number;
+  uploadedBy: string; uploadedAt: string;
+}
+export interface KpiAssessmentItem {
+  id: number | null; assignmentId: number; level: KpiLevel; kpi: KpiItem;
+  selfPoint: number | null; selfComment: string | null;
+  superiorPoint: number | null; superiorComment: string | null;
+  evidence: KpiAssessmentEvidence[];
+}
+export interface KpiAssessment {
+  frequencyPolicy?: 'ROLE_BASED' | 'DEPARTMENT_BASED';
+  companyReportingCheckpoint?: KpiScoreBreakdown['levels'][number]['reportingCheckpoint'];
+  assessmentModel: KpiAssessmentModel; pendingResultLevels: KpiLevel[];
+  planVersionIds?: Partial<Record<KpiLevel, number>>;
+  id: number | null; participantId: number; employeeName: string;
+  roleName?: string | null;
+  departmentName?: string | null;
+  reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
+  checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentStatus; items: KpiAssessmentItem[];
+  kpiAllocation: KpiPeriodContext['kpiAllocation']; missingLevels: KpiLevel[]; submissionBlockers: string[];
+  canSaveDraft: boolean; canSubmit: boolean; overdue: boolean;
+  canSaveSuperiorDraft?: boolean; canCompleteReview?: boolean; superiorOverdue?: boolean; reviewBlockers?: string[];
+  superiorDraftSaved?: boolean;
+  createdAt: string | null; updatedAt: string | null; submittedAt: string | null; submittedBy: string | null;
+  submittedToSuperiorId: string | null; submittedLate: boolean | null;
+  reviewedAt: string | null; reviewedBy: string | null; reviewedLate: boolean | null; checkpointScore: number | null;
+}
+export interface KpiAssessmentRequest {
+  planVersionIds?: Partial<Record<KpiLevel, number>>;
+  checkpointId: number;
+  items: { assignmentId: number; selfPoint: number | null; selfComment: string | null }[];
+}
+export type KpiAssessmentReviewStatus = Exclude<KpiAssessmentStatus, 'DRAFT'>;
+export type KpiSuperiorReviewProgress = 'PENDING_REVIEW' | 'DRAFT' | 'REVIEWED';
+export function superiorReviewProgress(assessment: { status: KpiAssessmentStatus; superiorDraftSaved?: boolean }): KpiSuperiorReviewProgress {
+  if (assessment.status === 'REVIEWED') return 'REVIEWED';
+  return assessment.superiorDraftSaved ? 'DRAFT' : 'PENDING_REVIEW';
+}
+export interface KpiAssessmentReview {
+  assessmentModel: KpiAssessmentModel; pendingResultLevels: KpiLevel[];
+  id: number; employeeId: string; employeeName: string; roleName: string | null; departmentName: string | null;
+  reviewPeriodId: number; reviewPeriodName: string; reviewPeriodStatus: KpiPeriodContext['status'];
+  checkpoint: KpiAssessmentCheckpoint; status: KpiAssessmentReviewStatus;
+  submittedAt: string; submittedLate: boolean; reviewedAt: string | null; reviewedLate: boolean | null;
+  checkpointScore: number | null; canReview: boolean; superiorOverdue: boolean;
+  superiorDraftSaved?: boolean;
+}
+export interface KpiSuperiorAssessmentRequest {
+  items: { itemId: number; superiorPoint: number | null; superiorComment: string | null }[];
+}
+export function superiorAssessmentItemError(item: KpiAssessmentItem, completing = false): string | null {
+  return assessmentItemError({ ...item, selfPoint: item.superiorPoint, selfComment: item.superiorComment }, completing);
+}
+export function assessmentItemError(item: KpiAssessmentItem, submitting = false): string | null {
+  return assessmentPointError(item.selfPoint, submitting) ?? assessmentCommentError(item.selfComment);
+}
+export function assessmentPointError(point: number | null | undefined, required = false): string | null {
+  if (point === null || point === undefined) {
+    if (required) return 'MY_ASSESSMENTS.POINT_REQUIRED';
+  } else if (!Number.isInteger(point) || point < 1 || point > 5) {
+    return 'MY_ASSESSMENTS.INVALID_POINT';
+  }
+  return null;
+}
+export function assessmentCommentError(comment: string | null | undefined): string | null {
+  return (comment?.length ?? 0) > 10000 ? 'MY_ASSESSMENTS.COMMENT_TOO_LONG' : null;
+}

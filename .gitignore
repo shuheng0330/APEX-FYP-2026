@@ -13,6 +13,11 @@ backend/source/
 backend/.env
 backend/.env.*
 backend/src/test/resources
+backend/docs
+backend/uploads/
+
+# Local working documents (requirements drafts, audits): not pushed
+/docs/
 
 *.log
 
@@ -23,6 +28,7 @@ frontend/.angular/
 frontend/src/environments/
 frontend/.vscode
 frontend/CLAUDE.md
+frontend/docs/
 
 # 🧪 Test/coverage output
 **/coverage/

@@ -675,6 +675,79 @@ class AuthorityControllerTest {
 
     // Helper for headers
 
+    @Test
+    void oldImportTemplatePreservesAnnualPermissionWithoutChangingLegacyImportBehaviour() throws Exception {
+        var annual = createAuth(50L, AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD);
+        var assignment = new RoleAuthorityDto();
+        assignment.setId(new RoleAuthorityId(100L, 50L));
+        when(orgChartService.findAllByIsDeletedIsFalse()).thenReturn(List.of(mockOrg));
+        when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(roleDto));
+        when(authorityService.findAll()).thenReturn(List.of(authView, annual));
+        when(roleAuthorityService.getAll()).thenReturn(List.of(roleAuthDto, assignment));
+        var row = new ArrayList<>(Collections.nCopies(18, ""));
+        row.set(0, "IT Dept"); row.set(1, "Admin");
+        var file = new MockMultipartFile("file", "import.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                createExcel(getValidHeaders(), List.of(row)));
+        mockMvc.perform(multipart("/api/auth/import").file(file).principal(authentication)).andExpect(status().isOk());
+        verify(roleAuthorityService, never()).createAll(any());
+        verify(roleAuthorityService).deleteAllByIdIn(eq(Set.of(roleAuthDto.getId())));
+    }
+
+    @Test
+    void newImportColumnGrantsAnnualPermissionIndependentlyOfLegacyPermission() throws Exception {
+        var annual = createAuth(50L, AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD);
+        when(orgChartService.findAllByIsDeletedIsFalse()).thenReturn(List.of(mockOrg));
+        when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(roleDto));
+        when(authorityService.findAll()).thenReturn(List.of(annual));
+        var headers = getValidHeaders(); headers.add("Manage Annual KPI Review Period");
+        var row = new ArrayList<>(Collections.nCopies(19, ""));
+        row.set(0, "IT Dept"); row.set(1, "Admin"); row.set(18, "Yes");
+        var file = new MockMultipartFile("file", "import.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                createExcel(headers, List.of(row)));
+        mockMvc.perform(multipart("/api/auth/import").file(file).principal(authentication)).andExpect(status().isOk());
+        verify(roleAuthorityService).createAll(argThat(list -> list.size() == 1
+                && list.get(0).getId().equals(new RoleAuthorityId(100L, 50L))));
+        verify(roleAuthorityService, never()).deleteAllByIdIn(any());
+    }
+
+    @Test
+    void explicitBlankNewColumnRevokesOnlyAnnualGrantWhenLegacyColumnIsYes() throws Exception {
+        var annual = createAuth(50L, AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD);
+        var legacy = createAuth(51L, AuthorityName.CAN_MANAGE_EVALUATION_CYCLE);
+        var annualAssignment = new RoleAuthorityDto(); annualAssignment.setId(new RoleAuthorityId(100L, 50L));
+        var legacyAssignment = new RoleAuthorityDto(); legacyAssignment.setId(new RoleAuthorityId(100L, 51L));
+        when(orgChartService.findAllByIsDeletedIsFalse()).thenReturn(List.of(mockOrg));
+        when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(roleDto));
+        when(authorityService.findAll()).thenReturn(List.of(annual, legacy));
+        when(roleAuthorityService.getAll()).thenReturn(List.of(annualAssignment, legacyAssignment));
+        var headers = getValidHeaders(); headers.add("Manage Annual KPI Review Period");
+        var row = new ArrayList<>(Collections.nCopies(19, ""));
+        row.set(0, "IT Dept"); row.set(1, "Admin"); row.set(17, "Yes");
+        var file = new MockMultipartFile("file", "import.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                createExcel(headers, List.of(row)));
+        mockMvc.perform(multipart("/api/auth/import").file(file).principal(authentication)).andExpect(status().isOk());
+        verify(roleAuthorityService, never()).createAll(any());
+        verify(roleAuthorityService).deleteAllByIdIn(eq(Set.of(annualAssignment.getId())));
+    }
+
+    @Test
+    void exportIncludesSeparateLegacyAndAnnualPermissionColumns() throws Exception {
+        var annual = new RoleAuthorityDto(); annual.setId(new RoleAuthorityId(100L, 50L));
+        annual.setAuthority(createAuth(50L, AuthorityName.CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD));
+        var legacy = new RoleAuthorityDto(); legacy.setId(new RoleAuthorityId(100L, 51L));
+        legacy.setAuthority(createAuth(51L, AuthorityName.CAN_MANAGE_EVALUATION_CYCLE));
+        when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(roleDto));
+        when(roleAuthorityService.getAll()).thenReturn(List.of(annual, legacy));
+        var result = mockMvc.perform(get("/api/auth/export").principal(authentication)).andExpect(status().isOk()).andReturn();
+        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
+            var sheet = workbook.getSheetAt(0);
+            assertEquals("Manage Evaluation Cycle", sheet.getRow(0).getCell(17).getStringCellValue());
+            assertEquals("Manage Annual KPI Review Period", sheet.getRow(0).getCell(18).getStringCellValue());
+            assertEquals("Yes", sheet.getRow(1).getCell(17).getStringCellValue());
+            assertEquals("Yes", sheet.getRow(1).getCell(18).getStringCellValue());
+        }
+    }
+
     private AuthorityDto createAuth(Long id, AuthorityName name) {
         AuthorityDto d = new AuthorityDto();
         d.setId(id);

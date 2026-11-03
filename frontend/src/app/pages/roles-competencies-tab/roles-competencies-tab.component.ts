@@ -315,6 +315,9 @@ export class RolesCompetenciesTabComponent implements OnInit {
   editRolesCompetencies(row: RoleDetailsData): void {
     this.editingRoleDetails = row;
     const mockData: RoleOverview = {
+      employeeLevelId: row.employeeLevelId,
+      employeeLevelName: row.employeeLevelName,
+      employeeLevelCode: row.employeeLevelCode,
       orgChartId: row.orgChartId,
       orgChartName: row.orgChartName,
       orgChartDeleted: false,

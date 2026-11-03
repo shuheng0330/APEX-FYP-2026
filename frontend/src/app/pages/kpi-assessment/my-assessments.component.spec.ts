@@ -1,0 +1,533 @@
+import { EventEmitter } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { By } from '@angular/platform-browser';
+import { NzSelectComponent } from 'ng-zorro-antd/select';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { NzModalService } from 'ng-zorro-antd/modal';
+import { NZ_ICONS } from 'ng-zorro-antd/icon';
+import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
+import { of, Subject, throwError } from 'rxjs';
+import { MyAssessmentsComponent } from './my-assessments.component';
+import { KpiAssessmentService } from '../../services/kpi-assessment.service';
+import { KpiAssessment, KpiAssessmentCheckpoint, KpiAssessmentItem, KpiScoreBreakdown, assessmentItemError } from '../../models/kpi-assessment.model';
+import { emptyKpiItem, KpiPeriodContext } from '../../models/kpi-plan.model';
+import { AttitudeAssessmentService } from '../../services/attitude-assessment.service';
+import { AttitudeAssessment } from '../../models/attitude-assessment.model';
+import { reviewLayout } from '../kpi-plan/review-navigation.test-layout';
+
+describe('My Assessments - KPI Self-Assessment', () => {
+  let fixture: ComponentFixture<MyAssessmentsComponent>;
+  let page: MyAssessmentsComponent;
+  let api: jasmine.SpyObj<KpiAssessmentService>;
+  let modal: jasmine.SpyObj<NzModalService>;
+  let attitudeApi: jasmine.SpyObj<AttitudeAssessmentService>;
+  it('echoes immutable plan-version tokens when first saving revised KPI answers', () => {
+    page.assessment!.planVersionIds = { COMPANY: 15, DEPARTMENT: 21, INDIVIDUAL: 30 };
+    page.saveDraft();
+    expect(api.create.calls.mostRecent().args[0].planVersionIds).toEqual({ COMPANY: 15, DEPARTMENT: 21, INDIVIDUAL: 30 });
+  });
+  const attitude: AttitudeAssessment = { id: null, participantId: 7, employeeName: 'Amir', roleName: 'Executive', departmentName: 'Sales',
+    reviewPeriodId: 1, reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', configurationId: 4, configurationName: '2028 criteria',
+    evaluationFormat: 'SALES', status: 'DRAFT', createdAt: null, updatedAt: null, submittedAt: null, submittedBy: null, submittedToSuperiorId: null,
+    submittedLate: null, availableFrom: '2028-10-01', openingPending: false,
+    selfAssessmentDeadline: '2028-12-20', superiorEvaluationDeadline: '2028-12-27', available: true,
+    availabilityTitle: null, availabilityMessage: null, canSaveDraft: true, canSubmit: false, overdue: false,
+    submissionBlockers: ['Select a Self-Assessment Point for Respect'], ratingDefinitions: [], items: [{ id: null, criterionId: 6, name: 'Respect',
+      description: 'Treat others with respect', criterionType: 'SHARED_CORE_VALUE', displayOrder: 1, selfPoint: null, selfComment: null }] };
+  const period: KpiPeriodContext = { id: 1, name: '2028 Annual Review', status: 'OPEN', startDate: '2028-01-01', endDate: '2028-12-31', kpiSetupDeadline: '2028-01-31' };
+  const checkpoint = (id = 11): KpiAssessmentCheckpoint => ({ id, reviewFrequency: 'MONTHLY', sequenceNumber: 1,
+    startDate: '2028-01-01', endDate: '2028-01-31', availableFrom: '2028-02-01', selfAssessmentDeadline: '2028-02-05',
+    superiorAssessmentDeadline: '2028-02-10', available: true, overdue: false, assessmentId: null, assessmentStatus: null });
+  const row = (id = 4, level: KpiAssessmentItem['level'] = 'INDIVIDUAL'): KpiAssessmentItem => ({ id: 40 + id, assignmentId: id, level,
+    kpi: { ...emptyKpiItem(), name: 'Sales ' + id, target: 'RM 80,000', weightage: 100,
+      perspective: 'Financial', kra: 'Sales', scoringDefinitions: { 1: 'Low', 2: 'Below target', 3: 'On target', 4: 'Above target', 5: 'Excellent' } },
+    selfPoint: null, selfComment: null, superiorPoint: null, superiorComment: null, evidence: [] });
+  const assessment = (overrides: Partial<KpiAssessment> = {}): KpiAssessment => ({ id: null, participantId: 7, employeeName: 'Amir', reviewPeriodId: 1,
+    reviewPeriodName: '2028 Annual Review', reviewPeriodStatus: 'OPEN', checkpoint: checkpoint(), status: 'DRAFT',
+    assessmentModel: 'LEGACY_ALL_LEVELS', pendingResultLevels: [],
+    items: [row()], kpiAllocation: null, missingLevels: [], submissionBlockers: ['Select a Self-Assessment Point for Sales 4'],
+    canSaveDraft: true, canSubmit: false, overdue: false, createdAt: null, updatedAt: null, submittedAt: null,
+    submittedBy: null, submittedToSuperiorId: null, submittedLate: null, reviewedAt: null, reviewedBy: null, reviewedLate: null, checkpointScore: null, ...overrides });
+  beforeEach(async () => {
+    api = jasmine.createSpyObj<KpiAssessmentService>('api', ['periods', 'checkpoints', 'mine', 'create', 'update', 'submit', 'upload', 'download', 'removeEvidence', 'scoreBreakdown']);
+    api.periods.and.returnValue(of([period])); api.checkpoints.and.returnValue(of([checkpoint()])); api.mine.and.returnValue(of(assessment()));
+    const save = (request: Parameters<KpiAssessmentService['create']>[0]) => of(assessment({ id: 20,
+      items: request.items.map(answer => ({ ...row(answer.assignmentId), ...answer })),
+      submissionBlockers: request.items.some(answer => answer.selfPoint == null) ? ['Select a Self-Assessment Point for Sales 4'] : [],
+      canSubmit: request.items.length > 0 && request.items.every(answer => answer.selfPoint != null) }));
+    api.create.and.callFake(save); api.update.and.callFake((_id, request) => save(request));
+    api.submit.and.returnValue(of(assessment({ id: 20, status: 'PENDING_REVIEW', items: [{ ...row(), selfPoint: 4 }],
+      canSaveDraft: false, canSubmit: false, submittedAt: '2028-02-01T12:00:00Z', submissionBlockers: ['This assessment has already been submitted'] })));
+    modal = jasmine.createSpyObj<NzModalService>('modal', ['confirm']);
+    attitudeApi = jasmine.createSpyObj<AttitudeAssessmentService>('attitudeApi', ['mine']);
+    attitudeApi.mine.and.callFake(() => of(structuredClone(attitude)));
+    TestBed.configureTestingModule({ imports: [MyAssessmentsComponent, TranslateModule.forRoot()], providers: [provideNoopAnimations(),
+      { provide: KpiAssessmentService, useValue: api }, { provide: NzModalService, useValue: modal },
+      { provide: AttitudeAssessmentService, useValue: attitudeApi },
+      { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LoadingOutline] }] });
+    TestBed.overrideProvider(NzModalService, { useValue: modal }); await TestBed.compileComponents();
+    fixture = TestBed.createComponent(MyAssessmentsComponent); page = fixture.componentInstance; fixture.detectChanges();
+  });
+  function confirm() {
+    const onOk = modal.confirm.calls.mostRecent().args[0]?.nzOnOk;
+    if (onOk && !(onOk instanceof EventEmitter)) onOk(undefined);
+  }
+  it('loads scoped periods and checkpoints without creating an assessment on GET', () => {
+    expect(api.checkpoints).toHaveBeenCalledOnceWith(1); expect(api.mine).toHaveBeenCalledOnceWith(11);
+    expect(api.create).not.toHaveBeenCalled(); expect(page.readonly).toBeFalse(); expect(page.canSubmit).toBeFalse();
+    expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(5);
+  });
+  it('shows final Superior points, comments and the server-calculated score only after review', () => {
+    const item = { ...row(), selfPoint: 5, superiorPoint: 3, superiorComment: 'Evidence verified' };
+    api.mine.and.returnValue(of(assessment({ id: 20, status: 'REVIEWED', canSaveDraft: false, canSubmit: false,
+      checkpointScore: 87.125, reviewedAt: '2028-02-10T10:00:00Z', items: [item] })));
+    page.load(); fixture.detectChanges();
+    expect(page.readonly).toBeTrue(); expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('87.13%');
+    const score: HTMLElement = fixture.nativeElement.querySelector('.checkpoint-score');
+    expect(score.lastElementChild?.classList.contains('score-reviewed-at')).toBeTrue();
+    expect(score.lastElementChild?.textContent).toContain('10 Feb 2028');
+    expect(getComputedStyle(score).display).toBe('flex');
+    expect(getComputedStyle(score).flexWrap).toBe('wrap');
+    const result = fixture.nativeElement.querySelector('.superior-result');
+    expect(result.textContent).toContain('3'); expect(result.textContent).toContain('Evidence verified');
+    expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(0);
+    page.saveDraft(); expect(api.update).not.toHaveBeenCalled();
+    api.mine.and.returnValue(of(assessment({ status: 'PENDING_REVIEW', canSaveDraft: false, items: [item] })));
+    page.load(); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.superior-result')).toBeNull();
+  });
+  it('formats whole-number checkpoint scores with two decimals without changing their value', () => {
+    api.mine.and.returnValue(of(assessment({ id: 20, status: 'REVIEWED', canSaveDraft: false, canSubmit: false, checkpointScore: 73 })));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('73.00%');
+    expect(page.assessment?.checkpointScore).toBe(73);
+  });
+  it('shows only Individual KPI answers and clear instructions for a central-model Draft', () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', pendingResultLevels: ['COMPANY', 'DEPARTMENT', 'INDIVIDUAL'],
+      items: [row()], missingLevels: [], submissionBlockers: ['Select a Self-Assessment Point for Sales 4'] })));
+    page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assessment-heading').textContent).toContain('MY_ASSESSMENTS.INDIVIDUAL_TITLE');
+    expect(fixture.nativeElement.querySelector('.assessment-heading').textContent).toContain('MY_ASSESSMENTS.INDIVIDUAL_INSTRUCTIONS');
+    expect(fixture.nativeElement.querySelector('th:first-child').textContent).toContain('KPI_PLAN.NAME');
+    page.items[0].selfPoint = 4;
+    expect(page.canSubmit).toBeTrue();
+    page.saveDraft();
+    expect(api.create.calls.mostRecent().args[0].items.map(item => item.assignmentId)).toEqual([4]);
+  });
+  it('distinguishes pending central results from a numeric checkpoint score', () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: null, pendingResultLevels: ['COMPANY', 'DEPARTMENT'] })));
+    page.load(); fixture.detectChanges();
+    const pending: HTMLElement = fixture.nativeElement.querySelector('.result-pending');
+    expect(pending.textContent).toContain('KPI_ASSESSMENT_REVIEW.SCORE_PENDING');
+    expect(pending.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.COMPANY');
+    expect(pending.textContent).toContain('KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.DEPARTMENT');
+    expect(fixture.nativeElement.querySelector('.checkpoint-score')).toBeNull();
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: 0, pendingResultLevels: [] })));
+    page.refresh(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.result-pending')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.checkpoint-score').textContent).toContain('0.00%');
+  });
+  it('uses compact Company reporting dates without repeated YTD guidance or guessing the employee schedule', () => {
+    api.mine.and.returnValue(of(assessment({ id: 20, assessmentModel: 'CENTRAL_RESULTS', frequencyPolicy: 'DEPARTMENT_BASED',
+      checkpoint: { ...checkpoint(), reviewFrequency: 'QUARTERLY' },
+      companyReportingCheckpoint: { id: 18, reviewFrequency: 'MONTHLY', startDate: '2025-06-01', endDate: '2025-06-30' } })));
+    page.load(); fixture.detectChanges();
+    const source: HTMLElement = fixture.nativeElement.querySelector('app-company-reporting-source');
+    expect(source.textContent).toContain('KPI_SCORE_BREAKDOWN.COMPANY_REPORTING_PERIOD');
+    expect(source.textContent).toContain('1–30 Jun 2025');
+    expect(source.textContent).toContain('REVIEW_PERIOD.FREQUENCY.MONTHLY');
+    expect(source.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_YTD');
+    expect(source.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_REPORTING_SOURCE');
+    page.assessment!.companyReportingCheckpoint = null; fixture.detectChanges();
+    expect(source.textContent?.trim()).toBe('');
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+  });
+  it('opens published score details on demand while preserving pending levels and existing answers', async () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'PENDING_REVIEW', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: null, pendingResultLevels: ['DEPARTMENT', 'INDIVIDUAL'] })));
+    const score: KpiScoreBreakdown = { assessmentId: 20, checkpointScore: null, levels: [
+      { level: 'COMPANY', allocation: 15, versionNumber: 2, resultEditionNumber: 1, publishedAt: null,
+        status: 'AVAILABLE', contribution: 12, items: [{ kpi: row().kpi, actualAchievement: '120 units', point: 4 }] },
+      { level: 'DEPARTMENT', allocation: 25, versionNumber: 1, resultEditionNumber: null, publishedAt: null,
+        status: 'PENDING', contribution: null, items: [] },
+      { level: 'INDIVIDUAL', allocation: 60, versionNumber: 1, resultEditionNumber: null, publishedAt: null,
+        status: 'PENDING', contribution: null, items: [] }
+    ] };
+    api.scoreBreakdown.and.returnValue(of(score));
+    page.load(); fixture.detectChanges();
+    expect(api.scoreBreakdown).not.toHaveBeenCalled();
+    const answers = structuredClone(page.items);
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.score-actions button');
+    button.click(); fixture.detectChanges(); await fixture.whenStable();
+    expect(api.scoreBreakdown).toHaveBeenCalledOnceWith(20);
+    const summary = document.body.querySelector('.breakdown-summary')!;
+    expect(summary.textContent).toContain('12.00%');
+    expect(summary.textContent).toContain('KPI_SCORE_BREAKDOWN.STATUS.PENDING');
+    expect(document.body.querySelector('.breakdown-item .breakdown-values')?.textContent).toContain('120 units');
+    expect(summary.querySelectorAll('tbody tr')[0].querySelectorAll('td')[2].textContent).toContain('80.00%');
+    expect(document.body.querySelector('.breakdown-pending')).not.toBeNull();
+    expect(document.body.querySelectorAll('.breakdown-item').length).toBe(1);
+    page.viewBreakdownCriteria(score.levels[0].items[0].kpi, 'COMPANY');
+    expect(page.detailScope).toBe('COMPANY');expect(page.drawerVisible).toBeTrue();
+    expect(page.items).toEqual(answers);
+    expect(api.create).not.toHaveBeenCalled();expect(api.update).not.toHaveBeenCalled();
+  });
+  it('offers the breakdown beside a completed central score and preserves a real zero contribution', async () => {
+    api.mine.and.returnValue(of(assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', id: 20,
+      canSaveDraft: false, canSubmit: false, checkpointScore: 90, pendingResultLevels: [] })));
+    api.scoreBreakdown.and.returnValue(of({ assessmentId: 20, checkpointScore: 90, levels: [
+      { level: 'DEPARTMENT', allocation: 0, versionNumber: null, resultEditionNumber: null, publishedAt: null,
+        status: 'NOT_APPLICABLE', contribution: 0, items: [] }
+    ] }));
+    page.load();fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.checkpoint-score button');
+    button.click();fixture.detectChanges();await fixture.whenStable();
+    expect(document.body.querySelector('.breakdown-summary')?.textContent).toContain('0.00%');
+    expect(document.body.querySelector('.breakdown-summary')?.textContent).toContain('KPI_SCORE_BREAKDOWN.STATUS.NOT_APPLICABLE');
+  });
+  it('keeps answers on a breakdown error and ignores a response after the drawer is closed', () => {
+    page.assessment = assessment({ assessmentModel: 'CENTRAL_RESULTS', status: 'PENDING_REVIEW', id: 20 });
+    const answers = structuredClone(page.items);
+    api.scoreBreakdown.and.returnValue(throwError(() => ({ status: 403 })));
+    page.openScoreBreakdown();expect(page.breakdownError).toBeTrue();expect(page.items).toEqual(answers);
+    const response = new Subject<KpiScoreBreakdown>();api.scoreBreakdown.and.returnValue(response);
+    page.openScoreBreakdown();page.breakdownVisible = false;
+    response.next({ assessmentId: 20, checkpointScore: null, levels: [] });response.complete();
+    expect(page.breakdown).toBeNull();expect(page.breakdownLoading).toBeFalse();
+  });
+  it('shows recorded level scores and compact reporting context with optional version metadata', async () => {
+    const translate = TestBed.inject(TranslateService);
+    await fixture.whenStable();
+    translate.setTranslation('breakdown-test', { KPI_SCORE_BREAKDOWN: { REPORTING_PERIOD: 'Reporting Period' },
+      REVIEW_PERIOD: { FREQUENCY: { MONTHLY: 'Monthly' } } });
+    translate.use('breakdown-test');
+    page.assessment = assessment({ id: 20, assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED', frequencyPolicy: 'DEPARTMENT_BASED' });
+    const score: KpiScoreBreakdown = { assessmentId: 20, checkpointScore: 71, levels: [
+      { level: 'COMPANY', allocation: 15, status: 'AVAILABLE', contribution: 6, versionNumber: 2, resultEditionNumber: 3,
+        publishedAt: '2025-07-01T10:00:00Z', reportingCheckpoint: { id: 18, reviewFrequency: 'MONTHLY', startDate: '2025-06-01', endDate: '2025-06-30' },
+        items: [{ kpi: row().kpi, actualAchievement: 'Published achievement', point: 2 }] },
+      { level: 'DEPARTMENT', allocation: 15, status: 'AVAILABLE', contribution: 9, versionNumber: 1, resultEditionNumber: 1,
+        publishedAt: null, items: [{ kpi: row().kpi, actualAchievement: 'Department achievement', point: 3 }] },
+      { level: 'INDIVIDUAL', allocation: 70, status: 'AVAILABLE', contribution: 56, versionNumber: 1, resultEditionNumber: null,
+        publishedAt: '2025-07-02T10:00:00Z', items: [{ kpi: row().kpi, actualAchievement: null, point: 4 }] }
+    ] };
+    const recorded = structuredClone(score); api.scoreBreakdown.and.returnValue(of(score));
+    page.openScoreBreakdown(); fixture.detectChanges(); await fixture.whenStable();
+    const body = document.querySelector<HTMLElement>('.ant-drawer-open .ant-drawer-body')!;
+    expect(body.querySelector('.breakdown-score-value')?.textContent).toContain('71.00%');
+    expect(body.querySelector('.breakdown-score')?.classList.contains('notice')).toBeFalse();
+    expect([...body.querySelectorAll('.breakdown-summary th')].map(node => node.textContent?.trim())).toEqual([
+      'MY_ASSESSMENTS.LEVEL', 'KPI_SCORE_BREAKDOWN.ALLOCATION_LABEL', 'KPI_SCORE_BREAKDOWN.LEVEL_SCORE', 'KPI_SCORE_BREAKDOWN.CONTRIBUTION_LABEL'
+    ]);
+    expect([...body.querySelectorAll('.breakdown-summary tbody tr')].map(node => [...node.querySelectorAll('td')].slice(1).map(cell => cell.textContent?.trim())))
+      .toEqual([['15%', '40.00%', '6.00%'], ['15%', '60.00%', '9.00%'], ['70%', '80.00%', '56.00%']]);
+    expect(body.querySelector('.breakdown-reporting-period')?.textContent?.trim()).toBe('Reporting Period: June 2025 (Monthly)');
+    expect(body.textContent).not.toContain('KPI_SCORE_BREAKDOWN.COMPANY_YTD');
+    expect(body.querySelector('.breakdown-pending')).toBeNull();
+    const details = body.querySelector<HTMLDetailsElement>('.breakdown-result-details')!;
+    expect(details.open).toBeFalse(); expect(details.textContent).toContain('01 Jul 2025');
+    expect([...details.querySelectorAll('dd')].slice(0, 2).map(node => node.textContent?.trim())).toEqual(['2', '3']);
+    details.querySelector('summary')!.click(); fixture.detectChanges(); expect(details.open).toBeTrue();
+    expect(score).toEqual(recorded); expect(page.items).toEqual([row()]);
+    expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+    for (const width of [1440, 768, 360]) {
+      const layout = reviewLayout(body, width);
+      try {
+        expect(layout.root.scrollWidth).withContext(String(width)).toBeLessThanOrEqual(width);
+        expect(layout.window.getComputedStyle(layout.root.querySelector('.table-scroll')!).overflowX).toBe('auto');
+      } finally { layout.remove(); }
+    }
+  });
+  it('displays unweighted level scores without rounding or changing the returned contribution', () => {
+    const level: KpiScoreBreakdown['levels'][number] = { level: 'COMPANY', allocation: 15, versionNumber: 1,
+      resultEditionNumber: 2, publishedAt: null, status: 'AVAILABLE', contribution: 6.0009, items: [] };
+    expect(page.breakdownLevelScore(level)).toBeCloseTo(40.006, 8);
+    expect(level.contribution).toBe(6.0009);
+    expect(page.breakdownLevelScore({ ...level, contribution: 0 })).toBe(0);
+    expect(page.breakdownLevelScore({ ...level, contribution: null, status: 'PENDING' })).toBeNull();
+    expect(page.breakdownLevelScore({ ...level, allocation: 0, contribution: 0, status: 'NOT_APPLICABLE' })).toBeNull();
+  });
+  it('keeps a legitimate zero checkpoint score numeric rather than Pending', async () => {
+    page.assessment = assessment({ id: 20, assessmentModel: 'CENTRAL_RESULTS', status: 'REVIEWED' });
+    api.scoreBreakdown.and.returnValue(of({ assessmentId: 20, checkpointScore: 0, levels: [] }));
+    page.openScoreBreakdown(); fixture.detectChanges(); await fixture.whenStable();
+    expect(document.querySelector('.breakdown-score-value')?.textContent).toContain('0.00%');
+    expect(document.querySelector('.breakdown-pending')).toBeNull();
+  });
+  it('shows recorded employee context below the tab and above the checkpoint controls', () => {
+    page.assessment!.roleName = 'Sales Executive';
+    page.assessment!.kpiAllocation = { employeeLevelId: 4, employeeLevelName: 'Executive', companyKpiWeight: 15, departmentKpiWeight: 25, individualKpiWeight: 60 };
+    fixture.detectChanges();
+    const context: HTMLElement = fixture.nativeElement.querySelector('.assessment-employee');
+    expect(context.textContent?.trim()).toBe('Amir · Sales Executive · Executive');
+    expect(context.nextElementSibling?.classList.contains('assessment-toolbar')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.assessment-heading').textContent).not.toContain('Amir');
+    expect(api.create).not.toHaveBeenCalled();
+  });
+  it('omits missing context without placeholder text or dangling separators', () => {
+    page.assessment!.roleName = null; page.assessment!.kpiAllocation = null; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assessment-employee').textContent.trim()).toBe('Amir');
+    page.assessment!.employeeName = ''; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assessment-employee')).toBeNull();
+  });
+  it('opens the checkpoint dropdown when clicking its visible selected value', async () => {
+    await fixture.whenStable(); fixture.detectChanges();
+    const select = fixture.debugElement.query(By.css('.checkpoint-picker'));
+    select.nativeElement.querySelector('nz-select-item').click(); fixture.detectChanges(); await fixture.whenStable();
+    expect((select.componentInstance as NzSelectComponent).nzOpen).toBeTrue();
+    expect(select.nativeElement.closest('label')).toBeNull();
+  });
+  it('opens the period dropdown when clicking its visible selected value', async () => {
+    await fixture.whenStable(); fixture.detectChanges();
+    const select = fixture.debugElement.query(By.css('.plan-picker'));
+    select.nativeElement.querySelector('nz-select-item').click(); fixture.detectChanges(); await fixture.whenStable();
+    expect((select.componentInstance as NzSelectComponent).nzOpen).toBeTrue();
+    expect(select.nativeElement.closest('label')).toBeNull();
+  });
+  it('shows a dash for unanswered read-only points without hiding saved points', () => {
+    page.assessment = assessment({ canSaveDraft: false }); page.items = [row(), { ...row(5), selfPoint: 4 }]; fixture.detectChanges();
+    const points: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.saved-point'));
+    expect(points.map(point => point.textContent?.trim())).toEqual(['-', '4']);
+  });
+  it('shows the matching rating for each selected point without changing KPI criteria', () => {
+    const labels = ['Unsatisfactory', 'Below expectation', 'Partially meets expectation', 'Meets expectation', 'Exceeds expectation'];
+    const ratings = Object.fromEntries(labels.map((LABEL, index) => [index + 1, { LABEL }]));
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { KPI_SCORING_GUIDE: { RATING: ratings } }); translate.use('en');
+    expect(fixture.nativeElement.querySelector('.selected-point-label')).toBeNull();
+    const criteria = { ...page.items[0].kpi.scoringDefinitions };
+    for (let point = 1; point <= 5; point++) {
+      const radio: HTMLInputElement = fixture.nativeElement.querySelectorAll('.point-option input')[point - 1];
+      radio.click(); fixture.detectChanges();
+      expect(page.items[0].selfPoint).toBe(point);
+      expect(fixture.nativeElement.querySelector('.selected-point-label').textContent.trim()).toBe(labels[point - 1]);
+    }
+    expect(page.items[0].kpi.scoringDefinitions).toEqual(criteria);
+    expect(api.create).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+  });
+  it('keeps rating labels visible on submitted assessments and omits unanswered labels', () => {
+    page.assessment = assessment({ status: 'PENDING_REVIEW', canSaveDraft: false });
+    page.items = [row(), { ...row(5), selfPoint: 3 }]; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.selected-point-label').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.selected-point-label').textContent).toContain('KPI_SCORING_GUIDE.RATING.3.LABEL');
+    expect(fixture.nativeElement.querySelector('app-kpi-scoring-guide')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.point-option').length).toBe(0);
+  });
+  it('labels the checkpoint dropdown using the recorded review frequency', () => {
+    const labels = { MONTHLY: 'Monthly Review Checkpoint', QUARTERLY: 'Quarterly Review Checkpoint', ANNUALLY: 'Annual Review Checkpoint' };
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { MY_ASSESSMENTS: { CHECKPOINT_LABEL: labels } }); translate.use('en');
+    for (const reviewFrequency of ['MONTHLY', 'QUARTERLY', 'ANNUALLY'] as const) {
+      page.assessment!.checkpoint.reviewFrequency = reviewFrequency; fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('label[for="assessment-review-checkpoint"]').textContent.trim()).toBe(labels[reviewFrequency]);
+    }
+  });
+  it('saves incomplete or empty Drafts without requiring points or missing KPI levels', () => {
+    page.saveDraft(); expect(api.create.calls.mostRecent().args[0].items[0].selfPoint).toBeNull();
+    expect(page.showValidation).toBeFalse();
+    page.assessment = assessment({ items: [], missingLevels: ['COMPANY', 'DEPARTMENT'], submissionBlockers: ['Department KPIs are not yet approved'], id: 20 });
+    page.items = []; page.saveDraft(); expect(api.update.calls.mostRecent().args[1].items).toEqual([]);
+    page.assessment = assessment({ items: [], canSaveDraft: true, submissionBlockers: ['Department KPIs are not yet approved'] });
+    expect(page.canSubmit).toBeFalse();
+  });
+  it('validates 1-5 integer points and optional comment length', () => {
+    for (const selfPoint of [0, 6, 1.5, NaN]) { page.items[0].selfPoint = selfPoint; page.saveDraft(); }
+    page.items[0].selfPoint = null; page.items[0].selfComment = 'x'.repeat(10001); page.saveDraft();
+    expect(api.create).not.toHaveBeenCalled(); expect(assessmentItemError(row(), true)).toBe('MY_ASSESSMENTS.POINT_REQUIRED');
+  });
+  it('shows missing points after Draft save without blocking it or requiring optional comments/evidence', () => {
+    expect(fixture.nativeElement.querySelector('#answer-error-4')).toBeNull();
+    page.saveDraft(); fixture.detectChanges();
+    expect(api.create).toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#answer-error-4').textContent).toContain('MY_ASSESSMENTS.POINT_REQUIRED');
+    expect(fixture.nativeElement.querySelector('.point-selector').getAttribute('aria-invalid')).toBe('true');
+    page.items[0].selfPoint = 3; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#answer-error-4')).toBeNull();
+    expect(page.commentError(null)).toBeNull(); expect(page.canSubmit).toBeTrue();
+  });
+  it('places comment length errors beside comments rather than the point selector', () => {
+    page.items[0].selfComment = 'x'.repeat(10001); page.saveDraft(); fixture.detectChanges();
+    expect(api.create).not.toHaveBeenCalled(); expect(page.pointError(page.items[0])).toBeNull();
+    expect(fixture.nativeElement.querySelector('textarea[aria-invalid="true"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('MY_ASSESSMENTS.COMMENT_TOO_LONG');
+  });
+  it('uses current points, confirms, saves first, then submits and freezes answers', () => {
+    page.items[0].selfPoint = 4; expect(page.canSubmit).toBeTrue(); page.confirmSubmit(); expect(api.submit).not.toHaveBeenCalled();
+    confirm(); expect(api.create).toHaveBeenCalled(); expect(api.submit).toHaveBeenCalledOnceWith(20);
+    expect(page.readonly).toBeTrue(); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.point-selector')).toBeNull();
+    expect(fixture.nativeElement.querySelector('textarea')).toBeNull();
+    page.saveDraft(); page.submit(); expect(api.submit.calls.count()).toBe(1);
+  });
+  it('warns before late submission without saving answers or evidence when cancelled', () => {
+    page.assessment!.overdue = true; page.items[0].selfPoint = 3; page.items[0].selfComment = 'Keep my answers';
+    page.confirmSubmit();
+    const options = modal.confirm.calls.mostRecent().args[0]!;
+    expect(options.nzOkText).toBe('REVIEW_FEEDBACK.SUBMIT_LATE');
+    expect(options.nzData).toEqual({ deadline: page.assessment!.checkpoint.selfAssessmentDeadline });
+    expect(api.create).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+    expect(page.items[0].selfPoint).toBe(3); expect(page.items[0].selfComment).toBe('Keep my answers');
+  });
+  it('blocks submission for missing assignments and a missing Superior even with all local points', () => {
+    page.items[0].selfPoint = 5; page.assessment!.submissionBlockers.push('Department KPIs are not yet approved', 'An active immediate Superior must be assigned before submission');
+    page.confirmSubmit(); expect(page.canSubmit).toBeFalse(); expect(modal.confirm).not.toHaveBeenCalled();
+    fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Department KPIs are not yet approved');
+  });
+  it('rechecks backend readiness after save and prevents stale submission', () => {
+    page.items[0].selfPoint = 4;
+    api.create.and.returnValue(of(assessment({ id: 20, items: [{ ...row(), selfPoint: 4 }, row(5, 'COMPANY')],
+      submissionBlockers: ['Select a Self-Assessment Point for Sales 5'] })));
+    page.submit(); expect(api.submit).not.toHaveBeenCalled(); expect(page.items.length).toBe(2);
+    expect(page.error).toContain('Sales 5'); expect(page.items[0].selfPoint).toBe(4);
+  });
+  it('keeps input when Draft saving fails and does not send a submission', () => {
+    page.items[0].selfPoint = 3; page.items[0].selfComment = 'Unsaved observations';
+    api.create.and.returnValue(throwError(() => ({ error: { message: 'Connection failed' } })));
+    page.submit(); expect(api.submit).not.toHaveBeenCalled(); expect(page.items[0].selfComment).toBe('Unsaved observations');
+    expect(page.busy).toBeFalse(); expect(page.dirty).toBeTrue();
+  });
+  it('opens full read-only KPI details and the five actual scoring definitions', () => {
+    page.viewCriteria(page.items[0]); expect(page.drawerVisible).toBeTrue(); expect(page.detailItem[0].scoringDefinitions[5]).toBe('Excellent');
+    page.detailItem[0].name = 'Copy'; expect(page.items[0].kpi.name).not.toBe('Copy');
+  });
+  it('respects backend checkpoint opening/Closed/readonly flags rather than client dates', () => {
+    for (const update of [
+      { checkpoint: { ...checkpoint(), available: false, availableFrom: '2099-02-01' } },
+      { reviewPeriodStatus: 'CLOSED' as const }, { status: 'REVIEWED' as const }
+    ]) {
+      page.assessment = assessment({ ...update, canSaveDraft: false }); fixture.detectChanges();
+      expect(page.readonly).toBeTrue(); page.saveDraft(); page.submit();
+    }
+    expect(api.create).not.toHaveBeenCalled(); expect(api.submit).not.toHaveBeenCalled();
+  });
+  it('allows overdue Draft submission and distinguishes submitted lateness from current overdue', () => {
+    page.assessment!.overdue = true; page.items[0].selfPoint = 5; expect(page.canSubmit).toBeTrue();
+    fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('MY_ASSESSMENTS.LATE_HELP');
+    page.assessment = assessment({ status: 'PENDING_REVIEW', canSaveDraft: false, submittedLate: true, overdue: false }); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('MY_ASSESSMENTS.SUBMITTED_LATE');
+    expect(fixture.nativeElement.textContent).not.toContain('MY_ASSESSMENTS.LATE_HELP');
+  });
+  it('warns before discarding answers on checkpoint/period changes and protects navigation', async () => {
+    page.checkpoints.push(checkpoint(12)); page.items[0].selfPoint = 2; page.changeCheckpoint(12);
+    expect(page.checkpointId).toBe(11); confirm(); expect(api.mine).toHaveBeenCalledWith(12);
+    page.items[0].selfPoint = 1; const leave = page.canLeave(); confirm(); expect(await leave).toBeTrue();
+    page.periods.push({ ...period, id: 2 }); page.changePeriod(2); expect(page.periodId).toBe(1); confirm();
+    expect(api.checkpoints).toHaveBeenCalledWith(2);
+  });
+  it('prevents duplicate actions while a save is pending', () => {
+    const pending = new Subject<KpiAssessment>(); api.create.and.returnValue(pending); page.items[0].selfPoint = 4;
+    page.saveDraft(); page.saveDraft(); page.submit(); page.changeCheckpoint(11);
+    expect(api.create.calls.count()).toBe(1); expect(page.canLeave()).toBeFalse();
+    pending.next(assessment({ id: 20 })); pending.complete(); expect(page.busy).toBeFalse();
+  });
+  it('saves new items before uploading evidence against their saved item ID', () => {
+    const file = new File(['proof'], 'proof.pdf', { type: 'application/pdf' }); const evidence = { id: 8, originalFilename: 'proof.pdf', contentType: 'application/pdf',
+      sizeBytes: 5, uploadedBy: 'owner', uploadedAt: '2028-02-01' };
+    api.upload.and.returnValue(of(evidence)); page.items[0].id = null; page.items[0].selfPoint = 3;
+    const input = document.createElement('input'); const files = new DataTransfer(); files.items.add(file); input.type = 'file'; input.files = files.files;
+    page.attachEvidence(4, { target: input } as unknown as Event);
+    expect(api.create).toHaveBeenCalled(); expect(api.upload).toHaveBeenCalledOnceWith(44, file);
+    expect(page.items[0].evidence[0].id).toBe(8); expect(page.items[0].selfPoint).toBe(3); expect(input.value).toBe('');
+  });
+  it('preserves the saved Draft on evidence failure and shows backend format/size errors', () => {
+    const input = document.createElement('input'); input.type = 'file'; const files = new DataTransfer();
+    files.items.add(new File(['bad'], 'wrong.pdf')); input.files = files.files;
+    api.upload.and.returnValue(throwError(() => ({ error: { message: 'Attach a valid PDF, PNG or JPEG' } })));
+    page.attachEvidence(4, { target: input } as unknown as Event);
+    expect(page.assessment?.id).toBe(20); expect(page.items[0].evidence).toEqual([]); expect(page.error).toContain('valid PDF');
+  });
+  it('requires confirmation to remove evidence and blocks submitted mutations', () => {
+    const evidence = { id: 8, originalFilename: 'proof.pdf', contentType: 'application/pdf', sizeBytes: 5, uploadedBy: 'owner', uploadedAt: '2028-02-01' };
+    page.items[0].evidence = [evidence]; api.removeEvidence.and.returnValue(of(undefined));
+    page.removeEvidence(page.items[0], evidence); expect(api.removeEvidence).not.toHaveBeenCalled(); confirm();
+    expect(page.items[0].evidence).toEqual([]);
+    page.assessment!.status = 'PENDING_REVIEW'; page.removeEvidence(page.items[0], evidence); expect(api.removeEvidence.calls.count()).toBe(1);
+  });
+  it('downloads through the authenticated assessment API and revokes the temporary blob URL', () => {
+    jasmine.clock().install();
+    try {
+      const evidence = { id: 8, originalFilename: 'proof.pdf', contentType: 'application/pdf', sizeBytes: 5, uploadedBy: 'owner', uploadedAt: '2028-02-01' };
+      api.download.and.returnValue(of(new Blob(['proof']))); spyOn(URL, 'createObjectURL').and.returnValue('blob:test');
+      spyOn(URL, 'revokeObjectURL'); spyOn(HTMLAnchorElement.prototype, 'click');
+      page.downloadEvidence(evidence); expect(api.download).toHaveBeenCalledOnceWith(8);
+      jasmine.clock().tick(1001); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test');
+    } finally { jasmine.clock().uninstall(); }
+  });
+  it('refreshes late assignments without discarding unsaved Draft answers', () => {
+    page.items[0].selfPoint = 4; page.items[0].selfComment = 'Keep this';
+    api.mine.and.returnValue(of(assessment({ items: [row(), row(5, 'DEPARTMENT')], submissionBlockers: ['Select a Self-Assessment Point for Sales 5'] })));
+    page.refresh(); expect(page.items[0].selfComment).toBe('Keep this'); expect(page.items[0].selfPoint).toBe(4);
+    expect(page.items[1].selfPoint).toBeNull(); expect(page.canSubmit).toBeFalse();
+  });
+  it('formats monthly, quarterly and annual checkpoints using backend-provided intervals', () => {
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('en', { MY_ASSESSMENTS: { QUARTER: 'Quarter {{number}} {{year}}', ANNUAL: 'Annual {{year}}' } });
+    translate.use('en');
+    expect(page.checkpointLabel(checkpoint())).toBe('January 2028');
+    expect(page.checkpointLabel({ ...checkpoint(), reviewFrequency: 'QUARTERLY', sequenceNumber: 2, endDate: '2028-06-30' })).toBe('Quarter 2 2028');
+    expect(page.checkpointLabel({ ...checkpoint(), reviewFrequency: 'QUARTERLY', sequenceNumber: 1, startDate: '2028-07-15', endDate: '2028-09-30' })).toBe('Quarter 3 2028');
+    expect(page.checkpointLabel({ ...checkpoint(), reviewFrequency: 'ANNUALLY' })).toBe('Annual 2028');
+  });
+  it('clears stale context when no enrolled periods remain and supports retry after a failed load', () => {
+    api.periods.and.returnValue(of([])); page.load(); fixture.detectChanges();
+    expect(page.assessment).toBeNull(); expect(page.items).toEqual([]); expect(page.checkpoints).toEqual([]);
+    expect(page.periodId).toBeNull(); expect(page.checkpointId).toBeNull();
+    api.periods.and.returnValue(throwError(() => ({ status: 403 }))); page.load();
+    expect(page.ready).toBeFalse(); expect(page.error).toBe('MY_ASSESSMENTS.ACCESS_CHANGED');
+    api.periods.and.returnValue(of([period])); page.retry();
+    expect(page.ready).toBeTrue(); expect(page.items.length).toBe(1);
+  });
+  it('uses server answers rather than unsaved inputs when refresh discovers submission', () => {
+    page.items[0].selfPoint = 5; page.items[0].selfComment = 'Local changes';
+    api.mine.and.returnValue(of(assessment({ status: 'PENDING_REVIEW', canSaveDraft: false,
+      items: [{ ...row(), selfPoint: 3, selfComment: 'Submitted answer' }] })));
+    page.refresh(); expect(page.readonly).toBeTrue(); expect(page.dirty).toBeFalse();
+    expect(page.items[0].selfPoint).toBe(3); expect(page.items[0].selfComment).toBe('Submitted answer');
+  });
+  async function selectAttitude() {
+    page.selectTab(1); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+  }
+  it('adds the annual tab and only loads attitude when selected', async () => {
+    expect(fixture.nativeElement.textContent).toContain('ATTITUDE_ASSESSMENT.TITLE');
+    expect(attitudeApi.mine).not.toHaveBeenCalled(); await selectAttitude();
+    expect(attitudeApi.mine).toHaveBeenCalledOnceWith(1); expect(page.attitude?.assessment?.evaluationFormat).toBe('SALES');
+  });
+  it('opens attitude through the visible tab while its HTTP request is still loading', async () => {
+    const pending = new Subject<AttitudeAssessment>(); attitudeApi.mine.and.returnValue(pending);
+    await fixture.whenStable(); fixture.detectChanges();
+    const tabs: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.ant-tabs-tab'));
+    tabs[1].click(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(attitudeApi.mine).toHaveBeenCalledOnceWith(1);
+    expect(page.selectedTab).toBe(1); expect(page.attitude?.busy).toBeTrue(); expect(page.canLeave()).toBeFalse();
+    pending.next(structuredClone(attitude)); pending.complete(); fixture.detectChanges(); expect(page.attitude?.busy).toBeFalse();
+  });
+  it('retains unsaved answers in both tabs and guards period changes and navigation', async () => {
+    page.items[0].selfPoint = 3; await selectAttitude(); page.attitude!.items[0].selfPoint = 4;
+    page.selectTab(0); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(page.items[0].selfPoint).toBe(3); expect(page.attitude!.items[0].selfPoint).toBe(4);
+    expect(page.unsavedChanges).toBeTrue(); const leave = page.canLeave(); confirm(); expect(await leave).toBeTrue();
+    page.periods.push({ ...period, id: 2 }); page.changePeriod(2); expect(page.periodId).toBe(1);
+    confirm(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(page.periodId).toBe(2); expect(attitudeApi.mine).toHaveBeenCalledWith(2);
+  });
+  it('blocks period/tab changes and navigation while attitude is saving', async () => {
+    await selectAttitude(); page.attitude!.busy = true; page.periods.push({ ...period, id: 2 });
+    page.changePeriod(2); expect(page.periodId).toBe(1); expect(page.canChangeTab()).toBeFalse(); expect(page.canLeave()).toBeFalse();
+    const event = new Event('beforeunload', { cancelable: true }); page.warnUnsaved(event as BeforeUnloadEvent);
+    expect(event.defaultPrevented).toBeTrue();
+  });
+  it('keeps KPI assessment usable when attitude configuration is unavailable', async () => {
+    attitudeApi.mine.and.returnValue(of({ ...attitude, available: false, canSaveDraft: false, status: null, items: [],
+      availabilityTitle: 'Attitude Evaluation Not Yet Available', availabilityMessage: 'Please check again later.' }));
+    await selectAttitude(); expect(page.attitude?.readonly).toBeTrue();
+    page.selectTab(0); fixture.detectChanges(); expect(page.readonly).toBeFalse();
+    page.items[0].selfPoint = 4; expect(page.canSubmit).toBeTrue(); page.saveDraft(); expect(api.create).toHaveBeenCalled();
+  });
+  it('can load attitude even when KPI checkpoint lookup fails', async () => {
+    api.checkpoints.and.returnValue(throwError(() => ({ error: { message: 'Checkpoint unavailable' } })));
+    page.load(); fixture.detectChanges(); expect(page.ready).toBeFalse(); await selectAttitude();
+    expect(attitudeApi.mine).toHaveBeenCalledOnceWith(1); expect(page.attitude?.items.length).toBe(1);
+  });
+});

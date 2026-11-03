@@ -1,0 +1,137 @@
+<section class="training-record" aria-label="Training history">
+  @if (loading && !record) {
+    <div class="loading"><nz-spin nzSimple></nz-spin></div>
+  }
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  @if (record; as r) {
+    @if (showPerson) {
+      <header class="person">
+        <strong>{{ r.name }}</strong>
+        <span class="muted">{{ r.roleName || 'No job role' }}{{ r.departmentName ? ' · ' + r.departmentName : '' }}{{ r.email ? ' · ' + r.email : '' }}</span>
+        @if (r.leftCompany) { <nz-tag>Left the company</nz-tag> }
+      </header>
+    }
+
+    <!-- FR-18-03 -->
+    <div class="tiles">
+      <div class="tile">
+        <span class="label"><nz-icon nzType="check-circle"></nz-icon> Completed</span>
+        <strong>{{ r.completedItems }}</strong>
+        <span class="muted">courses and sessions</span>
+      </div>
+      <div class="tile">
+        <span class="label"><nz-icon nzType="clock-circle"></nz-icon> Training hours</span>
+        <strong>{{ r.totalHours }} h</strong>
+        <span class="muted">{{ r.courseHours }} h courses · {{ r.sessionHours }} h sessions</span>
+      </div>
+      <div class="tile">
+        <span class="label"><nz-icon nzType="calendar"></nz-icon> Last completed</span>
+        <strong class="date">{{ r.lastCompleted ? (r.lastCompleted | date: 'd MMM yyyy') : '–' }}</strong>
+        <span class="muted">most recent training</span>
+      </div>
+      <div class="tile" [class.warn]="r.mandatoryOutstanding > 0">
+        <span class="label"><nz-icon nzType="exclamation-circle"></nz-icon> Mandatory to finish</span>
+        <strong>{{ r.mandatoryOutstanding }}</strong>
+        <span class="muted">{{ r.mandatoryOutstanding ? 'needs attention' : 'nothing outstanding' }}</span>
+      </div>
+    </div>
+
+    <!-- FR-18-01, FR-18-02 -->
+    <div class="block">
+      <header>
+        <h3>Training history</h3>
+        <nz-radio-group [(ngModel)]="show" nzSize="small" aria-label="Show">
+          <label nz-radio-button nzValue="ALL">All</label>
+          <label nz-radio-button nzValue="COURSE">Courses</label>
+          <label nz-radio-button nzValue="SESSION">Sessions</label>
+        </nz-radio-group>
+      </header>
+      @if (items.length) {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Training</th><th scope="col">Delivery</th><th scope="col">Status</th>
+                <th scope="col">Due</th><th scope="col">Completed</th><th scope="col" class="num">Score</th>
+                <th scope="col" class="num">Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of items; track key(i)) {
+                <tr>
+                  <td>
+                    <strong>{{ i.title }}</strong>
+                    @if (i.versionNo) { <span class="version">v{{ i.versionNo }}</span> }
+                    @if (i.mandatory) { <nz-tag nzColor="red">Mandatory</nz-tag> }
+                    @if (i.type === 'SESSION') {
+                      <span class="muted line">{{ i.kind }}{{ i.trainingType ? ' · ' + i.trainingType : '' }}</span>
+                    } @else if (i.modules.length) {
+                      <button type="button" class="link line" (click)="toggle(i)" [attr.aria-expanded]="open.has(key(i))">
+                        {{ open.has(key(i)) ? 'Hide' : 'Show' }} module quiz scores
+                      </button>
+                    }
+                  </td>
+                  <td>{{ i.delivery }}</td>
+                  <td><nz-tag [nzColor]="status(i).color">{{ status(i).label }}</nz-tag></td>
+                  <td>
+                    @if (i.type === 'SESSION') {
+                      <span class="muted">Held {{ i.heldOn | date: 'd MMM yyyy' }}</span>
+                    } @else {
+                      {{ i.dueDate ? (i.dueDate | date: 'd MMM yyyy') : 'No due date' }}
+                    }
+                  </td>
+                  <td>{{ i.completedOn ? (i.completedOn | date: 'd MMM yyyy') : '–' }}</td>
+                  <td class="num">{{ i.score != null ? i.score + '%' : '–' }}</td>
+                  <td class="num">{{ i.hours != null ? i.hours : '–' }}</td>
+                </tr>
+                @if (open.has(key(i))) {
+                  <tr class="modules-row">
+                    <td colspan="7">
+                      <ol class="modules">
+                        @for (m of i.modules; track $index) {
+                          <li>
+                            <span>{{ m.title }}</span>
+                            @if (m.passed) {
+                              <nz-tag nzColor="green">Passed · {{ m.score }}%</nz-tag>
+                            } @else if (m.score != null) {
+                              <nz-tag nzColor="orange">Best {{ m.score }}%</nz-tag>
+                            } @else {
+                              <nz-tag>Not taken</nz-tag>
+                            }
+                            <span class="muted">{{ m.attempts }} {{ m.attempts === 1 ? 'attempt' : 'attempts' }}</span>
+                          </li>
+                        }
+                      </ol>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <nz-empty nzNotFoundContent="No training here yet."></nz-empty>
+      }
+      <p class="muted">Sessions appear once their attendance is submitted. Hours count completed courses and attended sessions.</p>
+    </div>
+
+    <!-- FR-18-05 -->
+    <div class="block">
+      <header><h3>SOP certificates</h3></header>
+      @for (c of r.certificates; track c.certificateNo) {
+        <div class="certificate">
+          <nz-icon nzType="safety-certificate" class="good"></nz-icon>
+          <div>
+            <strong>{{ c.course }}</strong> <span class="version">v{{ c.versionNo }}</span>
+            <span class="muted line">{{ c.certificateNo }} · issued {{ c.issuedOn | date: 'd MMM yyyy' }}{{ c.finalScore != null ? ' · ' + c.finalScore + '%' : '' }}</span>
+          </div>
+        </div>
+      } @empty {
+        <p class="muted">No SOP certificates yet: one is issued for each course completed.</p>
+      }
+    </div>
+  }
+</section>

@@ -1,0 +1,25 @@
+.report { display: flex; flex-direction: column; gap: 12px; }
+.muted { margin: 0; color: var(--tbm-muted); font-size: 12px; }
+h4 { margin: 4px 0 0; font-size: 14px; }
+
+.download { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* As in the prototype's report: the session's numbers first */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tile { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: var(--tbm-surface-subtle); }
+.tile .label { color: var(--tbm-muted); font-size: 11px; font-weight: 600; }
+.tile strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.tile.good strong { color: #059669; }
+.tile.bad strong { color: #dc2626; }
+
+.person { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--tbm-surface-subtle); }
+.who { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.who nz-tag { margin-left: 6px; }
+.mark { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.mark nz-tag { margin: 0; }
+
+@media (max-width: 480px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .person { flex-direction: column; }
+  .mark { align-items: flex-start; }
+}

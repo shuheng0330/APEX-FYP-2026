@@ -11,6 +11,9 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RoleDetailsDto {
+    private Long employeeLevelId;
+    private String employeeLevelName;
+    private String employeeLevelCode;
 
     private Long orgChartId;
     private String orgChartName;

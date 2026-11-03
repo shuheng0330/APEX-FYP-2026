@@ -1,0 +1,27 @@
+<header class="top-header">
+  <div class="header-primary">
+    <button nz-button nzType="text" class="mobile-menu" aria-label="Open navigation" (click)="toggleDrawer.emit()">
+      <nz-icon nzType="menu" nzTheme="outline"></nz-icon>
+    </button>
+    <div class="page-context">
+      <div class="breadcrumb"><span>TBM Staff Platform</span><nz-icon nzType="right"></nz-icon><span>{{ page.group | translate }}</span></div>
+      <h1>{{ page.title | translate }}</h1>
+    </div>
+  </div>
+
+  <div class="header-actions">
+    <app-notification-bell></app-notification-bell>
+    <button nz-button nz-dropdown [nzDropdownMenu]="accountMenu" nzTrigger="click" class="account-button">
+      <span class="avatar">TB</span>
+      <span class="account-label">Account</span>
+      <nz-icon nzType="down"></nz-icon>
+    </button>
+    <nz-dropdown-menu #accountMenu="nzDropdownMenu">
+      <ul nz-menu>
+        <li nz-menu-item (click)="goToProfile()"><nz-icon nzType="user"></nz-icon> Profile</li>
+        <li nz-menu-divider></li>
+        <li nz-menu-item nzDanger (click)="logout()"><nz-icon nzType="logout"></nz-icon> Logout</li>
+      </ul>
+    </nz-dropdown-menu>
+  </div>
+</header>

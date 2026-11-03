@@ -1,6 +1,8 @@
 <div class="centered-padding-body">
-  <div>
-    <h1 class="text-center">{{ titleKey | translate }}</h1>
+  <div class="local-page-heading">
+    <span class="section-kicker">Performance and Appraisal</span>
+    <h1>{{ titleKey | translate }}</h1>
+    <p>Review performance history, competencies, trends, and appraisal outcomes.</p>
   </div>
   <nz-skeleton *ngIf="loading"></nz-skeleton>
 
@@ -37,6 +39,16 @@
         <div class="performance-content">
           <!-- Performance Trend Line Chart - Full Width at Top -->
           <div class="performance-chart" *ngIf="staffEvaluations.length > 0">
+            <div class="trend-range-toggle" aria-label="Performance trend range">
+              <button
+                *ngFor="let years of trendRangeOptions"
+                nz-button
+                nzSize="small"
+                [nzType]="selectedTrendRangeYears === years ? 'primary' : 'default'"
+                (click)="setTrendRange(years)">
+                {{ years }}Y
+              </button>
+            </div>
             <canvas baseChart [data]="lineChartData" [options]="lineChartOptions" [type]="'line'">
             </canvas>
           </div>
@@ -47,7 +59,7 @@
               <h3 class="evaluation-title">Latest Evaluation</h3>
               <div *ngIf="latestEvaluation; else noLatestEvaluation">
                 <div class="evaluation-header">
-                  <span class="evaluation-date">{{latestEvaluation?.createdAt | date: 'yyyy-MM-dd' }}</span>
+                  <span class="evaluation-date">{{ getEvaluationDisplayDate(latestEvaluation) | date: 'yyyy-MM-dd' }}</span>
                   <span class="view-all" *ngIf="latestEvaluation.ratings.length > 5" (click)="onClickViewAll()">View
                     All</span>
                 </div>
@@ -85,12 +97,15 @@
             <!-- Historical Evaluation -->
             <div class="evaluation-box">
               <h3 class="evaluation-title">Historical Evaluation</h3>
-              <div *ngIf="getHistoricalEvaluations().length > 0; else noHistoricalEvaluation">
+              <div *ngIf="historicalEvaluations.length > 0; else noHistoricalEvaluation">
                 <div class="historical-list">
-                  <div *ngFor="let eval of getHistoricalEvaluations()" class="historical-item">
-                    <div class="historical-date">{{eval.createdAt | date: 'yyyy-MM-dd' }}</div>
+                  <div *ngFor="let eval of historicalEvaluations" class="historical-item">
+                    <div class="historical-date">{{ getEvaluationDisplayDate(eval) | date: 'yyyy-MM-dd' }}</div>
                     <div class="historical-score">Score: {{eval.overallScore}}%</div>
                   </div>
+                </div>
+                <div class="expectation-summary">
+                  {{ consecutiveExpectationCycles }} consecutive cycles meeting expectation (&ge;70%)
                 </div>
               </div>
               <ng-template #noHistoricalEvaluation>
@@ -103,6 +118,17 @@
         </div>
       </div>
     </div>
+
+    <app-manager-appraisal-panel
+      *ngIf="showManagerAppraisalPanel"
+      [staffId]="staffId">
+    </app-manager-appraisal-panel>
+
+    <app-hr-appraisal-review-panel
+      *ngIf="showHrAppraisalPanel"
+      [staffId]="staffId"
+      [appraisalId]="appraisalId">
+    </app-hr-appraisal-review-panel>
   </div>
 </div>
 

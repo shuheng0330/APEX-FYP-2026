@@ -1,0 +1,8 @@
+:host { display: inline-block; }
+.rating-list { list-style: none; margin: 0; padding: 0; }
+.rating-row { display: flex; gap: 18px; align-items: flex-start; padding: 20px 0; color: var(--tbm-text); }
+.rating-row + .rating-row { border-top: 1px solid var(--tbm-border); }
+.rating-point { display: flex; align-items: center; justify-content: center; flex: 0 0 36px; height: 36px; border-radius: 50%; background: var(--tbm-primary); color: white; font-size: 17px; font-weight: 700; }
+.rating-row strong { font-size: 16px; }
+.rating-row p { margin: 4px 0 0; color: var(--tbm-muted); line-height: 1.6; }
+.rating-note { margin: 20px 0 0; padding: 16px 18px; border-radius: 8px; background: #fff9ec; color: #916000; line-height: 1.6; }

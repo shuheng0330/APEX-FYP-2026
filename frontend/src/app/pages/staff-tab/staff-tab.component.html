@@ -1,5 +1,11 @@
 <h1 class="text-center">{{ 'PAGE.STAFF.TITLE' | translate }}</h1>
 
+@if (accessControlUnavailable) {
+    <div class="access-control-unavailable" role="alert">
+        <strong>{{ 'PAGE.STAFF.ACCESS_CONTROL_UNAVAILABLE_TITLE' | translate }}</strong>
+        <p>{{ 'PAGE.STAFF.ACCESS_CONTROL_UNAVAILABLE_HELP' | translate }}</p>
+    </div>
+} @else {
 <nz-tabset nzCentered [(nzSelectedIndex)]="selectedTabIndex">
     <nz-tab nzTitle="{{ 'PAGE.STAFF.STAFF_OVERVIEW.TITLE' | translate }}">
         <ng-template nz-tab><app-staff-overview /></ng-template>
@@ -9,3 +15,4 @@
         <ng-template nz-tab><app-access-control-overview /></ng-template>
     </nz-tab>
 </nz-tabset>
+}

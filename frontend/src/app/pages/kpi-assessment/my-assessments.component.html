@@ -1,0 +1,254 @@
+<main class="review-page">
+  <app-notification-target [unavailable]="target.unavailable" />
+  <div class="page-heading">
+    <div><h2>{{ 'MY_ASSESSMENTS.TITLE' | translate }}</h2><p class="help">{{ 'MY_ASSESSMENTS.HELP' | translate }}</p></div>
+    <div class="field">
+      <label for="assessment-review-period">{{ 'KPI_PLAN.PERIOD' | translate }}</label>
+      <nz-select nzId="assessment-review-period" class="plan-picker" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="working || drawerVisible">
+        @for (period of periods; track period.id) {
+          <nz-option [nzValue]="period.id" [nzLabel]="(period.name || ('REVIEW_PERIOD.UNTITLED' | translate)) + ' (' + ('REVIEW_PERIOD.STATUS.' + period.status | translate) + ')'" />
+        }
+      </nz-select>
+    </div>
+  </div>
+  @if (selectedTab === 0 || !periods.length) {
+    @if (error && !target.unavailable) { <div class="error-box" role="alert">{{ error }}</div> }
+    @if (ready && error) { <button class="refresh-assessment" nz-button [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button> }
+    @if (success) { <div class="notice" role="status">{{ success }}</div> }
+    @if (busy) { <p class="help" role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
+    @if (!ready && !busy && error) { <button nz-button (click)="retry()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button> }
+  }
+  @if (ready && !periods.length) {
+    <section class="card"><p class="empty">{{ 'INDIVIDUAL_KPI.NO_PERIODS' | translate }}</p></section>
+  }
+  @if (periods.length) {
+    <nz-tabset [nzSelectedIndex]="selectedTab" (nzSelectedIndexChange)="selectTab($event)" [nzCanDeactivate]="canChangeTab" [nzDestroyInactiveTabPane]="false">
+      <nz-tab [nzTitle]="'MY_ASSESSMENTS.KPI_TAB' | translate">
+        @if (ready && !checkpoints.length) { <section class="card"><p class="empty">{{ 'MY_ASSESSMENTS.NO_CHECKPOINTS' | translate }}</p></section> }
+        @if (assessment; as current) {
+          @if (employeeContext; as context) { <p class="help assessment-employee">{{ context }}</p> }
+          <div class="assessment-toolbar">
+            <div class="checkpoint-context">
+              <div class="field checkpoint-field">
+                <label for="assessment-review-checkpoint">{{ 'MY_ASSESSMENTS.CHECKPOINT_LABEL.' + current.checkpoint.reviewFrequency | translate }}</label>
+                <nz-select nzId="assessment-review-checkpoint" class="checkpoint-picker" [ngModel]="checkpointId" (ngModelChange)="changeCheckpoint($event)" [nzDisabled]="busy || drawerVisible">
+                  @for (checkpoint of checkpoints; track checkpoint.id) {
+                    <nz-option [nzValue]="checkpoint.id" [nzLabel]="checkpointLabel(checkpoint) + (checkpoint.assessmentStatus ? ' - ' + ('MY_ASSESSMENTS.STATUS.' + checkpoint.assessmentStatus | translate) : '')" />
+                  }
+                </nz-select>
+              </div>
+              <div class="checkpoint-details">
+                <span class="status" [attr.data-status]="current.status">{{ 'MY_ASSESSMENTS.STATUS.' + current.status | translate }}</span>
+                <span class="help">{{ 'MY_ASSESSMENTS.PERIOD_END' | translate }}: {{ current.checkpoint.endDate | date:'dd MMM yyyy' }}</span>
+                <span class="help">{{ 'MY_ASSESSMENTS.DEADLINE' | translate }}: {{ current.checkpoint.selfAssessmentDeadline | date:'dd MMM yyyy' }}</span>
+                @if (current.overdue) { <span class="status overdue">{{ 'MY_ASSESSMENTS.OVERDUE' | translate }}</span> }
+                @if (current.submittedLate) { <span class="status overdue">{{ 'MY_ASSESSMENTS.SUBMITTED_LATE' | translate }}</span> }
+              </div>
+            </div>
+            @if (!readonly) {
+              <div class="actions assessment-actions">
+                @if (dirty) { <span class="help" role="status">{{ 'MY_ASSESSMENTS.UNSAVED' | translate }}</span> }
+                <button nz-button [disabled]="busy || drawerVisible" (click)="saveDraft()">{{ 'MY_ASSESSMENTS.SAVE_DRAFT' | translate }}</button>
+                <button nz-button nzType="primary" class="individual-kpi-action" [disabled]="!canSubmit || drawerVisible" (click)="confirmSubmit()">{{ 'MY_ASSESSMENTS.SUBMIT' | translate }}</button>
+              </div>
+            }
+          </div>
+          @if (current.status !== 'DRAFT') {
+            <p class="notice" role="status">{{ 'MY_ASSESSMENTS.SUBMITTED_HELP' | translate }}
+              @if (current.submittedAt) { <span>{{ 'MY_ASSESSMENTS.SUBMITTED_ON' | translate }} {{ current.submittedAt | date:'dd MMM yyyy, h:mm a' }}.</span> }
+            </p>
+          } @else if (current.reviewPeriodStatus === 'CLOSED') {
+            <p class="notice">{{ 'MY_ASSESSMENTS.CLOSED_HELP' | translate }}</p>
+          } @else if (current.reviewPeriodStatus !== 'OPEN') {
+            <p class="notice">{{ 'MY_ASSESSMENTS.PERIOD_UNAVAILABLE' | translate }}</p>
+          } @else if (!current.checkpoint.available) {
+            <p class="notice">{{ 'MY_ASSESSMENTS.OPENS_ON' | translate:{ date: (current.checkpoint.availableFrom | date:'dd MMM yyyy') } }}</p>
+          } @else if (current.overdue) {
+            <p class="help warning overdue-help">{{ 'MY_ASSESSMENTS.LATE_HELP' | translate }}</p>
+          }
+          @if (current.assessmentModel === 'CENTRAL_RESULTS') {
+            <app-company-reporting-source [source]="current.companyReportingCheckpoint" [compact]="true" />
+          }
+          @if (!readonly && submissionReasons.length) {
+            <div class="submission-readiness" role="status">
+              <strong>{{ 'MY_ASSESSMENTS.BEFORE_SUBMIT' | translate }}</strong>
+              <ul>@for (reason of submissionReasons; track reason) { <li>{{ reason }}</li> }</ul>
+            </div>
+          }
+          @if (current.status === 'REVIEWED' && current.checkpointScore !== null) {
+            <p class="notice checkpoint-score"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}: {{ current.checkpointScore | number:'1.2-2' }}%</span>
+              @if (current.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+              @if (current.assessmentModel === 'CENTRAL_RESULTS') {
+                <button nz-button nzType="link" [disabled]="busy" (click)="openScoreBreakdown()">{{ 'KPI_SCORE_BREAKDOWN.VIEW' | translate }}</button>
+              }
+              <span class="help score-reviewed-at">{{ current.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span>
+            </p>
+          } @else if (current.assessmentModel === 'CENTRAL_RESULTS' && current.status !== 'DRAFT') {
+            <div class="notice result-pending" role="status">
+              <div class="result-pending-header">
+                <strong>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_PENDING' | translate }}</strong>
+                <div class="score-actions">
+                  <button nz-button nzType="link" [disabled]="busy" (click)="openScoreBreakdown()">{{ 'KPI_SCORE_BREAKDOWN.VIEW' | translate }}</button>
+                  <button nz-button nzType="link" [disabled]="busy" (click)="refresh()">{{ 'MY_ASSESSMENTS.REFRESH' | translate }}</button>
+                </div>
+              </div>
+              @if (current.pendingResultLevels.length) {
+                <div class="result-pending-details"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }}
+                  @for (level of current.pendingResultLevels; track level) { {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level | translate }}@if (!$last) {, } }
+                </span></div>
+              }
+              @if (current.reviewedLate || current.reviewedAt) {
+                <div class="result-pending-meta">
+                  @if (current.reviewedLate) { <span class="status overdue">{{ 'KPI_ASSESSMENT_REVIEW.REVIEWED_LATE' | translate }}</span> }
+                  @if (current.reviewedAt) { <span class="help score-reviewed-at">{{ current.reviewedAt | date:'dd MMM yyyy, h:mm a' }}</span> }
+                </div>
+              }
+            </div>
+          }
+          <section class="card">
+            <div class="card-head assessment-heading"><div>
+              <h3>{{ (current.assessmentModel === 'CENTRAL_RESULTS' ? 'MY_ASSESSMENTS.INDIVIDUAL_TITLE' : 'MY_ASSESSMENTS.KPI_TAB') | translate }} - {{ checkpointLabel(current.checkpoint) }}</h3>
+              <p class="help">{{ (current.assessmentModel === 'CENTRAL_RESULTS' ? 'MY_ASSESSMENTS.INDIVIDUAL_INSTRUCTIONS' : 'MY_ASSESSMENTS.INSTRUCTIONS') | translate }}</p>
+            </div><app-kpi-scoring-guide /></div>
+            <div class="table-scroll"><table class="data-table assessment-table">
+              <thead><tr>@if (current.assessmentModel !== 'CENTRAL_RESULTS') { <th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th> }<th>{{ 'KPI_PLAN.NAME' | translate }}</th>
+                <th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'MY_ASSESSMENTS.SELF_POINT' | translate }} @if (!readonly) { <span class="required-mark" aria-hidden="true">*</span> }</th>
+                <th>{{ 'MY_ASSESSMENTS.COMMENT_EVIDENCE' | translate }}</th>
+                @if (current.status === 'REVIEWED') { <th>{{ 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' | translate }}</th> }
+              </tr></thead>
+              <tbody>
+                @for (item of items; track item.assignmentId) {
+                  <tr>
+                    @if (current.assessmentModel !== 'CENTRAL_RESULTS') { <td><span class="level-pill" [attr.data-level]="item.level">{{ 'INDIVIDUAL_KPI.LEVEL.' + item.level | translate }}</span></td> }
+                    <td class="kpi-name"><strong>{{ item.kpi.name }}</strong>
+                      <button nz-button nzType="link" class="criteria-link" (click)="viewCriteria(item)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
+                    </td>
+                    <td class="target-cell">{{ item.kpi.target }}</td>
+                    <td>
+                      @if (readonly) { <strong class="saved-point">{{ item.selfPoint ?? '-' }}</strong> }
+                      @else {
+                        <fieldset class="point-selector" [attr.aria-label]="('MY_ASSESSMENTS.SELF_POINT' | translate) + ': ' + item.kpi.name"
+                          aria-required="true" [attr.aria-invalid]="!!pointError(item)" [attr.aria-describedby]="pointError(item) ? 'answer-error-' + item.assignmentId : null" [disabled]="busy">
+                          @for (point of points; track point) {
+                            <label class="point-option" [class.selected]="item.selfPoint === point">
+                              <input type="radio" [name]="'self-point-' + item.assignmentId" [value]="point" [(ngModel)]="item.selfPoint">
+                              <span>{{ point }}</span>
+                            </label>
+                          }
+                        </fieldset>
+                      }
+                      @if (item.selfPoint) {
+                        <span class="selected-point-label" role="status">{{ 'KPI_SCORING_GUIDE.RATING.' + item.selfPoint + '.LABEL' | translate }}</span>
+                      }
+                      @if (!readonly && pointError(item); as validation) { <span class="field-error" [id]="'answer-error-' + item.assignmentId">{{ validation | translate }}</span> }
+                    </td>
+                    <td class="evidence-cell">
+                      @if (readonly) { @if (item.selfComment) { <p class="saved-comment">{{ item.selfComment }}</p> } }
+                      @else {
+                        <textarea nz-input rows="2" maxlength="10000" [(ngModel)]="item.selfComment" [disabled]="busy"
+                          [attr.aria-label]="('MY_ASSESSMENTS.COMMENT' | translate) + ': ' + item.kpi.name"
+                          [attr.aria-invalid]="!!commentError(item.selfComment)" [attr.aria-describedby]="commentError(item.selfComment) ? 'comment-error-' + item.assignmentId : null"
+                          [placeholder]="'MY_ASSESSMENTS.COMMENT_PLACEHOLDER' | translate"></textarea>
+                        @if (commentError(item.selfComment); as validation) { <span class="field-error" [id]="'comment-error-' + item.assignmentId">{{ validation | translate }}</span> }
+                        <input #evidenceInput type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="attachEvidence(item.assignmentId, $event)">
+                        <button nz-button nzType="link" [disabled]="busy" (click)="evidenceInput.click()">{{ 'MY_ASSESSMENTS.ATTACH_EVIDENCE' | translate }}</button>
+                      }
+                      @for (file of item.evidence; track file.id) {
+                        <div class="evidence-file"><span class="evidence-name" [title]="file.originalFilename">{{ file.originalFilename }}</span>
+                          <div class="actions">
+                            <button nz-button nzType="link" [disabled]="busy" (click)="downloadEvidence(file)" [attr.aria-label]="('MY_ASSESSMENTS.DOWNLOAD' | translate) + ': ' + file.originalFilename">{{ 'MY_ASSESSMENTS.DOWNLOAD' | translate }}</button>
+                            @if (!readonly) { <button nz-button nzType="link" nzDanger [disabled]="busy" (click)="removeEvidence(item, file)" [attr.aria-label]="('KPI_PLAN.REMOVE' | translate) + ': ' + file.originalFilename">{{ 'KPI_PLAN.REMOVE' | translate }}</button> }
+                          </div>
+                        </div>
+                      }
+                      @if (readonly && !item.selfComment && !item.evidence.length) { <span class="help">{{ 'MY_ASSESSMENTS.NO_SUPPORTING' | translate }}</span> }
+                    </td>
+                    @if (current.status === 'REVIEWED') {
+                      <td class="superior-result"><strong class="saved-point">{{ item.superiorPoint ?? '-' }}</strong>
+                        @if (item.superiorPoint) { <span class="selected-point-label">{{ 'KPI_SCORING_GUIDE.RATING.' + item.superiorPoint + '.LABEL' | translate }}</span> }
+                        @if (item.superiorComment) { <p class="saved-comment">{{ item.superiorComment }}</p> }
+                      </td>
+                    }
+                  </tr>
+                } @empty { <tr><td [attr.colspan]="(current.status === 'REVIEWED' ? 5 : 4) + (current.assessmentModel === 'CENTRAL_RESULTS' ? 0 : 1)" class="empty">{{ (current.assessmentModel === 'CENTRAL_RESULTS' ? 'MY_ASSESSMENTS.NO_INDIVIDUAL_KPIS' : 'MY_ASSESSMENTS.NO_KPIS') | translate }}</td></tr> }
+              </tbody>
+            </table></div>
+            @if (!readonly && items.length) { <p class="help evidence-guidance">{{ 'MY_ASSESSMENTS.EVIDENCE_GUIDANCE' | translate }}</p> }
+          </section>
+        }
+      </nz-tab>
+      <nz-tab [nzTitle]="'ATTITUDE_ASSESSMENT.TITLE' | translate">
+        @if (attitudeVisited && periodId !== null) { <app-attitude-self-assessment [reviewPeriodId]="periodId" /> }
+      </nz-tab>
+    </nz-tabset>
+  }
+  <nz-drawer [nzVisible]="breakdownVisible" [nzTitle]="'KPI_SCORE_BREAKDOWN.TITLE' | translate" nzWidth="min(900px, 100vw)"
+    [nzFooter]="breakdownFooter" [nzClosable]="!drawerVisible" [nzMaskClosable]="!drawerVisible" [nzKeyboard]="!drawerVisible" (nzOnClose)="breakdownVisible = false">
+    <ng-container *nzDrawerContent>
+      <p class="help">{{ assessment?.reviewPeriodName }} @if (assessment) { / {{ checkpointLabel(assessment.checkpoint) }} }</p>
+      <p>{{ 'KPI_SCORE_BREAKDOWN.HELP' | translate }}</p>
+      @if (breakdownLoading) { <p role="status">{{ 'MY_ASSESSMENTS.WORKING' | translate }}</p> }
+      @if (breakdownError) {
+        <div class="error-box" role="alert">{{ 'KPI_SCORE_BREAKDOWN.ERROR' | translate }}
+          <button nz-button (click)="openScoreBreakdown()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button>
+        </div>
+      }
+      @if (breakdown; as score) {
+        <div class="breakdown-score" role="status">
+          <span class="help">{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}</span>
+          <strong class="breakdown-score-value">{{ score.checkpointScore === null ? ('KPI_SCORE_BREAKDOWN.STATUS.PENDING' | translate) : (score.checkpointScore | number:'1.2-2') + '%' }}</strong>
+        </div>
+        <section class="card"><app-kpi-score-summary [levels]="score.levels" /></section>
+        <p class="help breakdown-formula">{{ 'KPI_SCORE_BREAKDOWN.FORMULA' | translate }}</p>
+        @if (score.checkpointScore === null) { <p class="help breakdown-pending">{{ 'KPI_SCORE_BREAKDOWN.PENDING_HELP' | translate }}</p> }
+        @for (level of score.levels; track level.level) {
+          @if (level.status !== 'NOT_APPLICABLE') {
+            <section class="card breakdown-level">
+              <div class="card-head"><h3>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</h3>
+                @if (level.level === 'COMPANY' && level.reportingCheckpoint; as source) {
+                  <p class="help breakdown-reporting-period">{{ 'KPI_SCORE_BREAKDOWN.REPORTING_PERIOD' | translate }}: {{ source.endDate | date:'MMMM yyyy' }} ({{ 'REVIEW_PERIOD.FREQUENCY.' + source.reviewFrequency | translate }})</p>
+                }
+                @if (level.versionNumber !== null || level.resultEditionNumber !== null || level.publishedAt) {
+                  <details class="breakdown-result-details">
+                    <summary>{{ 'KPI_SCORE_BREAKDOWN.RESULT_DETAILS' | translate }}</summary>
+                    <dl class="breakdown-values">
+                      @if (level.versionNumber !== null) { <div><dt>{{ 'KPI_RESULTS.PLAN_VERSION' | translate }}</dt><dd>{{ level.versionNumber }}</dd></div> }
+                      @if (level.resultEditionNumber !== null) { <div><dt>{{ 'KPI_SCORE_BREAKDOWN.RESULT_EDITION' | translate }}</dt><dd>{{ level.resultEditionNumber }}</dd></div> }
+                      @if (level.publishedAt) { <div><dt>{{ (level.level === 'INDIVIDUAL' ? 'KPI_SCORE_BREAKDOWN.REVIEWED_ON' : 'KPI_SCORE_BREAKDOWN.PUBLISHED_ON') | translate }}</dt><dd>{{ level.publishedAt | date:'dd MMM yyyy, h:mm a' }}</dd></div> }
+                    </dl>
+                  </details>
+                }
+              </div>
+              @if (level.status === 'PENDING') {
+                <div class="card-body">{{ 'KPI_ASSESSMENT_REVIEW.SCORE_WAITING_FOR' | translate }} {{ 'KPI_ASSESSMENT_REVIEW.PENDING_LEVEL.' + level.level | translate }}</div>
+              } @else {
+                @for (item of level.items; track item.kpi.id) {
+                  <div class="breakdown-item">
+                    <div class="breakdown-item-heading"><strong>{{ item.kpi.name }}</strong>
+                      <button nz-button nzType="link" (click)="viewBreakdownCriteria(item.kpi, level.level)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
+                    </div>
+                    <p class="help">{{ 'KPI_PLAN.TARGET' | translate }}: {{ item.kpi.target }}</p>
+                    <dl class="breakdown-values">
+                      <div><dt>{{ 'KPI_PLAN.WEIGHT' | translate }}</dt><dd>{{ item.kpi.weightage | number:'1.0-2' }}%</dd></div>
+                      @if (level.level !== 'INDIVIDUAL') {
+                        <div><dt>{{ 'KPI_RESULTS.ACTUAL' | translate }}</dt><dd>{{ item.actualAchievement || '-' }}</dd></div>
+                      }
+                      <div><dt>{{ (level.level === 'INDIVIDUAL' ? 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' : 'KPI_RESULTS.RESULT_POINT') | translate }}</dt>
+                        <dd><strong>{{ item.point }}</strong> / 5 · {{ 'KPI_SCORING_GUIDE.RATING.' + item.point + '.LABEL' | translate }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                }
+              }
+            </section>
+          }
+        }
+      }
+    </ng-container>
+  </nz-drawer>
+  <ng-template #breakdownFooter><div class="actions drawer-actions"><button nz-button [disabled]="drawerVisible" (click)="breakdownVisible = false">{{ 'KPI_PLAN.CLOSE' | translate }}</button></div></ng-template>
+  <nz-drawer [nzVisible]="drawerVisible" [nzTitle]="'MY_ASSESSMENTS.KPI_DETAILS' | translate" nzWidth="min(720px, 100vw)" [nzFooter]="detailFooter" (nzOnClose)="drawerVisible = false">
+    <ng-container *nzDrawerContent><app-kpi-item-editor [items]="detailItem" [readonly]="true" [singleItem]="true" [scope]="detailScope" /></ng-container>
+  </nz-drawer>
+  <ng-template #detailFooter><div class="actions drawer-actions"><button nz-button (click)="drawerVisible = false">{{ 'KPI_PLAN.CLOSE' | translate }}</button></div></ng-template>
+</main>

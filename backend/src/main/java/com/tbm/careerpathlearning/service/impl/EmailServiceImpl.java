@@ -166,6 +166,85 @@ public class EmailServiceImpl implements EmailService {
         this.mailSender = mailSender;
     }
 
+    @Override @Async
+    public void sendIndividualKpiRevisionEmail(String to, String employee, String period, boolean awaitingApproval, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            String prefix=awaitingApproval?"email.kpi.revision.submitted":"email.kpi.revision.requested";
+            helper.setSubject(messageSource.getMessage(prefix+".title",null,locale));
+            helper.setText(messageSource.getMessage(prefix+".body",
+                new Object[]{employee,period,FRONTEND_ORIGIN+"/team-performance/team-reviews"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send Individual KPI revision notification",e);}
+    }
+
+    @Override @Async
+    public void sendAttitudeSelfAssessmentSubmittedEmail(String to, String employee, String period, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.attitude.assessment.submitted.title",null,locale));
+            helper.setText(messageSource.getMessage("email.attitude.assessment.submitted.body",
+                    new Object[]{employee,period,FRONTEND_ORIGIN+"/team-performance/team-reviews"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send Attitude Self-Assessment submission notification",e);}
+    }
+
+    @Override @Async
+    public void sendAnnualAppraisalReviewedEmail(String to, String employee, String period, String decision, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.annual.appraisal.reviewed.title",null,locale));
+            helper.setText(messageSource.getMessage("email.annual.appraisal.reviewed.body",
+                    new Object[]{employee,period,decision},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send annual appraisal review notification",e);}
+    }
+
+    @Override @Async
+    public void sendAttitudeAssessmentReviewedEmail(String to, String employee, String period, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.attitude.assessment.reviewed.title",null,locale));
+            helper.setText(messageSource.getMessage("email.attitude.assessment.reviewed.body",
+                    new Object[]{employee,period,FRONTEND_ORIGIN+"/my-performance/my-assessments"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send Attitude Evaluation review notification",e);}
+    }
+
+    @Override @Async
+    public void sendKpiSelfAssessmentSubmittedEmail(String to, String employee, String period, String checkpoint, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.kpi.assessment.submitted.title",null,locale));
+            helper.setText(messageSource.getMessage("email.kpi.assessment.submitted.body",
+                    new Object[]{employee,period,checkpoint,FRONTEND_ORIGIN+"/team-performance/team-reviews"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send KPI assessment submission notification",e);}
+    }
+
+    @Override @Async
+    public void sendKpiAssessmentReviewedEmail(String to, String employee, String period, String checkpoint, Locale locale) {
+        try {
+            var message=mailSender.createMimeMessage();
+            var helper=new MimeMessageHelper(message,false,ENCODING);
+            helper.setFrom(new InternetAddress(NO_REPLY,SERVER_NAME));helper.setTo(to);
+            helper.setSubject(messageSource.getMessage("email.kpi.assessment.reviewed.title",null,locale));
+            helper.setText(messageSource.getMessage("email.kpi.assessment.reviewed.body",
+                    new Object[]{employee,period,checkpoint,FRONTEND_ORIGIN+"/my-performance/my-assessments"},locale),false);
+            mailSender.send(message);
+        } catch(Exception e) {logger.warn("Could not send KPI assessment review notification",e);}
+    }
+
     @Async
     @Override
     public void sendPasswordResetEmail(String to, String otp, Locale locale) {

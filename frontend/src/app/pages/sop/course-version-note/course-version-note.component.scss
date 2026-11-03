@@ -1,0 +1,14 @@
+.version-note { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin: 10px 0; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: var(--tbm-text); font-size: 12px; }
+.version-note.draft { border-color: #fcd34d; background: #fffbeb; }
+.note-icon { margin-top: 2px; color: #475569; font-size: 16px; }
+.version-note.draft .note-icon { color: #b45309; }
+.note-copy { display: flex; flex: 1 1 180px; flex-direction: column; gap: 3px; }
+.note-copy span { color: var(--tbm-muted); line-height: 1.5; }
+.note-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.version-hint { display: flex; gap: 8px; margin: 10px 0; color: var(--tbm-muted); font-size: 12px; line-height: 1.5; }
+.version-hint nz-icon { margin-top: 3px; color: var(--tbm-primary); }
+.publish-copy { margin: 0 0 14px; line-height: 1.6; }
+.redo-field { display: flex; flex-direction: column; gap: 8px; }
+.redo-title { font-weight: 600; }
+.redo-choice { display: flex; flex-direction: column; gap: 8px; }
+.redo-choice label { white-space: normal; line-height: 1.5; }

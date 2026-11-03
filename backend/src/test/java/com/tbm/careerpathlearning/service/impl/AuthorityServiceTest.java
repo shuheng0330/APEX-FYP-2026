@@ -62,6 +62,19 @@ class AuthorityServiceTest {
     // --- findAll Tests ---
 
     @Test
+    void revisionPermissions_ShouldHaveConciseLabelsAndDescriptions() {
+        var messages = ResourceBundle.getBundle("messages", Locale.ENGLISH);
+        var keys = List.of("auth.can.manage.kpi.amendments", "auth.can.revise.company.kpi",
+            "auth.can.prepare.department.kpi.revision", "auth.can.manage.individual.kpi.revisions",
+            "auth.can.manage.department.kpi", "auth.can.approve.department.kpi", "auth.can.review.individual.kpi");
+        keys.forEach(key -> {
+            assertFalse(messages.getString(key).isBlank());
+            assertFalse(messages.getString(key + ".desc").isBlank());
+            assertTrue(messages.getString(key + ".desc").length() <= 160, key);
+        });
+    }
+
+    @Test
     void findAll_ShouldReturnList() {
         // Arrange
         when(authorityRepository.findAll()).thenReturn(List.of(authorityEntity));

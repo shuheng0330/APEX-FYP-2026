@@ -5,6 +5,23 @@
         <div nz-row [nzGutter]="8">
             <div nz-col nzSpan="18">
                 <nz-form-item>
+                    <nz-form-label nzRequired nzLabelAlign="left">
+                        {{'PAGE.ROLE.EMPLOYEE_LEVEL.LABEL' | translate}}
+                    </nz-form-label>
+                    <nz-form-control [nzErrorTip]="'PAGE.ROLE.EMPLOYEE_LEVEL.REQUIRED' | translate">
+                        <nz-select nzShowSearch nzAllowClear formControlName="employeeLevel"
+                            [nzPlaceHolder]="'PAGE.ROLE.EMPLOYEE_LEVEL.PLACEHOLDER' | translate">
+                            @for (level of employeeLevels; track level.id) {
+                                <nz-option [nzLabel]="level.name" [nzValue]="level.id" />
+                            }
+                        </nz-select>
+                    </nz-form-control>
+                </nz-form-item>
+            </div>
+        </div>
+        <div nz-row [nzGutter]="8">
+            <div nz-col nzSpan="18">
+                <nz-form-item>
                     <nz-form-label nzRequired [nzSm]="6" [nzXs]="24" nzLabelAlign="left">
                         {{'PAGE.ROLE.OVERVIEW.ADD.INPUT.DEPARTMENT'|translate}}
                     </nz-form-label>

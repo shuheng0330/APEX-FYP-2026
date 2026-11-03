@@ -454,11 +454,13 @@ class LearningMaterialServiceImplTest {
 
     @Test
     @DisplayName("calculateMetadata - Should trigger video extraction branch")
-    void calculateMetadata_VideoBranch() {
+    void calculateMetadata_VideoBranch(@org.junit.jupiter.api.io.TempDir Path directory) throws java.io.IOException {
         // Targets the 'else if ("VIDEO".equalsIgnoreCase(...))' branch
         LearningDocument doc = new LearningDocument();
         doc.setFileType("VIDEO");
-        doc.setFileUrl("test.mp4"); // Path exists in FILE_UPLOAD_DIR
+        doc.setFileUrl("test.mp4");
+        java.nio.file.Files.createFile(directory.resolve("test.mp4"));
+        org.springframework.test.util.ReflectionTestUtils.setField(learningMaterialService,"FILE_UPLOAD_DIR",directory.toString());
 
         // Mock internal video extraction to focus on calculateMetadata branches
         doReturn(60.0).when(learningMaterialService).extractVideoDuration(any());

@@ -1,0 +1,305 @@
+<main class="review-page performance-page" [attr.aria-busy]="loading">
+  @if (staffView) { <a class="back-link" [routerLink]="returnLink">{{ (returnUrl.startsWith('/team-performance/dashboard') ? 'TEAM_PERFORMANCE.BACK' : returnUrl === '/my-performance/dashboard' ? 'STAFF_PERFORMANCE.BACK_MY' : 'STAFF_PERFORMANCE.BACK') | translate }}</a> }
+  <header class="card performance-heading">
+    <div class="employee-heading"><span class="avatar" aria-hidden="true">{{ initials }}</span><div>
+      <p class="eyebrow">{{ titleKey | translate }}</p>
+      <h2>{{ data?.employee?.name || (titleKey | translate) }}</h2>
+      @if (data) { <p class="help">{{ data.employee.roleName || '-' }} · {{ data.employee.departmentName || '-' }}</p> }
+      <p class="help">{{ 'STAFF_PERFORMANCE.INTRO' | translate }}</p>
+    </div></div>
+    <div class="period-controls">
+      <div class="field"><label for="performance-period">{{ 'ANNUAL_APPRAISAL.PERIOD' | translate }}</label>
+        <nz-select nzId="performance-period" [ngModel]="periodId" (ngModelChange)="changePeriod($event)" [nzDisabled]="loading || !periods.length"
+          [nzPlaceHolder]="'STAFF_PERFORMANCE.SELECT_PERIOD' | translate">
+          @for (period of periods; track period.id) { <nz-option [nzValue]="period.id" [nzLabel]="period.name" /> }
+        </nz-select>
+      </div>
+      <button nz-button type="button" [disabled]="loading" (click)="refreshDetails()">{{ 'ANNUAL_APPRAISAL.REFRESH_DETAILS' | translate }}</button>
+    </div>
+  </header>
+  @if (loading) { <p role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
+  @if (error) { <section class="error-box" role="alert"><h3>{{ 'STAFF_PERFORMANCE.UNAVAILABLE' | translate }}</h3>
+    <p>{{ 'STAFF_PERFORMANCE.UNAVAILABLE_HELP' | translate }}</p>
+    <a routerLink="/my-performance/dashboard">{{ 'STAFF_PERFORMANCE.MY_TITLE' | translate }}</a>
+  </section> }
+  @if (empty) { <section class="card empty"><h3>{{ 'STAFF_PERFORMANCE.NO_PERIODS' | translate }}</h3>
+    <p class="help">{{ 'STAFF_PERFORMANCE.NO_PERIODS_HELP' | translate }}</p></section> }
+  @if (data; as view) {
+    <nav class="section-links" [attr.aria-label]="'STAFF_PERFORMANCE.SECTIONS' | translate">
+      <a [routerLink]="[]" fragment="performance-kpis" queryParamsHandling="preserve" (click)="scrollTo('performance-kpis')">{{ 'STAFF_PERFORMANCE.KPI_TITLE' | translate }}</a>
+      <a [routerLink]="[]" fragment="performance-attitude" queryParamsHandling="preserve" (click)="scrollTo('performance-attitude')">{{ 'STAFF_PERFORMANCE.ATTITUDE_TITLE' | translate }}</a>
+      @if (isSelf || view.capabilities.canViewInternalAppraisal) { <a [routerLink]="[]" fragment="performance-appraisals" queryParamsHandling="preserve" (click)="scrollTo('performance-appraisals')">{{ 'STAFF_PERFORMANCE.HISTORY_TITLE' | translate }}</a> }
+    </nav>
+    @if (summary; as scores) { <h3 class="results-heading">{{ 'STAFF_PERFORMANCE.PERIOD_RESULTS' | translate }}</h3>
+      <app-annual-appraisal-performance [performance]="scores" [summaryOnly]="true" /> }
+    @if (view.scores.annualKpiScore === null && view.scores.attitudeScore === null && view.scores.finalScore === null) {
+      <p class="help pending-help" role="status">{{ 'STAFF_PERFORMANCE.PENDING_HELP' | translate }}</p>
+    } @else if (view.scores.finalScore === null) {
+      <p class="help pending-help">{{ 'STAFF_PERFORMANCE.FINAL_PENDING' | translate }}</p>
+    }
+    @if (view.approvedAppraisal; as outcome) {
+      <section class="card approved-outcome" aria-labelledby="approved-outcome-title"><div class="card-body">
+        <div class="section-heading"><div><h3 id="approved-outcome-title">{{ 'STAFF_PERFORMANCE.APPROVED_OUTCOME' | translate }}</h3>
+          <p class="help outcome-period">{{ outcome.period.name }}</p>
+          <p><span class="status" data-status="APPROVED">{{ 'ANNUAL_APPRAISAL.STATUS.APPROVED' | translate }}</span>
+            <strong class="outcome-decision">{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + outcome.finalDecision | translate }}</strong></p>
+          <p class="help">{{ 'ANNUAL_APPRAISAL.APPROVED_ON' | translate }}: {{ outcome.approvedAt | date:'dd MMM yyyy' }}</p></div>
+          <button nz-button type="button" (click)="openAppraisal(outcome)">{{ 'ANNUAL_APPRAISAL.VIEW_HISTORY_DETAILS' | translate }}</button></div>
+        <p class="help">{{ 'STAFF_PERFORMANCE.OUTCOME_HELP' | translate }}</p>
+        @if (outcome.comparisonStatus === 'DIFFERENT') { <p class="help">{{ 'STAFF_PERFORMANCE.CORRECTED_HELP' | translate }}</p> }
+      </div></section>
+    }
+    <app-annual-performance-trend [results]="trend" [currentPeriod]="chartPeriod" [employeeId]="view.employee.id" [employeeName]="view.employee.name || ''" />
+
+    <section id="performance-kpis" class="card" aria-labelledby="performance-kpi-title">
+      <div class="card-head section-heading"><div><h3 id="performance-kpi-title">{{ 'STAFF_PERFORMANCE.KPI_TITLE' | translate }}</h3>
+        <p class="help">{{ 'STAFF_PERFORMANCE.KPI_HELP' | translate }}</p></div>
+        <button nz-button type="button" [disabled]="!view.checkpoints.length" (click)="drawer = 'history'">{{ 'STAFF_PERFORMANCE.VIEW_ASSESSMENT_HISTORY' | translate }}</button>
+      </div>
+      <div class="card-body checkpoint-overview">
+        <ng-container [ngTemplateOutlet]="checkpointSelection" [ngTemplateOutletContext]="{ controlId: 'performance-checkpoint', selectionOnly: true }" />
+        <dl class="checkpoint-metrics">
+          <div class="score-metric"><dt>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}</dt><dd>{{ checkpointLoading || checkpointError || checkpoint?.checkpoint?.score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (checkpoint!.checkpoint.score | number:'1.2-2') + '%' }}</dd></div>
+          <div><dt>{{ 'STAFF_PERFORMANCE.ASSESSMENT_STATUS' | translate }}</dt><dd><span class="status" [attr.data-status]="selectedCheckpoint?.status">{{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + (selectedCheckpoint?.status || 'NOT_STARTED') | translate }}</span></dd></div>
+          <div><dt>{{ 'ANNUAL_APPRAISAL.FREQUENCY' | translate }}</dt><dd><span class="status">{{ 'ANNUAL_APPRAISAL.FREQUENCIES.' + view.period.reviewFrequency | translate }}</span></dd></div>
+          <div><dt>{{ 'ANNUAL_APPRAISAL.CONSOLIDATION' | translate }}</dt><dd><span class="status">{{ view.scores.consolidationMethod ? ('ANNUAL_APPRAISAL.METHODS.' + view.scores.consolidationMethod | translate) : '-' }}</span></dd></div>
+        </dl>
+      </div>
+      @if (checkpointLoading) { <p class="card-body help" role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
+      @if (checkpointError) { <p class="card-body" role="alert">{{ 'STAFF_PERFORMANCE.DETAIL_UNAVAILABLE' | translate }} <button nz-button (click)="selectCheckpoint(checkpointId)">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button></p> }
+      @if (!checkpointLoading && !checkpointError) {
+        <div class="table-scroll"><table class="data-table kpi-table"><thead><tr>
+          <th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th>
+          <th>{{ 'KPI_PLAN.WEIGHT' | translate }}</th><th>{{ 'STAFF_PERFORMANCE.RESULT_POINT' | translate }}</th>
+        </tr></thead><tbody>@for (row of kpiRows; track row.key) {
+          <tr><td>{{ row.kpi.name }}</td><td><span class="status">{{ 'INDIVIDUAL_KPI.LEVEL.' + row.level | translate }}</span></td>
+            <td class="wrap-text">{{ row.kpi.target || '-' }}</td><td>{{ row.kpi.weightage == null ? '-' : (row.kpi.weightage | number:'1.0-2') + '%' }}</td>
+            <td>{{ row.point == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : row.point + ' / 5' }}</td></tr>
+        } @empty { <tr><td colspan="5" class="empty">{{ 'STAFF_PERFORMANCE.NO_KPI_RESULTS' | translate }}</td></tr> }</tbody></table></div>
+      }
+    </section>
+
+    <section id="performance-attitude" class="card" aria-labelledby="performance-attitude-title"><div class="card-head section-heading">
+      <h3 id="performance-attitude-title">{{ 'STAFF_PERFORMANCE.ATTITUDE_TITLE' | translate }}</h3>
+      <button nz-button type="button" [disabled]="!view.attitude.assessmentId" (click)="drawer = 'attitude'">{{ 'STAFF_PERFORMANCE.VIEW_ATTITUDE' | translate }}</button>
+    </div><div class="card-body"><ng-container [ngTemplateOutlet]="attitudeSummary" [ngTemplateOutletContext]="{ $implicit: view.attitude }" /></div></section>
+
+    @if (isSelf || view.capabilities.canViewInternalAppraisal) {
+      <section id="performance-appraisals" class="card" aria-labelledby="performance-history-title"><div class="card-head">
+        <h3 id="performance-history-title">{{ 'STAFF_PERFORMANCE.HISTORY_TITLE' | translate }}</h3><p class="help">{{ 'STAFF_PERFORMANCE.HISTORY_HELP' | translate }}</p></div>
+        <div class="table-scroll"><table class="data-table"><thead><tr><th>{{ 'ANNUAL_APPRAISAL.PERIOD' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.FINAL_SCORE' | translate }}</th>
+          @if (!isSelf) { <th>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</th> }
+          <th>{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.STATUS_LABEL' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.ACTIONS' | translate }}</th>
+        </tr></thead><tbody>@for (past of view.appraisalHistory; track past.id) {
+          <tr><td>{{ past.period.name }}</td><td>{{ past.recordedScores?.finalScore == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (past.recordedScores!.finalScore | number:'1.2-2') + '%' }}</td>
+            @if (!isSelf) { <td>{{ past.internalDetails?.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + past.internalDetails!.recommendation | translate) : '-' }}</td> }
+            <td>{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + past.finalDecision | translate }}</td><td><span class="status" data-status="APPROVED">{{ 'ANNUAL_APPRAISAL.STATUS.APPROVED' | translate }}</span></td>
+            <td><button type="button" class="text-action" (click)="openAppraisal(past)">{{ 'ANNUAL_APPRAISAL.VIEW_HISTORY_DETAILS' | translate }}</button></td></tr>
+        } @empty { <tr><td [attr.colspan]="isSelf ? 5 : 6" class="empty">{{ 'STAFF_PERFORMANCE.NO_HISTORY' | translate }}</td></tr> }</tbody></table></div>
+      </section>
+    }
+  }
+
+  <nz-drawer [nzVisible]="drawer !== null" [nzTitle]="'STAFF_PERFORMANCE.DRAWERS.' + (drawer || 'history') | translate" nzWidth="min(960px, 100vw)"
+    [nzFooter]="drawerFooter" (nzOnClose)="closeDrawer()">
+    <ng-container *nzDrawerContent>
+      <div class="performance-drawer">
+      @if (data; as view) {
+        @if (drawer === 'history') {
+          <p class="help">{{ view.employee.name }} · {{ view.period.name }}</p>
+          <p>{{ (view.period.assessmentModel === 'CENTRAL_RESULTS' ? 'STAFF_PERFORMANCE.HISTORY_INDIVIDUAL_HELP' : 'STAFF_PERFORMANCE.HISTORY_LEGACY_HELP') | translate }}</p>
+          <div class="history-checkpoint-context"><ng-container [ngTemplateOutlet]="checkpointSelection" [ngTemplateOutletContext]="{ controlId: 'history-checkpoint' }" /></div>
+          @if (checkpointLoading) { <p role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
+          @if (checkpointError) { <p role="alert">{{ 'STAFF_PERFORMANCE.DETAIL_UNAVAILABLE' | translate }}</p> }
+          @if (checkpoint; as details) {
+            <app-kpi-scoring-guide />
+            @if (details.breakdown; as breakdown) {
+            <p class="help calculation-help">{{ 'STAFF_PERFORMANCE.CONTRIBUTION_HELP' | translate }}</p>
+              <app-kpi-score-summary [levels]="breakdown.levels" />
+              @for (level of breakdown.levels; track level.level) {
+                @if (level.level !== 'INDIVIDUAL' && level.status !== 'NOT_APPLICABLE' && details.assessmentModel === 'CENTRAL_RESULTS') {
+                  <details class="result-disclosure"><summary><span class="view-label">{{ 'STAFF_PERFORMANCE.VIEW' | translate }} {{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</span><span class="hide-label">{{ 'STAFF_PERFORMANCE.HIDE' | translate }} {{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</span></summary>
+                    <ng-container [ngTemplateOutlet]="levelResults" [ngTemplateOutletContext]="{ $implicit: level }" />
+                  </details>
+                }
+              }
+            } @else { <p class="help">{{ 'STAFF_PERFORMANCE.KPI_BREAKDOWN_UNAVAILABLE' | translate }}</p> }
+            @for (answer of details.answers; track answer.id) { <section class="card answer-card"><div class="card-body">
+              <h4>{{ answer.kpi.name }}</h4><p class="help">{{ answer.kpi.target }}</p>
+              <div class="comparison-grid"><div class="self-answers"><h5>{{ 'STAFF_PERFORMANCE.SELF_RATING' | translate }}</h5><strong class="saved-point">{{ answer.selfPoint == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : answer.selfPoint + ' / 5' }}</strong>
+                  @if (answer.selfPoint != null) { <span class="rating-label">{{ 'KPI_SCORING_GUIDE.RATING.' + answer.selfPoint + '.LABEL' | translate }}</span> }
+                  <p class="preserve-lines saved-comment">{{ answer.selfComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p></div>
+                <div class="superior-answers"><h5>{{ 'STAFF_PERFORMANCE.SUPERIOR_RATING' | translate }}</h5><strong class="saved-point">{{ answer.superiorPoint == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : answer.superiorPoint + ' / 5' }}</strong>
+                  @if (answer.superiorPoint != null) { <span class="rating-label">{{ 'KPI_SCORING_GUIDE.RATING.' + answer.superiorPoint + '.LABEL' | translate }}</span> }
+                  <p class="preserve-lines saved-comment">{{ answer.superiorComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p></div></div>
+              <button type="button" class="text-action scoring-action" (click)="showScoringDefinitions(answer.kpi)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
+            </div></section> } @empty { <p class="help">{{ 'STAFF_PERFORMANCE.NO_ANSWERS' | translate }}</p> }
+          }
+        }
+        @if (drawer === 'attitude') {
+          <p class="help">{{ view.employee.name }} · {{ view.period.name }} · {{ view.attitude.configurationName }}</p>
+          <ng-container [ngTemplateOutlet]="attitudeSummary" [ngTemplateOutletContext]="{ $implicit: view.attitude }" />
+          <app-kpi-scoring-guide [ratings]="view.attitude.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.SCORING_GUIDE" />
+          @for (criterion of view.attitude.criteria; track criterion.id) { <section class="card"><div class="card-body"><h3>{{ criterion.name }}</h3><p class="help">{{ criterion.description }}</p>
+            <div class="comparison-grid"><div class="self-answers"><h4>{{ 'STAFF_PERFORMANCE.SELF_RATING' | translate }}</h4><strong class="saved-point">{{ criterion.selfPoint == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : criterion.selfPoint + ' / 5' }}</strong>
+                @if (attitudeRatingLabel(criterion.selfPoint); as label) { <span class="rating-label">{{ label }}</span> }
+                <p class="preserve-lines saved-comment">{{ criterion.selfComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p></div>
+              <div class="superior-answers"><h4>{{ 'STAFF_PERFORMANCE.SUPERIOR_RATING' | translate }}</h4><strong class="saved-point">{{ criterion.superiorPoint == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : criterion.superiorPoint + ' / 5' }}</strong>
+                @if (attitudeRatingLabel(criterion.superiorPoint); as label) { <span class="rating-label">{{ label }}</span> }
+                <p class="preserve-lines saved-comment">{{ criterion.superiorComment || ('KPI_ASSESSMENT_REVIEW.NO_COMMENT' | translate) }}</p></div></div>
+          </div></section> }
+        }
+        @if (drawer === 'appraisal') {
+          @if (appraisalLoading) { <p role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
+          @if (appraisalError) { <p role="alert">{{ 'STAFF_PERFORMANCE.DETAIL_UNAVAILABLE' | translate }} <button nz-button (click)="retryAppraisal()">{{ 'INDIVIDUAL_KPI.RETRY' | translate }}</button></p> }
+          @if (appraisal; as recorded) {
+            <h3>{{ recorded.period.name }}</h3><p class="help">{{ recorded.period.startDate | date:'dd MMM yyyy' }} - {{ recorded.period.endDate | date:'dd MMM yyyy' }}</p>
+            <p class="help recorded-context">{{ 'STAFF_PERFORMANCE.RECORDED_HELP' | translate }}</p>
+            <p><span class="status" data-status="APPROVED">{{ 'ANNUAL_APPRAISAL.STATUS.APPROVED' | translate }}</span></p>
+            <h4>{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }}</h4><p class="recorded-decision">{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + recorded.finalDecision | translate }}</p>
+            <p>{{ 'ANNUAL_APPRAISAL.APPROVED_ON' | translate }}: {{ recorded.approvedAt | date:'dd MMM yyyy' }}</p>
+            <p class="help">{{ 'STAFF_PERFORMANCE.OUTCOME_HELP' | translate }}</p>
+            @if (recorded.comparisonStatus === 'DIFFERENT') { <p class="help">{{ 'STAFF_PERFORMANCE.CORRECTED_HELP' | translate }}</p> }
+            @if (recorded.comparisonStatus === 'CURRENT_RESULTS_UNAVAILABLE') { <p class="help">{{ 'STAFF_PERFORMANCE.CURRENT_UNAVAILABLE' | translate }}</p> }
+            @if (recorded.recordedScores; as scores) { <h4 class="drawer-section-title">{{ 'STAFF_PERFORMANCE.RECORDED_SCORES' | translate }}</h4>
+              <app-annual-appraisal-performance [performance]="{ annualKpiScore: scores.annualKpiScore, attitudeScore: scores.attitudeScore, finalScore: scores.finalScore, kpiWeight: scores.kpiWeight, attitudeWeight: scores.attitudeWeight, consolidationMethod: scores.consolidationMethod, reviewFrequency: recorded.period.reviewFrequency }" [summaryOnly]="true" /> }
+            @else { <p class="help">{{ 'STAFF_PERFORMANCE.RECORDED_SCORES_UNAVAILABLE' | translate }}</p> }
+            @if (internalAppraisal; as internal) {
+              <h4>{{ 'ANNUAL_APPRAISAL.RECOMMENDATION' | translate }}</h4><p>{{ internal.recommendation ? ('ANNUAL_APPRAISAL.RECOMMENDATIONS.' + internal.recommendation | translate) : '-' }}</p>
+              <h4>{{ 'ANNUAL_APPRAISAL.JUSTIFICATION' | translate }}</h4><p class="preserve-lines">{{ internal.justification || '-' }}</p>
+              @if (internal.overrideReason) { <h4>{{ 'ANNUAL_APPRAISAL.OVERRIDE_REASON' | translate }}</h4><p class="preserve-lines">{{ internal.overrideReason }}</p> }
+              @if (recordedPerformance; as performance) {
+                <details class="result-disclosure recorded-performance"><summary><span class="view-label">{{ 'STAFF_PERFORMANCE.VIEW' | translate }} {{ 'STAFF_PERFORMANCE.RECORDED_DETAILS' | translate }}</span><span class="hide-label">{{ 'STAFF_PERFORMANCE.HIDE' | translate }} {{ 'STAFF_PERFORMANCE.RECORDED_DETAILS' | translate }}</span></summary>
+                  <div class="help recorded-metadata">
+                    <span>{{ 'ANNUAL_APPRAISAL.FREQUENCY' | translate }}: <span class="status">{{ 'ANNUAL_APPRAISAL.FREQUENCIES.' + performance.reviewFrequency | translate }}</span></span>
+                    <span>{{ 'ANNUAL_APPRAISAL.CONSOLIDATION' | translate }}: <span class="status">{{ performance.consolidationMethod ? ('ANNUAL_APPRAISAL.METHODS.' + performance.consolidationMethod | translate) : '-' }}</span></span>
+                  </div>
+                  @if (recordedCheckpoints.length > 1) {
+                    <div class="field recorded-checkpoint-selector"><label for="recorded-checkpoint">{{ 'STAFF_PERFORMANCE.RECORDED_CHECKPOINT' | translate }}</label>
+                      <nz-select nzId="recorded-checkpoint" [ngModel]="recordedCheckpointId" (ngModelChange)="selectRecordedCheckpoint($event)">
+                        @for (row of recordedCheckpoints; track row.checkpointId) {
+                          <nz-option [nzValue]="row.checkpointId" [nzLabel]="(row.startDate | date:'dd MMM yyyy') + ' - ' + (row.endDate | date:'dd MMM yyyy')" />
+                        }
+                      </nz-select>
+                    </div>
+                  }
+                  @if (recordedCheckpoint; as selected) {
+                    <p class="recorded-checkpoint-period">@if (recordedCheckpoints.length === 1) { <strong>{{ selected.startDate | date:'dd MMM yyyy' }} - {{ selected.endDate | date:'dd MMM yyyy' }}</strong> }
+                      <span class="status" [attr.data-status]="selected.status">{{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + (selected.status || 'NOT_STARTED') | translate }}</span></p>
+                    <p class="checkpoint-total"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}</span><strong>{{ selected.score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (selected.score | number:'1.2-2') + '%' }}</strong></p>
+                    @if (selected.breakdown; as breakdown) {
+                      <app-kpi-score-summary [levels]="breakdown.levels" />
+                      @for (level of breakdown.levels; track level.level) {
+                        @if (level.status !== 'NOT_APPLICABLE') {
+                          <section class="recorded-level"><h4>{{ 'INDIVIDUAL_KPI.LEVEL.' + level.level | translate }}</h4>
+                            <ng-container [ngTemplateOutlet]="levelResults" [ngTemplateOutletContext]="{ $implicit: level, version: recordedVersion(level.level) }" />
+                          </section>
+                        }
+                      }
+                    } @else {
+                      <p class="help">{{ 'STAFF_PERFORMANCE.RECORDED_DETAILS_UNAVAILABLE' | translate }}</p>
+                      @if (recordedVersions.length) {
+                        <details class="result-metadata"><summary><span class="view-label">{{ 'STAFF_PERFORMANCE.VIEW' | translate }} {{ 'KPI_SCORE_BREAKDOWN.RESULT_DETAILS' | translate }}</span><span class="hide-label">{{ 'STAFF_PERFORMANCE.HIDE' | translate }} {{ 'KPI_SCORE_BREAKDOWN.RESULT_DETAILS' | translate }}</span></summary>
+                          <div class="table-scroll"><table class="data-table"><thead><tr><th>{{ 'MY_ASSESSMENTS.LEVEL' | translate }}</th><th>{{ 'KPI_RESULTS.PLAN_VERSION' | translate }}</th><th>{{ 'STAFF_PERFORMANCE.VERSION_REFERENCE' | translate }}</th></tr></thead>
+                            <tbody>@for (version of recordedVersions; track version.level) { <tr><td>{{ 'INDIVIDUAL_KPI.LEVEL.' + version.level | translate }}</td><td>{{ version.versionNumber }}</td><td>{{ version.versionId }}</td></tr> }</tbody>
+                          </table></div>
+                        </details>
+                      }
+                    }
+                  } @else { <p class="help">{{ 'STAFF_PERFORMANCE.RECORDED_DETAILS_UNAVAILABLE' | translate }}</p> }
+                  @if (performance.attitude; as attitude) {
+                    <details class="result-disclosure recorded-attitude"><summary><span class="view-label">{{ 'STAFF_PERFORMANCE.VIEW' | translate }} {{ 'STAFF_PERFORMANCE.ATTITUDE_TITLE' | translate }}</span><span class="hide-label">{{ 'STAFF_PERFORMANCE.HIDE' | translate }} {{ 'STAFF_PERFORMANCE.ATTITUDE_TITLE' | translate }}</span></summary>
+                      <p class="help">{{ attitude.format ? ('ATTITUDE_SETUP.FORMAT.' + attitude.format | translate) : '-' }} · {{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + (attitude.status || 'NOT_STARTED') | translate }}</p>
+                      <div class="table-scroll"><table class="data-table"><thead><tr><th>{{ 'ATTITUDE_RESULTS.CRITERION' | translate }}</th><th>{{ 'STAFF_PERFORMANCE.SUPERIOR_RATING' | translate }}</th></tr></thead>
+                        <tbody>@for (criterion of attitude.criteria; track criterion.criterionId) { <tr><td>{{ criterion.name }}</td><td>{{ criterion.superiorPoint == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : criterion.superiorPoint + ' / 5' }}</td></tr> }</tbody>
+                      </table></div>
+                    </details>
+                  }
+                </details>
+              } @else { <p class="help">{{ 'STAFF_PERFORMANCE.RECORDED_DETAILS_UNAVAILABLE' | translate }}</p> }
+            }
+          }
+        }
+      }
+      </div>
+    </ng-container>
+  </nz-drawer>
+  <ng-template #drawerFooter><div class="drawer-actions"><button nz-button type="button" (click)="closeDrawer()">{{ 'KPI_PLAN.CLOSE' | translate }}</button></div></ng-template>
+
+  <nz-modal [nzVisible]="scoringKpi !== null" [nzTitle]="'MY_ASSESSMENTS.VIEW_CRITERIA' | translate"
+    nzWidth="min(560px, calc(100vw - 32px))" [nzFooter]="scoringFooter" [nzMaskClosable]="false"
+    (nzOnCancel)="closeScoringDefinitions()">
+    <ng-container *nzModalContent>
+      @if (scoringKpi; as kpi) {
+        <h3 class="scoring-kpi-name">{{ kpi.name }}</h3>
+        <dl class="scoring-definitions">
+          @for (point of points; track point) {
+            <div><dt>{{ point }} / 5</dt><dd class="preserve-lines">{{ kpi.scoringDefinitions[point] || '-' }}</dd></div>
+          }
+        </dl>
+      }
+    </ng-container>
+  </nz-modal>
+  <ng-template #scoringFooter><button nz-button type="button" (click)="closeScoringDefinitions()">{{ 'KPI_PLAN.CLOSE' | translate }}</button></ng-template>
+
+  <ng-template #checkpointSelection let-controlId="controlId" let-selectionOnly="selectionOnly">
+    @if (data; as view) {
+      @if (view.checkpoints.length > 1) {
+        <div class="field checkpoint-choice"><label [for]="controlId">{{ 'STAFF_PERFORMANCE.SELECTED_CHECKPOINT' | translate }}</label>
+          <nz-select [nzId]="controlId" [ngModel]="checkpointId" (ngModelChange)="selectCheckpoint($event)">
+            @for (row of view.checkpoints; track row.id) {
+              <nz-option [nzValue]="row.id" [nzLabel]="(row.startDate | date:'dd MMM yyyy') + ' - ' + (row.endDate | date:'dd MMM yyyy')" />
+            }
+          </nz-select>
+        </div>
+      }
+      @if (selectedCheckpoint; as selected) {
+        @if (selectionOnly) {
+          @if (view.checkpoints.length === 1) { <p class="single-checkpoint"><span class="help">{{ 'STAFF_PERFORMANCE.CHECKPOINT_DATE' | translate }}</span><strong>{{ selected.startDate | date:'dd MMM yyyy' }} - {{ selected.endDate | date:'dd MMM yyyy' }}</strong></p> }
+        } @else {
+          <div class="selected-checkpoint"><p>@if (view.checkpoints.length === 1) { <strong>{{ selected.startDate | date:'dd MMM yyyy' }} - {{ selected.endDate | date:'dd MMM yyyy' }}</strong> }
+            <span class="status" [attr.data-status]="selected.status">{{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + (selected.status || 'NOT_STARTED') | translate }}</span></p>
+            <p class="checkpoint-total"><span>{{ 'KPI_ASSESSMENT_REVIEW.SCORE' | translate }}</span><strong>{{ checkpointLoading || checkpointError || checkpoint?.checkpoint?.score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (checkpoint!.checkpoint.score | number:'1.2-2') + '%' }}</strong></p>
+          </div>
+        }
+      }
+    }
+  </ng-template>
+
+  <ng-template #attitudeSummary let-attitude>
+    <dl class="attitude-summary">
+      <div><dt>{{ 'STAFF_PERFORMANCE.APPLICABLE_FORMAT' | translate }}</dt><dd>{{ attitude.format ? ('ATTITUDE_SETUP.FORMAT.' + attitude.format | translate) : '-' }}</dd></div>
+      <div><dt>{{ 'ANNUAL_APPRAISAL.ATTITUDE_SCORE' | translate }}</dt><dd class="attitude-score">{{ attitude.score == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : (attitude.score | number:'1.2-2') + '%' }}</dd></div>
+      <div><dt>{{ 'REVIEW_PERIOD.STATUS_LABEL' | translate }}</dt><dd><span class="status" [attr.data-status]="attitude.status">{{ 'ANNUAL_APPRAISAL.RESULT_STATUS.' + (attitude.status || 'NOT_STARTED') | translate }}</span></dd></div>
+    </dl>
+  </ng-template>
+
+  <ng-template #levelResults let-level let-version="version">
+    @if (level.level === 'COMPANY' && level.reportingCheckpoint; as source) {
+      <p class="help">{{ 'KPI_SCORE_BREAKDOWN.REPORTING_PERIOD' | translate }}: {{ source.endDate | date:'MMMM yyyy' }} ({{ 'REVIEW_PERIOD.FREQUENCY.' + source.reviewFrequency | translate }})</p>
+    }
+    @if (level.versionNumber != null || version || level.resultEditionNumber != null || level.publishedAt) {
+      <details class="result-metadata"><summary><span class="view-label">{{ 'STAFF_PERFORMANCE.VIEW' | translate }} {{ 'KPI_SCORE_BREAKDOWN.RESULT_DETAILS' | translate }}</span><span class="hide-label">{{ 'STAFF_PERFORMANCE.HIDE' | translate }} {{ 'KPI_SCORE_BREAKDOWN.RESULT_DETAILS' | translate }}</span></summary>
+        <dl class="result-metadata-values">
+          @if (level.versionNumber != null || version) { <div><dt>{{ 'KPI_RESULTS.PLAN_VERSION' | translate }}</dt><dd>{{ version?.versionNumber ?? level.versionNumber }}</dd></div> }
+          @if (version) { <div><dt>{{ 'STAFF_PERFORMANCE.VERSION_REFERENCE' | translate }}</dt><dd>{{ version.versionId }}</dd></div> }
+          @if (level.resultEditionNumber != null) { <div><dt>{{ 'KPI_SCORE_BREAKDOWN.RESULT_EDITION' | translate }}</dt><dd>{{ level.resultEditionNumber }}</dd></div> }
+          @if (level.publishedAt) { <div><dt>{{ (level.level === 'INDIVIDUAL' ? 'KPI_SCORE_BREAKDOWN.REVIEWED_ON' : 'KPI_SCORE_BREAKDOWN.PUBLISHED_ON') | translate }}</dt><dd>{{ level.publishedAt | date:'dd MMM yyyy, h:mm a' }}</dd></div> }
+        </dl>
+      </details>
+    }
+    @if (level.status === 'PENDING') { <p class="help">{{ 'ANNUAL_APPRAISAL.PENDING' | translate }}</p> } @else {
+    <div class="table-scroll"><table class="data-table level-results-table"><thead><tr>
+      <th>{{ 'KPI_PLAN.NAME' | translate }}</th><th>{{ 'KPI_PLAN.TARGET' | translate }}</th><th>{{ 'KPI_PLAN.WEIGHT' | translate }}</th>
+      @if (level.level !== 'INDIVIDUAL') { <th>{{ 'KPI_RESULTS.ACTUAL' | translate }}</th> }
+      <th>{{ (level.level === 'INDIVIDUAL' ? 'KPI_ASSESSMENT_REVIEW.SUPERIOR_POINT' : 'KPI_RESULTS.RESULT_POINT') | translate }}</th>
+    </tr></thead><tbody>@for (item of level.items; track $index) {
+      <tr><td>{{ item.kpi.name }}
+          <button type="button" class="text-action scoring-action" (click)="showScoringDefinitions(item.kpi)">{{ 'MY_ASSESSMENTS.VIEW_CRITERIA' | translate }}</button>
+        </td><td class="preserve-lines">{{ item.kpi.target || '-' }}</td><td>{{ item.kpi.weightage == null ? '-' : (item.kpi.weightage | number:'1.0-2') + '%' }}</td>
+        @if (level.level !== 'INDIVIDUAL') { <td class="preserve-lines">{{ item.actualAchievement || '-' }}</td> }
+        <td>{{ item.point == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : item.point + ' / 5' }}</td></tr>
+    } @empty { <tr><td [attr.colspan]="level.level === 'INDIVIDUAL' ? 4 : 5" class="empty">{{ 'ANNUAL_APPRAISAL.NO_RESULT_ITEMS' | translate }}</td></tr> }</tbody></table></div>
+    }
+  </ng-template>
+</main>

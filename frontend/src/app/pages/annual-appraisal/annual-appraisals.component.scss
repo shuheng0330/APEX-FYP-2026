@@ -1,0 +1,52 @@
+.appraisal-filters { display: grid; grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 1fr) minmax(170px, .8fr) auto; align-items: end; gap: 16px; }
+.appraisal-status-tabs { flex-wrap: wrap; }
+.appraisal-status-tabs .review-status-tab { flex: 1 1 170px; min-width: 0; max-width: 100%; gap: 12px; }
+.appraisal-status-tabs .review-status-tab span { min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.appraisal-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; }
+.review-drawer-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+.appraisal-filters input { padding: 8px 12px; width: 100%; border: 1px solid var(--tbm-border); border-radius: 8px; }
+.appraisal-summary { padding: 18px 20px; background: var(--tbm-surface-subtle); border: 1px solid var(--tbm-border); border-radius: 10px; margin-bottom: 24px; }
+.summary-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.summary-title h3 { margin: 0; }
+.appraisal-summary p:last-child { margin-bottom: 0; }
+.recommendation-fields { display: flex; flex-direction: column; gap: 20px; border: 0; margin: 0; padding: 0; min-width: 0; }
+textarea { width: 100%; resize: vertical; }
+.justification-heading { margin-top: 20px; }
+.preserve-lines, .result-items { white-space: pre-wrap; overflow-wrap: anywhere; }
+.text-action { border: 0; background: transparent; color: var(--tbm-primary); padding: 6px 0; text-align: left; cursor: pointer; font: inherit; }
+.text-action:focus-visible { outline: 2px solid var(--tbm-primary); outline-offset: 4px; border-radius: 2px; }
+.text-action:disabled { color: var(--tbm-muted); cursor: default; }
+.appraisal-secondary { margin-top: 28px; }
+.history-list, .history-detail { margin-top: 16px; }
+.score-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 14px; }
+.score-grid dt { color: var(--tbm-muted); }
+.score-grid dd { font-size: 24px; font-weight: 700; margin: 6px 0 0; }
+.score-grid > div { padding: 12px; border-radius: 8px; background: var(--tbm-surface-subtle); }
+.score-grid .final-score { background: #edf3fc; color: var(--tbm-primary); }
+.performance-metadata { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 8px; }
+.performance-metadata > span { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.performance-metadata .status { white-space: normal; }
+.criteria-list { margin: 0; }
+.criteria-list > div { display: flex; justify-content: space-between; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--tbm-border); }
+.criteria-list .help { display: block; }
+.criteria-list dd { flex-shrink: 0; }
+.result-items { margin: 8px 0 20px; padding-left: 20px; }
+.result-items li { margin-top: 12px; }
+.status[data-status='READY'], .status[data-status='APPROVED'] { background: #e6f6f2; color: #087a6e; }
+.status[data-status='NOT_READY'], .status[data-status='RETURNED'] { background: #fff5df; color: #795000; }
+.status[data-status='PENDING_REVIEW'] { background: #edf3fc; color: var(--tbm-primary); }
+.queue-count { margin-bottom: 12px; }
+.activity-timeline { list-style: none; padding: 0 0 0 7px; margin-top: 16px; }
+.activity-timeline li { position: relative; padding: 0 0 20px 22px; border-left: 2px solid var(--tbm-border); }
+.activity-timeline li:last-child { border-color: transparent; padding-bottom: 0; }
+.activity-timeline li::before { content: ''; position: absolute; left: -6px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--tbm-primary); }
+.event-heading { display: flex; justify-content: space-between; gap: 6px 20px; flex-wrap: wrap; }
+.event-actor, time { color: var(--tbm-muted); font-size: 12px; overflow-wrap: anywhere; }
+.event-reason { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; }
+@media (max-width: 1050px) { .appraisal-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .appraisal-filters, .score-grid { grid-template-columns: minmax(0, 1fr); }
+  .appraisal-pagination { padding: 12px; }
+  .summary-title { align-items: flex-start; }
+  .event-heading { flex-direction: column; }
+}

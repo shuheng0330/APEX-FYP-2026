@@ -24,8 +24,13 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { StaffProfileService } from '../../../services/staff-profile.service';
 import { StaffProfile } from '../../../models/staff.model';
 import { NzImageModule } from 'ng-zorro-antd/image';
+import { NzButtonModule } from 'ng-zorro-antd/button';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
-import { ChartConfiguration, ChartType } from 'chart.js';
+import { ChartConfiguration } from 'chart.js';
+import { ManagerAppraisalPanelComponent } from './manager-appraisal-panel/manager-appraisal-panel.component';
+import { HrAppraisalReviewPanelComponent } from './hr-appraisal-review-panel/hr-appraisal-review-panel.component';
+
+type TrendRangeYears = 1 | 3 | 5;
 
 @Component({
   selector: 'evaluation-page',
@@ -33,7 +38,8 @@ import { ChartConfiguration, ChartType } from 'chart.js';
   templateUrl: './performance-dashboard.page.html',
   styleUrls: ['./performance-dashboard.page.scss'],
   imports: [CommonModule, TranslatePipe, NzTableModule, NzModalModule, NzRateModule, FormsModule, NzSkeletonComponent, NzIconModule, NzProgressModule,
-    NzEmptyModule, NzInputDirective, NzAlertModule, NzImageModule, BaseChartDirective],
+    NzEmptyModule, NzInputDirective, NzAlertModule, NzImageModule, NzButtonModule, BaseChartDirective, ManagerAppraisalPanelComponent,
+    HrAppraisalReviewPanelComponent],
   providers: [provideCharts(withDefaultRegisterables())]
 })
 
@@ -47,6 +53,7 @@ export class PerformanceDashboardPage implements OnInit {
   titleKey: string = "PAGE.PERFORMANCE.TITLE";
   staffId!: string;
   staffEvaluations: EvaluationDTO[] = [];
+  historicalEvaluations: EvaluationDTO[] = [];
   latestEvaluation?: EvaluationDTO;
   latestCompetenciesRatings: RatingDTO[] = [];
   overallScore: number = 0;
@@ -55,6 +62,13 @@ export class PerformanceDashboardPage implements OnInit {
   value: number = 0;
   staff: StaffTemp | undefined;
   userId: string | null = null;
+  appraisalContext: 'manager' | 'hr' | null = null;
+  appraisalId: string | null = null;
+  trendRangeOptions: TrendRangeYears[] = [1, 3, 5];
+  selectedTrendRangeYears: TrendRangeYears = 5;
+  consecutiveExpectationCycles: number = 0;
+  private sortedEvaluations: EvaluationDTO[] = [];
+  private staffTrendPointChanges: (number | null)[] = [];
 
   // Chart config
   public lineChartData: ChartConfiguration<'line'>['data'] = {
@@ -79,7 +93,17 @@ export class PerformanceDashboardPage implements OnInit {
         position: 'top'
       },
       tooltip: {
-        enabled: true
+        enabled: true,
+        callbacks: {
+          label: (context) => {
+            const score = Number(context.parsed.y ?? 0);
+            const change = this.staffTrendPointChanges[context.dataIndex];
+            const changeText = change === null || change === undefined
+              ? 'No previous cycle'
+              : `${change >= 0 ? '+' : ''}${change.toFixed(1)}% vs previous cycle`;
+            return `Overall Score: ${score.toFixed(2)}% (${changeText})`;
+          }
+        }
       },
       title: {
         display: true,
@@ -123,6 +147,9 @@ export class PerformanceDashboardPage implements OnInit {
 
   ngOnInit(): void {
     this.userId = this.auth.userId;
+    const context = this.route.snapshot.queryParamMap.get('context');
+    this.appraisalContext = context === 'manager' || context === 'hr' ? context : null;
+    this.appraisalId = this.route.snapshot.queryParamMap.get('appraisalId');
     this.translate.get(this.titleKey).subscribe((translatedTitle: string) => {
       this.titleService.setTitle(translatedTitle);
     });
@@ -145,40 +172,84 @@ export class PerformanceDashboardPage implements OnInit {
 
 
       // Sort by date ascending
-      const sortedEvals = this.staffEvaluations.sort(
-        (a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
+      this.sortedEvaluations = [...this.staffEvaluations].sort(
+        (a, b) => this.getEvaluationTrendDate(a).getTime() - this.getEvaluationTrendDate(b).getTime()
       );
 
-      // Populate chart labels and data
-      this.lineChartData.labels = sortedEvals.map(e => {
-        if (e.evaluationCycleEndDate) {
-          return new Date(e.evaluationCycleEndDate).toLocaleDateString();
-        }
-        return new Date(e.createdAt!).toLocaleDateString();
-      });
-      this.lineChartData.datasets[0].data = sortedEvals.map(e => e.overallScore ?? 0);
-
-      console.log('Chart labels:', this.lineChartData.labels);
-      console.log('Chart data:', this.lineChartData.datasets[0].data);
-
-      // Force chart update
-      setTimeout(() => {
-        this.chart?.update();
-      }, 0);
+      this.rebuildTrendChart();
+      this.consecutiveExpectationCycles = this.calculateConsecutiveExpectationCycles();
 
 
-      const latestEval = evaluations.reduce((latest, current) => {
-        return !latest || new Date(current.createdAt!) > new Date(latest.createdAt!) ? current : latest;
-      }, null as EvaluationDTO | null);
+      const latestEval = this.sortedEvaluations[this.sortedEvaluations.length - 1] ?? null;
+      this.latestEvaluation = latestEval ?? undefined;
+      this.historicalEvaluations = latestEval
+        ? [...this.sortedEvaluations].filter(evaluation => evaluation !== latestEval).reverse()
+        : [];
 
       if (latestEval) {
-        this.latestEvaluation = latestEval;
         this.comment = latestEval.comment;
       }
 
       this.latestCompetenciesRatings = evaluations.flatMap(e => e.ratings);
       this.loadUserProfile(this.staffId);//TODO: this api is used to get staff details, maybe can add into evaluationDTO
     })
+  }
+
+  setTrendRange(years: TrendRangeYears): void {
+    this.selectedTrendRangeYears = years;
+    this.rebuildTrendChart();
+  }
+
+  private rebuildTrendChart(): void {
+    const filteredEvals = this.getFilteredTrendEvaluations();
+
+    this.lineChartData.labels = filteredEvals.map(e => {
+      if (e.evaluationCycleEndDate) {
+        return new Date(e.evaluationCycleEndDate).toLocaleDateString();
+      }
+      return new Date(e.createdAt!).toLocaleDateString();
+    });
+    this.lineChartData.datasets[0].data = filteredEvals.map(e => e.overallScore ?? 0);
+    this.staffTrendPointChanges = filteredEvals.map((evaluation, index) => {
+      if (index === 0) return null;
+      return (evaluation.overallScore ?? 0) - (filteredEvals[index - 1].overallScore ?? 0);
+    });
+
+    setTimeout(() => {
+      this.chart?.update();
+    }, 0);
+  }
+
+  private getFilteredTrendEvaluations(): EvaluationDTO[] {
+    if (this.sortedEvaluations.length === 0) {
+      return [];
+    }
+
+    const latestEvaluation = this.sortedEvaluations[this.sortedEvaluations.length - 1];
+    const latestDate = this.getEvaluationTrendDate(latestEvaluation);
+    const startDate = new Date(latestDate);
+    startDate.setFullYear(startDate.getFullYear() - this.selectedTrendRangeYears);
+
+    return this.sortedEvaluations.filter(evaluation => this.getEvaluationTrendDate(evaluation) >= startDate);
+  }
+
+  private getEvaluationTrendDate(evaluation: EvaluationDTO): Date {
+    return new Date(evaluation.evaluationCycleEndDate || evaluation.createdAt!);
+  }
+
+  getEvaluationDisplayDate(evaluation?: EvaluationDTO): string | undefined {
+    return evaluation?.evaluationCycleEndDate || evaluation?.createdAt;
+  }
+
+  private calculateConsecutiveExpectationCycles(): number {
+    let count = 0;
+    for (const evaluation of [...this.sortedEvaluations].reverse()) {
+      if ((evaluation.overallScore ?? 0) < 70) {
+        break;
+      }
+      count++;
+    }
+    return count;
   }
 
   onClickViewAll() {
@@ -238,18 +309,36 @@ export class PerformanceDashboardPage implements OnInit {
     }
   }
 
-  getHistoricalEvaluations(): EvaluationDTO[] {
-    if (!this.latestEvaluation || !this.staffEvaluations.length) {
-      return [];
-    }
-    // Return all evaluations except the latest one, sorted by date descending
-    return this.staffEvaluations
-      .filter(e => e.evaluationId !== this.latestEvaluation?.evaluationId)
-      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
-  }
-
   formatScore(rating: number): string {
     return rating + '/10';
+  }
+
+  get canManageEvaluation(): boolean {
+    return this.auth.hasRole('CAN_MANAGE_EVALUATION');
+  }
+
+  get canManageEvaluationCycle(): boolean {
+    return this.auth.hasRole('CAN_MANAGE_EVALUATION_CYCLE');
+  }
+
+  get showManagerAppraisalPanel(): boolean {
+    if (this.appraisalContext === 'hr') {
+      return false;
+    }
+    if (this.appraisalContext === 'manager') {
+      return this.canManageEvaluation;
+    }
+    return this.canManageEvaluation && !this.canManageEvaluationCycle;
+  }
+
+  get showHrAppraisalPanel(): boolean {
+    if (this.appraisalContext === 'manager') {
+      return false;
+    }
+    if (this.appraisalContext === 'hr') {
+      return this.canManageEvaluationCycle;
+    }
+    return this.canManageEvaluationCycle;
   }
 
 }

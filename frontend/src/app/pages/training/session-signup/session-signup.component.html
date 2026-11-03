@@ -1,0 +1,124 @@
+<section class="signup" [class.has-place]="active" aria-label="Your place">
+  @switch (s.myStatus) {
+    @case ('REGISTERED') {
+      <div class="place registered">
+        <nz-icon nzType="check-circle" nzTheme="fill"></nz-icon>
+        <div><strong>You're registered</strong><span>See you on {{ s.date | date: 'EEE d MMM' }} at {{ timeRange(s) }}.</span></div>
+      </div>
+      @if (open) {
+        <button nz-button [nzLoading]="busy" nz-popconfirm nzPopconfirmTitle="Cancel your registration? Your seat goes to the next person."
+                (nzOnConfirm)="cancel()">Cancel my registration</button>
+      }
+    }
+    @case ('WAITLISTED') {
+      <div class="place waiting">
+        <nz-icon nzType="clock-circle"></nz-icon>
+        <div><strong>You're number {{ s.myWaitlistPosition }} on the waitlist</strong>
+          <span>If a seat frees up, it is held for you for 24 hours and you're told by notification and email.</span></div>
+      </div>
+      @if (open) {
+        <button nz-button [nzLoading]="busy" nz-popconfirm nzPopconfirmTitle="Leave the waitlist?" (nzOnConfirm)="cancel()">Leave the waitlist</button>
+      }
+    }
+    @case ('OFFERED') {
+      <div class="place offered">
+        <nz-icon nzType="gift"></nz-icon>
+        <div><strong>A seat is held for you</strong>
+          <span>Take it up by {{ s.myOfferExpiresAt | date: 'EEE d MMM, HH:mm' }}, or it passes to the next person.</span></div>
+      </div>
+      <div class="actions">
+        <button nz-button nzType="primary" [nzLoading]="busy" (click)="accept()">Accept the seat</button>
+        <button nz-button [disabled]="busy" nz-popconfirm nzPopconfirmTitle="Decline the seat? You leave the waitlist."
+                (nzOnConfirm)="declineOffer()">Decline</button>
+      </div>
+    }
+    @default {
+      @if (invited && !confirming && !declining) {
+        <div class="place invited">
+          <nz-icon nzType="mail"></nz-icon>
+          <div><strong>You're invited</strong><span>This session is mandatory for you. Register, or say why you can't attend.</span></div>
+        </div>
+      }
+      @if (s.canRegister && !confirming && !declining) {
+        <div class="actions">
+          <button nz-button nzType="primary" (click)="startRegistration()">
+            {{ s.wouldWaitlist ? 'Join the waitlist' : 'Register' }}
+          </button>
+          @if (invited) {
+            <button nz-button (click)="declining = true">I can't attend</button>
+          }
+        </div>
+        @if (s.wouldWaitlist) {
+          <p class="muted">No seat is free, so you'd join the waitlist and be offered a seat if one frees up.</p>
+        }
+      } @else if (!confirming && !declining && open && s.registerBlocker) {
+        <p class="muted blocker">{{ s.registerBlocker }}</p>
+      }
+    }
+  }
+
+  <!-- The confirm step for every registration (28 Oct): a summary, or the HRDC form (FR-13-03). -->
+  @if (confirming) {
+    <div class="confirm">
+      <h4>{{ s.wouldWaitlist ? 'Join the waitlist for' : 'Register for' }} {{ s.title }}</h4>
+      <p class="summary">{{ s.date | date: 'EEEE d MMMM yyyy' }}, {{ timeRange(s) }}
+        @if (s.delivery !== 'ONLINE' && s.venue) { · {{ s.venue }} } @else if (s.delivery === 'ONLINE') { · Online }</p>
+      @if (s.registrationForm) {
+        @if (form) {
+          <div class="prefilled">
+            <span><em>Name</em>{{ form.name }}</span>
+            <span><em>Email</em>{{ form.email }}</span>
+            <span><em>Department</em>{{ form.departmentName || '-' }}</span>
+            <span><em>Job role</em>{{ form.roleName || '-' }}</span>
+          </div>
+          <p class="muted">From your staff record. If something is wrong, ask HR to correct it.</p>
+          <label class="field" for="signup-id">IC or passport number
+            <input nz-input id="signup-id" [(ngModel)]="idNumber" maxlength="30" autocomplete="off" placeholder="For example 900101-14-5678" />
+          </label>
+          <label class="field" for="signup-phone">Phone number
+            <input nz-input id="signup-phone" [(ngModel)]="phone" maxlength="30" type="tel" placeholder="For example 012-345 6789" />
+          </label>
+          <label class="field">Branch
+            <nz-select [(ngModel)]="branch" nzPlaceHolder="Choose your branch" nzShowSearch>
+              @for (region of regions; track region) {
+                <nz-option-group [nzLabel]="region">
+                  @for (b of form.branches[region]; track b) {
+                    <nz-option [nzValue]="b" [nzLabel]="b"></nz-option>
+                  }
+                </nz-option-group>
+              }
+            </nz-select>
+          </label>
+          <div class="pdpa">
+            <strong>PDPA notice</strong>
+            <p>{{ pdpaNotice }}</p>
+            <label nz-checkbox [(ngModel)]="pdpaConsent">I agree to TBM using these details for HRDC registration as described.</label>
+          </div>
+          @if (formProblem) {
+            <p class="problem">{{ formProblem }}</p>
+          }
+        } @else {
+          <p class="muted">Opening the form…</p>
+        }
+      }
+      <div class="actions">
+        <button nz-button nzType="primary" [nzLoading]="busy" [disabled]="!!formProblem || (s.registrationForm && !form)"
+                (click)="confirmRegistration()">{{ s.wouldWaitlist ? 'Confirm: join the waitlist' : 'Confirm registration' }}</button>
+        <button nz-button [disabled]="busy" (click)="confirming = false">Back</button>
+      </div>
+    </div>
+  }
+
+  @if (declining) {
+    <div class="confirm decline">
+      <label class="field" for="decline-reason">Why can't you attend?
+        <textarea nz-input id="decline-reason" [(ngModel)]="declineReason" rows="3" maxlength="500"
+                  placeholder="Your trainer sees this"></textarea>
+      </label>
+      <div class="actions">
+        <button nz-button nzDanger nzType="primary" [nzLoading]="busy" [disabled]="!declineReason.trim()" (click)="confirmDecline()">Decline the invitation</button>
+        <button nz-button [disabled]="busy" (click)="declining = false">Back</button>
+      </div>
+    </div>
+  }
+</section>

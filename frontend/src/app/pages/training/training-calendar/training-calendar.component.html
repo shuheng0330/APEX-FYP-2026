@@ -1,0 +1,221 @@
+<div class="training-calendar page-shell">
+  <div class="page-heading">
+    <div>
+      <span class="section-kicker">Training sessions</span>
+      <h1>Training Calendar</h1>
+      <p>Training and staff sharing sessions, with the seats booked and left. Open a session to register.</p>
+    </div>
+    @if (canSchedule) {
+      <div class="heading-actions">
+        <button nz-button (click)="templatesOpen = true"><nz-icon nzType="snippets"></nz-icon> Templates</button>
+        <button nz-button nzType="primary" (click)="openNew()"><nz-icon nzType="plus"></nz-icon> Schedule session</button>
+      </div>
+    }
+  </div>
+
+  <div class="toolbar surface-panel">
+    <div class="period-nav">
+      <button nz-button (click)="goToday()">Today</button>
+      <button nz-button nzShape="circle" (click)="move(-1)" [attr.aria-label]="view === 'week' ? 'Previous week' : 'Previous month'">
+        <nz-icon nzType="left"></nz-icon>
+      </button>
+      <button nz-button nzShape="circle" (click)="move(1)" [attr.aria-label]="view === 'week' ? 'Next week' : 'Next month'">
+        <nz-icon nzType="right"></nz-icon>
+      </button>
+      <h2 class="period" aria-live="polite">{{ periodLabel }}</h2>
+    </div>
+    <div class="controls">
+      <nz-select [(ngModel)]="showFilter" (ngModelChange)="rebuild()" class="show-filter" aria-label="Show">
+        <nz-option nzValue="ALL" nzLabel="Every session"></nz-option>
+        <nz-option nzValue="OPEN" nzLabel="Open for me to register"></nz-option>
+        <nz-option nzValue="MINE" nzLabel="My sessions"></nz-option>
+      </nz-select>
+      <nz-select [(ngModel)]="kindFilter" (ngModelChange)="rebuild()" class="kind-filter" aria-label="Kind">
+        <nz-option nzValue="ALL" nzLabel="All sessions"></nz-option>
+        <nz-option nzValue="TRAINING" nzLabel="Training"></nz-option>
+        <nz-option nzValue="STAFF_SHARING" nzLabel="Staff sharing"></nz-option>
+      </nz-select>
+      <label class="archived-toggle">
+        <nz-switch nzSize="small" [(ngModel)]="showArchived" (ngModelChange)="load()"></nz-switch> Archived
+      </label>
+      <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" aria-label="View">
+        <label nz-radio-button nzValue="month">Month</label>
+        <label nz-radio-button nzValue="week">Week</label>
+        <label nz-radio-button nzValue="list">List</label>
+      </nz-radio-group>
+    </div>
+  </div>
+
+  <!-- As in the prototype: colour by delivery, Staff Sharing apart, a red dot for mandatory -->
+  <div class="legend" aria-hidden="true">
+    <span><i class="swatch physical"></i> Physical</span>
+    <span><i class="swatch hybrid"></i> Hybrid</span>
+    <span><i class="swatch online"></i> Online</span>
+    <span><i class="swatch sharing"></i> Staff Sharing</span>
+    <span><i class="dot"></i> Mandatory</span>
+    <span><nz-icon nzType="check" class="mine-mark"></nz-icon> Yours</span>
+  </div>
+
+  <!-- FR-14-10: the trainer's and HR's sessions still to submit, oldest first -->
+  @if (awaiting.length) {
+    <section class="awaiting surface-panel" aria-label="Sessions awaiting attendance">
+      <header>
+        <nz-icon nzType="audit"></nz-icon>
+        <strong>Awaiting attendance</strong>
+        <span class="muted">{{ awaiting.length }} {{ awaiting.length === 1 ? 'session' : 'sessions' }} to submit</span>
+      </header>
+      <ul>
+        @for (s of awaiting; track s.id) {
+          <li>
+            <div class="awaiting-what">
+              <span class="awaiting-title">{{ s.title }}</span>
+              <span class="muted">{{ s.date | date: 'EEE d MMM' }} · {{ timeRange(s) }} · {{ s.booked }} registered</span>
+            </div>
+            @if (overdue(s)) {
+              <nz-tag nzColor="orange">HR only now</nz-tag>
+            } @else {
+              <span class="muted due">Trainer until {{ trainerUntil(s) | date: 'EEE d MMM, HH:mm' }}</span>
+            }
+            <button nz-button nzSize="small" (click)="openAttendance(s)">Record</button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (showArchived) {
+    <p class="archived-note">Showing archived sessions: ones that ended or were cancelled and have been put away. Their records are kept.</p>
+  }
+
+  <nz-spin [nzSpinning]="loading">
+    @switch (view) {
+      @case ('month') {
+        <div class="month surface-panel" role="grid" [attr.aria-label]="periodLabel">
+          <div class="weekdays" role="row">
+            @for (d of weekdays; track d) {
+              <span role="columnheader">{{ d }}</span>
+            }
+          </div>
+          @for (week of weeks; track week[0].key) {
+            <div class="week" role="row">
+              @for (cell of week; track cell.key) {
+                <div class="day" role="gridcell" [class.outside]="!cell.inMonth" [class.today]="cell.today" [class.past]="cell.past">
+                  <div class="day-head">
+                    <span class="day-number">{{ cell.date.getDate() }}</span>
+                    @if (canSchedule && !cell.past && !showArchived) {
+                      <button type="button" class="add" (click)="openNew(cell.date)"
+                              [attr.aria-label]="'Schedule a session on ' + (cell.date | date: 'd MMMM')">
+                        <nz-icon nzType="plus"></nz-icon>
+                      </button>
+                    }
+                  </div>
+                  @for (s of cell.sessions.slice(0, chipsPerDay); track s.id) {
+                    <button type="button" class="chip" [ngClass]="chipClass(s)" (click)="openDetails(s)"
+                            [attr.title]="s.title + ', ' + timeRange(s)">
+                      <span class="chip-time">{{ hhmm(s.startTime) }}</span>
+                      <span class="chip-title">{{ s.title }}</span>
+                      @if (isMine(s)) { <nz-icon nzType="check" class="chip-mine" [attr.aria-label]="myLabel(s)"></nz-icon> }
+                    </button>
+                  }
+                  @if (cell.sessions.length > chipsPerDay) {
+                    <button type="button" class="more" (click)="showWeek(cell.date)">+ {{ cell.sessions.length - chipsPerDay }} more</button>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @case ('week') {
+        <div class="week-view">
+          @for (cell of weekDays; track cell.key) {
+            <section class="week-day surface-panel" [class.today]="cell.today" [class.past]="cell.past">
+              <header>
+                <span class="dow">{{ cell.date | date: 'EEE' }}</span>
+                <span class="dom">{{ cell.date | date: 'd MMM' }}</span>
+                @if (canSchedule && !cell.past && !showArchived) {
+                  <button type="button" class="add" (click)="openNew(cell.date)"
+                          [attr.aria-label]="'Schedule a session on ' + (cell.date | date: 'd MMMM')">
+                    <nz-icon nzType="plus"></nz-icon>
+                  </button>
+                }
+              </header>
+              @for (s of cell.sessions; track s.id) {
+                <button type="button" class="card" [ngClass]="chipClass(s)" (click)="openDetails(s)">
+                  <span class="card-time">{{ timeRange(s) }}</span>
+                  <strong class="card-title">{{ s.title }}</strong>
+                  <span class="card-meta">{{ kindLabels[s.kind] }} · {{ deliveryLabels[s.delivery] }}</span>
+                  <span class="card-meta">{{ s.status === 'CANCELLED' ? 'Cancelled' : s.booked + ' / ' + s.capacity + ' seats' }}</span>
+                  @if (myLabel(s); as mine) { <span class="card-mine">{{ mine }}</span> }
+                </button>
+              } @empty {
+                <p class="none">No sessions</p>
+              }
+            </section>
+          }
+        </div>
+      }
+
+      @default {
+        <div class="list-view surface-panel">
+          @for (day of listDays; track day.key) {
+            <section class="list-day" [class.today]="day.today">
+              <h3>{{ day.date | date: 'EEEE d MMMM' }}@if (day.today) { <span class="today-mark">Today</span> }</h3>
+              @for (s of day.sessions; track s.id) {
+                <button type="button" class="list-row" [ngClass]="chipClass(s)" (click)="openDetails(s)">
+                  <span class="list-time">{{ timeRange(s) }}</span>
+                  <span class="list-main">
+                    <strong>{{ s.title }}</strong>
+                    <span class="list-meta">
+                      {{ kindLabels[s.kind] }} · {{ deliveryLabels[s.delivery] }}{{ s.venue && s.delivery !== 'ONLINE' ? ' · ' + s.venue : '' }}
+                      · {{ s.trainerName || 'No trainer set' }}
+                    </span>
+                  </span>
+                  <span class="list-seats">{{ s.booked }} / {{ s.capacity }} seats</span>
+                  <span class="list-tags">
+                    @if (myLabel(s); as mine) { <nz-tag nzColor="green">{{ mine }}</nz-tag> }
+                    @if (s.mandatory) { <nz-tag nzColor="red">Mandatory</nz-tag> }
+                    <nz-tag [nzColor]="statusColor(s)">{{ statusLabel(s) }}</nz-tag>
+                  </span>
+                </button>
+              }
+            </section>
+          } @empty {
+            <nz-empty [nzNotFoundContent]="showArchived ? 'No archived sessions in ' + periodLabel + '.' : 'No sessions in ' + periodLabel + '.'"></nz-empty>
+          }
+        </div>
+      }
+    }
+  </nz-spin>
+</div>
+
+<nz-drawer [nzVisible]="!!selected" nzPlacement="right" nzWidth="min(520px, 100vw)" [nzTitle]="selected?.title"
+           (nzOnClose)="closeDetails()">
+  <ng-container *nzDrawerContent>
+    @if (selected) {
+      <app-session-details [session]="selected" [openOn]="openOn" (edit)="openEdit($event)" (changed)="onChanged($event)"
+                           (deleted)="onDeleted($event)"></app-session-details>
+    }
+  </ng-container>
+</nz-drawer>
+
+<nz-drawer [nzVisible]="formOpen" nzPlacement="right" nzWidth="min(680px, 100vw)" [nzMaskClosable]="false"
+           [nzTitle]="formTitle" (nzOnClose)="closeForm()">
+  <ng-container *nzDrawerContent>
+    @if (formOpen) {
+      <app-session-form [session]="editing" [defaultDate]="formDate" [template]="formTemplate" (saved)="onSaved($event)"
+                        (cancelled)="closeForm()"></app-session-form>
+    }
+  </ng-container>
+</nz-drawer>
+
+<!-- FR-12-08 to FR-12-10 -->
+<nz-modal [(nzVisible)]="templatesOpen" nzTitle="Session templates" [nzFooter]="null" nzWidth="640px"
+          (nzOnCancel)="templatesOpen = false">
+  <ng-container *nzModalContent>
+    @if (templatesOpen) {
+      <app-session-templates (use)="useTemplate($event)"></app-session-templates>
+    }
+  </ng-container>
+</nz-modal>

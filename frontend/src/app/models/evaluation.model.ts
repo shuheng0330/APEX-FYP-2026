@@ -6,6 +6,7 @@ export interface EvaluationDTO {
   createdAt?: string;
   createdBy?: string;
   evaluationCycleEndDate?: string;
+  evaluationCycleStatus?: string;
   ratings: RatingDTO[];
 }
 

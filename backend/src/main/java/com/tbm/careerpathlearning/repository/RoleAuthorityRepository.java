@@ -16,6 +16,8 @@ public interface RoleAuthorityRepository extends JpaRepository<RoleAuthority, Ro
 
     List<RoleAuthority> findByRoleId(Long roleId);
 
+    boolean existsByRoleIdAndAuthorityName(Long roleId, com.tbm.careerpathlearning.enums.AuthorityName name);
+
     List<RoleAuthority> findAllByRoleIdIn(Set<Long> roleIds);
 
     @Query("SELECT DISTINCT ra.role FROM RoleAuthority ra")

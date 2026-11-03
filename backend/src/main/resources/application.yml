@@ -51,6 +51,11 @@ spring:
 jwt:
   secret: ${JWT_SECRET}
 
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
+  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+
 server:
   port: ${SERVER_PORT:8443}
   name: ${APP_NAME}

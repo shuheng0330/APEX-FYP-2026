@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { TranslateService } from '@ngx-translate/core';
 import { TranslateModule } from '@ngx-translate/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 
 import { AuthService } from '../../services/auth.service';
@@ -24,11 +24,20 @@ export class StaffTabComponent implements OnInit {
 
   selectedTabIndex: number = 0;
 
-  constructor(private translateService: TranslateService, private router: Router,
+  get accessControlUnavailable(): boolean {
+    return this.route.snapshot.queryParamMap.get('tab') === 'access-control'
+      && !this.hasAccess(['CAN_VIEW_ACCESS_CONTROL', 'CAN_MANAGE_ACCESS_CONTROL']);
+  }
+
+  constructor(private translateService: TranslateService, private router: Router, private route: ActivatedRoute,
     private titleService: Title, private authService: AuthService) { }
 
   ngOnInit(): void {
     this.titleService.setTitle(this.translateService.instant(this.staffTitleKey));
+    if (this.route.snapshot.queryParamMap.get('tab') === 'access-control'
+      && this.hasAccess(['CAN_VIEW_ACCESS_CONTROL', 'CAN_MANAGE_ACCESS_CONTROL'])) {
+      this.selectedTabIndex = 1;
+    }
   }
 
   hasAccess(requiredRoles: string[]): boolean {

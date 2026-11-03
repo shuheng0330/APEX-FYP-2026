@@ -43,6 +43,9 @@ public class RoleController {
     private RoleService roleService;
 
     @Autowired
+    private EmployeeLevelService employeeLevelService;
+
+    @Autowired
     private OrgChartService orgChartService;
 
     @Autowired
@@ -182,6 +185,9 @@ public class RoleController {
             roleOverviewDto.setRoleId(roleDto.getId());
             roleOverviewDto.setRoleName(roleDto.getName());
             roleOverviewDto.setDescription(roleDto.getDescription());
+            roleOverviewDto.setEmployeeLevelId(roleDto.getEmployeeLevelId());
+            roleOverviewDto.setEmployeeLevelName(roleDto.getEmployeeLevelName());
+            roleOverviewDto.setEmployeeLevelCode(roleDto.getEmployeeLevelCode());
             roleOverviewDto.setAssignedJobScopes(assignedJobScopeDtoList);
 
             roleOverviewDtoList.add(roleOverviewDto);
@@ -265,6 +271,7 @@ public class RoleController {
         roleDto.setName(requestDto.getRoleName().trim());
         roleDto.setDescription(requestDto.getDescription() == null || requestDto.getDescription().trim().isEmpty() ? null : requestDto.getDescription().trim());
         roleDto.setVisible(requestDto.getVisibility());
+        roleDto.setEmployeeLevelId(requestDto.getEmployeeLevelId());
         roleDto.setDeleted(false);
         roleDto.setCreatedBy(userUUID);
         roleDto.setCreatedAt(OffsetDateTime.now());
@@ -356,6 +363,7 @@ public class RoleController {
         roleDto.setId(roleId);
         roleDto.setName(requestDto.getRoleName());
         roleDto.setDescription(requestDto.getDescription());
+        roleDto.setEmployeeLevelId(requestDto.getEmployeeLevelId());
         roleDto.setVisible(requestDto.getVisibility());
         roleDto.setDeleted(false);
         roleDto.setOrgChart(existedOrgChartDto);
@@ -595,6 +603,7 @@ public class RoleController {
 
             Cell cellDeleted = header.createCell(7);
             cellDeleted.setCellValue("To Be Deleted");
+            header.createCell(8).setCellValue("Employee Level Code");
             createCellComment(drawing, cellDeleted, messageSource.getMessage(DELETED_NOTES, null, Locale.getDefault()));
 
             rowIndex++;
@@ -619,6 +628,7 @@ public class RoleController {
                 row.createCell(2).setCellValue(dto.getDescription());
                 row.createCell(3).setCellValue(jobScopes);
                 row.createCell(4).setCellValue(dto.isVisible() ? "Yes" : "");
+                row.createCell(8).setCellValue(dto.getEmployeeLevelCode() == null ? "" : dto.getEmployeeLevelCode());
 
                 rowIndex++;
             }
@@ -764,6 +774,13 @@ public class RoleController {
             String newDepartment = getCellValueAsString(row.getCell(5));
             String newRoleName = getCellValueAsString(row.getCell(6));
             String toBeDeleted = getCellValueAsString(row.getCell(7));
+            String employeeLevelCode = Optional.ofNullable(getCellValueAsString(row.getCell(8))).orElse("");
+            String employeeLevelHeader = Optional.ofNullable(getCellValueAsString(header.getCell(8))).orElse("");
+            if (!employeeLevelHeader.isBlank()
+                    && !employeeLevelHeader.equalsIgnoreCase("Employee Level Code"))
+                throw new BadRequestException("Expected Employee Level Code in the optional ninth column");
+            if (employeeLevelHeader.isBlank() && !employeeLevelCode.isBlank())
+                throw new BadRequestException("Employee Level Code column header is required when level codes are supplied");
 
             Set<String> inputtedJobScopes;
             if (!validationService.isNullOrBlank(jobScopesList)) {
@@ -917,6 +934,7 @@ public class RoleController {
                 }
 
                 roleDto.setDescription(validationService.isNullOrBlank(roleDescription) ? null : roleDescription.trim());
+                if (!employeeLevelCode.isBlank()) roleDto.setEmployeeLevelId(employeeLevelService.resolveCode(employeeLevelCode.strip()));
                 roleDto.setVisible(!validationService.isNullOrBlank(visibility) && visibility.equalsIgnoreCase(YES));
             } else { // create new role
                 if (!validationService.isNullOrBlank(newRoleName) || !validationService.isNullOrBlank(newDepartment) ||
@@ -946,6 +964,9 @@ public class RoleController {
                         now,
                         selectedDepartment
                 );
+                if (employeeLevelCode.isBlank())
+                    throw new BadRequestException("Employee Level Code is required for a new Role");
+                roleDto.setEmployeeLevelId(employeeLevelService.resolveCode(employeeLevelCode.strip()));
 
                 roleToBeCreated
                         .computeIfAbsent(departmentName.toLowerCase().trim(), d -> new HashSet<>())
