@@ -1,0 +1,73 @@
+<section class="people" aria-label="People on this session">
+  <header>
+    <h4>People</h4>
+    <span class="muted">{{ loading ? 'Loading…' : counts }}</span>
+  </header>
+
+  @if (canChange) {
+    <div class="add-row">
+      <nz-select [(ngModel)]="toAdd" nzShowSearch nzAllowClear nzPlaceHolder="Add a staff member by name" aria-label="Add a staff member">
+        @for (p of addable; track p.id) {
+          <nz-option [nzValue]="p.id" [nzLabel]="p.name + (p.roleName ? ' · ' + p.roleName : '')"></nz-option>
+        }
+      </nz-select>
+      <button nz-button [disabled]="!toAdd" [nzLoading]="busy" (click)="add()"><nz-icon nzType="user-add"></nz-icon> Add</button>
+    </div>
+    @if (!session.selfRegistration) {
+      <p class="muted">Staff can't register themselves for this session, so add them here.</p>
+    }
+  }
+
+  @for (p of current; track p.staffId) {
+    <div class="person">
+      <div class="who">
+        <strong>{{ p.name }}</strong>
+        <span class="muted">{{ p.roleName || 'No job role' }}{{ p.departmentName ? ' · ' + p.departmentName : '' }}</span>
+        @if (p.idNumber || p.phone || p.branch) {
+          <span class="hrdc">IC/passport {{ p.idNumber || '-' }} · {{ p.phone || '-' }} · {{ p.branch || '-' }}</span>
+        }
+        @if (p.addedByName) {
+          <span class="muted">Added by {{ p.addedByName }}</span>
+        }
+      </div>
+      <div class="state">
+        <nz-tag [nzColor]="status[p.status].color">
+          {{ status[p.status].label }}{{ p.status === 'WAITLISTED' ? ' #' + p.waitlistPosition : '' }}
+        </nz-tag>
+        @if (p.status === 'OFFERED' && p.offerExpiresAt) {
+          <span class="muted">until {{ p.offerExpiresAt | date: 'EEE d MMM, HH:mm' }}</span>
+        }
+      </div>
+      <div class="row-actions">
+        @if (canOffer(p)) {
+          <button nz-button nzSize="small" [disabled]="busy" (click)="offer(p)">Offer seat</button>
+        }
+        @if (canRemove(p)) {
+          <button nz-button nzSize="small" nzType="text" nzDanger [disabled]="busy" nz-popconfirm
+                  [nzPopconfirmTitle]="'Take ' + p.name + ' off this session? They are told.'" (nzOnConfirm)="remove(p)">Remove</button>
+        }
+      </div>
+    </div>
+  } @empty {
+    @if (!loading) {
+      <p class="muted">Nobody is registered or invited yet.</p>
+    }
+  }
+
+  @if (ended.length) {
+    <button type="button" class="link" (click)="showEnded = !showEnded">
+      {{ showEnded ? 'Hide' : 'Show' }} {{ ended.length }} who cancelled, declined or didn't answer
+    </button>
+    @if (showEnded) {
+      @for (p of ended; track p.staffId) {
+        <div class="person ended">
+          <div class="who">
+            <strong>{{ p.name }}</strong>
+            @if (p.note) { <span class="muted">{{ p.note }}</span> }
+          </div>
+          <div class="state"><nz-tag>{{ status[p.status].label }}</nz-tag></div>
+        </div>
+      }
+    }
+  }
+</section>

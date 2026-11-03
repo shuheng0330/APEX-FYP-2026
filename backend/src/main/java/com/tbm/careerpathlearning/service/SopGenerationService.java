@@ -29,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +51,9 @@ public class SopGenerationService {
     private static final int MAX_MODULES = 25;
 
     /** The question formats generated for staff (FR-08-01): multiple choice and true/false. */
+    /** The most earlier questions listed in a prompt, so a long course doesn't crowd out the SOP text. */
+    private static final int MAX_ASKED_IN_PROMPT = 40;
+
     private static final Set<QuizQuestionType> GENERATED_TYPES = EnumSet.of(QuizQuestionType.MULTIPLE_CHOICE, QuizQuestionType.TRUE_FALSE);
 
     /** Marks a module's content as built offline, so the review page can flag it. */
@@ -115,8 +120,12 @@ public class SopGenerationService {
                 if (offline.isEmpty()) {
                     throw new RuntimeException("The AI is unavailable and no modules could be built from this document's text.");
                 }
+                List<String> asked = new ArrayList<>();
                 for (int i = 0; i < offline.size(); i++) {
-                    self.saveModuleWithQuiz(doc.getId(), i + 1, offline.get(i), true);
+                    GeneratedSopContent.GeneratedModule gm = offline.get(i);
+                    gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), gm.getTitle(), asked));
+                    self.saveModuleWithQuiz(doc.getId(), i + 1, gm, true);
+                    asked.addAll(questionTexts(gm.getQuiz()));
                 }
                 updateStatus(doc, SopGenerationStatus.COMPLETED,
                         "The AI was unavailable, so all modules were generated offline from the SOP text. Review them carefully before approving.");
@@ -128,6 +137,7 @@ public class SopGenerationService {
             List<GeneratedSopContent.GeneratedModule> offline = null; // built once the AI fails part-way
             int saved = 0;
             int firstOffline = 0;
+            List<String> asked = new ArrayList<>(); // what the modules so far already ask (test note AR-03)
             for (int i = 0; i < total; i++) {
                 GeneratedSopPlan.PlannedModule pm = planned.get(i);
                 GeneratedSopContent.GeneratedModule gm = null;
@@ -136,7 +146,7 @@ public class SopGenerationService {
                     try {
                         // Phase B — expand: full-fidelity content for THIS module only.
                         gm = callGeminiForModule(
-                                buildModuleExpandPrompt(doc.getTitle(), text, pm.getTitle(), pm.getCovers(), i + 1, total));
+                                buildModuleExpandPrompt(doc.getTitle(), text, pm.getTitle(), pm.getCovers(), i + 1, total, asked));
                     } catch (Exception e) {
                         // Stop calling the AI for this document; follow its plan offline from here on.
                         log.warn("AI failed on module {}/{} of document {}, finishing offline: {}",
@@ -151,10 +161,10 @@ public class SopGenerationService {
                     if (gm == null) {
                         continue; // no SOP text matched this planned module
                     }
-                } else {
-                    gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), gm.getTitle()));
                 }
+                gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), gm.getTitle(), asked));
                 self.saveModuleWithQuiz(doc.getId(), ++saved, gm, fromOffline);
+                asked.addAll(questionTexts(gm.getQuiz()));
             }
 
             updateStatus(doc, SopGenerationStatus.COMPLETED, offlineNote(firstOffline, saved));
@@ -222,9 +232,10 @@ public class SopGenerationService {
     @Transactional
     public void regenerateModule(SopModule module, String reason) {
         SopDocument doc = sopDocumentRepository.findById(module.getSopDocumentId()).orElseThrow();
+        List<String> asked = otherModulesQuestions(module);
         GeneratedSopContent.GeneratedModule gm = callGeminiForRegeneration(
-                buildModuleRegenerationPrompt(doc.getTitle(), doc.getExtractedText(), module.getTitle(), reason));
-        gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), safe(gm.getTitle(), module.getTitle())));
+                buildModuleRegenerationPrompt(doc.getTitle(), doc.getExtractedText(), module.getTitle(), reason, asked));
+        gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), safe(gm.getTitle(), module.getTitle()), asked));
 
         OffsetDateTime now = OffsetDateTime.now(clock);
         module.setTitle(safe(gm.getTitle(), module.getTitle()));
@@ -243,9 +254,10 @@ public class SopGenerationService {
     @Transactional
     public void regenerateQuiz(SopModule module, String reason) {
         SopDocument doc = sopDocumentRepository.findById(module.getSopDocumentId()).orElseThrow();
+        List<String> asked = otherModulesQuestions(module);
         GeneratedSopContent.GeneratedModule gm = callGeminiForRegeneration(
-                buildQuizRegenerationPrompt(doc.getTitle(), module.getTitle(), module.getContent(), reason));
-        gm.setQuiz(fullQuiz(sectionsOf(module.getContent()), gm.getQuiz(), module.getTitle()));
+                buildQuizRegenerationPrompt(doc.getTitle(), module.getTitle(), module.getContent(), reason, asked));
+        gm.setQuiz(fullQuiz(sectionsOf(module.getContent()), gm.getQuiz(), module.getTitle(), asked));
 
         OffsetDateTime now = OffsetDateTime.now(clock);
         sopQuizQuestionRepository.deleteAllBySopModuleIdIn(List.of(module.getId()));
@@ -253,15 +265,43 @@ public class SopGenerationService {
     }
 
     /**
-     * The AI's quiz in the formats staff take, multiple choice and true/false (FR-08-01), dropping any other the AI
-     * returned, and topped up from the module's own text when fewer than QUIZ_SIZE questions are left.
+     * The quiz in the formats staff take, multiple choice and true/false (FR-08-01), without any question another
+     * module of the course already asks (test note AR-03), topped up from the module's own text when fewer than
+     * QUIZ_SIZE questions are left. A top-up question that repeats another module's is left out too.
      */
     private List<GeneratedSopContent.GeneratedQuestion> fullQuiz(List<GeneratedSopContent.ContentSection> sections,
                                                                List<GeneratedSopContent.GeneratedQuestion> quiz,
-                                                               String title) {
+                                                               String title, Collection<String> asked) {
         List<GeneratedSopContent.GeneratedQuestion> kept = quiz == null ? List.of()
                 : quiz.stream().filter(q -> GENERATED_TYPES.contains(parseType(q.getType()))).toList();
-        return localSopGenerator.topUpQuiz(sections, kept, title, LocalSopGenerator.QUIZ_SIZE);
+        kept = QuestionOverlap.withoutRepeats(kept, asked);
+        return QuestionOverlap.withoutRepeats(
+                localSopGenerator.topUpQuiz(sections, kept, title, LocalSopGenerator.QUIZ_SIZE, asked), asked);
+    }
+
+    private static List<String> questionTexts(List<GeneratedSopContent.GeneratedQuestion> quiz) {
+        return quiz == null ? List.of() : quiz.stream().map(GeneratedSopContent.GeneratedQuestion::getQuestion).toList();
+    }
+
+    /** The questions the course's other modules ask, so a rewrite of this one doesn't repeat them. */
+    private List<String> otherModulesQuestions(SopModule module) {
+        List<Long> others = sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(module.getSopDocumentId()).stream()
+                .map(SopModule::getId).filter(id -> !id.equals(module.getId())).toList();
+        return others.isEmpty() ? List.of() : sopQuizQuestionRepository.findAllBySopModuleIdInOrderByIdAsc(others).stream()
+                .map(SopQuizQuestion::getQuestionText).toList();
+    }
+
+    /** Tells the AI which questions other modules already ask; empty when none do. */
+    private static String askedBlock(List<String> asked) {
+        if (asked == null || asked.isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder("Other modules of this course already ask these questions. Do not repeat them,"
+                + " reword them or test the same fact again:\n");
+        for (String q : asked.subList(Math.max(0, asked.size() - MAX_ASKED_IN_PROMPT), asked.size())) {
+            out.append("- ").append(q.length() > 200 ? q.substring(0, 200) + "..." : q).append("\n");
+        }
+        return out.toString();
     }
 
     /** The content sections stored for a module, or none when its content is not structured JSON. */
@@ -378,7 +418,7 @@ public class SopGenerationService {
 
     /** Phase B: expand ONE planned module into structured rich content + quiz. */
     private String buildModuleExpandPrompt(String sopTitle, String sopText, String moduleTitle,
-                                           String covers, int order, int total) {
+                                           String covers, int order, int total, List<String> asked) {
         return """
                 You are writing ONE training module (module %d of %d) from the SOP below.
                 Produce COMPLETE, detailed content that fully preserves EVERY step, rule, figure,
@@ -414,18 +454,19 @@ public class SopGenerationService {
                   MULTIPLE_CHOICE or TRUE_FALSE only, with at least one of each type.
                 - difficulty of each question: EASY (recall one stated fact), MEDIUM (apply a step
                   or rule), HARD (combine several rules or judge a scenario).
-
+                %s
                 Module title: %s
                 This module must completely cover: %s
 
                 SOP title: %s
                 Full SOP content:
                 %s
-                """.formatted(order, total, LocalSopGenerator.QUIZ_SIZE, safe(moduleTitle, "Module " + order),
+                """.formatted(order, total, LocalSopGenerator.QUIZ_SIZE, askedBlock(asked), safe(moduleTitle, "Module " + order),
                 safe(covers, "the relevant section"), safe(sopTitle, ""), truncate(sopText));
     }
 
-    private String buildModuleRegenerationPrompt(String sopTitle, String sopText, String moduleTitle, String reason) {
+    private String buildModuleRegenerationPrompt(String sopTitle, String sopText, String moduleTitle, String reason,
+                                                 List<String> asked) {
         return """
                 Regenerate ONE training module from the SOP below. The trainer rejected the
                 previous version for this reason: "%s". Address that feedback fully.
@@ -454,16 +495,17 @@ public class SopGenerationService {
                 MULTIPLE_CHOICE or TRUE_FALSE only. Give every quiz question a "difficulty": EASY
                 (recall one stated fact), MEDIUM (apply a step or rule) or HARD (combine several rules
                 or judge a scenario).
-
+                %s
                 SOP title: %s
                 Module to regenerate: %s
                 SOP content:
                 %s
-                """.formatted(safe(reason, "no reason given"), LocalSopGenerator.QUIZ_SIZE, safe(sopTitle, ""),
+                """.formatted(safe(reason, "no reason given"), LocalSopGenerator.QUIZ_SIZE, askedBlock(asked), safe(sopTitle, ""),
                 safe(moduleTitle, ""), truncate(sopText));
     }
 
-    private String buildQuizRegenerationPrompt(String sopTitle, String moduleTitle, String moduleContent, String reason) {
+    private String buildQuizRegenerationPrompt(String sopTitle, String moduleTitle, String moduleContent, String reason,
+                                               List<String> asked) {
         return """
                 Regenerate ONLY the quiz for the training module below. The trainer rejected the
                 previous quiz for this reason: "%s". Address that feedback. Keep the same "title"
@@ -472,7 +514,7 @@ public class SopGenerationService {
                 ["True","False"]; no other types) with exact "answer", one-sentence "explanation" and a "difficulty" of
                 EASY (recall one stated fact), MEDIUM (apply a step or rule) or HARD (combine several
                 rules or judge a scenario).
-
+                %s
                 Respond with ONLY a JSON object of this exact shape:
                 {"title":"string","content":"string","quiz":[{"type":"MULTIPLE_CHOICE","question":"string","options":["a","b","c","d"],"answer":"string","explanation":"string","difficulty":"MEDIUM"}]}
 
@@ -480,7 +522,7 @@ public class SopGenerationService {
                 Module title: %s
                 Module content:
                 %s
-                """.formatted(safe(reason, "no reason given"), LocalSopGenerator.QUIZ_SIZE, safe(sopTitle, ""),
+                """.formatted(safe(reason, "no reason given"), LocalSopGenerator.QUIZ_SIZE, askedBlock(asked), safe(sopTitle, ""),
                 safe(moduleTitle, ""), truncate(moduleContent));
     }
 

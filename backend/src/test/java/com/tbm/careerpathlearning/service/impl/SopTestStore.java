@@ -20,41 +20,76 @@ import com.tbm.careerpathlearning.model.SopAssignment;
 import com.tbm.careerpathlearning.model.SopCourseFeedback;
 import com.tbm.careerpathlearning.model.SopDocument;
 import com.tbm.careerpathlearning.model.SopEnrollment;
+import com.tbm.careerpathlearning.model.SopMaterialView;
 import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.SopQuizAttempt;
+import com.tbm.careerpathlearning.model.SopQuizDraw;
 import com.tbm.careerpathlearning.model.SopQuizQuestion;
 import com.tbm.careerpathlearning.model.SopQuizReviewEvent;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainerAccessGrant;
+import com.tbm.careerpathlearning.model.CourseCategory;
+import com.tbm.careerpathlearning.model.CourseCategoryLink;
+import com.tbm.careerpathlearning.model.TrainingAccessRequest;
+import com.tbm.careerpathlearning.model.TrainingAttendance;
+import com.tbm.careerpathlearning.model.TrainingEvidence;
+import com.tbm.careerpathlearning.model.TrainingSessionTemplate;
 import com.tbm.careerpathlearning.model.TrainingAuditLog;
+import com.tbm.careerpathlearning.model.TrainingInvitation;
+import com.tbm.careerpathlearning.model.TrainingProgram;
+import com.tbm.careerpathlearning.model.TrainingRegistration;
 import com.tbm.careerpathlearning.repository.AuthorityRepository;
+import com.tbm.careerpathlearning.repository.OrgChartRepository;
 import com.tbm.careerpathlearning.repository.RoleAuthorityRepository;
+import com.tbm.careerpathlearning.repository.RoleRepository;
 import com.tbm.careerpathlearning.repository.SopAssignmentRepository;
 import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialViewRepository;
 import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
+import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
 import com.tbm.careerpathlearning.repository.TrainerAccessGrantRepository;
+import com.tbm.careerpathlearning.repository.CourseCategoryLinkRepository;
+import com.tbm.careerpathlearning.repository.CourseCategoryRepository;
+import com.tbm.careerpathlearning.repository.TrainingAccessRequestRepository;
+import com.tbm.careerpathlearning.repository.TrainingAttendanceRepository;
+import com.tbm.careerpathlearning.repository.TrainingEvidenceRepository;
+import com.tbm.careerpathlearning.repository.TrainingSessionTemplateRepository;
 import com.tbm.careerpathlearning.repository.TrainingAuditLogRepository;
+import com.tbm.careerpathlearning.repository.TrainingInvitationRepository;
+import com.tbm.careerpathlearning.repository.TrainingProgramRepository;
+import com.tbm.careerpathlearning.repository.TrainingRegistrationRepository;
+import com.tbm.careerpathlearning.service.CourseCategoryService;
+import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopVersionService;
+import com.tbm.careerpathlearning.service.TrainerAccessService;
+import com.tbm.careerpathlearning.service.TrainingRegistrationService;
+import com.tbm.careerpathlearning.service.TrainingService;
+import com.tbm.careerpathlearning.service.TrainingTemplateService;
 import com.tbm.careerpathlearning.service.TrainingAuditService;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -84,10 +119,13 @@ class SopTestStore {
 
     private static final Set<Class<?>> REPOSITORIES = Set.of(SopDocumentRepository.class, SopModuleRepository.class,
             SopQuizQuestionRepository.class, SopQuizReviewEventRepository.class, SopMaterialReviewEventRepository.class,
-            SopAssignmentRepository.class,
+            SopAssignmentRepository.class, SopQuizDrawRepository.class, SopMaterialViewRepository.class,
             SopEnrollmentRepository.class, SopQuizAttemptRepository.class, SopCourseFeedbackRepository.class,
             StaffRepository.class, TrainerAccessGrantRepository.class, TrainingAuditLogRepository.class,
-            AuthorityRepository.class, RoleAuthorityRepository.class);
+            AuthorityRepository.class, RoleAuthorityRepository.class, OrgChartRepository.class, RoleRepository.class,
+            TrainingProgramRepository.class, TrainingRegistrationRepository.class, TrainingInvitationRepository.class,
+            TrainingAttendanceRepository.class, TrainingEvidenceRepository.class, TrainingSessionTemplateRepository.class,
+            TrainingAccessRequestRepository.class, CourseCategoryRepository.class, CourseCategoryLinkRepository.class);
 
     final Map<Long, SopDocument> docs = new LinkedHashMap<>();
     final Map<Long, SopModule> modules = new LinkedHashMap<>();
@@ -98,10 +136,25 @@ class SopTestStore {
     final Map<Long, SopEnrollment> enrollments = new LinkedHashMap<>();
     final Map<Long, SopQuizAttempt> attempts = new LinkedHashMap<>();
     final Map<Long, SopCourseFeedback> feedback = new LinkedHashMap<>();
+    final Map<Long, SopQuizDraw> draws = new LinkedHashMap<>();
+    final Map<Long, SopMaterialView> views = new LinkedHashMap<>();
     final Map<UUID, Staff> staff = new LinkedHashMap<>();
     final Map<UUID, TrainerAccessGrant> grants = new LinkedHashMap<>();
     final Map<Long, TrainingAuditLog> auditLog = new LinkedHashMap<>();
     final Map<AuthorityName, Authority> authorities = new EnumMap<>(AuthorityName.class);
+    final Map<Long, OrgChart> orgCharts = new LinkedHashMap<>();
+    final Map<Long, Role> roles = new LinkedHashMap<>();
+    /** Training sessions (FR-12), with their registrations, invitations and attendance. */
+    final Map<Long, TrainingProgram> sessions = new LinkedHashMap<>();
+    final Map<Long, TrainingRegistration> registrations = new LinkedHashMap<>();
+    final Map<Long, TrainingInvitation> invitations = new LinkedHashMap<>();
+    final Map<Long, TrainingAttendance> attendance = new LinkedHashMap<>();
+    final Map<Long, TrainingEvidence> evidence = new LinkedHashMap<>();
+    final Map<Long, TrainingSessionTemplate> templates = new LinkedHashMap<>();
+    final Map<Long, TrainingAccessRequest> accessRequests = new LinkedHashMap<>();
+    /** Course categories (FR-19) and the courses carrying them. */
+    final Map<Long, CourseCategory> categories = new LinkedHashMap<>();
+    final Map<Long, CourseCategoryLink> categoryLinks = new LinkedHashMap<>();
     final List<RoleAuthority> roleAuthorities = new ArrayList<>();
     /** Notifications the services sent, in order. */
     final List<Sent> notifications = new ArrayList<>();
@@ -113,7 +166,14 @@ class SopTestStore {
     private TrainingAuditService audit;
     private SopVersionService versions;
     private SopGenerationQueue queue;
+    private SopNewJoiners newJoiners;
+    private TrainerAccessService trainerAccess;
+    private TrainingRegistrationService sessionRegistrations;
+    private TrainingTemplateService sessionTemplates;
+    private TrainingService sessionsService;
+    private CourseCategoryService courseCategories;
     private final NotificationService notifier = new RecordingNotifications();
+    private FolderFiles files;
 
     /** Sets the service's repositories, clock and course readiness check to this store's. */
     <T> T wire(T service) {
@@ -125,7 +185,14 @@ class SopTestStore {
                         : f.getType() == TrainingAuditService.class ? audit()
                         : f.getType() == SopVersionService.class ? versions()
                         : f.getType() == SopGenerationQueue.class ? queue()
+                        : f.getType() == SopNewJoiners.class ? newJoiners()
+                        : f.getType() == TrainerAccessService.class ? trainerAccess()
+                        : f.getType() == TrainingRegistrationService.class ? sessionRegistrations()
+                        : f.getType() == TrainingTemplateService.class ? sessionTemplates()
+                        : f.getType() == TrainingService.class ? sessionsService()
+                        : f.getType() == CourseCategoryService.class ? courseCategories()
                         : f.getType() == NotificationService.class ? notifier
+                        : f.getType() == FileService.class ? files()
                         : null;
                 if (value != null) {
                     ReflectionTestUtils.setField(service, f.getName(), value);
@@ -157,6 +224,48 @@ class SopTestStore {
         return versions;
     }
 
+    SopNewJoiners newJoiners() {
+        if (newJoiners == null) {
+            newJoiners = wire(new SopNewJoiners());
+        }
+        return newJoiners;
+    }
+
+    TrainerAccessService trainerAccess() {
+        if (trainerAccess == null) {
+            trainerAccess = wire(new TrainerAccessServiceImpl());
+        }
+        return trainerAccess;
+    }
+
+    TrainingRegistrationService sessionRegistrations() {
+        if (sessionRegistrations == null) {
+            sessionRegistrations = wire(new TrainingRegistrationServiceImpl());
+        }
+        return sessionRegistrations;
+    }
+
+    CourseCategoryService courseCategories() {
+        if (courseCategories == null) {
+            courseCategories = wire(new CourseCategoryServiceImpl());
+        }
+        return courseCategories;
+    }
+
+    TrainingService sessionsService() {
+        if (sessionsService == null) {
+            sessionsService = wire(new TrainingServiceImpl());
+        }
+        return sessionsService;
+    }
+
+    TrainingTemplateService sessionTemplates() {
+        if (sessionTemplates == null) {
+            sessionTemplates = wire(new TrainingTemplateServiceImpl());
+        }
+        return sessionTemplates;
+    }
+
     /** The generation queue, without a generation service: tests that run it set one. */
     SopGenerationQueue queue() {
         if (queue == null) {
@@ -173,6 +282,18 @@ class SopTestStore {
         return OffsetDateTime.now(clock);
     }
 
+    /** Uploaded files, kept in a temporary folder. */
+    FolderFiles files() {
+        if (files == null) {
+            try {
+                files = new FolderFiles(Files.createTempDirectory("apex-test-files"));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return files;
+    }
+
     // --- fixtures ---------------------------------------------------------------
 
     OrgChart department(long id, String name) {
@@ -180,6 +301,7 @@ class SopTestStore {
         o.setId(id);
         o.setName(name);
         o.setType(OrgChartType.D);
+        orgCharts.put(id, o);
         return o;
     }
 
@@ -189,6 +311,7 @@ class SopTestStore {
         r.setName(name);
         r.setVisible(true);
         r.setOrgChart(department);
+        roles.put(id, r);
         return r;
     }
 
@@ -226,6 +349,13 @@ class SopTestStore {
         d.setUpdatedAt(now());
         docs.put(id, d);
         return d;
+    }
+
+    /** {@code count} questions, all {@code status}: a quiz for {@link #module(long, ReviewStatus, ReviewStatus...)}. */
+    static ReviewStatus[] quiz(int count, ReviewStatus status) {
+        ReviewStatus[] quiz = new ReviewStatus[count];
+        Arrays.fill(quiz, status);
+        return quiz;
     }
 
     /** A module with approved material and a quiz of {@code questionCount} approved questions. */
@@ -336,6 +466,11 @@ class SopTestStore {
                 return Optional.ofNullable(table(type).get(a[0]));
             case "findAll":
                 return new ArrayList<>(table(type).values());
+            case "findAllById": {
+                Set<Object> wanted = new HashSet<>();
+                ((Iterable<?>) a[0]).forEach(wanted::add);
+                return table(type).entrySet().stream().filter(e -> wanted.contains(e.getKey())).map(Map.Entry::getValue).toList();
+            }
             case "delete":
                 table(type).values().remove(a[0]);
                 return null;
@@ -411,6 +546,10 @@ class SopTestStore {
                 case "deleteAllBySopDocumentId":
                     assignments.values().removeIf(x -> x.getSopDocumentId().equals(a[0]));
                     return null;
+                case "findAllByIncludeNewJoinersTrueOrderByCreatedAtDesc":
+                    return assignments.values().stream().filter(SopAssignment::isIncludeNewJoiners)
+                            .sorted(Comparator.comparing(SopAssignment::getCreatedAt).thenComparing(SopAssignment::getId).reversed())
+                            .toList();
                 default:
             }
         }
@@ -427,6 +566,17 @@ class SopTestStore {
                             .filter(e -> e.getSopDocumentId().equals(a[0]) && e.getStaffId().equals(a[1])).findFirst();
                 case "deleteAllBySopDocumentId":
                     enrollments.values().removeIf(e -> e.getSopDocumentId().equals(a[0]));
+                    return null;
+                default:
+            }
+        }
+        if (type == SopQuizDrawRepository.class || type == SopMaterialViewRepository.class) {
+            Map<Long, ?> rows = type == SopQuizDrawRepository.class ? draws : views;
+            switch (method) {
+                case "findByEnrollmentIdAndSopModuleId":
+                    return rows.values().stream().filter(r -> enrollmentOf(r).equals(a[0]) && moduleOf(r).equals(a[1])).findFirst();
+                case "deleteAllByEnrollmentIdIn":
+                    rows.values().removeIf(r -> ((Collection<Long>) a[0]).contains(enrollmentOf(r)));
                     return null;
                 default:
             }
@@ -464,6 +614,134 @@ class SopTestStore {
                     return staff.values().stream().filter(s -> ((Collection<UUID>) a[0]).contains(s.getId())).toList();
                 case "findByIdAndIsDeletedFalse":
                     return Optional.ofNullable(staff.get(a[0])).filter(s -> !s.isDeleted());
+                case "findAllByIsDeletedIsFalseAndIdIn":
+                    return staff.values().stream().filter(s -> !s.isDeleted() && ((Collection<?>) a[0]).contains(s.getId())).toList();
+                default:
+            }
+        }
+        if (type == TrainingProgramRepository.class) {
+            switch (method) {
+                case "findAllByDeletedFalseAndSessionDateBetweenOrderBySessionDateAscStartTimeAsc":
+                    return sessions.values().stream()
+                            .filter(x -> !x.isDeleted() && !x.getSessionDate().isBefore((LocalDate) a[0])
+                                    && !x.getSessionDate().isAfter((LocalDate) a[1]))
+                            .sorted(Comparator.comparing(TrainingProgram::getSessionDate).thenComparing(TrainingProgram::getStartTime))
+                            .toList();
+                case "findByTrainingIdAndDeletedFalse":
+                case "lockById":
+                    return Optional.ofNullable(sessions.get(a[0])).filter(x -> !x.isDeleted());
+                case "findAllByDeletedFalseAndStatusAndAttendanceSubmittedAtIsNullAndSessionDateLessThanEqual":
+                    return sessions.values().stream().filter(x -> !x.isDeleted() && x.getStatus() == a[0]
+                            && x.getAttendanceSubmittedAt() == null && !x.getSessionDate().isAfter((LocalDate) a[1])).toList();
+                default:
+            }
+        }
+        if (type == TrainingRegistrationRepository.class) {
+            switch (method) {
+                case "findAllByTrainingId":
+                    return registrations.values().stream().filter(r -> r.getTrainingId().equals(a[0])).toList();
+                case "findAllByTrainingIdIn":
+                    return registrations.values().stream().filter(r -> ((Collection<?>) a[0]).contains(r.getTrainingId())).toList();
+                case "existsByTrainingId":
+                    return registrations.values().stream().anyMatch(r -> r.getTrainingId().equals(a[0]));
+                case "findByTrainingIdAndStaffId":
+                    return registrations.values().stream()
+                            .filter(r -> r.getTrainingId().equals(a[0]) && r.getStaffId().equals(a[1])).findFirst();
+                case "findAllByStaffIdAndStatusIn":
+                    return registrations.values().stream()
+                            .filter(r -> r.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(r.getStatus())).toList();
+                case "findAllByStatusAndOfferExpiresAtLessThanEqual":
+                    return registrations.values().stream().filter(r -> r.getStatus() == a[0] && r.getOfferExpiresAt() != null
+                            && !r.getOfferExpiresAt().isAfter((LocalDateTime) a[1])).toList();
+                default:
+            }
+        }
+        if (type == TrainingInvitationRepository.class) {
+            switch (method) {
+                case "findAllByTrainingIdAndStatus":
+                    return invitations.values().stream().filter(i -> i.getTrainingId().equals(a[0]) && i.getStatus() == a[1]).toList();
+                case "existsByTrainingId":
+                    return invitations.values().stream().anyMatch(i -> i.getTrainingId().equals(a[0]));
+                case "findAllByTrainingId":
+                    return invitations.values().stream().filter(i -> i.getTrainingId().equals(a[0])).toList();
+                case "findByTrainingIdAndStaffId":
+                    return invitations.values().stream()
+                            .filter(i -> i.getTrainingId().equals(a[0]) && i.getStaffId().equals(a[1])).findFirst();
+                case "findAllByStaffIdAndTrainingIdIn":
+                    return invitations.values().stream()
+                            .filter(i -> i.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(i.getTrainingId())).toList();
+                case "findAllByStaffIdAndStatus":
+                    return invitations.values().stream().filter(i -> i.getStaffId().equals(a[0]) && i.getStatus() == a[1]).toList();
+                case "findInvitedTrainingIds":
+                    return invitations.values().stream().map(TrainingInvitation::getTrainingId)
+                            .filter(((Collection<?>) a[0])::contains).distinct().toList();
+                default:
+            }
+        }
+        if (type == TrainingAttendanceRepository.class) {
+            switch (method) {
+                case "existsByTrainingId":
+                    return attendance.values().stream().anyMatch(x -> x.getTrainingId().equals(a[0]));
+                case "findRecordedTrainingIds":
+                    return attendance.values().stream().map(TrainingAttendance::getTrainingId)
+                            .filter(((Collection<?>) a[0])::contains).distinct().toList();
+                case "findAllByTrainingId":
+                    return attendance.values().stream().filter(x -> x.getTrainingId().equals(a[0])).toList();
+                case "findAllByTrainingIdIn":
+                    return attendance.values().stream().filter(x -> ((Collection<?>) a[0]).contains(x.getTrainingId())).toList();
+                case "findAllByStaffId":
+                    return attendance.values().stream().filter(x -> x.getStaffId().equals(a[0])).toList();
+                case "findAllByStaffIdAndTrainingIdIn":
+                    return attendance.values().stream()
+                            .filter(x -> x.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(x.getTrainingId())).toList();
+                default:
+            }
+        }
+        if (type == TrainingEvidenceRepository.class && method.equals("findAllByTrainingIdOrderByUploadedAtAscEvidenceIdAsc")) {
+            return evidence.values().stream().filter(x -> x.getTrainingId().equals(a[0]))
+                    .sorted(Comparator.comparing(TrainingEvidence::getUploadedAt).thenComparing(TrainingEvidence::getEvidenceId))
+                    .toList();
+        }
+        if (type == CourseCategoryRepository.class) {
+            switch (method) {
+                case "findByCode":
+                    return categories.values().stream().filter(c -> a[0].equals(c.getCode())).findFirst();
+                case "existsByNameIgnoreCase":
+                    return categories.values().stream().anyMatch(c -> c.getName().equalsIgnoreCase((String) a[0]));
+                case "existsByNameIgnoreCaseAndCategoryIdNot":
+                    return categories.values().stream()
+                            .anyMatch(c -> c.getName().equalsIgnoreCase((String) a[0]) && !c.getCategoryId().equals(a[1]));
+                default:
+            }
+        }
+        if (type == CourseCategoryLinkRepository.class) {
+            switch (method) {
+                case "findAllByCourseKey":
+                    return categoryLinks.values().stream().filter(l -> l.getCourseKey().equals(a[0])).toList();
+                case "findAllByCourseKeyIn":
+                    return categoryLinks.values().stream().filter(l -> ((Collection<?>) a[0]).contains(l.getCourseKey())).toList();
+                case "findAllByCategoryId":
+                    return categoryLinks.values().stream().filter(l -> l.getCategoryId().equals(a[0])).toList();
+                default:
+            }
+        }
+        if (type == TrainingAccessRequestRepository.class) {
+            switch (method) {
+                case "existsByStaffIdAndTrainingId":
+                    return accessRequests.values().stream().anyMatch(r -> r.getStaffId().equals(a[0]) && r.getTrainingId().equals(a[1]));
+                case "findAllByStaffIdAndTrainingIdIn":
+                    return accessRequests.values().stream()
+                            .filter(r -> r.getStaffId().equals(a[0]) && ((Collection<?>) a[1]).contains(r.getTrainingId())).toList();
+                default:
+            }
+        }
+        if (type == TrainingSessionTemplateRepository.class) {
+            switch (method) {
+                case "findAllByCreatedBy":
+                    return templates.values().stream().filter(t -> t.getCreatedBy().equals(a[0])).toList();
+                case "existsByCreatedByAndNameIgnoreCase":
+                    return templates.values().stream()
+                            .anyMatch(t -> t.getCreatedBy().equals(a[0]) && t.getName().equalsIgnoreCase((String) a[1]));
                 default:
             }
         }
@@ -500,8 +778,21 @@ class SopTestStore {
         if (type == SopEnrollmentRepository.class) return enrollments;
         if (type == SopQuizAttemptRepository.class) return attempts;
         if (type == SopCourseFeedbackRepository.class) return feedback;
+        if (type == SopQuizDrawRepository.class) return draws;
+        if (type == SopMaterialViewRepository.class) return views;
         if (type == TrainerAccessGrantRepository.class) return grants;
         if (type == TrainingAuditLogRepository.class) return auditLog;
+        if (type == OrgChartRepository.class) return orgCharts;
+        if (type == RoleRepository.class) return roles;
+        if (type == TrainingProgramRepository.class) return sessions;
+        if (type == TrainingRegistrationRepository.class) return registrations;
+        if (type == TrainingInvitationRepository.class) return invitations;
+        if (type == TrainingAttendanceRepository.class) return attendance;
+        if (type == TrainingEvidenceRepository.class) return evidence;
+        if (type == TrainingSessionTemplateRepository.class) return templates;
+        if (type == TrainingAccessRequestRepository.class) return accessRequests;
+        if (type == CourseCategoryRepository.class) return categories;
+        if (type == CourseCategoryLinkRepository.class) return categoryLinks;
         return staff;
     }
 
@@ -530,6 +821,12 @@ class SopTestStore {
         } else if (entity instanceof SopQuizAttempt x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             attempts.put(x.getId(), x);
+        } else if (entity instanceof SopQuizDraw x) {
+            if (x.getId() == null) x.setId(ids.incrementAndGet());
+            draws.put(x.getId(), x);
+        } else if (entity instanceof SopMaterialView x) {
+            if (x.getId() == null) x.setId(ids.incrementAndGet());
+            views.put(x.getId(), x);
         } else if (entity instanceof SopCourseFeedback x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             feedback.put(x.getId(), x);
@@ -538,10 +835,45 @@ class SopTestStore {
         } else if (entity instanceof TrainingAuditLog x) {
             if (x.getId() == null) x.setId(ids.incrementAndGet());
             auditLog.put(x.getId(), x);
+        } else if (entity instanceof TrainingProgram x) {
+            if (x.getTrainingId() == null) x.setTrainingId(ids.incrementAndGet());
+            sessions.put(x.getTrainingId(), x);
+        } else if (entity instanceof TrainingRegistration x) {
+            if (x.getRegistrationId() == null) x.setRegistrationId(ids.incrementAndGet());
+            registrations.put(x.getRegistrationId(), x);
+        } else if (entity instanceof TrainingInvitation x) {
+            if (x.getInvitationId() == null) x.setInvitationId(ids.incrementAndGet());
+            invitations.put(x.getInvitationId(), x);
+        } else if (entity instanceof TrainingAttendance x) {
+            if (x.getAttendanceId() == null) x.setAttendanceId(ids.incrementAndGet());
+            attendance.put(x.getAttendanceId(), x);
+        } else if (entity instanceof TrainingEvidence x) {
+            if (x.getEvidenceId() == null) x.setEvidenceId(ids.incrementAndGet());
+            evidence.put(x.getEvidenceId(), x);
+        } else if (entity instanceof TrainingSessionTemplate x) {
+            if (x.getTemplateId() == null) x.setTemplateId(ids.incrementAndGet());
+            templates.put(x.getTemplateId(), x);
+        } else if (entity instanceof TrainingAccessRequest x) {
+            if (x.getRequestId() == null) x.setRequestId(ids.incrementAndGet());
+            accessRequests.put(x.getRequestId(), x);
+        } else if (entity instanceof CourseCategory x) {
+            if (x.getCategoryId() == null) x.setCategoryId(ids.incrementAndGet());
+            categories.put(x.getCategoryId(), x);
+        } else if (entity instanceof CourseCategoryLink x) {
+            if (x.getLinkId() == null) x.setLinkId(ids.incrementAndGet());
+            categoryLinks.put(x.getLinkId(), x);
         } else {
             throw new UnsupportedOperationException("save " + entity.getClass().getSimpleName());
         }
         return entity;
+    }
+
+    private static Long enrollmentOf(Object row) {
+        return row instanceof SopQuizDraw d ? d.getEnrollmentId() : ((SopMaterialView) row).getEnrollmentId();
+    }
+
+    private static Long moduleOf(Object row) {
+        return row instanceof SopQuizDraw d ? d.getSopModuleId() : ((SopMaterialView) row).getSopModuleId();
     }
 
     /** A notification a service sent. */
@@ -596,6 +928,34 @@ class SopTestStore {
         @Override
         public void markAllRead(UUID userId) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    /** Uploaded files under one folder, as the app's file service keeps them under its upload folder. */
+    static final class FolderFiles implements FileService {
+        final Path root;
+
+        FolderFiles(Path root) {
+            this.root = root;
+        }
+
+        @Override
+        public String uploadFile(org.springframework.web.multipart.MultipartFile file, String folderName) {
+            throw new UnsupportedOperationException("uploadFile");
+        }
+
+        @Override
+        public void deleteFile(String filePath) {
+            try {
+                Files.deleteIfExists(getFilePath(filePath));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        @Override
+        public Path getFilePath(String relativePath) {
+            return root.resolve(relativePath).normalize();
         }
     }
 

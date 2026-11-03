@@ -13,8 +13,9 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
+import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { SopService } from '../../../services/sop.service';
-import { CourseView, courseOptionLabel, courseReady, draftQuestion, startsDraft } from '../sop.util';
+import { CourseView, MIN_QUIZ_QUESTIONS, courseOptionLabel, courseReady, draftQuestion, startsDraft } from '../sop.util';
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
 import {
@@ -62,7 +63,8 @@ const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = 
   imports: [
     CommonModule, FormsModule, RouterModule,
     NzButtonModule, NzInputModule, NzTagModule, NzSelectModule, NzRadioModule,
-    NzIconModule, NzSpinModule, NzEmptyModule, NzModalModule, CourseArchivedNoteComponent, CourseVersionNoteComponent
+    NzIconModule, NzSpinModule, NzEmptyModule, NzModalModule, NzInputNumberModule, CourseArchivedNoteComponent,
+    CourseVersionNoteComponent
   ],
   templateUrl: './sop-quiz-review.component.html',
   styleUrls: ['./sop-quiz-review.component.scss']
@@ -91,6 +93,12 @@ export class SopQuizReviewComponent implements OnInit {
   adding = false;
   draft: QuestionDraft | null = null;
   saving = false;
+
+  /** Every quiz needs this many questions before it is approved (FR-08-14). */
+  readonly minQuestions = MIN_QUIZ_QUESTIONS;
+  /** Questions per attempt typed but not yet saved, by module (FR-08-15). */
+  perAttemptDraft: Record<number, number> = {};
+  savingPerAttempt = false;
 
   readonly difficulties: { value: QuizDifficulty; label: string }[] = [
     { value: 'EASY', label: 'Easy' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'HARD', label: 'Hard' }
@@ -345,6 +353,76 @@ export class SopQuizReviewComponent implements OnInit {
 
   private replaceModule(updated: SopModule): void {
     this.modules = this.modules.map(m => (m.id === updated.id ? updated : m));
+  }
+
+  // --- quiz size (FR-08-11, FR-08-14, FR-08-15) -----------------------------------
+
+  /** Questions still needed before the quiz can be approved; 0 when it has enough. */
+  missingQuestions(module: SopModule): number {
+    return Math.max(0, MIN_QUIZ_QUESTIONS - module.quiz.length);
+  }
+
+  perAttemptValue(module: SopModule): number {
+    return this.perAttemptDraft[module.id] ?? module.questionsPerAttempt;
+  }
+
+  /** An attempt presents at most every question in the quiz, and never fewer than the minimum. */
+  maxPerAttempt(module: SopModule): number {
+    return Math.max(MIN_QUIZ_QUESTIONS, module.quiz.length);
+  }
+
+  /** Applies to the version staff are taking, from their next attempt: it changes no question. */
+  savePerAttempt(): void {
+    const module = this.selectedModule;
+    if (!module || this.savingPerAttempt) return;
+    this.savingPerAttempt = true;
+    this.sopService.updateQuizSettings(module.id, this.perAttemptValue(module)).subscribe({
+      next: updated => {
+        this.savingPerAttempt = false;
+        delete this.perAttemptDraft[module.id];
+        this.replaceModule(updated);
+        this.message.success(`Each attempt now presents ${updated.questionsPerAttempt} questions.`);
+        this.loadHistory(updated.id);
+      },
+      // The error pop-up gives the server's reason; the box keeps what was typed.
+      error: () => { this.savingPerAttempt = false; }
+    });
+  }
+
+  /** Asks before deleting a question; once staff take the course, the deletion starts a new draft (FR-08-11). */
+  confirmDelete(q: SopQuizQuestion): void {
+    if (startsDraft(this.document)) {
+      this.modal.confirm({ ...draftQuestion(this.document!), nzOkText: 'Start draft', nzOnOk: () => this.deleteNow(q) });
+      return;
+    }
+    this.modal.confirm({
+      nzTitle: 'Delete this question?',
+      nzContent: q.questionText,
+      nzOkText: 'Delete',
+      nzOkDanger: true,
+      nzOnOk: () => this.deleteNow(q)
+    });
+  }
+
+  private deleteNow(q: SopQuizQuestion): void {
+    if (!this.selectedModule) return;
+    this.busy = true;
+    this.sopService.deleteQuestion(q.id).subscribe({
+      next: updated => {
+        this.busy = false;
+        if (updated.sopDocumentId !== this.document?.id) {
+          this.followDraft(updated.sopDocumentId, updated.moduleOrder,
+            'Question deleted in the new draft. Staff keep the live version until you publish it.');
+          return;
+        }
+        this.replaceModule(updated);
+        const missing = this.missingQuestions(updated);
+        this.message.success(missing ? `Question deleted. Add ${missing} more before this quiz can be approved.` : 'Question deleted.');
+        this.loadHistory(updated.id);
+      },
+      // The error pop-up gives the server's reason.
+      error: () => { this.busy = false; }
+    });
   }
 
   // --- editing ----------------------------------------------------------------

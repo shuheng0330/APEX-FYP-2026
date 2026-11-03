@@ -1,105 +1,107 @@
 package com.tbm.careerpathlearning.controller;
-import com.tbm.careerpathlearning.dto.CascaderOptionDTO;
-import com.tbm.careerpathlearning.dto.PageResponse;
-import com.tbm.careerpathlearning.dto.TrainingProgramDTO;
+
+import com.tbm.careerpathlearning.dto.TrainingCancelRequest;
+import com.tbm.careerpathlearning.dto.TrainingSessionRequest;
 import com.tbm.careerpathlearning.service.TrainingService;
+import com.tbm.careerpathlearning.service.TrainingViewer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
-import java.util.UUID;
 
+import java.time.LocalDate;
+
+/**
+ * Training sessions on the Training Calendar (FR-12). Everyone signed in sees the sessions meant for them. Staff with
+ * Trainer access (CAN_MANAGE_TRAINING) and HR (CAN_ASSIGN_TRAINING) schedule sessions (FR-12-05) and see them all, as
+ * does the Super Admin. Who is acting always comes from the sign-in, never from the request.
+ */
 @RestController
 @RequestMapping("/api/trainings")
-@CrossOrigin
 public class TrainingProgramController {
 
     @Autowired
-    private TrainingService trainingProgramService;
+    private TrainingService trainingService;
 
     @GetMapping
-    public List<TrainingProgramDTO> getAllTrainingPrograms() {
-        return trainingProgramService.getAllTrainingPrograms();
+    public ResponseEntity<?> calendar(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                      @RequestParam(defaultValue = "false") boolean archived,
+                                      Authentication authentication) {
+        return ResponseEntity.ok(trainingService.calendar(from, to, archived, viewer(authentication)));
     }
 
-    @GetMapping("/paged")
-    public ResponseEntity<PageResponse<TrainingProgramDTO>> getTrainingPrograms(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<TrainingProgramDTO> result =
-                trainingProgramService.getTrainingPrograms(pageable);
-
-        return ResponseEntity.ok(
-                new PageResponse<>(
-                        result.getContent(),
-                        result.getNumber(),
-                        result.getSize(),
-                        result.getTotalElements(),
-                        result.getTotalPages()
-                )
-        );
+    /** The viewer's upcoming sessions, for the My Learning home (FR-13-05). */
+    @GetMapping("/mine")
+    public ResponseEntity<?> mine(Authentication authentication) {
+        return ResponseEntity.ok(trainingService.mine(viewer(authentication)));
     }
 
-    @GetMapping("/{trainingId}")
-    public ResponseEntity<TrainingProgramDTO> getTrainingProgramById(@PathVariable Long trainingId){
-        TrainingProgramDTO trainingProgram = trainingProgramService.getTrainingProgramById(trainingId);
-        return trainingProgram != null ? ResponseEntity.ok(trainingProgram) : ResponseEntity.notFound().build();
+    /** Sessions whose attendance the viewer has still to submit (FR-14-10); empty for anyone who records none. */
+    @GetMapping("/awaiting-attendance")
+    public ResponseEntity<?> awaitingAttendance(Authentication authentication) {
+        return ResponseEntity.ok(trainingService.awaitingAttendance(viewer(authentication)));
     }
 
-    @GetMapping("/registered/{staffId}")
-    public List<TrainingProgramDTO> getTrainingProgramsByStaffId(@PathVariable UUID staffId){
-        return trainingProgramService.getTrainingProgramsByStaffId(staffId);
+    @GetMapping("/{id}")
+    public ResponseEntity<?> get(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(trainingService.get(id, viewer(authentication)));
     }
 
-    @GetMapping("/role-options")
-    public List<CascaderOptionDTO> getRoleCascaderOptions() {
-        return trainingProgramService.getRoleCascaderOptions();
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @GetMapping("/trainers")
+    public ResponseEntity<?> trainers() {
+        return ResponseEntity.ok(trainingService.trainers());
     }
 
-    @PreAuthorize("""
-            hasAnyAuthority(
-                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_TRAINING.getAuthorityName()
-            )
-            """)
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping("/audience-check")
+    public ResponseEntity<?> checkAudience(@RequestBody TrainingSessionRequest request) {
+        return ResponseEntity.ok(trainingService.checkAudience(request));
+    }
+
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
     @PostMapping
-    public TrainingProgramDTO createTrainingProgram(@RequestBody TrainingProgramDTO trainingProgram, Authentication authentication){
-        String userId = authentication.getPrincipal().toString();
-        UUID userUUID = UUID.fromString(userId);
-        return  trainingProgramService.createTrainingProgram(trainingProgram, userUUID);
+    public ResponseEntity<?> schedule(@RequestBody TrainingSessionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(trainingService.schedule(request, viewer(authentication)));
     }
 
-    @PreAuthorize("""
-            hasAnyAuthority(
-                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_TRAINING.getAuthorityName()
-            )
-            """)
-    @PutMapping("/{trainingId}")
-    public ResponseEntity<TrainingProgramDTO> updateTrainingProgram(@PathVariable Long trainingId, @RequestBody TrainingProgramDTO trainingProgram, Authentication authentication){
-        String userId = authentication.getPrincipal().toString();
-        UUID userUUID = UUID.fromString(userId);
-        TrainingProgramDTO updated = trainingProgramService.updateTrainingProgram(trainingId, trainingProgram, userUUID);
-        return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody TrainingSessionRequest request,
+                                    Authentication authentication) {
+        return ResponseEntity.ok(trainingService.update(id, request, viewer(authentication)));
     }
 
-    @PreAuthorize("""
-            hasAnyAuthority(
-                T(com.tbm.careerpathlearning.enums.AuthorityName).CAN_MANAGE_TRAINING.getAuthorityName()
-            )
-            """)
-    @DeleteMapping("/{trainingId}")
-    public ResponseEntity<Void> deleteTrainingProgram(@PathVariable Long trainingId, Authentication authentication){
-        String userId = authentication.getPrincipal().toString();
-        UUID userUUID = UUID.fromString(userId);
-        trainingProgramService.deleteTrainingProgramById(trainingId, userUUID);
-        return ResponseEntity.ok().build();
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication) {
+        trainingService.delete(id, viewer(authentication));
+        return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<?> cancel(@PathVariable Long id, @RequestBody TrainingCancelRequest request,
+                                    Authentication authentication) {
+        return ResponseEntity.ok(trainingService.cancel(id, request.getReason(), viewer(authentication)));
+    }
 
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping("/{id}/archive")
+    public ResponseEntity<?> archive(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(trainingService.archive(id, viewer(authentication)));
+    }
+
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<?> restore(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(trainingService.restore(id, viewer(authentication)));
+    }
+
+    private TrainingViewer viewer(Authentication authentication) {
+        return TrainingViewers.of(authentication);
+    }
 }

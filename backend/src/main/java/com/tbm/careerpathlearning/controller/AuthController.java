@@ -554,6 +554,10 @@ public class AuthController {
                 && trainerAccessService.hasActiveGrant(staffDto.getId())) {
             authorities.add(new SimpleGrantedAuthority(trainerAccess));
         }
+        // A manager sees their direct reports' training on the Training Scoreboard (FR-10-10).
+        if (trainerAccessService.hasTeam(staffDto.getId())) {
+            authorities.add(new SimpleGrantedAuthority(TrainerAccessService.TEAM_TRAINING_AUTHORITY));
+        }
 
         return authorities;
     }

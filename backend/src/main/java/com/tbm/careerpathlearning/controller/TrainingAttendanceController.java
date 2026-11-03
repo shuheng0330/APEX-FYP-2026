@@ -1,43 +1,102 @@
 package com.tbm.careerpathlearning.controller;
 
-import com.tbm.careerpathlearning.dto.CheckInResponseDto;
-import com.tbm.careerpathlearning.dto.StaffDto;
-import com.tbm.careerpathlearning.dto.TrainingAttendanceDto;
+import com.tbm.careerpathlearning.dto.TrainingAttendanceRequest;
+import com.tbm.careerpathlearning.dto.TrainingCancelRequest;
+import com.tbm.careerpathlearning.dto.TrainingWalkInRequest;
 import com.tbm.careerpathlearning.service.TrainingAttendanceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
+/**
+ * A session's attendance (FR-14), recorded by its trainer and HR. The Super Admin may look. Each change answers with
+ * the attendance as it now stands.
+ */
 @RestController
-@RequestMapping("/api/trainings/attendance")
-@CrossOrigin
+@RequestMapping("/api/trainings")
 public class TrainingAttendanceController {
 
     @Autowired
-    private TrainingAttendanceService trainingAttendanceService;
+    private TrainingAttendanceService attendance;
 
-    @PostMapping("/checkin")
-    public ResponseEntity<CheckInResponseDto> checkIn(@RequestBody TrainingAttendanceDto trainingAttendanceDto) {
-        CheckInResponseDto checkInResponseDto = trainingAttendanceService.checkIn(trainingAttendanceDto);
-        return ResponseEntity.ok(checkInResponseDto);
+    @GetMapping("/{id}/attendance")
+    public ResponseEntity<?> sheet(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(attendance.sheet(id, TrainingViewers.of(authentication)));
     }
 
-    @GetMapping("/{trainingId}")
-    public List<TrainingAttendanceDto> getTrainingAttendanceByTrainingId(@PathVariable Long trainingId) {
-        return trainingAttendanceService.findTrainingAttendanceByTrainingId(trainingId);
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PutMapping("/{id}/attendance")
+    public ResponseEntity<?> record(@PathVariable Long id, @RequestBody TrainingAttendanceRequest request,
+                                    Authentication authentication) {
+        return ResponseEntity.ok(attendance.record(id, request, TrainingViewers.of(authentication)));
     }
 
-    @GetMapping("/staff/{trainingId}")
-    public List<StaffDto> getStaffAttendanceListByTrainingId(@PathVariable Long trainingId) {
-        return trainingAttendanceService.getStaffAttendanceListByTrainingId(trainingId);
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping("/{id}/attendance/walk-ins")
+    public ResponseEntity<?> addWalkIn(@PathVariable Long id, @RequestBody TrainingWalkInRequest request,
+                                       Authentication authentication) {
+        return ResponseEntity.ok(attendance.addWalkIn(id, request.getStaffId(), request.getReason(),
+                TrainingViewers.of(authentication)));
     }
 
-    @GetMapping("/by-staff/{staffId}")
-    public List<Long> getAttendedTrainingByStaffId(@PathVariable UUID staffId) {
-        return trainingAttendanceService.getAttendedTrainingByStaffId(staffId);
+    /** The reason only when HR submits it after the trainer's 7 days. */
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping("/{id}/attendance/submit")
+    public ResponseEntity<?> submit(@PathVariable Long id, @RequestBody(required = false) TrainingCancelRequest request,
+                                    Authentication authentication) {
+        return ResponseEntity.ok(attendance.submit(id, request == null ? null : request.getReason(),
+                TrainingViewers.of(authentication)));
     }
 
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping(value = "/{id}/attendance/evidence", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> addEvidence(@PathVariable Long id, @RequestParam("file") MultipartFile file,
+                                         Authentication authentication) {
+        return ResponseEntity.ok(attendance.addEvidence(id, file, TrainingViewers.of(authentication)));
+    }
+
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @DeleteMapping("/{id}/attendance/evidence/{evidenceId}")
+    public ResponseEntity<?> removeEvidence(@PathVariable Long id, @PathVariable Long evidenceId,
+                                            Authentication authentication) {
+        return ResponseEntity.ok(attendance.removeEvidence(id, evidenceId, TrainingViewers.of(authentication)));
+    }
+
+    /** FR-14-05: everyone on the session, to fill in Y or N and any quiz score. */
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @GetMapping("/{id}/attendance/hrdc-template")
+    public ResponseEntity<byte[]> hrdcTemplate(@PathVariable Long id, Authentication authentication) {
+        return TrainingDownloads.of(attendance.hrdcTemplate(id, TrainingViewers.of(authentication)));
+    }
+
+    /** FR-14-06, FR-14-07: the filled-in template, or a CSV with its columns; the reason only when HR must give one. */
+    @PreAuthorize(TrainingViewers.SCHEDULERS)
+    @PostMapping(value = "/{id}/attendance/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadBatch(@PathVariable Long id, @RequestParam("file") MultipartFile file,
+                                         @RequestParam(value = "reason", required = false) String reason,
+                                         Authentication authentication) {
+        return ResponseEntity.ok(attendance.uploadBatch(id, file, reason, TrainingViewers.of(authentication)));
+    }
+
+    @GetMapping("/{id}/attendance/evidence/{evidenceId}")
+    public ResponseEntity<Resource> evidence(@PathVariable Long id, @PathVariable Long evidenceId,
+                                             Authentication authentication) {
+        TrainingAttendanceService.EvidenceFile file = attendance.evidenceFile(id, evidenceId, TrainingViewers.of(authentication));
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                        .filename(file.fileName(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .body(new FileSystemResource(file.path()));
+    }
 }

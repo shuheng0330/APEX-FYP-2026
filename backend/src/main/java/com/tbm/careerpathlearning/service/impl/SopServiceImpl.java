@@ -2,6 +2,7 @@ package com.tbm.careerpathlearning.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tbm.careerpathlearning.dto.CourseCategoryChipDto;
 import com.tbm.careerpathlearning.dto.SopCourseSettingsRequest;
 import com.tbm.careerpathlearning.dto.SopDetailDto;
 import com.tbm.careerpathlearning.dto.SopDocumentDto;
@@ -9,6 +10,7 @@ import com.tbm.careerpathlearning.dto.SopMaterialReviewEventDto;
 import com.tbm.careerpathlearning.dto.SopModuleDto;
 import com.tbm.careerpathlearning.dto.SopQuizQuestionDto;
 import com.tbm.careerpathlearning.dto.SopQuizReviewEventDto;
+import com.tbm.careerpathlearning.dto.SopQuizSettingsRequest;
 import com.tbm.careerpathlearning.enums.MaterialReviewAction;
 import com.tbm.careerpathlearning.enums.NotificationType;
 import com.tbm.careerpathlearning.enums.QuizQuestionType;
@@ -32,15 +34,19 @@ import com.tbm.careerpathlearning.repository.SopCourseFeedbackRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
 import com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository;
+import com.tbm.careerpathlearning.repository.SopMaterialViewRepository;
 import com.tbm.careerpathlearning.repository.SopQuizAttemptRepository;
 import com.tbm.careerpathlearning.repository.SopModuleRepository;
+import com.tbm.careerpathlearning.repository.SopQuizDrawRepository;
 import com.tbm.careerpathlearning.repository.SopQuizQuestionRepository;
 import com.tbm.careerpathlearning.repository.SopQuizReviewEventRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
+import com.tbm.careerpathlearning.service.CourseCategoryService;
 import com.tbm.careerpathlearning.service.DocumentParserService;
 import com.tbm.careerpathlearning.service.FileService;
 import com.tbm.careerpathlearning.service.NotificationService;
 import com.tbm.careerpathlearning.service.SopAccess;
+import com.tbm.careerpathlearning.service.SopCourseReadiness;
 import com.tbm.careerpathlearning.service.SopGenerationQueue;
 import com.tbm.careerpathlearning.service.SopGenerationService;
 import com.tbm.careerpathlearning.service.SopService;
@@ -70,6 +76,7 @@ import java.util.stream.Collectors;
 @Service
 public class SopServiceImpl implements SopService {
 
+    @Autowired private CourseCategoryService courseCategoryService;
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
     @Autowired private SopQuizQuestionRepository sopQuizQuestionRepository;
@@ -78,6 +85,8 @@ public class SopServiceImpl implements SopService {
     @Autowired private SopAssignmentRepository sopAssignmentRepository;
     @Autowired private SopEnrollmentRepository sopEnrollmentRepository;
     @Autowired private SopQuizAttemptRepository sopQuizAttemptRepository;
+    @Autowired private SopQuizDrawRepository sopQuizDrawRepository;
+    @Autowired private SopMaterialViewRepository sopMaterialViewRepository;
     @Autowired private SopCourseFeedbackRepository sopCourseFeedbackRepository;
     @Autowired private FileService fileService;
     @Autowired private SopGenerationService sopGenerationService;
@@ -174,9 +183,12 @@ public class SopServiceImpl implements SopService {
         Map<Long, List<SopEnrollment>> enrollments = docs.isEmpty() ? Map.of()
                 : sopEnrollmentRepository.findAllBySopDocumentIdIn(docs.stream().map(SopDocument::getId).toList()).stream()
                 .collect(Collectors.groupingBy(SopEnrollment::getSopDocumentId));
+        Map<Long, List<CourseCategoryChipDto>> categories = courseCategoryService.ofCourses(
+                docs.stream().map(SopDocument::courseKey).collect(Collectors.toSet()));
         return docs.stream()
                 .map(d -> toDocDto(d, sopModuleRepository.findAllBySopDocumentIdOrderByModuleOrderAsc(d.getId()).size(),
-                        viewer, enrollments.getOrDefault(d.getId(), List.of()), versions.getOrDefault(d.courseKey(), List.of(d))))
+                        viewer, enrollments.getOrDefault(d.getId(), List.of()), versions.getOrDefault(d.courseKey(), List.of(d)),
+                        categories.get(d.courseKey())))
                 .toList();
     }
 
@@ -415,6 +427,11 @@ public class SopServiceImpl implements SopService {
         SopModule module = editableModule(moduleId, viewer);
         OffsetDateTime now = OffsetDateTime.now(clock);
         List<SopQuizQuestion> questions = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(moduleId);
+        int min = SopCourseReadiness.MIN_QUIZ_QUESTIONS;
+        if (questions.size() < min) { // FR-08-14
+            throw new BadRequestException("This quiz has " + questions.size() + (questions.size() == 1 ? " question" : " questions")
+                    + ". Add " + (min - questions.size()) + " more before approving it: every quiz needs at least " + min + ".");
+        }
         for (SopQuizQuestion q : questions) {
             q.setReviewStatus(ReviewStatus.APPROVED);
             q.setUpdatedAt(now);
@@ -444,6 +461,59 @@ public class SopServiceImpl implements SopService {
         notifyOwner(target.module(), NotificationType.QUIZ_REGENERATED, "Quiz regenerated", "has a new quiz to review",
                 "/sop/quiz-review/");
         return toModuleDto(getModuleOrThrow(subject));
+    }
+
+    @Override
+    @Transactional
+    public SopModuleDto deleteQuestion(Long questionId, SopViewer viewer) {
+        SopQuizQuestion q = sopQuizQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new BadRequestException("Quiz question not found."));
+        SopModule module = editableModule(q.getSopModuleId(), viewer);
+        Target target = changeTarget(module, viewer, "a question was deleted from module " + module.getModuleOrder() + "'s quiz");
+        if (target.copy() != null) {
+            q = sopQuizQuestionRepository.findById(target.copy().questionIds().get(questionId)).orElseThrow();
+        }
+        SopModule subject = target.module();
+        sopQuizQuestionRepository.delete(q);
+        // An attempt never presents more questions than the quiz has left, nor fewer than the minimum (FR-08-15).
+        int left = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(subject.getId()).size();
+        if (subject.getQuestionsPerAttempt() > left) {
+            subject.setQuestionsPerAttempt(Math.max(SopCourseReadiness.MIN_QUIZ_QUESTIONS, left));
+            subject.setUpdatedAt(OffsetDateTime.now(clock));
+            sopModuleRepository.save(subject);
+        }
+        recordQuizEvent(subject.getId(), QuizReviewAction.EDITED, "Deleted: " + q.getQuestionText(), viewer.userId());
+        return toModuleDto(getModuleOrThrow(subject.getId()));
+    }
+
+    /**
+     * Applies to the version staff are taking, from their next attempt (decision B, 23 Oct): like the pass mark, it
+     * changes no question, so it starts no draft.
+     */
+    @Override
+    @Transactional
+    public SopModuleDto updateQuizSettings(Long moduleId, SopQuizSettingsRequest request, SopViewer viewer) {
+        SopModule module = editableModule(moduleId, viewer);
+        int count = sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(moduleId).size();
+        int min = SopCourseReadiness.MIN_QUIZ_QUESTIONS;
+        Integer wanted = request == null ? null : request.getQuestionsPerAttempt();
+        if (count < min) {
+            throw new BadRequestException("This quiz has " + count + (count == 1 ? " question" : " questions") + ". Add "
+                    + (min - count) + " more first: each attempt presents at least " + min + ".");
+        }
+        if (wanted == null || wanted < min || wanted > count) {
+            throw new BadRequestException("Questions per attempt must be between " + min + " and " + count
+                    + ", the number of questions in this quiz.");
+        }
+        int was = module.getQuestionsPerAttempt();
+        if (was != wanted) {
+            module.setQuestionsPerAttempt(wanted);
+            module.setUpdatedAt(OffsetDateTime.now(clock));
+            sopModuleRepository.save(module);
+            recordQuizEvent(moduleId, QuizReviewAction.EDITED,
+                    "Questions per attempt changed from " + was + " to " + wanted + ".", viewer.userId());
+        }
+        return toModuleDto(module);
     }
 
     @Override
@@ -512,6 +582,8 @@ public class SopServiceImpl implements SopService {
                 .map(SopEnrollment::getId).toList();
         if (!enrollmentIds.isEmpty()) {
             sopQuizAttemptRepository.deleteAllByEnrollmentIdIn(enrollmentIds);
+            sopQuizDrawRepository.deleteAllByEnrollmentIdIn(enrollmentIds);
+            sopMaterialViewRepository.deleteAllByEnrollmentIdIn(enrollmentIds);
         }
         sopCourseFeedbackRepository.deleteAllBySopDocumentId(sopDocumentId);
         sopEnrollmentRepository.deleteAllBySopDocumentId(sopDocumentId);
@@ -730,12 +802,19 @@ public class SopServiceImpl implements SopService {
 
     private SopDocumentDto toDocDto(SopDocument d, int moduleCount, SopViewer viewer, List<SopEnrollment> enrollments,
                                     List<SopDocument> versions) {
+        return toDocDto(d, moduleCount, viewer, enrollments, versions, courseCategoryService.ofCourse(d.courseKey()));
+    }
+
+    /** As above, with the course's categories already looked up, as a list does for all its courses at once. */
+    private SopDocumentDto toDocDto(SopDocument d, int moduleCount, SopViewer viewer, List<SopEnrollment> enrollments,
+                                    List<SopDocument> versions, List<CourseCategoryChipDto> categories) {
         SopDocumentDto dto = new SopDocumentDto();
         dto.setId(d.getId());
         dto.setTitle(d.getTitle());
         dto.setVersion(d.getVersion());
         dto.setOriginalFilename(d.getOriginalFilename());
         dto.setDepartmentTag(d.getDepartmentTag());
+        dto.setCategories(categories);
         dto.setGenerationStatus(d.getGenerationStatus());
         dto.setStatusMessage(d.getStatusMessage());
         dto.setModuleCount(moduleCount);
@@ -778,6 +857,7 @@ public class SopServiceImpl implements SopService {
         dto.setContent(m.getContent());
         dto.setReviewStatus(m.getReviewStatus());
         dto.setRejectionReason(m.getRejectionReason());
+        dto.setQuestionsPerAttempt(m.getQuestionsPerAttempt());
         dto.setQuiz(sopQuizQuestionRepository.findAllBySopModuleIdOrderByIdAsc(m.getId())
                 .stream().map(this::toQuizDto).toList());
         return dto;

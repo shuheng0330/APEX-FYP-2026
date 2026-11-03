@@ -25,4 +25,6 @@ public class SopAssignmentRequest {
     private Integer daysToComplete;
     /** Defaults to 70. */
     private Integer passMark;
+    /** Also assign people who join the chosen departments or job roles later; on unless false (FR-09-12). */
+    private Boolean includeNewJoiners;
 }

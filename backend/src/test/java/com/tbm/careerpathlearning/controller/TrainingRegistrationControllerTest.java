@@ -1,101 +1,104 @@
 package com.tbm.careerpathlearning.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tbm.careerpathlearning.dto.StaffDto;
-import com.tbm.careerpathlearning.dto.TrainingProgramDTO;
-import com.tbm.careerpathlearning.dto.TrainingRegistrationDTO;
+import com.tbm.careerpathlearning.dto.TrainingSessionDto;
 import com.tbm.careerpathlearning.service.TokenService;
 import com.tbm.careerpathlearning.service.TrainingRegistrationService;
+import com.tbm.careerpathlearning.service.TrainingService;
+import com.tbm.careerpathlearning.service.TrainingViewer;
 import com.tbm.careerpathlearning.service.ValidationService;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Staff register, cancel and answer for themselves only: the person always comes from the sign-in, and the request
+ * names nobody (old problem 2). Only staff with Trainer access, and HR, change who is on a session.
+ */
 @WebMvcTest(controllers = TrainingRegistrationController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(TrainingRegistrationControllerTest.MethodSecurity.class)
 class TrainingRegistrationControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    /** The web slice does not load SecurityConfig, which switches on @PreAuthorize in the app; switch it on here too. */
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurity {
+    }
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private TrainingRegistrationService registrationService;
+    @MockitoBean private TrainingRegistrationService registrations;
+    @MockitoBean private TrainingService trainingService;
+    @MockitoBean private TokenService tokenService;
+    @MockitoBean private ValidationService validationService;
 
-    @MockitoBean
-    private TokenService tokenService;
+    private final UUID user = UUID.randomUUID();
 
-    @MockitoBean
-    private ValidationService validationService;
-
-    private TrainingRegistrationDTO sampleRegDto;
-    private StaffDto sampleStaffDto;
-    private final UUID STAFF_UUID = UUID.randomUUID();
-
-    @BeforeEach
-    void setUp() {
-        // Mock the nested TrainingProgramDTO
-        TrainingProgramDTO trainingDto = new TrainingProgramDTO();
-        trainingDto.setTrainingId(100L);
-        trainingDto.setTitle("Java Mastery");
-
-        // Set up the main Registration DTO
-        sampleRegDto = new TrainingRegistrationDTO();
-        sampleRegDto.setRegistrationId(1L);
-        sampleRegDto.setTraining(trainingDto); // Matches your private TrainingProgramDTO training;
-        sampleRegDto.setStaffId(STAFF_UUID);
-        sampleRegDto.setRegisteredAt(LocalDateTime.now());
-
-        sampleStaffDto = new StaffDto();
-        sampleStaffDto.setId(STAFF_UUID);
-        sampleStaffDto.setName("Test Employee");
-        sampleStaffDto.setEmail("test@tbm.com");
+    @AfterEach
+    void signOut() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
-    @DisplayName("POST / - Should successfully create registration")
-    void createRegistration_Success() throws Exception {
-        when(registrationService.createTrainingRegistration(any(TrainingRegistrationDTO.class)))
-                .thenReturn(sampleRegDto);
+    @DisplayName("A staff member registers, cancels and accepts as themselves, whatever the request says")
+    void staffActForThemselves() throws Exception {
+        when(trainingService.get(any(), any())).thenReturn(new TrainingSessionDto());
+        TrainingViewer me = new TrainingViewer(user, false, false, false);
+        String body = "{\"staffId\":\"" + UUID.randomUUID() + "\",\"branch\":\"Bangsar Village\",\"pdpaConsent\":true}";
 
-        mockMvc.perform(post("/api/register-training")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(sampleRegDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.registrationId").value(1))
-                .andExpect(jsonPath("$.staffId").value(STAFF_UUID.toString()));
+        mockMvc.perform(as(post("/api/trainings/7/register"), "ROLE_USER").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+        mockMvc.perform(as(post("/api/trainings/7/cancel-registration"), "ROLE_USER")).andExpect(status().isOk());
+        mockMvc.perform(as(post("/api/trainings/7/accept-offer"), "ROLE_USER")).andExpect(status().isOk());
+
+        verify(registrations).register(eq(7L), any(), eq(me));
+        verify(registrations).cancelMine(7L, me);
+        verify(registrations).acceptOffer(7L, me);
     }
 
     @Test
-    @DisplayName("GET /staff/{trainingId} - Should return list of registered staff")
-    void getAllRegisteredStaff_Success() throws Exception {
-        when(registrationService.getRegisteredStaffByTrainingId(100L))
-                .thenReturn(List.of(sampleStaffDto));
+    @DisplayName("Other staff can't add, remove or offer seats to anyone (FR-12-05)")
+    void onlyTrainersAndHrChangeWhoIsOn() throws Exception {
+        String body = "{\"staffId\":\"" + UUID.randomUUID() + "\"}";
 
-        mockMvc.perform(get("/api/register-training/staff/100"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("Test Employee"))
-                .andExpect(jsonPath("$[0].email").value("test@tbm.com"));
+        mockMvc.perform(as(post("/api/trainings/7/people"), "ROLE_USER").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/7/people/3/remove"), "ROLE_USER")).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/7/people/3/offer"), "ROLE_USER")).andExpect(status().isForbidden());
+        verifyNoInteractions(registrations);
+
+        mockMvc.perform(as(post("/api/trainings/7/people"), "ROLE_USER", "CAN_ASSIGN_TRAINING")
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
+        verify(registrations).add(eq(7L), any(), eq(new TrainingViewer(user, false, true, false)));
+    }
+
+    /** Signs the request in with the given permissions, the way the JWT filter does. */
+    private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, String... authorities) {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user.toString(), null,
+                Arrays.stream(authorities).map(SimpleGrantedAuthority::new).toList());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        return request.principal(auth);
     }
 }

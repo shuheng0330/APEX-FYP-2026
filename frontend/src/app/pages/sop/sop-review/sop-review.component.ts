@@ -30,6 +30,7 @@ import {
 } from '../sop.util';
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
+import { CourseCategoryEditorComponent } from '../course-category-editor/course-category-editor.component';
 
 /** How each entry in a module's material history is shown (FR-07-14). */
 const HISTORY_META: Record<MaterialReviewAction, { label: string; color: string }> = {
@@ -48,7 +49,8 @@ const HISTORY_META: Record<MaterialReviewAction, { label: string; color: string 
     CommonModule, FormsModule, RouterModule, DragDropModule,
     NzCollapseModule, NzButtonModule, NzInputModule, NzTagModule, NzSelectModule,
     NzIconModule, NzSpinModule, NzDividerModule, NzEmptyModule, NzProgressModule, NzInputNumberModule, SopContentViewComponent,
-    NzRadioModule, NzModalModule, NzDrawerModule, CourseArchivedNoteComponent, CourseVersionNoteComponent
+    NzRadioModule, NzModalModule, NzDrawerModule, CourseArchivedNoteComponent, CourseVersionNoteComponent,
+    CourseCategoryEditorComponent
   ],
   templateUrl: './sop-review.component.html',
   styleUrls: ['./sop-review.component.scss']

@@ -96,12 +96,15 @@ export class SideMenuComponent {
         { key: 'NAV.SOP_REVIEW', route: '/sop/review', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
         { key: 'NAV.SOP_QUIZ_REVIEW', route: '/sop/quiz-review', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL'] },
         { key: 'NAV.SOP_ASSIGN', route: '/sop/assign', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
-        { key: 'NAV.SOP_SCOREBOARD', route: '/sop/scoreboard', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+        { key: 'NAV.SOP_SCOREBOARD', route: '/sop/scoreboard', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_VIEW_TEAM_TRAINING'] },
+        { key: 'NAV.COURSE_CATEGORIES', route: '/sop/categories', requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL', 'CAN_VIEW_TEAM_TRAINING'] },
         { key: 'NAV.TRAINER_ACCESS', route: '/sop/trainer-access', requiredRoles: ['CAN_MANAGE_ACCESS_CONTROL'] }
       ],
-      requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL']
+      requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL', 'CAN_VIEW_TEAM_TRAINING']
     },
-    { key: 'NAV.MY_LEARNING', icon: 'read', route: '/my-learning', requiredRoles: ['ROLE_USER'] }
+    { key: 'NAV.MY_LEARNING', icon: 'read', route: '/my-learning', requiredRoles: ['ROLE_USER'] },
+    { key: 'NAV.TRAINING_CALENDAR', icon: 'calendar', route: '/training/calendar', requiredRoles: ['ROLE_USER'] },
+    { key: 'NAV.STAFF_SHARING', icon: 'team', route: '/training/sharing', requiredRoles: ['ROLE_USER'] }
   ];
 
   constructor(private router: Router, public authService: AuthService) {
@@ -128,14 +131,18 @@ export class SideMenuComponent {
   }
 
   onProfileClick(): void {
-    this.isCollapsed = true;
-    this.isCollapsedChange.emit(this.isCollapsed);
+    if (this.isMobile) {
+      this.isCollapsed = true;
+      this.isCollapsedChange.emit(this.isCollapsed);
+    }
     this.router.navigate(['/profile']);
   }
 
   onLogout(): void {
-    this.isCollapsed = true;
-    this.isCollapsedChange.emit(this.isCollapsed);
+    if (this.isMobile) {
+      this.isCollapsed = true;
+      this.isCollapsedChange.emit(this.isCollapsed);
+    }
     this.authService.logout().subscribe({
       next: () => {
         this.router.navigate(['/login']);

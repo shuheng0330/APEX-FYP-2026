@@ -1239,8 +1239,11 @@
         "SOP_REVIEW": "Review Generated Training",
         "SOP_QUIZ_REVIEW": "Review Quizzes",
         "SOP_ASSIGN": "Assign Training",
+        "TRAINING_CALENDAR": "Training Calendar",
+        "STAFF_SHARING": "Staff Sharing",
         "SOP_SCOREBOARD": "Training Scoreboard",
         "TRAINER_ACCESS": "Trainer Access",
+        "COURSE_CATEGORIES": "Course Categories",
         "MY_LEARNING": "My Learning",
         "LEARNING": "Learning",
         "LEARNING_MANAGEMENT": "Learning Management",
@@ -2742,6 +2745,9 @@
         },
         "PROFILE": {
             "TITLE": "Profile",
+            "TRAINING_HISTORY": {
+                "TITLE": "Training History"
+            },
             "GENERAL": {
                 "TITLE": "General Information",
                 "BUTTON": {

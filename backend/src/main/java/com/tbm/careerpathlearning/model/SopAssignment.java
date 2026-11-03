@@ -56,7 +56,23 @@ public class SopAssignment {
     @Column(name = "pass_mark", nullable = false)
     private int passMark;
 
-    /** Staff newly assigned or whose terms were updated by this assignment. */
+    /** Whether the audience was everyone; with the ids below, who joins it later can be found (FR-09-12). */
+    @Column(name = "audience_everyone", columnDefinition = "boolean default false not null")
+    private boolean audienceEveryone;
+
+    /** The chosen departments' ids, comma separated; null before step 3.4. */
+    @Column(name = "audience_department_ids", columnDefinition = "text")
+    private String audienceDepartmentIds;
+
+    /** The chosen job roles' ids, comma separated; null before step 3.4. */
+    @Column(name = "audience_role_ids", columnDefinition = "text")
+    private String audienceRoleIds;
+
+    /** People who join the chosen departments or job roles later are assigned the course too (FR-09-12). */
+    @Column(name = "include_new_joiners", columnDefinition = "boolean default false not null")
+    private boolean includeNewJoiners;
+
+    /** Staff newly assigned or whose terms were updated by this assignment, new joiners included. */
     @Column(name = "staff_count", nullable = false)
     private int staffCount;
 

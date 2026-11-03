@@ -4,6 +4,11 @@
       <span class="section-kicker">Training Automation</span>
       <h1>Training Scoreboard</h1>
       <p>Live progress of staff on SOP training, including anyone retraining after a failed quiz.</p>
+      <!-- FR-10-10, FR-10-12 -->
+      @if (data) {
+        <p class="scope-note">Showing: {{ scopeNote }}@if (leaversShown) { {{ leaversShown }} {{ leaversShown === 1 ? 'person has' : 'people have' }} left
+          the company: listed below, but not counted in the figures. }</p>
+      }
     </div>
     <div class="heading-actions">
       <span class="live" [class.paused]="!autoRefresh" aria-live="polite">
@@ -197,7 +202,8 @@
                 <td nzLeft>
                   <div class="staff-cell">
                     <span class="avatar" aria-hidden="true">{{ initials(r.staffName) }}</span>
-                    <span class="staff-copy"><strong>{{ r.staffName }}</strong><small>{{ r.jobRole || '-' }}</small></span>
+                    <span class="staff-copy"><strong>{{ r.staffName }}</strong><small>{{ r.jobRole || '-' }}</small>
+                      @if (r.leftCompany) { <span class="flag">Left the company</span> }</span>
                   </div>
                 </td>
                 <td>{{ r.department || '-' }}</td>
@@ -266,6 +272,12 @@
       @let tag = statusTag(rec.status);
       <div class="detail">
         <p class="muted">{{ rec.jobRole || 'No job role' }} · {{ rec.department || 'No department' }}</p>
+        <!-- FR-18-01: every course and session of this person -->
+        @if (rec.canOpenRecord) {
+          <a class="record-link" [routerLink]="['/training/records', rec.staffId]">
+            <nz-icon nzType="profile"></nz-icon> Full training record
+          </a>
+        }
         <h3>{{ rec.courseTitle }}</h3>
         <div class="detail-tags">
           <nz-tag [nzColor]="tag.color"><nz-icon [nzType]="tag.icon"></nz-icon> {{ tag.label }}</nz-tag>
@@ -309,24 +321,6 @@
               <p class="muted no-attempts">No quiz attempts yet.</p>
             }
           </div>
-        }
-
-        <!-- FR-10-06: final scores the Staff Appraisal module reads -->
-        <h4>Competency scores for appraisal</h4>
-        <p class="muted">Final scores from {{ rec.staffName }}'s completed SOP courses, available read-only to the Staff Appraisal module.</p>
-        @if (competency.length) {
-          <ul class="competency">
-            @for (c of competency; track c.certificateNo) {
-              <li>
-                <nz-icon nzType="safety-certificate" class="good"></nz-icon>
-                <span class="competency-course">{{ c.courseTitle }}</span>
-                <strong>{{ c.finalScore }}%</strong>
-                <span class="muted">{{ c.completedAt | date: 'd MMM yyyy' }} · {{ c.certificateNo }}</span>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="muted no-attempts">No completed SOP courses yet.</p>
         }
       </div>
     }

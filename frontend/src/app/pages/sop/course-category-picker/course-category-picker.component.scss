@@ -1,0 +1,5 @@
+:host { display: block; min-width: 0; }
+.category-picker { display: flex; flex-direction: column; gap: 8px; }
+.category-picker nz-select { width: 100%; }
+.option-icon { margin-right: 6px; }
+.main { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }

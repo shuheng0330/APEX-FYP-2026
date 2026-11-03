@@ -28,6 +28,10 @@ export interface ScoreboardRecord {
   mandatory: boolean;
   mode?: SopAssignmentMode | null;
   selfEnrolled: boolean;
+  /** Left the company: listed, but not counted in the figures (FR-10-12). */
+  leftCompany: boolean;
+  /** The viewer may open the person's whole training record: HR, the Super Admin, or their manager (FR-18-01). */
+  canOpenRecord: boolean;
   passMark: number;
   /** Final score once certified, otherwise the average of the modules passed so far. */
   score?: number | null;
@@ -46,6 +50,8 @@ export interface Scoreboard {
   courses: { id: number; title: string; archived: boolean; versionNo: number; superseded: boolean }[];
   departments: string[];
   records: ScoreboardRecord[];
+  /** ALL courses, the viewer's OWN courses, their TEAM's training, or OWN_AND_TEAM (FR-10-10). */
+  scope: 'ALL' | 'OWN' | 'TEAM' | 'OWN_AND_TEAM';
   generatedAt: string;
 }
 
@@ -70,18 +76,4 @@ export interface EnrollmentModuleProgress {
 export interface EnrollmentProgress {
   record: ScoreboardRecord;
   modules: EnrollmentModuleProgress[];
-}
-
-/** A completed SOP course's final score, as the Staff Appraisal module reads it (FR-10-06). */
-export interface CompetencyScore {
-  staffId: string;
-  staffName: string;
-  sopDocumentId: number;
-  courseTitle: string;
-  version?: string | null;
-  category?: string | null;
-  finalScore: number;
-  passMark: number;
-  completedAt: string;
-  certificateNo: string;
 }

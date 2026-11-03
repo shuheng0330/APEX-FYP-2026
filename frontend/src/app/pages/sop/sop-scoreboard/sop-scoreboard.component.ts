@@ -2,7 +2,8 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { catchError, exhaustMap, filter, forkJoin, of, timer } from 'rxjs';
+import { RouterLink } from '@angular/router';
+import { catchError, exhaustMap, filter, of, timer } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
@@ -15,7 +16,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { SopScoreboardService } from '../../../services/sop-scoreboard.service';
 import {
-  CompetencyScore, EnrollmentProgress, Scoreboard, ScoreboardRecord, ScoreboardStatus
+  EnrollmentProgress, Scoreboard, ScoreboardRecord, ScoreboardStatus
 } from '../../../models/sop-scoreboard.model';
 import { LearningModuleState } from '../../../models/sop-learning.model';
 
@@ -73,7 +74,7 @@ const MODULE_TAGS: Record<LearningModuleState, { label: string; color: string }>
   selector: 'app-sop-scoreboard',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterLink,
     NzButtonModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzInputModule, NzSelectModule, NzSpinModule,
     NzSwitchModule, NzTableModule, NzTagModule
   ],
@@ -114,8 +115,6 @@ export class SopScoreboardComponent implements OnInit {
   detailOpen = false;
   detailLoading = false;
   detail?: EnrollmentProgress;
-  /** The staff member's final scores as the Staff Appraisal module reads them (FR-10-06). */
-  competency: CompetencyScore[] = [];
 
   constructor(private scoreboardService: SopScoreboardService) {}
 
@@ -179,7 +178,23 @@ export class SopScoreboardComponent implements OnInit {
     return this.data?.records.some(r => !r.department) ? [...names, NO_DEPARTMENT] : names;
   }
 
-  private kpisOf(records: ScoreboardRecord[]): Kpis {
+  /** Whose training the page shows (FR-10-10). */
+  get scopeNote(): string {
+    switch (this.data?.scope) {
+      case 'ALL': return 'Every course.';
+      case 'TEAM': return 'Your team: the staff who report to you directly, on every course.';
+      case 'OWN_AND_TEAM': return 'The courses you own, and your team: the staff who report to you directly.';
+      default: return 'The courses you own.';
+    }
+  }
+
+  /** Staff who have left the company stay listed but are not counted in the figures (FR-10-12). */
+  get leaversShown(): number {
+    return this.filtered.filter(r => r.leftCompany).length;
+  }
+
+  private kpisOf(all: ScoreboardRecord[]): Kpis {
+    const records = all.filter(r => !r.leftCompany);
     const count = (status: ScoreboardStatus) => records.filter(r => r.status === status).length;
     const certified = count('COMPLETED');
     // Withdrawn staff can no longer be certified, so they don't count against the rate (FR-06-15).
@@ -200,7 +215,7 @@ export class SopScoreboardComponent implements OnInit {
   /** Average score per department, highest first; departments without scores go last. */
   private departmentsOf(records: ScoreboardRecord[]): DepartmentScore[] {
     const byName = new Map<string, DepartmentScore & { total: number }>();
-    for (const r of records) {
+    for (const r of records.filter(x => !x.leftCompany)) { // FR-10-12
       const name = r.department ?? NO_DEPARTMENT;
       const d = byName.get(name) ?? { name, average: null, scored: 0, certified: 0, enrolled: 0, retraining: 0, total: 0 };
       d.enrolled++;
@@ -259,14 +274,9 @@ export class SopScoreboardComponent implements OnInit {
     this.detailOpen = true;
     this.detailLoading = true;
     this.detail = undefined;
-    this.competency = [];
-    forkJoin({
-      detail: this.scoreboardService.enrollment(r.enrollmentId),
-      competency: this.scoreboardService.competencyScores(r.staffId).pipe(catchError(() => of([] as CompetencyScore[])))
-    }).subscribe({
-      next: ({ detail, competency }) => {
+    this.scoreboardService.enrollment(r.enrollmentId).subscribe({
+      next: detail => {
         this.detail = detail;
-        this.competency = competency;
         this.detailLoading = false;
       },
       error: () => { this.detailLoading = false; this.detailOpen = false; }

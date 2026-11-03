@@ -1,0 +1,67 @@
+<ng-template #card let-s let-own="own">
+  <button type="button" class="session-card surface-panel" (click)="openSession(s)">
+    <span class="date-block">
+      <span class="month">{{ s.date | date: 'MMM' }}</span>
+      <strong>{{ s.date | date: 'd' }}</strong>
+      <span class="away">{{ daysAway(s) === 0 ? 'today' : daysAway(s) + 'd' }}</span>
+    </span>
+    <span class="body">
+      <span class="badges">
+        <span class="badge" [class.sharing]="s.kind === 'STAFF_SHARING'">{{ kindLabel(s) }}</span>
+        @if (s.mandatory) { <span class="badge mandatory">Mandatory</span> }
+        @if (!own) { <span class="badge open">Open to register</span> }
+      </span>
+      <strong class="title">{{ s.title }}</strong>
+      <span class="meta">
+        <span><nz-icon nzType="clock-circle"></nz-icon> {{ hhmm(s.startTime) }}</span>
+        <span class="venue"><nz-icon nzType="environment"></nz-icon> {{ s.delivery === 'ONLINE' ? 'Online' : s.venue }}</span>
+      </span>
+      <span class="foot">
+        <span class="trainer">{{ s.trainerName || 'Trainer to be confirmed' }}</span>
+        @if (own) {
+          @let p = place(s);
+          <span class="chip" [ngClass]="p.tone">{{ p.label }}</span>
+        } @else {
+          <span class="chip register">{{ s.wouldWaitlist ? 'Join waitlist' : 'Register' }} <nz-icon nzType="right"></nz-icon></span>
+        }
+      </span>
+      <span class="seats">
+        <span class="bar"><span [style.width.%]="seatsPercent(s)" [class.full]="s.seatsLeft === 0"></span></span>
+        <span class="seats-text" [class.full]="s.seatsLeft === 0">
+          {{ s.seatsLeft === 0 ? 'Full' + (s.waitlisted ? ' · ' + s.waitlisted + ' waiting' : '') : s.seatsLeft + ' of ' + s.capacity + ' seats left' }}
+        </span>
+      </span>
+    </span>
+  </button>
+</ng-template>
+
+@if (mine.length) {
+  <section class="sessions">
+    <div class="head">
+      <nz-icon nzType="calendar" class="head-icon"></nz-icon>
+      <h2>Your sessions</h2>
+      <span class="count">{{ mine.length }} upcoming</span>
+      <a routerLink="/training/calendar" class="all">Full calendar <nz-icon nzType="right"></nz-icon></a>
+    </div>
+    <div class="grid">
+      @for (s of mine; track s.id) {
+        <ng-container *ngTemplateOutlet="card; context: { $implicit: s, own: true }"></ng-container>
+      }
+    </div>
+  </section>
+}
+
+@if (open.length) {
+  <section class="sessions">
+    <div class="head">
+      <nz-icon nzType="calendar" class="head-icon"></nz-icon>
+      <h2>Training sessions open for registration</h2>
+      <a routerLink="/training/calendar" class="all">Full calendar <nz-icon nzType="right"></nz-icon></a>
+    </div>
+    <div class="grid">
+      @for (s of open; track s.id) {
+        <ng-container *ngTemplateOutlet="card; context: { $implicit: s, own: false }"></ng-container>
+      }
+    </div>
+  </section>
+}

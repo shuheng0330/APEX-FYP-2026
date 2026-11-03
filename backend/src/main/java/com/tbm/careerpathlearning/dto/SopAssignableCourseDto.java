@@ -19,6 +19,8 @@ public class SopAssignableCourseDto {
     private int moduleCount;
     private int approvedModules;
     private int approvedQuizzes;
+    /** Quizzes with fewer than 5 questions, which keep the course from being assigned (FR-08-14). */
+    private int shortQuizzes;
     /** Every module and its quiz approved, so it can be assigned (FR-07-03, FR-08-08). */
     private boolean ready;
     private SopVisibility visibility;

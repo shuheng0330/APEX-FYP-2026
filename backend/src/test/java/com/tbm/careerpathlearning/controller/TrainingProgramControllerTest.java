@@ -1,158 +1,140 @@
 package com.tbm.careerpathlearning.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tbm.careerpathlearning.dto.TrainingProgramDTO;
+import com.tbm.careerpathlearning.dto.TrainingSessionDto;
 import com.tbm.careerpathlearning.service.TokenService;
 import com.tbm.careerpathlearning.service.TrainingService;
+import com.tbm.careerpathlearning.service.TrainingViewer;
 import com.tbm.careerpathlearning.service.ValidationService;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-import java.util.Collections;
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Staff with Trainer access, and HR, schedule and change sessions (FR-12-05); everyone signed in can see the
+ * calendar. Who acts, and with which permissions, always comes from the sign-in.
+ */
 @WebMvcTest(controllers = TrainingProgramController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(TrainingProgramControllerTest.MethodSecurity.class)
 class TrainingProgramControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    /** The web slice does not load SecurityConfig, which switches on @PreAuthorize in the app; switch it on here too. */
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurity {
+    }
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private static final String SESSION = "{\"title\":\"Inverter Series 2026 Launch\"}";
+
+    @Autowired private MockMvc mockMvc;
 
     @MockitoBean private TrainingService trainingService;
     @MockitoBean private TokenService tokenService;
     @MockitoBean private ValidationService validationService;
 
-    private Authentication mockAuth;
-    private final UUID USER_UUID = UUID.randomUUID();
-    private TrainingProgramDTO sampleDto;
+    private final UUID user = UUID.randomUUID();
 
-    @BeforeEach
-    void setUp() {
-        sampleDto = new TrainingProgramDTO();
-        sampleDto.setTrainingId(1L);
-        sampleDto.setTitle("Java Mastery Workshop");
-
-        mockAuth = mock(Authentication.class);
-        when(mockAuth.getPrincipal()).thenReturn(USER_UUID.toString());
+    @AfterEach
+    void signOut() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
-    @DisplayName("GET /paged - Should return PageResponse with metadata")
-    void getTrainingProgramsPaged_Success() throws Exception {
-        // Mock a Spring Data Page object
-        Page<TrainingProgramDTO> page = new PageImpl<>(List.of(sampleDto), PageRequest.of(0, 10), 1);
-        when(trainingService.getTrainingPrograms(any())).thenReturn(page);
+    @DisplayName("Everyone signed in can see the calendar, as themselves")
+    void calendarForEveryone() throws Exception {
+        TrainingSessionDto dto = new TrainingSessionDto();
+        dto.setTitle("Inverter Series 2026 Launch");
+        when(trainingService.calendar(any(), any(), anyBoolean(), any())).thenReturn(List.of(dto));
 
-        mockMvc.perform(get("/api/trainings/paged")
-                        .param("page", "0")
-                        .param("size", "10"))
+        mockMvc.perform(as(get("/api/trainings").param("from", "2026-10-01").param("to", "2026-10-31"), "ROLE_USER"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].title").value("Java Mastery Workshop"))
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.totalPages").value(1));
+                .andExpect(jsonPath("$[0].title").value("Inverter Series 2026 Launch"));
+
+        verify(trainingService).calendar(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), false,
+                new TrainingViewer(user, false, false, false));
     }
 
     @Test
-    @WithMockUser(authorities = "CAN_MANAGE_TRAINING")
-    @DisplayName("POST / - Should successfully create training")
-    void createTraining_Success() throws Exception {
-        when(trainingService.createTrainingProgram(any(), eq(USER_UUID))).thenReturn(sampleDto);
+    @DisplayName("A trainer schedules in their own name, with their Trainer access")
+    void trainerSchedules() throws Exception {
+        when(trainingService.schedule(any(), any())).thenReturn(new TrainingSessionDto());
 
-        mockMvc.perform(post("/api/trainings")
-                        .with(csrf())
-                        .principal(mockAuth) // Bridge to the 'authentication' parameter
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(sampleDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.trainingId").value(1));
-    }
-
-    @Test
-    @WithMockUser(authorities = "CAN_MANAGE_TRAINING")
-    @DisplayName("PUT /{id} - Should successfully update training")
-    void updateTraining_Success() throws Exception {
-        when(trainingService.updateTrainingProgram(eq(1L), any(), eq(USER_UUID))).thenReturn(sampleDto);
-
-        mockMvc.perform(put("/api/trainings/1")
-                        .with(csrf())
-                        .principal(mockAuth)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(sampleDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.trainingId").value(1));
-    }
-
-    @Test
-    @WithMockUser(authorities = "CAN_MANAGE_TRAINING")
-    @DisplayName("DELETE /{id} - Should return 200 OK")
-    void deleteTraining_Success() throws Exception {
-        mockMvc.perform(delete("/api/trainings/1")
-                        .with(csrf())
-                        .principal(mockAuth))
+        mockMvc.perform(as(post("/api/trainings"), "ROLE_USER", "CAN_MANAGE_TRAINING")
+                        .contentType(MediaType.APPLICATION_JSON).content(SESSION))
                 .andExpect(status().isOk());
 
-        verify(trainingService).deleteTrainingProgramById(eq(1L), eq(USER_UUID));
+        verify(trainingService).schedule(any(), eq(new TrainingViewer(user, true, false, false)));
     }
 
     @Test
-    @DisplayName("GET /{id} - Should return 404 when training not found (Branch Coverage)")
-    void getTrainingProgramById_NotFound() throws Exception {
-        when(trainingService.getTrainingProgramById(99L)).thenReturn(null);
-
-        mockMvc.perform(get("/api/trainings/99"))
-                .andExpect(status().isNotFound()); // Hits the : ResponseEntity.notFound().build() branch
-    }
-
-    @Test
-    @DisplayName("GET /registered/{staffId} - Should return list")
-    void getTrainingProgramsByStaffId_Success() throws Exception {
-        when(trainingService.getTrainingProgramsByStaffId(USER_UUID)).thenReturn(List.of(sampleDto));
-
-        mockMvc.perform(get("/api/trainings/registered/" + USER_UUID))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
-    }
-
-    @Test
-    @DisplayName("GET / - Should return all programs")
-    void getAllTrainingPrograms_Success() throws Exception {
-        when(trainingService.getAllTrainingPrograms()).thenReturn(List.of(sampleDto));
-
-        mockMvc.perform(get("/api/trainings"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
-    }
-
-    @Test
-    @DisplayName("GET /role-options - Should return list")
-    void getRoleCascaderOptions_Success() throws Exception {
-        when(trainingService.getRoleCascaderOptions()).thenReturn(Collections.emptyList());
-
-        mockMvc.perform(get("/api/trainings/role-options"))
+    @DisplayName("HR deletes and cancels as HR")
+    void hrManages() throws Exception {
+        mockMvc.perform(as(delete("/api/trainings/7"), "ROLE_USER", "CAN_ASSIGN_TRAINING"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(as(post("/api/trainings/7/cancel"), "ROLE_USER", "CAN_ASSIGN_TRAINING")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"The trainer is unwell.\"}"))
                 .andExpect(status().isOk());
+
+        TrainingViewer hr = new TrainingViewer(user, false, true, false);
+        verify(trainingService).delete(7L, hr);
+        verify(trainingService).cancel(7L, "The trainer is unwell.", hr);
     }
 
+    @Test
+    @DisplayName("Other staff are refused every scheduling action (FR-12-05)")
+    void othersAreRefused() throws Exception {
+        String[] staff = {"ROLE_USER"};
+
+        mockMvc.perform(as(post("/api/trainings"), staff).contentType(MediaType.APPLICATION_JSON).content(SESSION))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(put("/api/trainings/7"), staff).contentType(MediaType.APPLICATION_JSON).content(SESSION))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(delete("/api/trainings/7"), staff)).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/7/cancel"), staff)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}")).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/7/archive"), staff)).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/7/restore"), staff)).andExpect(status().isForbidden());
+        mockMvc.perform(as(get("/api/trainings/trainers"), staff)).andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/audience-check"), staff)
+                .contentType(MediaType.APPLICATION_JSON).content(SESSION)).andExpect(status().isForbidden());
+
+        verifyNoInteractions(trainingService);
+    }
+
+    /** Signs the request in with the given permissions, the way the JWT filter does. */
+    private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, String... authorities) {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user.toString(), null,
+                Arrays.stream(authorities).map(SimpleGrantedAuthority::new).toList());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        return request.principal(auth);
+    }
 }

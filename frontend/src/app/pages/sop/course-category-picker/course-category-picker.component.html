@@ -1,0 +1,21 @@
+<div class="category-picker">
+  <nz-select nzMode="multiple" [nzMaxMultipleCount]="max" [ngModel]="ids" (ngModelChange)="setIds($event)"
+             [nzPlaceHolder]="placeholder" [nzLoading]="loading" nzShowSearch aria-label="Categories">
+    @for (c of offered; track c.id) {
+      <nz-option nzCustomContent [nzValue]="c.id" [nzLabel]="c.retired ? c.name + ' (retired)' : c.name">
+        <nz-icon class="option-icon" [nzType]="c.icon" [style.color]="c.color"></nz-icon>
+        {{ c.name }}{{ c.retired ? ' (retired)' : '' }}
+      </nz-option>
+    }
+  </nz-select>
+  @if (ids.length > 1) {
+    <label class="main">
+      <span>Main category</span>
+      <nz-select [ngModel]="mainId" (ngModelChange)="setPrimary($event)" aria-label="Main category">
+        @for (c of chosen; track c.id) {
+          <nz-option [nzValue]="c.id" [nzLabel]="c.name"></nz-option>
+        }
+      </nz-select>
+    </label>
+  }
+</div>

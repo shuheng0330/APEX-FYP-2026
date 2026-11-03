@@ -1,3 +1,5 @@
+import { CourseCategoryChip } from './course-category.model';
+
 export type SopGenerationStatus = 'PENDING' | 'PARSING' | 'GENERATING' | 'COMPLETED' | 'FAILED';
 /** Where a course is in its life (NFR-010); Draft and Superseded arrive with versions. */
 export type SopCourseStatus = 'LIVE' | 'DRAFT' | 'SUPERSEDED' | 'ARCHIVED';
@@ -56,6 +58,8 @@ export interface SopDocument {
   version?: string;
   originalFilename?: string;
   departmentTag?: string;
+  /** The course's categories, primary first (FR-19-05). */
+  categories?: CourseCategoryChip[];
   generationStatus: SopGenerationStatus;
   statusMessage?: string;
   moduleCount: number;
@@ -137,6 +141,8 @@ export interface SopModule {
   content: string;
   reviewStatus: ReviewStatus;
   rejectionReason?: string;
+  /** How many of the quiz's questions each attempt presents (FR-08-15). */
+  questionsPerAttempt: number;
   quiz: SopQuizQuestion[];
 }
 

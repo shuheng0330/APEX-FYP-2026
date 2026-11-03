@@ -17,10 +17,20 @@ public interface SopScoreboardService {
      * Every enrolment on the courses the user may see: the courses they uploaded, or every course
      * when {@code seeAll} (CAN_ASSIGN_TRAINING).
      */
-    SopScoreboardDto scoreboard(UUID userId, boolean seeAll);
+    default SopScoreboardDto scoreboard(UUID userId, boolean seeAll) {
+        return scoreboard(userId, seeAll, false);
+    }
+
+    /** As above, plus, for a manager ({@code team}), every enrolment of the staff who report to them (FR-10-10). */
+    SopScoreboardDto scoreboard(UUID userId, boolean seeAll, boolean team);
 
     /** One enrolment, module by module, with every quiz attempt (FR-10-02). */
-    SopEnrollmentProgressDto enrollment(Long enrollmentId, UUID userId, boolean seeAll);
+    default SopEnrollmentProgressDto enrollment(Long enrollmentId, UUID userId, boolean seeAll) {
+        return enrollment(enrollmentId, userId, seeAll, false);
+    }
+
+    /** As above; a manager may also open their direct reports' enrolments (FR-10-10). */
+    SopEnrollmentProgressDto enrollment(Long enrollmentId, UUID userId, boolean seeAll, boolean team);
 
     /** A staff member's completed SOP courses and their final scores, newest first (FR-10-06). */
     List<SopCompetencyScoreDto> competencyScores(UUID staffId);

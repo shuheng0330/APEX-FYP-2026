@@ -9,6 +9,7 @@ import com.tbm.careerpathlearning.dto.TrainingAuditEntryDto;
 import com.tbm.careerpathlearning.enums.AuthorityName;
 import com.tbm.careerpathlearning.enums.CourseOwnerStatus;
 import com.tbm.careerpathlearning.enums.NotificationType;
+import com.tbm.careerpathlearning.enums.OrgChartType;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
 import com.tbm.careerpathlearning.enums.TrainingAuditAction;
 import com.tbm.careerpathlearning.enums.TrainingAuditTarget;
@@ -22,6 +23,7 @@ import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.model.TrainerAccessGrant;
 import com.tbm.careerpathlearning.repository.AuthorityRepository;
 import com.tbm.careerpathlearning.repository.RoleAuthorityRepository;
+import com.tbm.careerpathlearning.repository.OrgChartRepository;
 import com.tbm.careerpathlearning.repository.SopDocumentRepository;
 import com.tbm.careerpathlearning.repository.SopEnrollmentRepository;
 import com.tbm.careerpathlearning.repository.StaffRepository;
@@ -40,6 +42,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -57,6 +60,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
 
     @Autowired private TrainerAccessGrantRepository trainerAccessGrantRepository;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private OrgChartRepository orgChartRepository;
     @Autowired private AuthorityRepository authorityRepository;
     @Autowired private RoleAuthorityRepository roleAuthorityRepository;
     @Autowired private SopDocumentRepository sopDocumentRepository;
@@ -67,6 +71,45 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
 
     @Override
     @Transactional(readOnly = true)
+    public boolean hasTeam(UUID staffId) {
+        return staffRepository.findAllActiveWithRole().stream()
+                .anyMatch(s -> !s.isDeleted() && s.getManager() != null && staffId.equals(s.getManager().getId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Staff> trainersAndHr() {
+        List<Staff> staff = staffRepository.findAllActiveWithRole();
+        Set<Long> roles = new HashSet<>(rolesWith(AuthorityName.CAN_MANAGE_TRAINING, staff));
+        roles.addAll(rolesWith(AuthorityName.CAN_ASSIGN_TRAINING, staff));
+        LocalDate today = LocalDate.now(clock);
+        Set<UUID> granted = trainerAccessGrantRepository.findAll().stream()
+                .filter(g -> g.activeOn(today))
+                .map(TrainerAccessGrant::getStaffId)
+                .collect(Collectors.toSet());
+        return staff.stream()
+                .filter(s -> granted.contains(s.getId()) || (s.getRole() != null && roles.contains(s.getRole().getId())))
+                .sorted(Comparator.comparing(s -> Objects.toString(s.getName(), ""), String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Staff> superAdmins() {
+        List<Staff> active = staffRepository.findAllActiveWithRole();
+        Set<Long> adminRoles = rolesWith(AuthorityName.CAN_MANAGE_ACCESS_CONTROL, active);
+        return active.stream().filter(s -> s.getRole() != null && adminRoles.contains(s.getRole().getId())).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> departments() {
+        return orgChartRepository.findAll().stream()
+                .filter(o -> !o.isDeleted() && o.getType() == OrgChartType.D && o.getName() != null)
+                .map(OrgChart::getName).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
+    }
+
+    @Override
     public boolean hasActiveGrant(UUID staffId) {
         LocalDate today = LocalDate.now(clock);
         return trainerAccessGrantRepository.findById(staffId).map(g -> g.activeOn(today)).orElse(false);
@@ -75,7 +118,8 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
     @Override
     @Transactional(readOnly = true)
     public List<TrainerAccessStaffDto> list() {
-        List<Staff> staff = staffRepository.findAllActiveWithRole();
+        // Every account, inactive ones too, each with its status (FR-20-02).
+        List<Staff> staff = staffRepository.findAll().stream().filter(s -> !s.isDeleted()).toList();
         Set<Long> trainerRoles = rolesWith(AuthorityName.CAN_MANAGE_TRAINING, staff);
         Map<UUID, TrainerAccessGrant> grants = trainerAccessGrantRepository.findAll().stream()
                 .collect(Collectors.toMap(TrainerAccessGrant::getStaffId, Function.identity()));
@@ -198,9 +242,7 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
             return 0;
         }
         OffsetDateTime now = OffsetDateTime.now(clock);
-        List<Staff> active = staffRepository.findAllActiveWithRole();
-        Set<Long> adminRoles = rolesWith(AuthorityName.CAN_MANAGE_ACCESS_CONTROL, active);
-        List<Staff> admins = active.stream().filter(s -> s.getRole() != null && adminRoles.contains(s.getRole().getId())).toList();
+        List<Staff> admins = superAdmins();
 
         for (TrainerAccessGrant grant : expired) {
             grant.setLapsedAt(now);
@@ -410,6 +452,8 @@ public class TrainerAccessServiceImpl implements TrainerAccessService {
         OrgChart department = SopAssignmentServiceImpl.department(s);
         dto.setDepartment(department == null ? null : department.getName());
         dto.setJobRole(s.getRole() == null ? null : s.getRole().getName());
+        dto.setAccountStatus(s.getAccountStatus() == null ? null : s.getAccountStatus().name());
+        dto.setActive(s.getAccountStatus() == StaffAccountStatus.ACTIVE);
         dto.setViaRole(s.getRole() != null && trainerRoles.contains(s.getRole().getId()));
         if (grant != null && grant.activeOn(LocalDate.now(clock))) {
             dto.setViaGrant(true);

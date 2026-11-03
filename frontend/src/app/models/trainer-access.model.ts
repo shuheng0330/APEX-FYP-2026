@@ -15,6 +15,9 @@ export interface TrainerAccessStaff {
   grantedAt?: string | null;
   /** Courses this person owns; revoking their access hands these to someone else (FR-20-07). */
   ownedCourses: number;
+  /** The account's status (FR-20-02): only active accounts can be given Trainer access. */
+  accountStatus?: string;
+  active: boolean;
 }
 
 /** Granting, changing or revoking Trainer access; every change needs a reason. */

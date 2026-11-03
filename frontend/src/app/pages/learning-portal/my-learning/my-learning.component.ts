@@ -11,6 +11,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { SopLearningService } from '../../../services/sop-learning.service';
 import { LearningCourse, LearningHome } from '../../../models/sop-learning.model';
 import { categoryTheme, daysUntil, CategoryTheme } from '../learning-portal.util';
+import { UpcomingSessionsComponent } from '../../training/upcoming-sessions/upcoming-sessions.component';
 
 type Source = 'all' | 'assigned' | 'open';
 type StatusFilter = 'All' | 'Mandatory' | 'Optional' | 'In Progress' | 'Completed';
@@ -50,7 +51,7 @@ const PREVIEW = 4;
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule,
-    NzButtonModule, NzEmptyModule, NzIconModule, NzInputModule, NzSpinModule
+    NzButtonModule, NzEmptyModule, NzIconModule, NzInputModule, NzSpinModule, UpcomingSessionsComponent
   ],
   templateUrl: './my-learning.component.html',
   styleUrls: ['./my-learning.component.scss']
@@ -68,6 +69,8 @@ export class MyLearningComponent implements OnInit {
   statusFilter: StatusFilter = 'All';
   groupBy: 'status' | 'category' = 'status';
   activeCategories: string[] = [];
+  /** Each category's own colour, from the courses shown. */
+  private categoryColors = new Map<string, string>();
   expanded: Record<string, boolean> = {};
 
   // Derived view, rebuilt whenever the data or a filter changes.
@@ -145,8 +148,10 @@ export class MyLearningComponent implements OnInit {
       { label: 'Open courses', value: this.home.openCourses.length, tone: 'primary' },
     ];
     this.assignedCount = courses.filter(c => !c.selfEnrolled).length;
-    this.categories = [...new Set([...courses, ...this.home.openCourses].map(c => c.category))]
-      .sort((a, b) => a.localeCompare(b));
+    // FR-19-06: only categories that some course here carries; colours as each category's own (FR-19-01).
+    const all = [...courses, ...this.home.openCourses];
+    this.categoryColors = new Map(all.flatMap(c => c.categories ?? []).map(cat => [cat.name, cat.color]));
+    this.categories = [...new Set(all.flatMap(c => this.categoriesOf(c)))].sort((a, b) => a.localeCompare(b));
     this.activeCategories = this.activeCategories.filter(c => this.categories.includes(c));
 
     const mine = courses
@@ -160,7 +165,7 @@ export class MyLearningComponent implements OnInit {
           courses: mine.filter(c => this.statusGroup(c) === g.key)
         }))
       : this.categories.map(cat => {
-          const inCat = mine.filter(c => c.category === cat);
+          const inCat = mine.filter(c => c.category === cat); // under its main category only, so no course shows twice
           return {
             key: cat, label: cat, tone: 'category',
             note: `${inCat.filter(c => c.mandatory).length} mandatory · ${inCat.filter(c => c.status === 'COMPLETED').length} completed`,
@@ -171,10 +176,10 @@ export class MyLearningComponent implements OnInit {
     this.openCourses = this.home.openCourses.filter(c => this.matchesSearch(c) && this.matchesCategory(c));
   }
 
-  /** Courses assigned to start immediately (FR-11-08), soonest due first. */
+  /** Courses assigned to start immediately and not started yet (FR-11-08), soonest due first; once started, In Progress. */
   private startNowOf(courses: LearningCourse[]): LearningCourse[] {
     return courses
-      .filter(c => c.mode === 'IMMEDIATE' && isActive(c) && c.available)
+      .filter(c => c.mode === 'IMMEDIATE' && c.status === 'NOT_STARTED' && c.available)
       .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'));
   }
 
@@ -184,7 +189,11 @@ export class MyLearningComponent implements OnInit {
   }
 
   private matchesCategory(c: LearningCourse): boolean {
-    return !this.activeCategories.length || this.activeCategories.includes(c.category);
+    return !this.activeCategories.length || this.categoriesOf(c).some(cat => this.activeCategories.includes(cat));
+  }
+
+  private categoriesOf(c: LearningCourse): string[] {
+    return c.categories?.length ? c.categories.map(cat => cat.name) : [c.category];
   }
 
   private matchesStatus(c: LearningCourse): boolean {
@@ -230,7 +239,7 @@ export class MyLearningComponent implements OnInit {
   // --- display helpers ------------------------------------------------------
 
   theme(category: string): CategoryTheme {
-    return categoryTheme(category);
+    return categoryTheme(category, this.categoryColors.get(category));
   }
 
   progress(c: LearningCourse): number {

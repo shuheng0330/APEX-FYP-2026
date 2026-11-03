@@ -1,120 +1,148 @@
 package com.tbm.careerpathlearning.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tbm.careerpathlearning.dto.CheckInResponseDto;
-import com.tbm.careerpathlearning.dto.StaffDto;
-import com.tbm.careerpathlearning.dto.TrainingAttendanceDto;
+import com.tbm.careerpathlearning.dto.TrainingAttendanceSheetDto;
+import com.tbm.careerpathlearning.dto.TrainingBatchResultDto;
 import com.tbm.careerpathlearning.service.TokenService;
 import com.tbm.careerpathlearning.service.TrainingAttendanceService;
+import com.tbm.careerpathlearning.service.TrainingDownload;
+import com.tbm.careerpathlearning.service.TrainingViewer;
 import com.tbm.careerpathlearning.service.ValidationService;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Only staff with Trainer access, and HR, change attendance; the service then checks they record this session. Whoever
+ * records it always comes from the sign-in.
+ */
 @WebMvcTest(controllers = TrainingAttendanceController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(TrainingAttendanceControllerTest.MethodSecurity.class)
 class TrainingAttendanceControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    /** The web slice does not load SecurityConfig, which switches on @PreAuthorize in the app; switch it on here too. */
+    @TestConfiguration
+    @EnableMethodSecurity
+    static class MethodSecurity {
+    }
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private TrainingAttendanceService trainingAttendanceService;
+    @MockitoBean private TrainingAttendanceService attendance;
+    @MockitoBean private TokenService tokenService;
+    @MockitoBean private ValidationService validationService;
 
-    @MockitoBean
-    private TokenService tokenService;
+    private final UUID user = UUID.randomUUID();
 
-    @MockitoBean
-    private ValidationService validationService;
-
-    private TrainingAttendanceDto attendanceDto;
-    private CheckInResponseDto checkInResponse;
-    private final UUID STAFF_UUID = UUID.randomUUID();
-    private final Long TRAINING_ID = 100L;
-
-    @BeforeEach
-    void setUp() {
-        attendanceDto = new TrainingAttendanceDto();
-        attendanceDto.setStaffId(STAFF_UUID);
-        attendanceDto.setTrainingId(TRAINING_ID);
-        // Assuming your DTO has latitude/longitude for check-in
-        attendanceDto.setCheckInLatitude(3.1390);
-        attendanceDto.setCheckInLongitude(101.6869);
-
-        checkInResponse = new CheckInResponseDto();
-        checkInResponse.setSuccess(true);
-        checkInResponse.setMessage("Check-in successful");
+    @AfterEach
+    void signOut() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
-    @DisplayName("POST /checkin - Should return success response")
-    void checkIn_Success() throws Exception {
-        when(trainingAttendanceService.checkIn(any(TrainingAttendanceDto.class)))
-                .thenReturn(checkInResponse);
+    @DisplayName("Other staff can't record, submit or attach evidence (FR-14-01)")
+    void onlyTrainersAndHrRecord() throws Exception {
+        String marks = "{\"entries\":[{\"staffId\":\"" + UUID.randomUUID() + "\",\"status\":\"ATTENDED\"}]}";
+        MockMultipartFile photo = new MockMultipartFile("file", "sheet.png", "image/png", new byte[]{1});
 
-        mockMvc.perform(post("/api/trainings/attendance/checkin")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(attendanceDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Check-in successful"));
+        mockMvc.perform(as(put("/api/trainings/7/attendance"), "ROLE_USER").contentType(MediaType.APPLICATION_JSON).content(marks))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(post("/api/trainings/7/attendance/submit"), "ROLE_USER")).andExpect(status().isForbidden());
+        mockMvc.perform(as(multipart("/api/trainings/7/attendance/evidence").file(photo), "ROLE_USER"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(delete("/api/trainings/7/attendance/evidence/3"), "ROLE_USER")).andExpect(status().isForbidden());
+        verifyNoInteractions(attendance);
+
+        when(attendance.record(any(), any(), any())).thenReturn(new TrainingAttendanceSheetDto());
+        when(attendance.submit(any(), any(), any())).thenReturn(new TrainingAttendanceSheetDto());
+        mockMvc.perform(as(put("/api/trainings/7/attendance"), "ROLE_USER", "CAN_MANAGE_TRAINING")
+                .contentType(MediaType.APPLICATION_JSON).content(marks)).andExpect(status().isOk());
+        mockMvc.perform(as(post("/api/trainings/7/attendance/submit"), "ROLE_USER", "CAN_MANAGE_TRAINING"))
+                .andExpect(status().isOk());
+        TrainingViewer trainer = new TrainingViewer(user, true, false, false);
+        verify(attendance).record(eq(7L), any(), eq(trainer));
+        verify(attendance).submit(7L, null, trainer);
     }
 
     @Test
-    @DisplayName("GET /{trainingId} - Should return attendance list")
-    void getAttendanceByTrainingId_Success() throws Exception {
-        when(trainingAttendanceService.findTrainingAttendanceByTrainingId(TRAINING_ID))
-                .thenReturn(List.of(attendanceDto));
+    @DisplayName("An evidence file is sent as stored, under its own name, never sniffed as another type")
+    void evidenceFile(@TempDir Path folder) throws Exception {
+        Path stored = Files.write(folder.resolve("a1b2.pdf"), "%PDF-1.7".getBytes());
+        when(attendance.evidenceFile(any(), any(), any()))
+                .thenReturn(new TrainingAttendanceService.EvidenceFile(stored, "sign-in sheet.pdf", "application/pdf"));
 
-        mockMvc.perform(get("/api/trainings/attendance/" + TRAINING_ID))
+        mockMvc.perform(as(get("/api/trainings/7/attendance/evidence/3"), "ROLE_USER", "CAN_ASSIGN_TRAINING"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].trainingId").value(TRAINING_ID));
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(content().bytes("%PDF-1.7".getBytes()))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Content-Disposition", startsWith("inline;")))
+                .andExpect(header().string("Content-Disposition", containsString("filename*=UTF-8''sign-in%20sheet.pdf")));
+        verify(attendance).evidenceFile(7L, 3L, new TrainingViewer(user, false, true, false));
     }
 
     @Test
-    @DisplayName("GET /by-staff/{staffId} - Should return list of training IDs")
-    void getAttendedTrainingByStaffId_Success() throws Exception {
-        when(trainingAttendanceService.getAttendedTrainingByStaffId(STAFF_UUID))
-                .thenReturn(List.of(TRAINING_ID));
+    @DisplayName("The HRDC template is an Excel file to save, never cached; only trainers and HR fetch or upload it")
+    void hrdcFile() throws Exception {
+        String xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        when(attendance.hrdcTemplate(any(), any()))
+                .thenReturn(new TrainingDownload("PK".getBytes(), "HRDC attendance - Launch - 2026-10-20.xlsx", xlsx));
+        when(attendance.uploadBatch(any(), any(), any(), any())).thenReturn(new TrainingBatchResultDto());
+        MockMultipartFile filled = new MockMultipartFile("file", "filled.xlsx", "application/octet-stream", new byte[]{1});
 
-        mockMvc.perform(get("/api/trainings/attendance/by-staff/" + STAFF_UUID))
+        mockMvc.perform(as(get("/api/trainings/7/attendance/hrdc-template"), "ROLE_USER")).andExpect(status().isForbidden());
+        mockMvc.perform(as(multipart("/api/trainings/7/attendance/batch").file(filled), "ROLE_USER"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(attendance);
+
+        mockMvc.perform(as(get("/api/trainings/7/attendance/hrdc-template"), "ROLE_USER", "CAN_MANAGE_TRAINING"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0]").value(TRAINING_ID));
+                .andExpect(content().contentType(xlsx))
+                .andExpect(content().bytes("PK".getBytes()))
+                .andExpect(header().string("Content-Disposition", startsWith("attachment;")))
+                .andExpect(header().string("Content-Disposition",
+                        containsString("filename*=UTF-8''HRDC%20attendance%20-%20Launch%20-%202026-10-20.xlsx")))
+                .andExpect(header().string("Cache-Control", containsString("no-store")));
+        mockMvc.perform(as(multipart("/api/trainings/7/attendance/batch").file(filled).param("reason", "Sheet came late"),
+                "ROLE_USER", "CAN_ASSIGN_TRAINING")).andExpect(status().isOk());
+        verify(attendance).uploadBatch(eq(7L), any(), eq("Sheet came late"), eq(new TrainingViewer(user, false, true, false)));
     }
 
-    @Test
-    @DisplayName("GET /staff/{trainingId} - Should return staff details list")
-    void getStaffAttendanceList_Success() throws Exception {
-        StaffDto staff = new StaffDto();
-        staff.setId(STAFF_UUID);
-        staff.setName("John Doe");
-
-        when(trainingAttendanceService.getStaffAttendanceListByTrainingId(TRAINING_ID))
-                .thenReturn(List.of(staff));
-
-        mockMvc.perform(get("/api/trainings/attendance/staff/" + TRAINING_ID))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].name").value("John Doe"));
+    /** Signs the request in with the given permissions, the way the JWT filter does. */
+    private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, String... authorities) {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user.toString(), null,
+                Arrays.stream(authorities).map(SimpleGrantedAuthority::new).toList());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        return request.principal(auth);
     }
 }

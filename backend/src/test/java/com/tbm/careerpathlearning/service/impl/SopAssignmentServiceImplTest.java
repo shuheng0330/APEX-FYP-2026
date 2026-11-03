@@ -57,11 +57,11 @@ class SopAssignmentServiceImplTest {
 
         // Course 1 is the trainer's and ready; course 2 still has material waiting for approval.
         store.doc(1L, "E-Hailing Delivery", trainer.getId()).setDepartmentTag("Sales");
-        store.module(1L, ReviewStatus.APPROVED, ReviewStatus.APPROVED, ReviewStatus.APPROVED);
-        store.module(1L, ReviewStatus.APPROVED, ReviewStatus.APPROVED);
+        store.module(1L, 5);
+        store.module(1L, 5);
         store.doc(2L, "Cash Handling", null).setDepartmentTag("Front Office - Reception");
-        store.module(2L, ReviewStatus.APPROVED, ReviewStatus.APPROVED);
-        store.module(2L, ReviewStatus.PENDING, ReviewStatus.APPROVED);
+        store.module(2L, 5);
+        store.module(2L, ReviewStatus.PENDING, SopTestStore.quiz(5, ReviewStatus.APPROVED));
     }
 
     @Test

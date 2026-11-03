@@ -12,6 +12,8 @@ public class SopScoreboardDto {
     private List<Course> courses = new ArrayList<>();
     private List<String> departments = new ArrayList<>();
     private List<SopScoreboardRecordDto> records = new ArrayList<>();
+    /** What the viewer sees: ALL courses, their OWN courses, their TEAM's training, or OWN_AND_TEAM (FR-10-10). */
+    private String scope;
     /** When these figures were worked out; the page refreshes them while it is open. */
     private OffsetDateTime generatedAt;
 

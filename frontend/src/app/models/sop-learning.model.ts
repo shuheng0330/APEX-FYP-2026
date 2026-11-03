@@ -1,5 +1,6 @@
 import { QuizDifficulty, QuizQuestionType } from './sop.model';
 import { SopAssignmentMode } from './sop-assignment.model';
+import { CourseCategoryChip } from './course-category.model';
 
 /** WITHDRAWN: the course was archived before they finished it; their progress is kept (FR-06-15). */
 export type SopEnrollmentStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'WITHDRAWN';
@@ -16,7 +17,12 @@ export interface LearningCourse {
   sopDocumentId: number;
   title: string;
   version?: string | null;
+  /** The primary category (FR-19-05), with its colour and icon... */
   category: string;
+  categoryColor?: string;
+  categoryIcon?: string;
+  /** ...and every category the course carries, for the filters (FR-19-06). */
+  categories?: CourseCategoryChip[];
   moduleCount: number;
   /** Null for an Open course the learner has not joined. */
   enrollmentId?: number | null;
@@ -57,6 +63,14 @@ export interface LearningModule {
   title: string;
   state: LearningModuleState;
   questionCount: number;
+  /** Questions each attempt presents (FR-08-15). */
+  quizSize: number;
+  /** Correct answers needed to pass, for example 4 of 5 (FR-11-12). */
+  passCorrect: number;
+  /** Tries left today, of 3 (FR-11-04). */
+  triesLeftToday: number;
+  /** The last attempt failed and the material hasn't been opened since. */
+  reviewMaterialFirst: boolean;
   attempts: number;
   failedAttempts: number;
   bestScore?: number | null;
@@ -117,6 +131,10 @@ export interface QuizResult {
   total: number;
   passed: boolean;
   passMark: number;
+  /** Correct answers this attempt needed (FR-11-12). */
+  passCorrect: number;
+  /** Tries left today (FR-11-04). */
+  triesLeftToday: number;
   attempts: number;
   moduleState: LearningModuleState;
   courseCompleted: boolean;

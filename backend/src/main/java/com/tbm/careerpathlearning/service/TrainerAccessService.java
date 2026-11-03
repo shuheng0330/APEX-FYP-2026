@@ -6,6 +6,7 @@ import com.tbm.careerpathlearning.dto.TrainerAccessRequest;
 import com.tbm.careerpathlearning.dto.TrainerAccessStaffDto;
 import com.tbm.careerpathlearning.dto.TrainerOwnedCourseDto;
 import com.tbm.careerpathlearning.dto.TrainingAuditEntryDto;
+import com.tbm.careerpathlearning.model.Staff;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +16,27 @@ public interface TrainerAccessService {
 
     /** Whether the staff member has an individual grant in force today. Checked at sign-in and token refresh. */
     boolean hasActiveGrant(UUID staffId);
+
+    /**
+     * Given at sign-in to a manager, someone with direct reports: they see their team's training on the Training
+     * Scoreboard (FR-10-10). It is worked out from the reporting lines, so it is not a permission a role is given.
+     */
+    String TEAM_TRAINING_AUTHORITY = "CAN_VIEW_TEAM_TRAINING";
+
+    /** Whether any active staff member reports directly to this one (FR-10-10, decision C: direct reports only). */
+    boolean hasTeam(UUID staffId);
+
+    /**
+     * Active staff who can run or present a training session: Trainer access through their job role or a grant in
+     * force today, or HR (FR-12-05, FR-15-05). Sorted by name.
+     */
+    List<Staff> trainersAndHr();
+
+    /** Every department in the org chart, by name, for the staff list's filter (FR-20-02). */
+    List<String> departments();
+
+    /** Active staff whose job role has the Super Admin's permission (CAN_MANAGE_ACCESS_CONTROL). */
+    List<Staff> superAdmins();
 
     /** Every active staff member, with whether and how they have Trainer access. */
     List<TrainerAccessStaffDto> list();

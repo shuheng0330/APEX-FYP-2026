@@ -208,7 +208,7 @@
                     <span>
                       <strong>Practice mode.</strong>
                       Your best score so far is {{ am.bestScore ?? 0 }}% and the pass mark is {{ d.course.passMark }}%.
-                      Review the material, then retake the quiz. You can try as many times as you need.
+                      Review the material, then retake the quiz. You have up to 3 tries a day.
                     </span>
                   </div>
                 } @else if (am.state === 'PASSED') {
@@ -244,10 +244,15 @@
                     }
                   } @else {
                     <button nz-button nzType="primary" nzSize="large" class="wide" [nzLoading]="quizLoading"
-                            [disabled]="!material" (click)="takeQuiz()">
+                            [disabled]="!material || am.triesLeftToday === 0" (click)="takeQuiz()">
                       {{ am.state === 'RETRAINING' ? 'Retake the quiz' : 'Continue to quiz' }}<nz-icon nzType="right"></nz-icon>
                     </button>
-                    <span class="muted">{{ am.questionCount }} question{{ am.questionCount === 1 ? '' : 's' }} · pass mark {{ d.course.passMark }}%</span>
+                    <!-- FR-11-12: the pass requirement and the retake rule, before starting -->
+                    <span class="muted">{{ am.quizSize }} question{{ am.quizSize === 1 ? '' : 's' }} · pass with {{ am.passCorrect }} of
+                      {{ am.quizSize }} correct · {{ am.triesLeftToday }} of 3 tries left today</span>
+                    @if (am.triesLeftToday === 0) {
+                      <span class="muted">You've used today's 3 tries at this quiz. You can try again tomorrow.</span>
+                    }
                   }
                 </div>
               </div>
@@ -323,17 +328,19 @@
                   <p>{{ r.correct }} of {{ r.total }} correct · attempt {{ r.attempts }}</p>
                   <span class="score-pill">{{ r.score }}% · {{ r.passed ? 'PASSED' : 'NOT PASSED' }}</span>
                   @if (!r.passed) {
-                    <p class="banner-note">The pass mark is {{ r.passMark }}%. This module is now in practice mode: review the material and try again.</p>
+                    <!-- FR-11-13: only the score after a fail -->
+                    <p class="banner-note">You needed {{ r.passCorrect }} of {{ r.total }} correct. Review the material, then retake the
+                      quiz: {{ r.triesLeftToday }} of 3 tries left today.</p>
                   }
                   @if (r.courseCompleted) {
                     <p class="banner-note">You have completed the course with a final score of {{ r.finalScore }}%.</p>
                   }
                 </div>
 
-                <h3 class="review-title">Question review</h3>
                 @if (!r.passed) {
-                  <p class="muted">The correct answers are shown once you pass.</p>
-                }
+                  <p class="muted">Which answers were right, and why, is shown once you pass.</p>
+                } @else {
+                <h3 class="review-title">Question review</h3>
                 @for (q of questions; track q.id; let i = $index) {
                   @let qr = resultOf(q);
                   <div class="review-item" [class.correct]="qr?.correct">
@@ -350,6 +357,7 @@
                     </div>
                   </div>
                 }
+                }
 
                 <div class="result-actions">
                   @if (r.passed) {
@@ -365,11 +373,9 @@
                       <button nz-button nzSize="large" (click)="showOverview()">Back to course overview</button>
                     }
                   } @else {
-                    <button nz-button nzSize="large" (click)="view = 'material'">
+                    <!-- FR-11-04: a retake starts from the material -->
+                    <button nz-button nzType="primary" nzSize="large" (click)="reviewMaterial()">
                       <nz-icon nzType="read"></nz-icon>Review material
-                    </button>
-                    <button nz-button nzType="primary" nzSize="large" [nzLoading]="quizLoading" (click)="takeQuiz()">
-                      <nz-icon nzType="redo"></nz-icon>Retake quiz
                     </button>
                   }
                 </div>

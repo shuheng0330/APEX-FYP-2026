@@ -1,12 +1,10 @@
 import { Routes } from '@angular/router';
 
 import { OrgchartPage } from './pages/orgchart-page/orgchart-page';
-import { TrainingManagementPageComponent } from './pages/training/training-management/training-management-page';
 import { RoleTabComponent } from './pages/role-tab/role-tab.component';
 import { CompetencyTabComponent } from './pages/competency-tab/competency-tab.component';
 import { RolesCompetenciesTabComponent } from './pages/roles-competencies-tab/roles-competencies-tab.component';
 import { CareerPathwayTabComponent } from './pages/career-pathway-tab/career-pathway-tab.component';
-import { TrainingEngagementPageComponent } from './pages/training/training-engagement/training-engagement-page.component';
 import { LoginComponent } from './pages/login-page/login/login.component';
 import { FirstTimeLoginComponent } from './pages/login-page/first-time-login/first-time-login.component';
 import { ForgotPasswordComponent } from './pages/login-page/forgot-password/forgot-password.component';
@@ -26,6 +24,10 @@ import { SopQuizReviewComponent } from './pages/sop/sop-quiz-review/sop-quiz-rev
 import { SopAssignComponent } from './pages/sop/sop-assign/sop-assign.component';
 import { SopScoreboardComponent } from './pages/sop/sop-scoreboard/sop-scoreboard.component';
 import { TrainerAccessComponent } from './pages/sop/trainer-access/trainer-access.component';
+import { CourseCategoriesComponent } from './pages/sop/course-categories/course-categories.component';
+import { TrainingCalendarComponent } from './pages/training/training-calendar/training-calendar.component';
+import { StaffSharingComponent } from './pages/training/staff-sharing/staff-sharing.component';
+import { TrainingRecordPageComponent } from './pages/training/training-record-page/training-record-page.component';
 import { MyLearningComponent } from './pages/learning-portal/my-learning/my-learning.component';
 import { notificationSelectionChanged } from './services/notification-navigation';
 import { CoursePlayerComponent } from './pages/learning-portal/course-player/course-player.component';
@@ -183,11 +185,21 @@ export const routes: Routes = [
         data: { requiredRoles: ['ROLE_USER'] },
       },
       {
-        path: 'training/management', component: TrainingManagementPageComponent,
+        path: 'training/calendar', component: TrainingCalendarComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+        data: { requiredRoles: ['ROLE_USER'] },
       },
-      { path: 'training/engagement', component: TrainingEngagementPageComponent },
+      {
+        path: 'training/sharing', component: StaffSharingComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
+      },
+      {
+        // FR-18-01: the server lets the person's manager, HR and the Super Admin see it
+        path: 'training/records/:staffId', component: TrainingRecordPageComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['ROLE_USER'] },
+      },
       {
         path: 'sop/upload', component: SopUploadComponent,
         canActivate: [PermissionGuard],
@@ -221,7 +233,12 @@ export const routes: Routes = [
       {
         path: 'sop/scoreboard', component: SopScoreboardComponent,
         canActivate: [PermissionGuard],
-        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING'] },
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_VIEW_TEAM_TRAINING'] },
+      },
+      {
+        path: 'sop/categories', component: CourseCategoriesComponent,
+        canActivate: [PermissionGuard],
+        data: { requiredRoles: ['CAN_MANAGE_TRAINING', 'CAN_ASSIGN_TRAINING', 'CAN_MANAGE_ACCESS_CONTROL', 'CAN_VIEW_TEAM_TRAINING'] },
       },
       {
         path: 'sop/trainer-access', component: TrainerAccessComponent,

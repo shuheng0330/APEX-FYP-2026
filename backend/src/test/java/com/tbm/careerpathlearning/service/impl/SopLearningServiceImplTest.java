@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,11 +79,10 @@ class SopLearningServiceImplTest {
         assertFalse(fail.isPassed(), "25% is below the pass mark of 70");
         assertEquals("RETRAINING", fail.getModuleState());
         assertEquals(1, fail.getAttempts());
-        assertTrue(fail.getQuestions().stream().allMatch(q -> q.getCorrectAnswer() == null && q.getExplanation() == null),
-                "a failed attempt must not reveal the answers");
+        assertTrue(fail.getQuestions().isEmpty(), "a failed attempt shows only the score (FR-11-13)");
         assertTrue(service.course(1L, learner.getId()).getCourse().isRetraining());
 
-        SopQuizResultDto pass = service.submit(first, answers(first, 3), learner.getId());
+        SopQuizResultDto pass = take(first, 3);
         assertTrue(pass.isPassed());
         assertEquals(75, pass.getScore());
         assertEquals(2, pass.getAttempts());
@@ -90,11 +90,11 @@ class SopLearningServiceImplTest {
         assertEquals(modules.get(1), pass.getNextModuleId());
         assertThrows(BadRequestException.class, () -> service.quiz(first, learner.getId()), "a passed quiz cannot be retaken");
 
-        service.submit(modules.get(1), answers(modules.get(1), 2), learner.getId());
-        SopQuizResultDto lastFail = service.submit(modules.get(2), answers(modules.get(2), 1), learner.getId());
+        take(modules.get(1), 2);
+        SopQuizResultDto lastFail = take(modules.get(2), 1);
         assertFalse(lastFail.isPassed());
         assertFalse(lastFail.isCourseCompleted());
-        SopQuizResultDto done = service.submit(modules.get(2), answers(modules.get(2), 2), learner.getId());
+        SopQuizResultDto done = take(modules.get(2), 2);
         assertTrue(done.isCourseCompleted());
         assertEquals(92, done.getFinalScore(), "the average of the passing scores 75, 100 and 100");
         assertEquals(92, enrollment.getFinalScore());
@@ -117,7 +117,7 @@ class SopLearningServiceImplTest {
                 "a course in progress cannot be rated");
 
         for (Long id : modules) {
-            service.submit(id, answers(id, store.questionsOf(id).size()), learner.getId());
+            take(id, store.questionsOf(id).size());
         }
         assertThrows(BadRequestException.class, () -> service.feedback(1L, rating(6), learner.getId()));
         SopLearningCourseDetailDto saved = service.feedback(1L, rating(5), learner.getId());
@@ -130,7 +130,7 @@ class SopLearningServiceImplTest {
     @DisplayName("An Open course is listed in the portal, and joining it moves it to My courses")
     void enrolInOpenCourse() {
         store.doc(2L, "Forklift Safety", null).setVisibility(SopVisibility.OPEN);
-        store.module(2L, 2);
+        store.module(2L, 5);
 
         SopLearningHomeDto home = service.home(learner.getId());
         assertEquals(1, home.getOpenCourses().size());
@@ -173,13 +173,15 @@ class SopLearningServiceImplTest {
     }
 
     @Test
-    @DisplayName("A course is overdue once its due date has passed")
+    @DisplayName("A mandatory course is overdue once its due date has passed; an optional one never is (FR-11-17)")
     void overdue() {
         store.doc(4L, "E-Hailing", null);
         store.module(4L, 2);
-        store.enrollment(4L, learner.getId(), SopAssignmentMode.IMMEDIATE, store.today().minusDays(20),
+        SopEnrollment e = store.enrollment(4L, learner.getId(), SopAssignmentMode.IMMEDIATE, store.today().minusDays(20),
                 store.today().plusDays(30), 14, 70);
+        assertFalse(service.course(4L, learner.getId()).getCourse().isOverdue(), "optional");
 
+        e.setMandatory(true);
         assertTrue(service.course(4L, learner.getId()).getCourse().isOverdue());
     }
 
@@ -192,7 +194,7 @@ class SopLearningServiceImplTest {
         store.enrollment(4L, learner.getId(), SopAssignmentMode.IMMEDIATE, store.today(), store.today().plusDays(30), 14, 70);
         store.questionsOf(second.getId()).get(0).setReviewStatus(ReviewStatus.PENDING); // the trainer edited the quiz
 
-        service.submit(first.getId(), answers(first.getId(), 2), learner.getId());
+        take(first.getId(), 2);
         SopLearningCourseDetailDto course = service.course(4L, learner.getId());
 
         assertEquals(List.of("PASSED", "UNAVAILABLE"), states(course));
@@ -219,6 +221,14 @@ class SopLearningServiceImplTest {
         List<Long> modules = List.of(store.module(1L, 4).getId(), store.module(1L, 2).getId(), store.module(1L, 2).getId());
         store.enrollment(1L, learner.getId(), SopAssignmentMode.PORTAL, store.today(), store.today().plusDays(30), 14, 70);
         return modules;
+    }
+
+    /** Takes a module's quiz as the portal does: a minute later, open the material, then the quiz, then submit. */
+    private SopQuizResultDto take(Long moduleId, int right) {
+        store.clock.advance(Duration.ofMinutes(1));
+        service.material(moduleId, learner.getId());
+        service.quiz(moduleId, learner.getId());
+        return service.submit(moduleId, answers(moduleId, right), learner.getId());
     }
 
     /** Answers the module's questions, getting the first {@code right} of them correct. */
