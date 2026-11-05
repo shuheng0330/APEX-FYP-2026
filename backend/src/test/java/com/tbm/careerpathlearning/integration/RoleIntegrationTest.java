@@ -7,6 +7,7 @@ import com.tbm.careerpathlearning.dto.ToggleRoleVisibilityRequest;
 import com.tbm.careerpathlearning.enums.AuthorityName;
 import com.tbm.careerpathlearning.enums.OrgChartType;
 import com.tbm.careerpathlearning.model.Authority;
+import com.tbm.careerpathlearning.model.EmployeeLevel;
 import com.tbm.careerpathlearning.model.JobScope;
 import com.tbm.careerpathlearning.model.OrgChart;
 import com.tbm.careerpathlearning.model.Role;
@@ -66,8 +67,12 @@ public class RoleIntegrationTest {
     @Autowired
     private RoleAuthorityRepository roleAuthorityRepository;
 
+    @Autowired
+    private EmployeeLevelRepository employeeLevelRepository;
+
     private static final String MOCK_USER_ID = "d371028b-cfd7-4315-bcd5-3790e5eac036";
     private OrgChart testOrgChart;
+    private EmployeeLevel testLevel;
 
     @BeforeEach
     void setUp() {
@@ -94,6 +99,8 @@ public class RoleIntegrationTest {
         testOrgChart.setCreatedAt(OffsetDateTime.now());
         testOrgChart.setUpdatedAt(OffsetDateTime.now());
         testOrgChart = orgChartRepository.save(testOrgChart);
+
+        testLevel = TestEmployeeLevels.findOrCreate(employeeLevelRepository);
     }
 
     // --- Scenario 1: Create Role ---
@@ -106,6 +113,7 @@ public class RoleIntegrationTest {
         req.setDescription("Backend Dev");
         req.setVisibility(true);
         req.setJobScopeList(List.of("Coding", "Testing"));
+        req.setEmployeeLevelId(testLevel.getId());
 
         mockMvc.perform(post("/api/role")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -118,12 +126,33 @@ public class RoleIntegrationTest {
         assertThat(roles).hasSize(1);
         Role savedRole = roles.get(0);
         assertThat(savedRole.getName()).isEqualTo("Java Developer");
+        assertThat(savedRole.getEmployeeLevel().getId()).isEqualTo(testLevel.getId());
 
         // Verify Job Scopes
         assertThat(roleJobScopeRepository.findAllByRole_Id(savedRole.getId())).hasSize(2);
 
         // Verify Authorities (Auto-assigned ROLE_USER)
         assertThat(roleAuthorityRepository.findByRoleId(savedRole.getId())).hasSize(1);
+    }
+
+    // --- Scenario 1b: Create Role without an Employee Level is rejected ---
+    @Test
+    @WithMockUser(username = MOCK_USER_ID, authorities = "CAN_MANAGE_ROLE")
+    void createRole_WithoutEmployeeLevel_ShouldBeRejected() throws Exception {
+        CreateRoleRequestDto req = new CreateRoleRequestDto();
+        req.setOrgChartId(testOrgChart.getId());
+        req.setRoleName("No Level Role");
+        req.setDescription("Missing level");
+        req.setVisibility(true);
+        req.setJobScopeList(List.of("Coding"));
+
+        mockMvc.perform(post("/api/role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Select an Employee Level for this Role"));
+
+        assertThat(roleRepository.findAll()).isEmpty();
     }
 
     // --- Scenario 2: Get All Roles ---
@@ -208,9 +237,9 @@ public class RoleIntegrationTest {
     @Test
     @WithMockUser(username = MOCK_USER_ID, authorities = "CAN_MANAGE_ROLE")
     void importData_ShouldCreateRoles() throws Exception {
-        // Create Excel: "IT Dept" | "SysAdmin" | "Desc" | "Scope1; Scope2" | "Yes" | "" | "" | ""
+        // Create Excel: "IT Dept" | "SysAdmin" | "Desc" | "Scope1; Scope2" | "Yes" | "" | "" | "" | level code
         byte[] excelBytes = createExcelData(new ArrayList<>(Collections.singleton(
-                new String[]{"IT Dept", "SysAdmin", "Maintain Servers", "Linux;Network", "Yes", "", "", ""}
+                new String[]{"IT Dept", "SysAdmin", "Maintain Servers", "Linux;Network", "Yes", "", "", "", TestEmployeeLevels.CODE}
         )));
 
         MockMultipartFile file = new MockMultipartFile(
@@ -227,9 +256,32 @@ public class RoleIntegrationTest {
         assertThat(roleRepository.findAll()).hasSize(1);
         Role imported = roleRepository.findAll().get(0);
         assertThat(imported.getName()).isEqualTo("SysAdmin");
+        assertThat(imported.getEmployeeLevel().getId()).isEqualTo(testLevel.getId());
 
         // Verify Job Scopes created
         assertThat(roleJobScopeRepository.findAllByRole_Id(imported.getId())).hasSize(2);
+    }
+
+    // --- Scenario 6b: Importing a new Role without an Employee Level Code is rejected ---
+    @Test
+    @WithMockUser(username = MOCK_USER_ID, authorities = "CAN_MANAGE_ROLE")
+    void importData_NewRoleWithoutEmployeeLevelCode_ShouldBeRejected() throws Exception {
+        byte[] excelBytes = createExcelData(new ArrayList<>(Collections.singleton(
+                new String[]{"IT Dept", "SysAdmin", "Maintain Servers", "Linux;Network", "Yes", "", "", "", ""}
+        )));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "roles.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                excelBytes
+        );
+
+        mockMvc.perform(multipart("/api/role/import")
+                        .file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Employee Level Code is required for a new Role"));
+
+        assertThat(roleRepository.findAll()).isEmpty();
     }
 
     // --- Scenario 7: Export Roles ---
@@ -249,6 +301,7 @@ public class RoleIntegrationTest {
         Role role = new Role();
         role.setName(name);
         role.setOrgChart(testOrgChart);
+        role.setEmployeeLevel(testLevel);
         role.setVisible(true);
         role.setDeleted(false);
         role.setCreatedAt(OffsetDateTime.now());
@@ -286,7 +339,7 @@ public class RoleIntegrationTest {
             Sheet sheet = workbook.createSheet("Sheet 1");
 
             Row header = sheet.createRow(0);
-            String[] headers = {"Department Name", "Role Name", "Role Description", "Job Scopes", "Visibility", "New Department Name", "New Role Name", "To Be Deleted"};
+            String[] headers = {"Department Name", "Role Name", "Role Description", "Job Scopes", "Visibility", "New Department Name", "New Role Name", "To Be Deleted", "Employee Level Code"};
             for (int i = 0; i < headers.length; i++) header.createCell(i).setCellValue(headers[i]);
 
             int rowIdx = 1;
