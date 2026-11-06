@@ -50,7 +50,12 @@
     }
   </div>
 
+  @if (loadFailed) {
+    <nz-alert class="load-alert" nzType="error" nzShowIcon [nzMessage]="loadError" role="alert"></nz-alert>
+  }
+
   <nz-spin [nzSpinning]="loading">
+    @if (data || !loadFailed) {
     <div class="board" [class.refreshing]="refreshing">
 
       <!-- Headline numbers (FR-10-01) -->
@@ -257,6 +262,7 @@
         </p>
       </section>
     </div>
+    }
   </nz-spin>
 </div>
 
