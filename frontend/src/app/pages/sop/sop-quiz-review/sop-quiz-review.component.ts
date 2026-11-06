@@ -371,6 +371,20 @@ export class SopQuizReviewComponent implements OnInit {
     return Math.max(MIN_QUIZ_QUESTIONS, module.quiz.length);
   }
 
+  /** The note under Questions per attempt: what staff get from this quiz, and whether the number can change. */
+  perAttemptNote(module: SopModule, editable: boolean): string {
+    const total = module.quiz.length;
+    if (total < MIN_QUIZ_QUESTIONS) {
+      return `The quiz needs at least ${MIN_QUIZ_QUESTIONS} questions first.`;
+    }
+    if (total === MIN_QUIZ_QUESTIONS || (!editable && module.questionsPerAttempt >= total)) {
+      return `This quiz has ${total} questions, so staff get all of them in each attempt.`;
+    }
+    return editable
+      ? `Staff get this many questions, picked at random from the ${total} in this quiz (minimum ${MIN_QUIZ_QUESTIONS}). Changes start from their next attempt.`
+      : `Staff get ${module.questionsPerAttempt} questions, picked at random from the ${total} in this quiz.`;
+  }
+
   /** Applies to the version staff are taking, from their next attempt: it changes no question. */
   savePerAttempt(): void {
     const module = this.selectedModule;

@@ -221,10 +221,9 @@
                     Save
                   </button>
                 </div>
-                <p class="muted">Each attempt presents this many of the quiz's {{ module.quiz.length }} questions, at least
-                  {{ minQuestions }}. A change applies from staff's next attempt.</p>
+                <p class="muted">{{ perAttemptNote(module, true) }}</p>
               } @else {
-                <p class="muted">Each attempt presents {{ module.questionsPerAttempt }} of the quiz's {{ module.quiz.length }} questions.</p>
+                <p class="muted">{{ perAttemptNote(module, false) }}</p>
               }
             </div>
 
