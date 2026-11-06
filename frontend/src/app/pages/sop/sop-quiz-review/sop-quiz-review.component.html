@@ -264,16 +264,16 @@
                   placeholder="Write the question staff will answer"></textarea>
       </label>
       <div class="field-row">
-        <label class="field">Type
-          <nz-select [(ngModel)]="d.questionType" (ngModelChange)="onTypeChange($event)">
+        <div class="field">Type
+          <nz-select [(ngModel)]="d.questionType" (ngModelChange)="onTypeChange($event)" aria-label="Question type">
             @for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }
           </nz-select>
-        </label>
-        <label class="field">Difficulty
-          <nz-select [(ngModel)]="d.difficulty" nzPlaceHolder="Not set">
+        </div>
+        <div class="field">Difficulty
+          <nz-select [(ngModel)]="d.difficulty" nzPlaceHolder="Not set" aria-label="Difficulty">
             @for (level of difficulties; track level.value) { <nz-option [nzValue]="level.value" [nzLabel]="level.label"></nz-option> }
           </nz-select>
-        </label>
+        </div>
       </div>
 
       @if (d.questionType === 'FILL_IN_THE_BLANK') {
