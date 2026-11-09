@@ -339,7 +339,7 @@ public class SopServiceImpl implements SopService {
         // Recorded only once the regeneration succeeded; a failed attempt leaves the material untouched.
         recordMaterialEvent(subject, MaterialReviewAction.REJECTED, reason.trim(), viewer.userId());
         recordMaterialEvent(subject, MaterialReviewAction.REGENERATED,
-                "Rewritten by the AI from the trainer's feedback, with a new quiz to match.", null);
+                "Rewritten from the trainer's feedback, with a new quiz to match.", null);
         recordQuizEvent(subject, QuizReviewAction.REGENERATED, "Regenerated together with the rejected module material.", null);
         notifyOwner(target.module(), NotificationType.MATERIAL_REGENERATED, "Material regenerated",
                 "now has new material and a new quiz to review", "/sop/review/");
@@ -533,6 +533,21 @@ public class SopServiceImpl implements SopService {
                 .toList();
     }
 
+    /**
+     * A material history entry's detail, without saying how the module was made: older entries still name the AI or the
+     * offline build in the database. Only the system writes these two actions, so a trainer's own words never change.
+     */
+    private static String withoutSource(String action, String detail) {
+        if (detail == null || !(MaterialReviewAction.GENERATED.name().equals(action)
+                || MaterialReviewAction.REGENERATED.name().equals(action))) {
+            return detail;
+        }
+        return detail.replace("Written by the AI from the uploaded SOP.", SopGenerationService.GENERATED_DETAIL)
+                .replace("Built from the SOP text because the AI was unavailable. Review it carefully.", SopGenerationService.GENERATED_DETAIL)
+                .replace("Built from the SOP text because the AI was unavailable.", SopGenerationService.GENERATED_DETAIL)
+                .replace("Rewritten by the AI ", "Rewritten ");
+    }
+
     @Override
     public List<SopMaterialReviewEventDto> getMaterialHistory(Long moduleId, SopViewer viewer) {
         viewableModule(moduleId, viewer);
@@ -542,7 +557,7 @@ public class SopServiceImpl implements SopService {
                     SopMaterialReviewEventDto dto = new SopMaterialReviewEventDto();
                     dto.setId(e.getId());
                     dto.setAction(e.getAction());
-                    dto.setDetail(e.getDetail());
+                    dto.setDetail(withoutSource(e.getAction(), e.getDetail()));
                     dto.setActorName(actorName(names, e.getActorId()));
                     dto.setCreatedAt(e.getCreatedAt());
                     return dto;

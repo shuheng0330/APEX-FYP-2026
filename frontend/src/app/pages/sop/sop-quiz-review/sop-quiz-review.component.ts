@@ -47,7 +47,7 @@ const STATE_META: Record<QuizState, { label: string; color: string }> = {
 const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = {
   APPROVED:    { label: 'Approved',       color: 'green' },
   REJECTED:    { label: 'Rejected',       color: 'red' },
-  REGENERATED: { label: 'AI regenerated', color: 'cyan' },
+  REGENERATED: { label: 'Regenerated', color: 'cyan' },
   EDITED:      { label: 'Edited',         color: 'blue' },
   COPIED:      { label: 'Copied to draft', color: 'purple' }
 };

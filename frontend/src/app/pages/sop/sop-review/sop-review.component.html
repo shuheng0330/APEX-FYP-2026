@@ -3,7 +3,7 @@
     <div>
       <span class="section-kicker">Manual review gate</span>
       <h1>Generated Material Review</h1>
-      <p>Review and approve AI-generated training material before it becomes a course.</p>
+      <p>Review and approve generated training material before it becomes a course.</p>
     </div>
     <div class="course-picker">
       <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" aria-label="Which courses">
@@ -144,7 +144,7 @@
                   <label class="edit-field-label">Module title
                     <input nz-input [(ngModel)]="module.title" />
                   </label>
-                  <label class="edit-field-label">AI Summary
+                  <label class="edit-field-label">Summary
                     <textarea nz-input [(ngModel)]="er.summary" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
                   </label>
 
@@ -381,7 +381,7 @@
             <!-- Preview mode: rich rendered content -->
             @if (!editMode[module.id]) {
               <div class="content-scroll">
-                <app-sop-content-view [content]="module.content" [reviewer]="true"></app-sop-content-view>
+                <app-sop-content-view [content]="module.content"></app-sop-content-view>
               </div>
             }
 

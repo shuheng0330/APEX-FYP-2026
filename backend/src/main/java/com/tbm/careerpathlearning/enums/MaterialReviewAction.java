@@ -5,7 +5,7 @@ package com.tbm.careerpathlearning.enums;
  * later never meets an old CHECK constraint.
  */
 public enum MaterialReviewAction {
-    /** Written by the AI from the SOP, or built from the SOP text when the AI was unavailable (FR-06-09). */
+    /** Generated from the SOP, by the AI or, when it was unavailable, from the SOP text alone. The history doesn't say which. */
     GENERATED,
     EDITED,
     APPROVED,

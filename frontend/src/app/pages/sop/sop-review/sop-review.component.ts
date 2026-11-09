@@ -38,7 +38,7 @@ const HISTORY_META: Record<MaterialReviewAction, { label: string; color: string 
   EDITED:      { label: 'Edited',          color: 'blue' },
   APPROVED:    { label: 'Approved',        color: 'green' },
   REJECTED:    { label: 'Rejected',        color: 'red' },
-  REGENERATED: { label: 'AI regenerated',  color: 'cyan' },
+  REGENERATED: { label: 'Regenerated',     color: 'cyan' },
   COPIED:      { label: 'Copied to draft', color: 'purple' }
 };
 
@@ -373,10 +373,10 @@ export class SopReviewComponent implements OnInit {
   historyLabel(action: MaterialReviewAction): string { return HISTORY_META[action]?.label ?? action; }
   historyColor(action: MaterialReviewAction): string | undefined { return HISTORY_META[action]?.color; }
 
-  /** Who acted: a person, or the AI for a regeneration. A generation's detail says how it was made. */
+  /** Who acted: a person, or the system for a regeneration. A generation needs no line of its own. */
   historyBy(e: MaterialReviewEvent): string | null {
     if (e.actorName) return 'by ' + e.actorName;
-    return e.action === 'REGENERATED' ? 'by the AI' : null;
+    return e.action === 'REGENERATED' ? 'by the system' : null;
   }
 
   // --- block editing (FR-07-06) ---

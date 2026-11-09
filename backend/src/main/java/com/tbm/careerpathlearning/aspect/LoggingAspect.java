@@ -6,6 +6,7 @@ import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
+import org.aspectj.lang.annotation.Pointcut;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,8 +17,18 @@ public class LoggingAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggingAspect.class);
 
+    /**
+     * All methods, except the two classes that hold a whole SOP's text or an AI prompt: this aspect prints arguments
+     * and results, and the personal data in those must stay out of the logs (FR-06-17).
+     */
+    @Pointcut("execution(* com.tbm.careerpathlearning..*(..))"
+            + " && !within(com.tbm.careerpathlearning.service.DocumentParserService)"
+            + " && !within(com.tbm.careerpathlearning.service.GeminiClient)")
+    private void logged() {
+    }
+
     // Intercept all methods
-    @Before("execution(* com.tbm.careerpathlearning..*(..))")
+    @Before("logged()")
     public void logMethodStart(JoinPoint joinPoint) {
         logger.info("Entering: {}.{} with args={}",
                 joinPoint.getSignature().getDeclaringTypeName(),
@@ -25,7 +36,7 @@ public class LoggingAspect {
                 joinPoint.getArgs());
     }
 
-    @AfterReturning(pointcut = "execution(* com.tbm.careerpathlearning..*(..))", returning = "result")
+    @AfterReturning(pointcut = "logged()", returning = "result")
     public void logMethodReturn(JoinPoint joinPoint, Object result) {
         logger.info("Exiting: {}.{} with result={}",
                 joinPoint.getSignature().getDeclaringTypeName(),
@@ -33,7 +44,7 @@ public class LoggingAspect {
                 result);
     }
 
-    @AfterThrowing(pointcut = "execution(* com.tbm.careerpathlearning..*(..))", throwing = "ex")
+    @AfterThrowing(pointcut = "logged()", throwing = "ex")
     public void logMethodException(JoinPoint joinPoint, Throwable ex) {
         if(ex instanceof HazardException) {
             //TODO: Save Hazard Error into DB
