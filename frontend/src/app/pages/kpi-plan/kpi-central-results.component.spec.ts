@@ -130,21 +130,17 @@ describe('Central KPI results', () => {
     expect(fixture.nativeElement.querySelector('.company-reporting-guide')).toBeNull();
   });
 
-  it('collapses entrant management and preserves result inputs while opening either disclosure', () => {
+  it('hides entrant management for Company managers without affecting result inputs', () => {
     auth.hasRole.and.callFake(role => role === 'CAN_MANAGE_COMPANY_KPI');
     page.startDraft(); page.items[0].actualAchievement = '103 units'; page.items[0].point = 3;
     fixture.detectChanges();
-    const entrants: HTMLDetailsElement = fixture.nativeElement.querySelector('.delegate-card');
     const guide: HTMLDetailsElement = fixture.nativeElement.querySelector('.company-reporting-guide');
-    expect(entrants.open).toBeFalse();
-    expect(entrants.querySelector('summary')?.textContent).toContain('KPI_RESULTS.MANAGE_ENTRANTS');
-    expect(entrants.querySelector('.permission-help')).not.toBeNull(); expect(entrants.querySelector('.delegate-add')).not.toBeNull();
-    entrants.querySelector('summary')!.click(); guide.querySelector('summary')!.click(); fixture.detectChanges();
-    expect(entrants.open).toBeTrue(); expect(guide.open).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.delegate-card')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('KPI_RESULTS.MANAGE_ENTRANTS');
+    guide.querySelector('summary')!.click(); fixture.detectChanges();
+    expect(guide.open).toBeTrue();
     expect(page.items[0].actualAchievement).toBe('103 units'); expect(page.items[0].point).toBe(3); expect(page.dirty).toBeTrue();
     expect(api.assignDelegate).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled(); expect(api.publish).not.toHaveBeenCalled();
-    const form = fixture.nativeElement.querySelector('.result-card');
-    expect(form.compareDocumentPosition(entrants) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     auth.hasRole.and.callFake(role => role === 'CAN_ENTER_COMPANY_KPI_RESULTS'); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.delegate-card')).toBeNull();
   });
@@ -263,12 +259,11 @@ describe('Central KPI results', () => {
     page.load(); fixture.detectChanges();
     expect(page.entrantPermission('a')).toBe('GRANTED');
     expect(page.entrantPermission('b')).toBe('MISSING');
-    const link = fixture.nativeElement.querySelector('.permission-help a') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/staff?tab=access-control');
-    expect(fixture.nativeElement.querySelectorAll('.permission-status').length).toBe(2);
+    expect(fixture.nativeElement.querySelector('.permission-help a')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.permission-status').length).toBe(0);
   });
 
-  it('links to Access Control without inferring entrant permission for a restricted viewer', () => {
+  it('hides Access Control guidance without inferring entrant permission for a restricted viewer', () => {
     auth.hasRole.and.callFake(role => role === 'CAN_MANAGE_COMPANY_KPI');
     api.delegates.and.returnValue(of([{ id: 1, reviewPeriodId: 1, staffId: 'a', assignedBy: 'md',
       assignedAt: '2025-01-01', revokedBy: null, revokedAt: null }]));
@@ -277,8 +272,7 @@ describe('Central KPI results', () => {
     page.load(); fixture.detectChanges();
     expect(authorityApi.getStaffAccessControlOverview).not.toHaveBeenCalled();
     expect(page.entrantPermission('a')).toBe('UNKNOWN');
-    const link = fixture.nativeElement.querySelector('.permission-help a') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/staff?tab=access-control');
+    expect(fixture.nativeElement.querySelector('.permission-help a')).toBeNull();
   });
 
   it('separates actual achievement from the result point in history', async () => {

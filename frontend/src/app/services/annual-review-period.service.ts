@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AnnualReviewCreationDefaults, AnnualReviewPeriod, AnnualReviewPeriodRequest, ReviewRoleConfiguration } from '../models/annual-review-period.model';
+import { AnnualReviewCreationDefaults, AnnualReviewPeriod, AnnualReviewPeriodRequest, ReviewPeriodClosure, ReviewRoleConfiguration, ReviewPeriodAttitudeConfigurationOption } from '../models/annual-review-period.model';
 
 @Injectable({ providedIn: 'root' })
 export class AnnualReviewPeriodService {
@@ -13,7 +13,16 @@ export class AnnualReviewPeriodService {
 
   list(): Observable<AnnualReviewPeriod[]> { return this.http.get<AnnualReviewPeriod[]>(this.base, this.options); }
   get(id: number): Observable<AnnualReviewPeriod> { return this.http.get<AnnualReviewPeriod>(`${this.base}/${id}`, this.options); }
+  closureReadiness(id: number): Observable<ReviewPeriodClosure> {
+    return this.http.get<ReviewPeriodClosure>(`${this.base}/${id}/closure-readiness`, this.options);
+  }
+  close(id: number): Observable<ReviewPeriodClosure> {
+    return this.http.post<ReviewPeriodClosure>(`${this.base}/${id}/close`, {}, this.options);
+  }
   roles(): Observable<ReviewRoleConfiguration[]> { return this.http.get<ReviewRoleConfiguration[]>(`${this.base}/roles`, this.options); }
+  attitudeConfigurations(): Observable<ReviewPeriodAttitudeConfigurationOption[]> {
+    return this.http.get<ReviewPeriodAttitudeConfigurationOption[]>(`${this.base}/attitude-configurations`, this.options);
+  }
   creationDefaults(startDate: string): Observable<AnnualReviewCreationDefaults> {
     return this.http.get<AnnualReviewCreationDefaults>(`${this.base}/creation-defaults`, { ...this.options, params: { startDate } });
   }

@@ -102,7 +102,9 @@ class AnnualAppraisalServiceTest {
     void hr() {auth(hrId,"CAN_REVIEW_ANNUAL_APPRAISAL");}
     @AfterEach void cleanup() {SecurityContextHolder.clearContext();if(TransactionSynchronizationManager.isSynchronizationActive())TransactionSynchronizationManager.clearSynchronization();}
 
-    @Test void incompleteDraftIsSavedButCannotBeSubmitted() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void incompleteDraftIsSavedButCannotBeSubmitted(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         evaluation=new AnnualAppraisalReadinessDto(false,List.of("Waiting for Company results"),snapshot("80"));
         var dto=service.create(request(null,null),superiorId);assertEquals(AppraisalStatus.DRAFT,dto.getStatus());
         assertTrue(dto.getAllowedActions().contains("SAVE_DRAFT"));assertFalse(dto.getAllowedActions().contains("SUBMIT"));
@@ -118,7 +120,9 @@ class AnnualAppraisalServiceTest {
         assertThrows(KpiVersionConflictException.class,()->service.submit(10L,action(),superiorId));
         assertThrows(KpiVersionConflictException.class,()->service.create(request(recommendation,"Duplicate"),superiorId));
     }
-    @Test void approvalPreservesSuperiorContentAndFreezesTheOfficialSnapshot() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void approvalPreservesSuperiorContentAndFreezesTheOfficialSnapshot(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();var original=appraisal.getSnapshot();hr();var dto=service.approve(10L,action(),hrId);
         assertEquals(AppraisalStatus.APPROVED,dto.getStatus());assertEquals(dto.getRecommendation(),dto.getFinalDecision());
         assertEquals("Consistent delivery",dto.getJustification());assertEquals(hrId,dto.getReviewedBy());assertTrue(dto.getReviewedLate());
@@ -127,8 +131,16 @@ class AnnualAppraisalServiceTest {
         assertTrue(frozen.getAllowedActions().isEmpty());
         assertThrows(KpiVersionConflictException.class,()->service.approve(10L,action(),hrId));
         assertThrows(KpiVersionConflictException.class,()->service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Again"),hrId));
+        assertThrows(KpiVersionConflictException.class,()->service.overrideAndApprove(10L,
+                new AnnualAppraisalActionRequest(appraisal.getLockVersion(),AnnualAppraisalRecommendation.PROMOTION,"Changed decision"),hrId));
+        auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");
+        assertThrows(KpiVersionConflictException.class,()->service.update(10L,request(null,null),superiorId));
+        assertThrows(KpiVersionConflictException.class,()->service.submit(10L,action(),superiorId));
+        assertEquals(original,appraisal.getSnapshot());assertEquals(dto.getFinalDecision(),appraisal.getFinalDecision());
     }
-    @Test void overrideRequiresDifferentDecisionAndReasonAndRetainsOriginalRecommendation() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void overrideRequiresDifferentDecisionAndReasonAndRetainsOriginalRecommendation(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();hr();
         assertThrows(BadRequestException.class,()->service.overrideAndApprove(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),AnnualAppraisalRecommendation.SALARY_INCREMENT,"Reason"),hrId));
         assertThrows(BadRequestException.class,()->service.overrideAndApprove(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),AnnualAppraisalRecommendation.NO_RECOMMENDATION," "),hrId));
@@ -136,7 +148,9 @@ class AnnualAppraisalServiceTest {
         assertEquals(AnnualAppraisalRecommendation.SALARY_INCREMENT,dto.getRecommendation());
         assertEquals(AnnualAppraisalRecommendation.NO_RECOMMENDATION,dto.getFinalDecision());assertEquals("Budget constraints",dto.getOverrideReason());
     }
-    @Test void repeatedReturnsPreserveReasonsAndEverySubmissionSnapshot() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void repeatedReturnsPreserveReasonsAndEverySubmissionSnapshot(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();hr();
         assertThrows(BadRequestException.class,()->service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null," "),hrId));
         for(int round=1;round<=2;round++) {
@@ -154,14 +168,18 @@ class AnnualAppraisalServiceTest {
         assertEquals(3,events.stream().filter(e->e.getAction().endsWith("SUBMITTED")).count());
         assertEquals("Consistent delivery",events.stream().filter(e->e.getAction().equals("SUBMITTED")).findFirst().orElseThrow().getJustification());
     }
-    @Test void revertingEditsDoesNotSatisfyAReturnAndIncompleteReturnedEditsRemainSaveable() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void revertingEditsDoesNotSatisfyAReturnAndIncompleteReturnedEditsRemainSaveable(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();hr();service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Clarify"),hrId);
         auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");
         service.update(10L,request(null,null),superiorId);assertEquals(AppraisalStatus.RETURNED,appraisal.getStatus());
         service.update(10L,request(AnnualAppraisalRecommendation.SALARY_INCREMENT,"Consistent delivery"),superiorId);
         assertThrows(BadRequestException.class,()->service.submit(10L,action(),superiorId));
     }
-    @Test void correctionsBlockApprovalButStillAllowReturn() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void correctionsBlockApprovalButStillAllowReturn(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();hr();var original=appraisal.getSnapshot();evaluation=new AnnualAppraisalReadinessDto(true,List.of(),snapshot("90"));
         var dto=service.get(10L,hrId);assertTrue(dto.isSourceChanged());assertEquals(List.of("RETURN"),dto.getAllowedActions());
         assertThrows(KpiVersionConflictException.class,()->service.approve(10L,action(),hrId));assertEquals(original,appraisal.getSnapshot());
@@ -174,7 +192,9 @@ class AnnualAppraisalServiceTest {
         submitted();evaluation=new AnnualAppraisalReadinessDto(true,List.of(),snapshot("80.0000"));hr();
         assertFalse(service.get(10L,hrId).isSourceChanged());
     }
-    @Test void concurrentStaleActionsCannotUpdateOrDecideAgain() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void concurrentStaleActionsCannotUpdateOrDecideAgain(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         service.create(request(AnnualAppraisalRecommendation.PROMOTION,"Delivery"),superiorId);long stale=appraisal.getLockVersion();
         service.update(10L,request(appraisal.getRecommendation(),"Updated delivery"),superiorId);
         assertThrows(KpiVersionConflictException.class,()->service.update(10L,new AnnualAppraisalRequest(7L,stale,null,null),superiorId));
@@ -183,33 +203,120 @@ class AnnualAppraisalServiceTest {
         service.approve(10L,action(),hrId);
         assertThrows(KpiVersionConflictException.class,()->service.overrideAndApprove(10L,new AnnualAppraisalActionRequest(staleReview,AnnualAppraisalRecommendation.BOTH,"Reason"),hrId));
     }
-    @Test void unrelatedSuperiorsEmployeesAndLegacyAuthoritiesCannotWrite() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void unrelatedSuperiorsEmployeesAndLegacyAuthoritiesCannotWrite(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         auth(outsiderId,"CAN_SUBMIT_ANNUAL_APPRAISAL");assertThrows(AccessDeniedException.class,()->service.create(request(null,null),outsiderId));
         auth(employeeId,"ROLE_USER");assertThrows(AccessDeniedException.class,()->service.create(request(null,null),employeeId));
         auth(superiorId,"CAN_MANAGE_EVALUATION","CAN_MANAGE_EVALUATION_CYCLE");assertThrows(AccessDeniedException.class,()->service.create(request(null,null),superiorId));
         verify(appraisals,never()).saveAndFlush(any());
     }
-    @Test void reportingChangesFreezeWritesForOldAndNewSuperiorsAndHr() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void reportingChangesFreezeWritesForOldAndNewSuperiorsAndHr(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();employee.setManager(actor(outsiderId));hr();assertFalse(service.get(10L,hrId).getAllowedActions().contains("APPROVE"));
         assertThrows(KpiVersionConflictException.class,()->service.approve(10L,action(),hrId));
         auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");assertThrows(AccessDeniedException.class,()->service.update(10L,request(null,null),superiorId));
         auth(outsiderId,"CAN_SUBMIT_ANNUAL_APPRAISAL");assertThrows(AccessDeniedException.class,()->service.update(10L,request(null,null),outsiderId));
     }
-    @Test void combinedPermissionsDoNotAllowSelfApproval() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void combinedPermissionsDoNotAllowSelfApproval(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL","CAN_REVIEW_ANNUAL_APPRAISAL");
         assertThrows(AccessDeniedException.class,()->service.approve(10L,action(),superiorId));
         assertThrows(AccessDeniedException.class,()->service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Reason"),superiorId));
     }
-    @Test void hrAuthorityDoesNotAllowAnEmployeeToReviewTheirOwnAppraisal() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void hrAuthorityDoesNotAllowAnEmployeeToReviewTheirOwnAppraisal(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         submitted();auth(employeeId,"CAN_REVIEW_ANNUAL_APPRAISAL");
         assertThrows(AccessDeniedException.class,()->service.approve(10L,action(),employeeId));
         assertTrue(service.get(10L,employeeId).getAllowedActions().isEmpty());
     }
-    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"UPCOMING","CLOSED"})
-    void upcomingAndClosedAreReadOnly(AnnualKpiReviewPeriodStatus status) {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"DRAFT","UPCOMING"})
+    void draftAndUpcomingPeriodsRejectAllHrActions(AnnualKpiReviewPeriodStatus status) {
         submitted();period.setStatus(status);hr();assertTrue(service.get(10L,hrId).getAllowedActions().isEmpty());
+        clearInvocations(appraisals,activity,notificationEvents);
         assertThrows(BadRequestException.class,()->service.approve(10L,action(),hrId));
-        auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");assertThrows(BadRequestException.class,()->service.update(10L,request(null,null),superiorId));
+        assertThrows(BadRequestException.class,()->service.overrideAndApprove(10L,
+                new AnnualAppraisalActionRequest(appraisal.getLockVersion(),AnnualAppraisalRecommendation.PROMOTION,"Reason"),hrId));
+        assertThrows(BadRequestException.class,()->service.returnForRevision(10L,
+                new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Reason"),hrId));
+        assertEquals(AppraisalStatus.PENDING_REVIEW,appraisal.getStatus());
+        verify(appraisals,never()).saveAndFlush(any());verifyNoInteractions(activity,notificationEvents);
+    }
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"DRAFT","UPCOMING"})
+    void draftAndUpcomingPeriodsRejectNewAndSavedSuperiorActions(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
+        assertThrows(BadRequestException.class,()->service.create(request(AnnualAppraisalRecommendation.PROMOTION,"Evidence"),superiorId));
+        assertNull(appraisal);verify(appraisals,never()).saveAndFlush(any());
+        period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);
+        service.create(request(AnnualAppraisalRecommendation.PROMOTION,"Evidence"),superiorId);
+        period.setStatus(status);var dto=service.get(10L,superiorId);
+        assertTrue(dto.getAllowedActions().isEmpty());
+        assertTrue(dto.getSubmissionBlockers().contains("Appraisals are actionable only while the Review Period is Open or Closed"));
+        clearInvocations(appraisals,activity,notificationEvents);
+        assertThrows(BadRequestException.class,()->service.update(10L,request(null,null),superiorId));
+        assertThrows(BadRequestException.class,()->service.submit(10L,action(),superiorId));
+        assertEquals(AppraisalStatus.DRAFT,appraisal.getStatus());assertEquals("Evidence",appraisal.getJustification());
+        verify(appraisals,never()).saveAndFlush(any());verifyNoInteractions(activity,notificationEvents);
+    }
+    @Test void closingDuringTheAppraisalWorkflowPreservesActionsAndRecordedSubmissionSnapshots() {
+        var draft=service.create(request(AnnualAppraisalRecommendation.SALARY_INCREMENT,"Consistent delivery"),superiorId);
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);
+        assertEquals(Set.of("SAVE_DRAFT","SUBMIT"),new HashSet<>(service.get(10L,superiorId).getAllowedActions()));
+        service.submit(10L,action(),superiorId);var original=appraisal.getSnapshot();hr();
+        assertEquals(Set.of("RETURN","APPROVE","OVERRIDE_AND_APPROVE"),new HashSet<>(service.get(10L,hrId).getAllowedActions()));
+        service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Add context"),hrId);
+        auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");
+        assertEquals(List.of("SAVE_DRAFT"),service.get(10L,superiorId).getAllowedActions());
+        service.update(10L,request(AnnualAppraisalRecommendation.PROMOTION,"Confirmed delivery with additional context"),superiorId);
+        assertEquals(Set.of("SAVE_DRAFT","SUBMIT"),new HashSet<>(service.get(10L,superiorId).getAllowedActions()));
+        service.submit(10L,action(),superiorId);hr();
+        var approved=service.overrideAndApprove(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),
+                AnnualAppraisalRecommendation.NO_RECOMMENDATION,"Documented HR decision"),hrId);
+        assertEquals(AppraisalStatus.APPROVED,approved.getStatus());assertEquals(draft.getId(),approved.getId());
+        assertEquals(AnnualAppraisalRecommendation.PROMOTION,approved.getRecommendation());
+        assertEquals(AnnualAppraisalRecommendation.NO_RECOMMENDATION,approved.getFinalDecision());
+        assertEquals(original,approved.getSnapshot());assertTrue(approved.getAllowedActions().isEmpty());
+        assertEquals(List.of("DRAFT_CREATED","SUBMITTED","RETURNED","DRAFT_SAVED","RESUBMITTED","OVERRIDDEN"),
+                events.stream().map(AnnualAppraisalActivity::getAction).toList());
+        var first=events.get(1);assertEquals("Consistent delivery",first.getJustification());
+        assertEquals(AnnualAppraisalRecommendation.SALARY_INCREMENT,first.getRecommendation());assertEquals(original,first.getSnapshot());
+        assertNull(first.getFinalDecision());assertNull(events.get(4).getFinalDecision());
+        assertEquals(original,events.get(4).getSnapshot());assertEquals("Add context",events.get(2).getReason());
+    }
+    @Test void closedPeriodMutationsRetainConfigurationAndAppraisalLockOrder() {
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);
+        service.create(request(AnnualAppraisalRecommendation.SALARY_INCREMENT,"Consistent delivery"),superiorId);
+        service.update(10L,request(appraisal.getRecommendation(),"Updated delivery"),superiorId);
+        service.submit(10L,action(),superiorId);hr();
+        service.returnForRevision(10L,new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Clarify"),hrId);
+        auth(superiorId,"CAN_SUBMIT_ANNUAL_APPRAISAL");
+        service.update(10L,request(appraisal.getRecommendation(),"Additional context"),superiorId);
+        service.submit(10L,action(),superiorId);hr();service.approve(10L,action(),hrId);
+        var order=inOrder(periods,appraisals);
+        order.verify(periods).lockConfiguration();order.verify(appraisals).saveAndFlush(appraisal);
+        for(int i=0;i<6;i++) {
+            order.verify(periods).lockConfiguration();order.verify(appraisals).lockById(10L);
+            order.verify(appraisals).saveAndFlush(appraisal);
+        }
+        verify(periods,times(7)).lockConfiguration();verify(appraisals,times(6)).lockById(10L);
+    }
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void inactiveEmployeesAndMissingDeadlinesStillBlockActions(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);employee.setAccountStatus(StaffAccountStatus.INACTIVE);
+        assertThrows(BadRequestException.class,()->service.create(request(null,null),superiorId));
+        assertNull(appraisal);employee.setAccountStatus(StaffAccountStatus.ACTIVE);
+        service.create(request(AnnualAppraisalRecommendation.SALARY_INCREMENT,"Evidence"),superiorId);
+        period.setAppraisalRecommendationDeadline(null);
+        assertFalse(service.get(10L,superiorId).getAllowedActions().contains("SUBMIT"));
+        assertThrows(BadRequestException.class,()->service.submit(10L,action(),superiorId));
+        period.setAppraisalRecommendationDeadline(LocalDate.of(2028,1,15));service.submit(10L,action(),superiorId);hr();
+        period.setHrFinalisationDeadline(null);assertTrue(service.get(10L,hrId).getAllowedActions().isEmpty());
+        assertThrows(BadRequestException.class,()->service.approve(10L,action(),hrId));
+        assertThrows(BadRequestException.class,()->service.returnForRevision(10L,
+                new AnnualAppraisalActionRequest(appraisal.getLockVersion(),null,"Clarify"),hrId));
     }
     @Test void deadlineDayIsOnTimeAndLaterActionsAreAllowed() {
         date("2028-01-15");submitted();assertFalse(appraisal.getSubmittedLate());
@@ -221,13 +328,19 @@ class AnnualAppraisalServiceTest {
         TransactionSynchronizationManager.getSynchronizations().forEach(s->s.afterCommit());
         verify(email).sendAnnualAppraisalReviewedEmail(superior.getEmail(),"Bob",period.getName(),"APPROVED",Locale.ENGLISH);
     }
-    @Test void hrCannotReadPrivateDraftAndEmployeesCannotReadAnyAppraisal() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void hrCannotReadPrivateDraftAndEmployeesCannotReadAnyAppraisal(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         service.create(request(null,null),superiorId);hr();assertThrows(AccessDeniedException.class,()->service.get(10L,hrId));
         auth(employeeId,"ROLE_USER");assertThrows(AccessDeniedException.class,()->service.get(10L,employeeId));
     }
-    @Test void readingReadinessAndTeamDoesNotCreateDrafts() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void readingReadinessAndTeamDoesNotCreateDrafts(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         assertTrue(service.readiness(7L,superiorId).ready());assertEquals(1,service.team(1L,superiorId).size());
+        assertNull(appraisal);assertNull(service.team(1L,superiorId).get(0).appraisalId());
         verify(appraisals,never()).saveAndFlush(any());verify(activity,never()).save(any());
+        verify(periods,never()).lockConfiguration();verifyNoInteractions(notificationEvents,email);
     }
     @Test void annualHistoryIsScopedApprovedOnlyAndUsesFrozenScores() {
         submitted();hr();service.approve(10L,action(),hrId);

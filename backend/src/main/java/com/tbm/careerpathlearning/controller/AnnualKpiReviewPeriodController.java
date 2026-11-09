@@ -61,6 +61,11 @@ public class AnnualKpiReviewPeriodController {
         return service.creationDefaults(startDate);
     }
 
+    @GetMapping("/attitude-configurations")
+    public List<com.tbm.careerpathlearning.dto.ReviewPeriodAttitudeConfigurationOption> attitudeConfigurations() {
+        return service.attitudeConfigurations();
+    }
+
     @PostMapping("/preview")
     public AnnualKpiReviewPeriodDto preview(@Valid @RequestBody AnnualKpiReviewPeriodRequest request,
             @RequestParam(required = false) Long excludedPeriodId) {

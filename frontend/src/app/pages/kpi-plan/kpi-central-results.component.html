@@ -200,7 +200,7 @@
         }
       }
     }
-    @if (auth.hasRole('CAN_MANAGE_COMPANY_KPI') && periodId !== null) {
+    @if (showEntrantManagement && auth.hasRole('CAN_MANAGE_COMPANY_KPI') && periodId !== null) {
       <details class="card delegate-card">
         <summary>{{ 'KPI_RESULTS.MANAGE_ENTRANTS' | translate }}</summary>
         <div class="card-body">

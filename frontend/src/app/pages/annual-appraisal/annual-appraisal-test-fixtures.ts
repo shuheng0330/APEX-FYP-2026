@@ -1,7 +1,23 @@
 import { AnnualAppraisal, AnnualAppraisalCandidate, AnnualAppraisalReadiness, AnnualAppraisalSnapshot } from '../../models/annual-appraisal.model';
 import { KpiPeriodContext } from '../../models/kpi-plan.model';
+import { of } from 'rxjs';
+import { EmployeeInsightState } from '../../models/appraisal-insight.model';
+
+export function employeeAiState(participantId = 7): EmployeeInsightState {
+  return { participantId, eligible: false, unavailableReason: 'DISABLED', currentInsight: null, latestAttempt: null, history: [],
+    limits: { serverTime: new Date().toISOString(), dailyAllowance: 5, remainingAttempts: 5,
+      resetAt: new Date(Date.now() + 86400000).toISOString(), cooldownUntil: null, providerRetryAt: null } };
+}
+export const unavailableEmployeeInsights = {
+  employeeState: (id: number) => of(employeeAiState(id)),
+  submitted: (appraisalId: number, submissionActivityId: number | null) => of({ appraisalId, submissionActivityId, insight: null })
+};
 
 export function clearAppraisalNavigationState() {
+  // An unfinished generation intentionally survives page return, but not another test case.
+  for (const user of ['alice', 'david']) for (const participant of [7, 8]) {
+    sessionStorage.removeItem(`ai-appraisal-employee:${user}:${participant}`);
+  }
   for (const user of ['alice', 'david']) for (const mode of ['team', 'hr']) {
     sessionStorage.removeItem(`annual-appraisal-period:${mode}:${user}`);
     sessionStorage.removeItem(`annual-appraisal-queue:${mode}:${user}`);

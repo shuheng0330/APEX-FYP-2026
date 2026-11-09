@@ -14,6 +14,7 @@ public interface AnnualKpiReviewPeriodService {
     AnnualKpiReviewPeriodDto get(Long id);
     List<AnnualKpiReviewPeriodDto> list();
     List<AnnualKpiReviewPeriodDto.RoleConfiguration> availableRoles();
+    List<com.tbm.careerpathlearning.dto.ReviewPeriodAttitudeConfigurationOption> attitudeConfigurations();
     AnnualKpiReviewPeriodDefaultsDto creationDefaults(LocalDate startDate);
     AnnualKpiReviewPeriodDto preview(AnnualKpiReviewPeriodRequest request, Long excludedPeriodId);
     void delete(Long id);

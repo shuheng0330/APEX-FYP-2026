@@ -1,0 +1,101 @@
+@if (authorised) {
+  <section class="card insight-card" aria-labelledby="ai-insight-title" [attr.aria-busy]="loading || requesting">
+    <div class="card-head">
+      <div class="insight-heading"><h3 id="ai-insight-title">{{ 'AI_INSIGHT.TITLE' | translate }}</h3><span class="status fictional">{{ 'AI_INSIGHT.FICTIONAL' | translate }}</span></div>
+      <p class="help">{{ 'AI_INSIGHT.INTRO' | translate }}</p>
+      <p class="fictional-note">{{ 'AI_INSIGHT.FICTIONAL_NOTICE' | translate }}</p>
+    </div>
+    <div class="card-body">
+      @if (loading) { <p role="status">{{ 'AI_INSIGHT.LOADING' | translate }}</p> }
+      @if (unavailable) { <p class="notice" role="status">{{ 'AI_INSIGHT.' + (message || 'UNAVAILABLE') | translate }}</p> }
+      @else {
+        <div class="insight-controls">
+          <div class="field"><label for="ai-insight-example">{{ 'AI_INSIGHT.EXAMPLE' | translate }}</label>
+            <nz-select nzId="ai-insight-example" [(ngModel)]="scenario" [nzDisabled]="loading || requesting || pending"
+              [nzPlaceHolder]="'AI_INSIGHT.SELECT' | translate">
+              @for (example of scenarios; track example.id) { <nz-option [nzValue]="example.id" [nzLabel]="example.title" /> }
+            </nz-select>
+          </div>
+          <button nz-button nzType="primary" type="button" [disabled]="!scenario || loading || requesting || pending" (click)="generate()">
+            {{ ('AI_INSIGHT.' + (current?.status === 'FAILED' ? 'TRY_AGAIN' : current?.status === 'COMPLETED' ? 'AGAIN' : 'GENERATE')) | translate }}
+          </button>
+        </div>
+        <div aria-live="polite" aria-atomic="true" class="generation-state">
+          @if (pending && !paused) { <p><span class="status">{{ 'AI_INSIGHT.GENERATING' | translate }}</span> {{ title(ticket?.scenario) }}</p> }
+          @if (current?.status === 'COMPLETED') { <p>{{ 'AI_INSIGHT.READY' | translate }}</p> }
+          @if (message) { <p>{{ 'AI_INSIGHT.' + message | translate }}</p> }
+        </div>
+        @if (paused && pending) { <button nz-button type="button" [disabled]="requesting" (click)="check()">{{ 'AI_INSIGHT.CHECK' | translate }}</button> }
+        @if (message === 'LOAD_ERROR') { <button nz-button type="button" [disabled]="loading" (click)="load()">{{ 'AI_INSIGHT.RETRY_LOAD' | translate }}</button> }
+        @if (displayed; as result) {
+          <div class="generated-heading"><strong>{{ 'AI_INSIGHT.RESULT_FOR' | translate }}: {{ title(result.scenario) }}</strong>
+            @if (result.completedAt) {
+              <span class="generated-at">{{ 'AI_INSIGHT.GENERATED' | translate }}
+                <time [attr.datetime]="result.completedAt">{{ result.completedAt | date:'dd MMM yyyy, h:mm a' }}</time>
+              </span>
+            }
+          </div>
+          @if (result.id !== current?.id || scenario !== result.scenario) { <p class="help">{{ 'AI_INSIGHT.PREVIOUS' | translate }}</p> }
+        }
+        @if (evidence; as source) {
+          <div class="score-context">
+            <p><span class="help">{{ 'AI_INSIGHT.PERIOD' | translate }}:</span> <strong>{{ source.periodName }}</strong>
+              <span class="help">({{ source.startDate | date:'d MMM yyyy' }} - {{ source.endDate | date:'d MMM yyyy' }})</span>
+            </p>
+            <p class="help">{{ (source.requiredResultsComplete ? 'AI_INSIGHT.COMPLETE' : 'AI_INSIGHT.INCOMPLETE') | translate }}</p>
+          </div>
+          <dl class="insight-scores" [attr.aria-label]="'AI_INSIGHT.SCORE_SUMMARY' | translate">
+            <div><dt>{{ 'AI_INSIGHT.KPI' | translate }}</dt>
+              <dd [class.missing-score]="source.scores.kpi == null">{{ source.scores.kpi == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (source.scores.kpi | number:'1.2-2') + '%' }}</dd>
+            </div>
+            <div><dt>{{ 'AI_INSIGHT.ATTITUDE' | translate }}</dt>
+              <dd [class.missing-score]="source.scores.attitude == null">{{ source.scores.attitude == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (source.scores.attitude | number:'1.2-2') + '%' }}</dd>
+            </div>
+            <div><dt>{{ 'AI_INSIGHT.FINAL' | translate }}</dt>
+              <dd [class.missing-score]="source.scores.finalAppraisal == null">{{ source.scores.finalAppraisal == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (source.scores.finalAppraisal | number:'1.2-2') + '%' }}</dd>
+            </div>
+          </dl>
+        }
+        @if (displayed; as result) {
+          <app-appraisal-insight-summary [summary]="result.summary" />
+        }
+        @if (evidence; as source) {
+          <div class="supporting">
+            <button id="ai-insight-support-toggle" class="text-action" type="button" [attr.aria-expanded]="supporting" aria-controls="ai-insight-evidence" (click)="supporting = !supporting">
+              {{ (supporting ? 'AI_INSIGHT.HIDE_SUPPORT' : 'AI_INSIGHT.VIEW_SUPPORT') | translate }}
+            </button>
+            @if (supporting) {
+              <div id="ai-insight-evidence" class="evidence" role="region" aria-labelledby="ai-insight-support-toggle">
+                <h4>{{ 'AI_INSIGHT.ASSESSMENT_CONTEXT' | translate }}</h4>
+                <dl class="evidence-context">
+                  <div><dt>{{ 'AI_INSIGHT.FREQUENCY' | translate }}</dt><dd>{{ 'AI_INSIGHT.FREQUENCIES.' + source.frequency | translate }}</dd></div>
+                  <div><dt>{{ 'AI_INSIGHT.CALCULATION' | translate }}</dt><dd>{{ 'AI_INSIGHT.METHODS.' + source.consolidationMethod | translate }}</dd></div>
+                  <div><dt>{{ 'AI_INSIGHT.KPI_WEIGHT' | translate }}</dt><dd>{{ source.kpiWeight | number:'1.0-2' }}%</dd></div>
+                  <div><dt>{{ 'AI_INSIGHT.ATTITUDE_WEIGHT' | translate }}</dt><dd>{{ source.attitudeWeight | number:'1.0-2' }}%</dd></div>
+                </dl>
+                <h4>{{ 'AI_INSIGHT.FACTS' | translate }}</h4>
+                <ul>@for (fact of source.facts; track fact.id) { <li><strong>{{ 'AI_INSIGHT.SCOPES.' + fact.scope | translate }}:</strong> {{ fact.text }}</li> } @empty { <li>{{ 'AI_INSIGHT.NO_FACTS' | translate }}</li> }</ul>
+                <h4>{{ 'AI_INSIGHT.HISTORY' | translate }}</h4>
+                @if (source.history.length) {
+                  <div class="table-scroll"><table class="data-table"><thead><tr>
+                    <th>{{ 'AI_INSIGHT.PERIOD' | translate }}</th><th>{{ 'AI_INSIGHT.KPI' | translate }}</th><th>{{ 'AI_INSIGHT.ATTITUDE' | translate }}</th><th>{{ 'AI_INSIGHT.FINAL' | translate }}</th>
+                  </tr></thead><tbody>@for (period of source.history; track period.id) {
+                    <tr><td>{{ period.periodName }}<span class="comparison-note">{{ (period.comparable ? 'AI_INSIGHT.COMPARABLE' : 'AI_INSIGHT.NOT_COMPARABLE') | translate }}</span>
+                      @if (period.comparisonNote) { <span class="comparison-note">{{ period.comparisonNote }}</span> }</td>
+                      <td>{{ period.scores.kpi == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (period.scores.kpi | number:'1.2-2') + '%' }}</td>
+                      <td>{{ period.scores.attitude == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (period.scores.attitude | number:'1.2-2') + '%' }}</td>
+                      <td>{{ period.scores.finalAppraisal == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (period.scores.finalAppraisal | number:'1.2-2') + '%' }}</td>
+                    </tr>
+                  }</tbody></table></div>
+                } @else { <p>{{ 'AI_INSIGHT.NO_HISTORY' | translate }}</p> }
+                <h4>{{ 'AI_INSIGHT.SOURCE_GAPS' | translate }}</h4>
+                <ul>@for (gap of source.informationGaps; track $index) { <li>{{ gap }}</li> } @empty { <li>{{ 'AI_INSIGHT.NO_GAPS' | translate }}</li> }</ul>
+              </div>
+            }
+          </div>
+        }
+      }
+      <p class="ai-disclaimer" role="note">{{ (displayed || current)?.disclaimer || ('AI_INSIGHT.DISCLAIMER' | translate) }}</p>
+    </div>
+  </section>
+}

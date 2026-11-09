@@ -1,0 +1,15 @@
+:host { display:block; min-width:0; }
+:host:not(:has(.insight-card)) { margin-top:0; }
+.employee-insight-context { margin:10px 0 0; font-size:13px; overflow-wrap:anywhere; }
+.employee-ai-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.employee-ai-actions p { margin:0; flex:1 1 250px; }
+.employee-ai-actions button { flex:0 0 auto; }
+.generation-limits { display:flex; flex-wrap:wrap; gap:6px 20px; margin:12px 0; font-size:12px; }
+.outdated-insight { padding:10px 14px; background:var(--tbm-surface-subtle); border-left:3px solid var(--tbm-primary); line-height:1.6; }
+.submitted-insight-note { margin:12px 0; }
+.insight-scores { margin-top:16px; }
+@media(max-width:600px) {
+  .employee-ai-actions { align-items:stretch; flex-direction:column; }
+  .employee-ai-actions p { flex:auto; }
+  .generation-limits { flex-direction:column; }
+}

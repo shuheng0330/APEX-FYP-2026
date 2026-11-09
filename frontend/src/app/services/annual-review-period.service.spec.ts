@@ -45,4 +45,24 @@ describe('AnnualReviewPeriodService', () => {
     api.roles().subscribe(); http.expectOne(`${base}/roles`).flush([]);
     api.delete(29).subscribe(); const deletion = http.expectOne(`${base}/29`); expect(deletion.request.method).toBe('DELETE'); deletion.flush(null);
   });
+  it('loads read-only published configuration coverage using annual management access', () => {
+    api.attitudeConfigurations().subscribe(); const request = http.expectOne(`${base}/attitude-configurations`);
+    expect(request.request.method).toBe('GET'); expect(request.request.withCredentials).toBeTrue();
+    expect(request.request.headers.get('X-Skip-Error-Handler')).toBe('true');
+    request.flush([{ id: 8, name: 'Published Attitude', publishedAt: null, coveredRoleIds: [7] }]);
+  });
+  it('checks closure read-only and closes explicitly with credentials and local error handling', () => {
+    api.closureReadiness(29).subscribe(); const check = http.expectOne(`${base}/29/closure-readiness`);
+    expect(check.request.method).toBe('GET'); expect(check.request.withCredentials).toBeTrue();
+    expect(check.request.headers.get('X-Skip-Error-Handler')).toBe('true'); check.flush({ canClose: false });
+    api.close(29).subscribe(); const close = http.expectOne(`${base}/29/close`);
+    expect(close.request.method).toBe('POST'); expect(close.request.body).toEqual({}); expect(close.request.withCredentials).toBeTrue();
+    expect(close.request.headers.get('X-Skip-Error-Handler')).toBe('true'); close.flush({ status: 'CLOSED' });
+  });
+  it('preserves the structured blocked-closure response for contextual display', () => {
+    const fresh = { reviewPeriodId: 29, status: 'OPEN', canClose: false, blockers: [] };
+    const failure = jasmine.createSpy('failure'); api.close(29).subscribe({ error: failure });
+    http.expectOne(`${base}/29/close`).flush(fresh, { status: 409, statusText: 'Conflict' });
+    expect(failure).toHaveBeenCalledWith(jasmine.objectContaining({ status: 409, error: fresh }));
+  });
 });

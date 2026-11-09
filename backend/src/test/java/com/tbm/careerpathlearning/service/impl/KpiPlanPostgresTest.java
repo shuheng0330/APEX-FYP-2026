@@ -67,6 +67,7 @@ class KpiPlanPostgresTest {
                 sql(c,new ClassPathResource("db/migration/annual-kpi/V46__central_kpi_result_foundation.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
                 for(var table:List.of("org_chart","role"))
                     sql(c,"ALTER TABLE "+schema+"."+table+" ALTER COLUMN id RESTART WITH "+(scalar(c,"SELECT coalesce(max(id),0) FROM "+table)+1));
+                sql(c,"ALTER TABLE "+schema+".annual_kpi_review_period ADD COLUMN IF NOT EXISTS closed_by UUID");
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);
                 config.setProperty("hibernate.connection.username",env.get("DB_USER"));config.setProperty("hibernate.connection.password",env.get("DB_PASS"));
                 config.setProperty("hibernate.hbm2ddl.auto","none");config.setProperty("hibernate.default_schema",schema);

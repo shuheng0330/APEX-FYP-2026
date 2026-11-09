@@ -32,6 +32,7 @@ import { NotificationTargetComponent } from '../../components/notification-bell/
   styleUrls: ['../annual-review-period/review-period.scss', './kpi-plan.scss', './kpi-central-results.component.scss']
 })
 export class KpiCentralResultsComponent implements OnInit {
+  readonly showEntrantManagement = false;
   readonly target = notificationTarget();
   private readonly destroyRef = inject(DestroyRef);
   private readonly datePipe = new DatePipe('en');

@@ -23,6 +23,7 @@ import { AnnualPerformanceTrendComponent } from './annual-performance-trend.comp
 import { AnnualAppraisalNavigationState } from './annual-appraisal-navigation-state.service';
 import { appraisalReturnComparison } from './annual-appraisal-return-comparison';
 import { performanceViewPermissions } from '../staff-performance/staff-performance-navigation';
+import { EmployeeAppraisalInsightComponent } from './employee-appraisal-insight.component';
 
 interface AppraisalDetail {
   period: KpiPeriodContext; row: AnnualAppraisalCandidate; value: AnnualAppraisal | AnnualAppraisalReadiness;
@@ -31,7 +32,7 @@ type HrDecision = 'APPROVE' | 'OVERRIDE_AND_APPROVE' | 'RETURN';
 @Component({
   selector: 'app-annual-appraisal-detail', standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NzButtonModule, NzSelectModule, NzRadioModule,
-    NzModalModule, NzDrawerModule, NzIconModule, NzPopoverModule, AnnualAppraisalPerformanceComponent, AnnualPerformanceTrendComponent],
+    NzModalModule, NzDrawerModule, NzIconModule, NzPopoverModule, AnnualAppraisalPerformanceComponent, AnnualPerformanceTrendComponent, EmployeeAppraisalInsightComponent],
   templateUrl: './annual-appraisal-detail.component.html',
   styleUrls: ['../annual-review-period/review-period.scss', '../kpi-plan/kpi-plan.scss', './annual-appraisals.component.scss', './annual-appraisal-detail.component.scss']
 })
@@ -113,13 +114,14 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   get authorised() { return this.auth.hasRole(this.hrReview ? 'CAN_REVIEW_ANNUAL_APPRAISAL' : 'CAN_SUBMIT_ANNUAL_APPRAISAL'); }
   get titleKey() { return this.hrReview ? 'ANNUAL_APPRAISAL.REVIEW_DETAIL_TITLE' : 'ANNUAL_APPRAISAL.DETAIL_TITLE'; }
   get locked() { return this.busy || this.loading || this.confirming || this.navigating; }
+  get appraisalPeriod() { return this.period?.status === 'OPEN' || this.period?.status === 'CLOSED'; }
   get readonly() {
-    return this.hrReview || this.accessChanged || !this.authorised || this.period?.status !== 'OPEN' || (this.selected
+    return this.hrReview || this.accessChanged || !this.authorised || !this.appraisalPeriod || (this.selected
       ? !this.selected.allowedActions.includes('SAVE_DRAFT') : !this.candidate);
   }
   get showRecommendationForm() {
     return !this.hrReview && (this.selected ? ['DRAFT', 'RETURNED'].includes(this.selected.status)
-      : this.period?.status === 'OPEN' && !!this.candidate);
+      : this.appraisalPeriod && !!this.candidate);
   }
   get dirty() { return !!this.candidate && (this.formSignature() !== this.savedForm || !!this.reason || this.finalDecision !== null); }
   get performance() {
@@ -131,7 +133,7 @@ export class AnnualAppraisalDetailComponent implements OnInit {
       : ['DRAFT', 'RETURNED'].includes(this.selected.status) && this.selected.recommendationOverdue);
   }
   get nextStepKey() {
-    if (this.period?.status !== 'OPEN') return 'ANNUAL_APPRAISAL.NEXT.CLOSED';
+    if (!this.appraisalPeriod) return 'ANNUAL_APPRAISAL.NEXT.CLOSED';
     if (this.accessChanged) return 'ANNUAL_APPRAISAL.NEXT.REFRESH';
     if (this.selected?.status === 'DRAFT' && this.readiness?.ready) return 'ANNUAL_APPRAISAL.NEXT.DRAFT_READY';
     return 'ANNUAL_APPRAISAL.NEXT.' + (this.selected?.status ?? (this.readiness?.ready ? 'READY' : 'NOT_READY'));
@@ -143,6 +145,10 @@ export class AnnualAppraisalDetailComponent implements OnInit {
   get canStartSubmit() { return !this.readonly && !this.locked && this.readiness?.ready === true; }
   get showHrDecisions() { return this.hrReview && this.selected?.status === 'PENDING_REVIEW'; }
   get returnComparison() { return this.hrReview ? appraisalReturnComparison(this.selected) : null; }
+  get submittedActivityId() {
+    return this.selected?.activity.filter(e => e.action === 'SUBMITTED' || e.action === 'RESUBMITTED')
+      .reduce<number | null>((id, event) => id === null || event.id > id ? event.id : id, null) ?? null;
+  }
   canReview(action: HrDecision) { return this.authorised && this.showHrDecisions && this.can(action); }
   get hasHrActions() { return this.hrActions.some(action => this.canReview(action)); }
   get displayedBlockers() {

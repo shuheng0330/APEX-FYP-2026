@@ -185,6 +185,12 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
 
     @Override
     @Transactional(readOnly = true)
+    public List<ReviewPeriodAttitudeConfigurationOption> attitudeConfigurations() {
+        return attitudeBinding.publishedOptions();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AnnualKpiReviewPeriodDto preview(AnnualKpiReviewPeriodRequest request, Long excludedPeriodId) {
         AnnualKpiReviewPeriod period = new AnnualKpiReviewPeriod();
         period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
@@ -196,6 +202,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             period.setStatus(existing.getStatus());
             period.setFrequencyPolicy(existing.getFrequencyPolicy());
             period.setAssessmentModel(existing.getAssessmentModel());
+            period.setAttitudeConfiguration(existing.getAttitudeConfiguration());
             period.setDepartmentConfigurations(existing.getDepartmentConfigurations().stream().map(source -> {
                 var copy = new ReviewPeriodDepartmentConfiguration(); copy.setReviewPeriod(period);
                 copy.setDepartment(source.getDepartment()); copy.setDepartmentName(source.getDepartmentName());
@@ -264,6 +271,7 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
         }
         mapper.updateConfiguration(request, period);
         if (period.getStatus() == AnnualKpiReviewPeriodStatus.DRAFT) {
+            period.setAttitudeConfiguration(attitudeBinding.published(request.getAttitudeConfigurationId()));
             if (request.getFrequencyPolicy() == KpiFrequencyPolicy.DEPARTMENT_BASED)
                 period.setAssessmentModel(KpiAssessmentModel.CENTRAL_RESULTS);
             departmentSchedules.apply(period, request);
@@ -339,6 +347,8 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
             }
             if (selected.isEmpty()) throw new BadRequestException("At least one applicable role is required before publishing");
             if (overlaps(period)) throw new BadRequestException("Dates overlap an Upcoming or Open Annual KPI Review Period");
+            // Only Draft publication pins coverage; legacy published assignments are not repaired here.
+            if (period.getStatus() == AnnualKpiReviewPeriodStatus.DRAFT) attitudeBinding.requireCoverage(period, selected);
         }
     }
 
@@ -427,6 +437,9 @@ public class AnnualKpiReviewPeriodServiceImpl implements AnnualKpiReviewPeriodSe
 
     private void requireFrozenConfiguration(AnnualKpiReviewPeriod period, AnnualKpiReviewPeriodRequest request) {
         if (request == null) throw new BadRequestException("Review period configuration is required");
+        Long assigned = period.getAttitudeConfiguration() == null ? null : period.getAttitudeConfiguration().getId();
+        if (request.getAttitudeConfigurationId() != null && !Objects.equals(assigned, request.getAttitudeConfigurationId()))
+            throw new BadRequestException("The Attitude Evaluation configuration is frozen after Review Period publication");
         departmentSchedules.requireUnchanged(period, request);
         var selected = configurations.findAllByReviewPeriodIdOrderByIdAsc(period.getId());
         var requested = request.getRoleConfigurations();

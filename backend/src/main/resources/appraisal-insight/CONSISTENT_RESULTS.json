@@ -1,0 +1,14 @@
+{
+  "periodName": "Fictional 2025 Annual Review", "startDate": "2025-01-01", "endDate": "2025-12-31",
+  "requiredResultsComplete": true, "frequency": "QUARTERLY", "consolidationMethod": "AVERAGE",
+  "kpiWeight": 50, "attitudeWeight": 50, "scores": {"kpi": 87, "attitude": 80, "finalAppraisal": 83.50},
+  "facts": [
+    {"id": "A2", "scope": "LEVEL_RESULTS", "text": "Company 80%, Department 80%, Individual 90%. Allocation: Company 15%, Department 15%, Individual 70%. Two equally weighted Individual KPIs have Superior points 5/5 and 4/5. Three Attitude criteria have Superior points 4/5, meaning Meets expectation in this fictional configuration."},
+    {"id": "A4", "scope": "DEPARTMENT", "text": "The Department records four handover guides and a reusable checklist. This is shared Department evidence, not proof of this employee's sole contribution."}
+  ],
+  "history": [
+    {"id": "A3A", "periodName": "Fictional 2023 Annual Review", "startDate": "2023-01-01", "endDate": "2023-12-31", "scores": {"kpi": null, "attitude": null, "finalAppraisal": 79}, "comparable": true, "comparisonNote": "Comparable annual period and scoring configuration."},
+    {"id": "A3B", "periodName": "Fictional 2024 Annual Review", "startDate": "2024-01-01", "endDate": "2024-12-31", "scores": {"kpi": null, "attitude": null, "finalAppraisal": 82}, "comparable": true, "comparisonNote": "Comparable annual period and scoring configuration."}
+  ],
+  "informationGaps": ["No assessment of higher-role responsibilities.", "No applicable company promotion or pay criteria."]
+}

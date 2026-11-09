@@ -1,5 +1,11 @@
-import { AnnualReviewPeriod, AnnualReviewPeriodRequest } from '../../models/annual-review-period.model';
+import { AnnualReviewPeriod, AnnualReviewPeriodRequest, ReviewPeriodClosure } from '../../models/annual-review-period.model';
 import { EmployeeLevel } from '../../models/role.model';
+
+export function closureReadiness(patch: Partial<ReviewPeriodClosure> = {}): ReviewPeriodClosure {
+  return { reviewPeriodId: 29, status: 'OPEN', canClose: true, earliestCloseDate: '2029-01-01', checkedAt: '2029-01-02T04:00:00Z',
+    closedAt: null, closedByName: null, totalEmployees: 2, completedEmployees: 2,
+    kpiReviews: { required: 8, completed: 8 }, attitudeEvaluations: { required: 2, completed: 2 }, blockers: [], ...patch };
+}
 
 export const reviewLevels: EmployeeLevel[] = ['Top Management', 'Middle Management', 'Junior Management', 'Executive', 'Admin', 'General'].map((name, index) => ({
   id: index + 1, code: `LEVEL_${index + 1}`, name, displayOrder: index + 1,
@@ -9,6 +15,7 @@ export const reviewLevels: EmployeeLevel[] = ['Top Management', 'Middle Manageme
 export function validReviewRequest(): AnnualReviewPeriodRequest {
   return {
     name: '2028 Annual KPI Review', startDate: '2028-01-01', endDate: '2028-12-31',
+    attitudeConfigurationId: 8,
     employeeLevelConfigurations: reviewLevels.map(level => ({ employeeLevelId: level.id, employeeLevelName: level.name,
       companyKpiWeight: 15, departmentKpiWeight: 25, individualKpiWeight: 60 })),
     roleConfigurations: [{ roleId: 7, reviewFrequency: 'MONTHLY' }],
@@ -22,7 +29,7 @@ export function validReviewRequest(): AnnualReviewPeriodRequest {
 
 export function savedReview(): AnnualReviewPeriod {
   const request = validReviewRequest();
-  return { ...request, id: 29, referenceNumber: 'review-reference', status: 'UPCOMING',
+  return { ...request, attitudeConfigurationName: 'Published Attitude', id: 29, referenceNumber: 'review-reference', status: 'UPCOMING',
     employeeLevelConfigurations: request.employeeLevelConfigurations ?? [],
     roleConfigurations: [{ roleId: 7, roleName: 'Retail Sales Executive', departmentId: 10, departmentName: 'Sales', reviewFrequency: 'MONTHLY', employeeLevelId: 4, employeeLevelName: 'Executive' }],
     checkpoints: [{ id: 1, reviewFrequency: 'MONTHLY', sequenceNumber: 1, startDate: '2028-01-01', endDate: '2028-01-31', selfAssessmentDeadline: '2028-02-05', superiorAssessmentDeadline: '2028-02-10' }],

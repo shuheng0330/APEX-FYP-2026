@@ -135,6 +135,7 @@ class AttitudeAssessmentPostgresTest {
                     sql(c,new ClassPathResource("db/migration/annual-kpi/V47__attitude_self_assessment_opening_date.sql").getContentAsString(StandardCharsets.UTF_8));
                 sql(c,"ALTER TABLE annual_kpi_review_period ADD COLUMN IF NOT EXISTS kpi_amendments_enabled boolean NOT NULL DEFAULT false, "
                     +"ADD COLUMN IF NOT EXISTS kpi_amendments_close_date date, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_at timestamptz, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_by uuid");
+                sql(c,"ALTER TABLE "+schema+".annual_kpi_review_period ADD COLUMN IF NOT EXISTS closed_by UUID");
                 var config=new Configuration();config.setProperty("hibernate.connection.url",env.get("DB_URL"));
                 config.setProperty("hibernate.connection.username",env.get("DB_USER"));config.setProperty("hibernate.connection.password",env.get("DB_PASS"));
                 config.setProperty("hibernate.hbm2ddl.auto","none");config.setProperty("hibernate.default_schema",schema);

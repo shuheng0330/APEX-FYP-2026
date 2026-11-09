@@ -1,6 +1,7 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -24,6 +25,10 @@ import { AttitudeConfigurationService } from '../../services/attitude-configurat
 export class AttitudeConfigurationComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
+  private readonly route = inject(ActivatedRoute);
+  private linkedPeriodId: number | null = null;
+  private linkedConfigurationId: number | null = null;
+  private reviewPeriodLinked = false;
   editions: AttitudeConfiguration[] = [];
   options: AttitudeConfigurationOptions = { formats: [], roles: [], reviewPeriods: [] };
   selected: AttitudeConfiguration | null = null;
@@ -62,15 +67,35 @@ export class AttitudeConfigurationComponent implements OnInit {
   bindingError = '';
   bindingSuccess = '';
   private readonly periodSelection = new Subject<number | null>();
+  get contextListed() { return this.options.reviewPeriods.some(p => p.id === this.periodId); }
+  get draftContext() { return this.periodContext?.reviewPeriodStatus === 'DRAFT' ? this.periodContext : null; }
+  get draftConfiguration() {
+    return this.draftContext ? this.editions.find(c => c.id === this.linkedConfigurationId && c.status === 'PUBLISHED')
+      ?? this.draftContext.configuration : null;
+  }
+  get unsavedDraftSelection() { return !!this.draftConfiguration && this.draftConfiguration.id !== this.draftContext?.configuration?.id; }
+  get verifiedDraftMissingRoles() { return this.draftConfiguration && !this.unsavedDraftSelection ? this.draftContext?.unmappedRoleNames ?? [] : []; }
 
   constructor(private api: AttitudeConfigurationService, private translate: TranslateService, private modal: NzModalService) {
     inject(NzIconService).addIcon(WarningOutline, CheckCircleOutline);
     this.periodSelection.pipe(switchMap(id => {
-      this.periodContext = null; this.bindingError = ''; this.bindingSuccess = ''; this.bindingBusy = id !== null;
+      this.periodContext = null;
+      this.bindingError = ''; this.bindingSuccess = ''; this.bindingBusy = id !== null;
       return id === null ? of(null) : this.api.period(id).pipe(
         catchError(e => { this.bindingError = this.errorMessage(e); return of(null); }),
         finalize(() => this.bindingBusy = false));
-    }), takeUntilDestroyed(this.destroyRef)).subscribe(context => this.periodContext = context);
+    }), takeUntilDestroyed(this.destroyRef)).subscribe(context => {
+      if (context && context.reviewPeriodId !== this.periodId) {
+        this.bindingError = this.translate.instant('ATTITUDE_SETUP.CONTEXT_UNAVAILABLE'); return;
+      }
+      this.periodContext = context;
+      if (context?.reviewPeriodId === this.linkedPeriodId) {
+        this.linkedPeriodId = null;
+        const draftSelection = context.reviewPeriodStatus === 'DRAFT'
+          ? this.editions.find(c => c.id === this.linkedConfigurationId && c.status === 'PUBLISHED') : null;
+        if (!this.dirty && (draftSelection || context.configuration)) this.accept(draftSelection ?? context.configuration);
+      }
+    });
   }
 
   ngOnInit() {
@@ -80,13 +105,33 @@ export class AttitudeConfigurationComponent implements OnInit {
         next: result => {
           this.editions = result.editions; this.options = result.options;
           this.selectedFormat = this.options.formats[0] ?? 'MANAGER';
-          this.accept(result.editions[0] ?? null); this.loaded = true;
+          const params = this.route.snapshot.queryParamMap;
+          const positiveId = (value: string | null) => value && /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+          const periodId = positiveId(params.get('reviewPeriodId'));
+          const configurationId = positiveId(params.get('configurationId'));
+          const linked = configurationId === null ? null : this.editions.find(c => c.id === configurationId && c.status === 'PUBLISHED');
+          const invalid = (params.has('reviewPeriodId') && periodId === null) || (params.has('configurationId') && configurationId === null);
+          const contextual = params.has('reviewPeriodId') || params.has('configurationId');
+          this.reviewPeriodLinked = !invalid && (!!periodId || !!linked);
+          this.linkedConfigurationId = linked?.id ?? null;
+          this.accept(!invalid && linked ? linked : contextual ? null : result.editions[0] ?? null); this.loaded = true;
           this.bindingConfigurationId = this.publishedEditions[0]?.id ?? null;
-          this.loadPeriod(this.options.reviewPeriods[0]?.id ?? null);
+          if (invalid || (!periodId && configurationId && !linked)) {
+            this.loadPeriod(null); this.bindingError = this.translate.instant('ATTITUDE_SETUP.CONTEXT_UNAVAILABLE');
+          } else if (periodId) {
+            this.linkedPeriodId = periodId; this.loadPeriod(periodId);
+          } else this.loadPeriod(configurationId ? null : this.options.reviewPeriods[0]?.id ?? null);
         }, error: e => this.fail(e)
       });
   }
   get readonly() { return this.selected?.status === 'PUBLISHED'; }
+  get editionNotice() {
+    if (this.selected && this.selected.id === this.periodContext?.configuration?.id)
+      return this.periodContext.reviewPeriodStatus === 'DRAFT' ? 'ATTITUDE_SETUP.VIEWING_SAVED_DRAFT_SELECTION' : 'ATTITUDE_SETUP.VIEWING_ASSIGNED';
+    if (this.selected?.status === 'PUBLISHED' && this.periodContext?.reviewPeriodStatus === 'DRAFT' && this.selected.id === this.linkedConfigurationId)
+      return 'ATTITUDE_SETUP.VIEWING_DRAFT_SELECTION';
+    return 'ATTITUDE_SETUP.VIEWING_EDITION';
+  }
   get dirty() { return !this.readonly && JSON.stringify(this.payload()) !== this.saved; }
   get issues() { return attitudePublicationIssues(this.form, this.options); }
   get roleOptions(): AttitudeRoleOption[] {
@@ -117,6 +162,12 @@ export class AttitudeConfigurationComponent implements OnInit {
     if (this.busy || this.editorMode || id === this.selected?.id) { this.selectionId = this.selected?.id ?? null; return; }
     if (!await this.canLeave()) { this.selectionId = this.selected?.id ?? null; return; }
     this.accept(this.editions.find(c => c.id === id) ?? null); this.error = ''; this.success = '';
+  }
+  viewAssignedConfiguration() {
+    const configuration = this.periodContext?.configuration;
+    if (!configuration || this.busy || this.bindingBusy) return;
+    if (!this.editions.some(c => c.id === configuration.id)) this.editions.push(configuration);
+    void this.selectEdition(configuration.id);
   }
   canLeave(): boolean | Promise<boolean> {
     if (this.busy || this.bindingBusy) return false;
@@ -165,7 +216,8 @@ export class AttitudeConfigurationComponent implements OnInit {
     save.pipe(tap(edition => this.remember(edition)),
       switchMap(edition => publish ? this.api.publish(edition.id) : of(edition)),
       finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: edition => { this.remember(edition); this.draftValidation = !publish; this.success = this.translate.instant(`ATTITUDE_SETUP.${publish ? 'PUBLISHED_SUCCESS' : 'SAVED'}`); },
+        next: edition => { this.remember(edition); this.draftValidation = !publish;
+          this.success = this.translate.instant(`ATTITUDE_SETUP.${publish ? this.reviewPeriodLinked ? 'PUBLISHED_RETURN' : 'PUBLISHED_SUCCESS' : 'SAVED'}`); },
         error: e => this.fail(e)
       });
   }
@@ -180,7 +232,7 @@ export class AttitudeConfigurationComponent implements OnInit {
     if (!this.readonly || !this.selected || this.busy) return;
     this.busy = true; this.error = ''; this.success = '';
     this.api.copy(this.selected.id).pipe(finalize(() => this.busy = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: edition => { this.remember(edition); this.success = this.translate.instant('ATTITUDE_SETUP.COPIED'); }, error: e => this.fail(e)
+      next: edition => { this.remember(edition); this.success = this.translate.instant('ATTITUDE_SETUP.COPIED'); this.focusSection('details'); }, error: e => this.fail(e)
     });
   }
   openCriterion(criterion: AttitudeCriterion | null, format: AttitudeFormat | null, view = false) {

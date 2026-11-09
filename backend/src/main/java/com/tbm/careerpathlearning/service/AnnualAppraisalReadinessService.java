@@ -35,6 +35,7 @@ public class AnnualAppraisalReadinessService {
         }
     }
 
+    @Transactional(readOnly=true,noRollbackFor=com.tbm.careerpathlearning.exception.BadRequestException.class)
     public AnnualAppraisalReadinessDto evaluate(ReviewPeriodParticipant participant) {
         var period=participant.getReviewPeriod();
         List<String> blockers=new ArrayList<>();
@@ -57,8 +58,8 @@ public class AnnualAppraisalReadinessService {
                 if(!pending.isEmpty()) {
                     blockers.add("Waiting for "+pending+" KPI results for "+label);score=null;
                 }
-                breakdown=aggregates.breakdown(assessment);
-            } else if(reviewed) breakdown=legacyBreakdown(assessment);
+                breakdown=checkpointBreakdown(assessment);
+            } else if(reviewed) breakdown=checkpointBreakdown(assessment);
             if(reviewed && !validScore(score)) blockers.add("Checkpoint KPI Score is unavailable for "+label);
             var bindings=assessment==null?List.<AnnualAppraisalSnapshotDto.Version>of():assessment.getPlanVersions().stream()
                     .sorted(Comparator.comparing(KpiAssessmentPlanVersion::getLevel))
@@ -88,6 +89,13 @@ public class AnnualAppraisalReadinessService {
                 participant.getReviewFrequency(),period.getAnnualKpiConsolidationMethod(),kpiWeight,attitudeWeight,
                 annualKpi,attitudeScore,finalScore,List.copyOf(sources),attitudeSource);
         return new AnnualAppraisalReadinessDto(blockers.isEmpty(),List.copyOf(blockers),snapshot);
+    }
+
+    /** Independent read lets closure report other completed checkpoints when one source is unavailable. */
+    @Transactional(readOnly=true,noRollbackFor=com.tbm.careerpathlearning.exception.BadRequestException.class)
+    public KpiScoreBreakdownDto checkpointBreakdown(KpiAssessment assessment) {
+        return assessment.getAssessmentModel()==KpiAssessmentModel.CENTRAL_RESULTS
+                ?aggregates.breakdown(assessment):legacyBreakdown(assessment);
     }
 
     private KpiScoreBreakdownDto legacyBreakdown(KpiAssessment assessment) {

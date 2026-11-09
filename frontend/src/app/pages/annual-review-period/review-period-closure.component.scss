@@ -1,0 +1,41 @@
+.closure-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.closure-heading > div:first-child { min-width: 0; }
+.closure-heading .actions { flex-shrink: 0; }
+.closure-state { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 18px; }
+.closure-state .help { margin: 0; }
+.closure-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
+.closure-counts > div { display: flex; flex-direction: column; min-width: 0; }
+.closure-counts dt { flex: 1; color: var(--tbm-muted); font-size: 13px; margin-bottom: 4px; }
+.closure-counts dd { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; margin: 0; }
+.closure-counts dd strong { color: var(--tbm-text); font-size: 26px; font-weight: 700; }
+.closure-counts dd span { color: var(--tbm-muted); font-size: 16px; }
+.closure-counts > div + div { border-left: 1px solid var(--tbm-border); padding-left: 24px; }
+.closure-toggle { padding-left: 0; margin-top: 12px; }
+.closure-requirements h4 { font-size: 14px; font-weight: 700; margin: 0; }
+.period-requirement-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.period-requirement-list li { padding: 12px 0; border-top: 1px solid var(--tbm-border); overflow-wrap: anywhere; }
+.period-requirement-list li:first-child { border-top: 0; padding-top: 0; }
+.period-requirement-list strong { font-size: 13px; }
+.configuration-link { padding-left: 0; }
+.attitude-coverage-summary { margin-top: 12px; overflow-wrap: anywhere; }
+.attitude-coverage-summary p { margin-bottom: 8px; }
+.attitude-coverage-summary ul { padding-left: 20px; }
+.attitude-setup-link { padding-left: 0; white-space: normal; height: auto; text-align: left; }
+.period-requirements + .employee-requirements { margin-top: 20px; }
+.employee-requirements-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; padding: 0 0 12px; }
+.employee-requirements-heading .help { margin: 0; }
+.closure-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 0 0; }
+.closure-pagination > * { max-width: 100%; }
+.closure-table { table-layout: fixed; min-width: 600px; }
+.closure-table th:first-child { width: 50%; }
+.closure-table td { vertical-align: top; overflow-wrap: anywhere; }
+.closure-message { white-space: pre-line; }
+.closure-check-time { margin-top: 16px; }
+.closure .error-box { margin-top: 16px; margin-bottom: 0; }
+@media (max-width: 900px) { .closure-heading { flex-direction: column; } }
+@media (max-width: 600px) {
+  .closure-counts { grid-template-columns: 1fr; gap: 14px; }
+  .closure-counts > div + div { border-left: 0; padding-left: 0; }
+  .closure-heading { padding: 16px; }
+  .closure-heading .actions { width: 100%; flex-shrink: 1; }
+}
