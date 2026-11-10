@@ -108,6 +108,16 @@ export class SopQuizReviewComponent implements OnInit {
     { value: 'TRUE_FALSE', label: 'True / False' },
     { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank' }
   ];
+  /** True while editing a question saved as fill-in-the-blank before that type was dropped. */
+  private editingFillIn = false;
+
+  /**
+   * The types the question form offers: Multiple choice and True/False (FR-08-01).
+   * An older fill-in-the-blank question keeps its own type while it's edited.
+   */
+  get typeChoices(): { value: QuizQuestionType; label: string }[] {
+    return this.types.filter(t => t.value !== 'FILL_IN_THE_BLANK' || this.editingFillIn);
+  }
 
   readonly optionLabel = courseOptionLabel;
   /** After a change moved to a new draft, the module to open there. */
@@ -464,6 +474,7 @@ export class SopQuizReviewComponent implements OnInit {
     const options = q.questionType === 'FILL_IN_THE_BLANK' ? [] : [...q.options];
     this.adding = false;
     this.editingId = q.id;
+    this.editingFillIn = q.questionType === 'FILL_IN_THE_BLANK';
     this.draft = {
       questionType: q.questionType,
       questionText: q.questionText,
@@ -478,6 +489,7 @@ export class SopQuizReviewComponent implements OnInit {
   cancelEdit(): void {
     this.editingId = null;
     this.adding = false;
+    this.editingFillIn = false;
     this.draft = null;
   }
 

@@ -265,7 +265,7 @@
       <div class="field-row">
         <div class="field">Type
           <nz-select [(ngModel)]="d.questionType" (ngModelChange)="onTypeChange($event)" aria-label="Question type">
-            @for (t of types; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }
+            @for (t of typeChoices; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }
           </nz-select>
         </div>
         <div class="field">Difficulty

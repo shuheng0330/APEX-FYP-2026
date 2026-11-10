@@ -76,6 +76,10 @@ import java.util.stream.Collectors;
 @Service
 public class SopServiceImpl implements SopService {
 
+    /** FR-08-01: quizzes use Multiple choice and True/False only. */
+    static final String NEW_FILL_IN_REFUSED = "New questions must be Multiple choice or True/False.";
+    static final String CHANGE_TO_FILL_IN_REFUSED = "A question can't be changed to Fill in the blank. Use Multiple choice or True/False.";
+
     @Autowired private CourseCategoryService courseCategoryService;
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
@@ -355,6 +359,9 @@ public class SopServiceImpl implements SopService {
                 .orElseThrow(() -> new BadRequestException("Quiz question not found."));
         SopModule module = editableModule(q.getSopModuleId(), viewer);
         validateQuestion(dto);
+        if (dto.getQuestionType() == QuizQuestionType.FILL_IN_THE_BLANK && q.getQuestionType() != QuizQuestionType.FILL_IN_THE_BLANK) {
+            throw new BadRequestException(CHANGE_TO_FILL_IN_REFUSED); // FR-08-01: older fill-in questions can still be edited
+        }
         Target target = changeTarget(module, viewer, "a question in module " + module.getModuleOrder() + "'s quiz was edited");
         if (target.copy() != null) {
             q = sopQuizQuestionRepository.findById(target.copy().questionIds().get(questionId)).orElseThrow();
@@ -382,6 +389,9 @@ public class SopServiceImpl implements SopService {
     public SopQuizQuestionDto addQuestion(Long moduleId, SopQuizQuestionDto dto, SopViewer viewer) {
         SopModule module = editableModule(moduleId, viewer);
         validateQuestion(dto);
+        if (dto.getQuestionType() == QuizQuestionType.FILL_IN_THE_BLANK) {
+            throw new BadRequestException(NEW_FILL_IN_REFUSED); // FR-08-01
+        }
         Long target = changeTarget(module, viewer, "a question was added to module " + module.getModuleOrder() + "'s quiz")
                 .module().getId();
         OffsetDateTime now = OffsetDateTime.now(clock);
