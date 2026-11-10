@@ -12,7 +12,9 @@ backend/target/
 backend/source/
 backend/.env
 backend/.env.*
-backend/src/test/resources
+backend/src/test/resources/*
+# The shared H2 test settings are tracked; generated files (e.g. temp-uploads) stay ignored.
+!backend/src/test/resources/application-test.yml
 backend/docs
 backend/uploads/
 

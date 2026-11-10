@@ -73,6 +73,9 @@ public class CompetencyAssignmentCollaborationIntegrationTest {
     @Autowired
     private ProposalParticipantRepository proposalParticipantRepository;
 
+    @Autowired
+    private EmployeeLevelRepository employeeLevelRepository;
+
     @MockitoBean
     private EmailService emailService;
 
@@ -240,6 +243,7 @@ public class CompetencyAssignmentCollaborationIntegrationTest {
         Role r = new Role();
         r.setName(name);
         r.setOrgChart(oc);
+        r.setEmployeeLevel(TestEmployeeLevels.findOrCreate(employeeLevelRepository));
         r.setDeleted(false);
         r.setCreatedAt(OffsetDateTime.now());
         r.setUpdatedAt(OffsetDateTime.now());

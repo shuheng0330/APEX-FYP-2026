@@ -1,0 +1,30 @@
+# Shared settings for the "test" profile (the Spring integration tests under src/test/java/.../integration).
+# Those tests call deleteAll() in their setup, so they run on a throwaway in-memory H2 database, never the
+# PostgreSQL database named in backend/.env. No credentials belong in this file.
+# The opt-in PostgreSQL tests (APEX_PHASE*_POSTGRES_TEST) do not use this profile; they connect with backend/.env.
+spring:
+  datasource:
+    url: jdbc:h2:mem:apex_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+
+# The training schema patches are PostgreSQL scripts; tests never send email or run the daily jobs.
+training:
+  schema-patches:
+    enabled: false
+  notifications:
+    email-enabled: false
+  daily-jobs:
+    enabled: false
+  generation:
+    resume-on-startup: false
+
+# The annual KPI period scheduler takes a PostgreSQL advisory lock, which H2 does not have.
+annual-kpi:
+  review-period-scheduler:
+    enabled: false
