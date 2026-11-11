@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { isHiddenPermission, permissionPresentation } from '../../../components/permission-selector/permission-presentation';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Title } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
@@ -73,6 +74,9 @@ export class AccessControlOverviewComponent implements OnInit {
   confirmModal?: NzModalRef;
 
   translatedAuthorityList: TranslatedAuthority[] = [];
+  get displayedAuthorities(): TranslatedAuthority[] {
+    return this.translatedAuthorityList.filter(permission => !isHiddenPermission(permission));
+  }
   orgChartRoleAuthorityMapList: OrgChartRoleAuthorityMap[] = [];
   flattenedRoleList: any[] = [];
   listOfCurrentPageData: readonly any[] = [];
@@ -132,7 +136,8 @@ export class AccessControlOverviewComponent implements OnInit {
   fetchAccessControlOverview(): void {
     this.authorityService.getStaffAccessControlOverview().subscribe({
       next: (overview) => {
-        this.translatedAuthorityList = overview.permissions.sort((a, b) => a.id! - b.id!);
+        this.translatedAuthorityList = overview.permissions.map(permission => permissionPresentation(permission, this.translateService))
+          .sort((a, b) => a.id! - b.id!);
         this.orgChartRoleAuthorityMapList = overview.departments;
 
         this.flattenedRoleList = this.orgChartRoleAuthorityMapList.flatMap(
@@ -174,7 +179,7 @@ export class AccessControlOverviewComponent implements OnInit {
 
       let matchingAuthorityIds: number[] = [];
       if (this.searchField === 0 || this.searchField === 3) {
-        matchingAuthorityIds = this.translatedAuthorityList
+        matchingAuthorityIds = this.displayedAuthorities
           .filter(auth => auth.label.toLowerCase().includes(searchVal))
           .map(auth => auth.id!);
       }

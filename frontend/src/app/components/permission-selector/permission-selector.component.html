@@ -1,0 +1,30 @@
+<p class="role-impact">{{ 'ACCESS_PERMISSIONS.ROLE_IMPACT' | translate }}</p>
+@if (hasHiddenGrants) { <p class="role-impact legacy-notice">{{ 'ACCESS_PERMISSIONS.LEGACY_PRESERVED' | translate }}</p> }
+<div class="selector-toolbar">
+  <input nz-input type="search" [attr.aria-label]="'ACCESS_PERMISSIONS.SEARCH' | translate"
+    [placeholder]="'ACCESS_PERMISSIONS.SEARCH' | translate" [(ngModel)]="query"
+    [ngModelOptions]="{standalone: true}" [disabled]="disabled" />
+  <span class="selection-total" aria-live="polite">{{ 'ACCESS_PERMISSIONS.TOTAL' | translate: {selected: visibleSelectedCount} }}</span>
+</div>
+<nz-collapse>
+  @for (group of groups; track group) {
+    @if (visible(group).length) {
+      <nz-collapse-panel [nzHeader]="header" [nzActive]="!!query.trim() || expanded.has(group)"
+        (nzActiveChange)="setExpanded(group, $event)">
+        <ng-template #header>
+          <span class="group-heading">{{ 'ACCESS_PERMISSIONS.GROUPS.' + group | translate }}</span>
+          <span class="group-count">{{ 'ACCESS_PERMISSIONS.COUNT' | translate: {selected: count(group), total: members(group).length} }}</span>
+        </ng-template>
+        @for (permission of visible(group); track permission.id) {
+          <label nz-checkbox class="permission-option" [ngModel]="selected(permission)"
+            [ngModelOptions]="{standalone: true}" (ngModelChange)="toggle(permission, $event)"
+            [nzDisabled]="disabled || permission.id === undefined">
+            <span class="permission-label">{{ permission.label }}</span>
+            <span class="permission-description">{{ permission.description }}</span>
+          </label>
+        }
+      </nz-collapse-panel>
+    }
+  }
+</nz-collapse>
+@if (!hasMatches) { <p class="empty-state" role="status">{{ 'ACCESS_PERMISSIONS.EMPTY' | translate }}</p> }

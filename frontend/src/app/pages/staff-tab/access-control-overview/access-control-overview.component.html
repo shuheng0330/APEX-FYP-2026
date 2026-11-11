@@ -110,7 +110,7 @@
                 <td>
                     <span><b>{{row.roleName}}</b></span>
                     <div class="sub-info">
-                        @for (translatedAuthority of translatedAuthorityList; track translatedAuthority; let i = $index)
+                        @for (translatedAuthority of displayedAuthorities; track translatedAuthority; let i = $index)
                         {
                         <nz-tag nz-tooltip [nzColor]="colorCodes[i % colorCodes.length]"
                             *ngIf="row.authorityMap[translatedAuthority.id!]"
