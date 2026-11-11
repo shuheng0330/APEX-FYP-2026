@@ -36,6 +36,7 @@ public class AnnualKpiReviewPeriodDto {
     private OffsetDateTime updatedAt;
     private OffsetDateTime openedAt;
     private OffsetDateTime closedAt;
+    private String closedByName;
     private OffsetDateTime participantsSnapshottedAt;
     private Long attitudeConfigurationId;
     private String attitudeConfigurationName;

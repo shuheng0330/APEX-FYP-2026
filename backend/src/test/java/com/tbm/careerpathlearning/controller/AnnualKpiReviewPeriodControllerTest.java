@@ -62,7 +62,7 @@ class AnnualKpiReviewPeriodControllerTest {
         when(messageSource.getMessage(anyString(), any(), any(Locale.class))).thenReturn("Forbidden");
         var legacyAdmin = new UsernamePasswordAuthenticationToken(actor, null,
                 List.of(new SimpleGrantedAuthority("CAN_MANAGE_EVALUATION_CYCLE")));
-        for (String route : List.of("", "/1", "/roles")) {
+        for (String route : List.of("", "/1", "/roles", "/attitude-configurations")) {
             mvc.perform(get(BASE + route).with(authentication(legacyAdmin))).andExpect(status().isForbidden());
         }
         for (String route : List.of("", "/preview")) {
@@ -124,6 +124,24 @@ class AnnualKpiReviewPeriodControllerTest {
     @Test
     void anonymousIsUnauthorised() throws Exception {
         mvc.perform(get(BASE)).andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
+
+    @Test void publishedCoverageChoicesUseAnnualManagementPermissionWithoutGrantingSetupAuthority() throws Exception {
+        when(service.attitudeConfigurations()).thenReturn(List.of(new com.tbm.careerpathlearning.dto.ReviewPeriodAttitudeConfigurationOption(
+                8L,"Published Format",null,List.of(1L,2L))));
+        mvc.perform(get(BASE+"/attitude-configurations").with(authentication(admin())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].coveredRoleIds[1]").value(2));
+        mvc.perform(get(BASE+"/attitude-configurations")).andExpect(status().isUnauthorized());
+    }
+
+    @Test void publishedSelectionIsAcceptedAndInvalidIdsAreRejectedBeforeService() throws Exception {
+        mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attitudeConfigurationId\":8}")).andExpect(status().isCreated());
+        verify(service).create(argThat(r->Long.valueOf(8).equals(r.getAttitudeConfigurationId())),eq(false),eq(actor));
+        clearInvocations(service);
+        mvc.perform(post(BASE).with(authentication(admin())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attitudeConfigurationId\":-1}")).andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
 

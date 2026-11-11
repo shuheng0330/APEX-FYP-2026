@@ -10,8 +10,10 @@ database. No database switch, reset, application rebuild, commit or push.
   Sign out and back in to refresh the navigation permissions.
 - Employees: `uat.central.monthly@example.test`,
   `uat.central.quarterly@example.test`, `uat.central.annually@example.test`.
-- Passwords are unchanged. No employee, MD or Superior permissions were added.
-  Superior Attitude review still requires its existing review authority.
+- `uat.central.superior@example.test`: existing KPI review permissions plus
+  `CAN_REVIEW_ATTITUDE_EVALUATION`, explicitly granted on 16 October for the
+  submitted Attitude assessment review. Sign out and back in to refresh the tabs.
+- Passwords are unchanged. No employee or MD permissions were added.
 
 The grant is limited to the dedicated, unshared `UAT Central Setup` Role.
 `tools/CentralKpiResultsUat.java enable-attitude-setup http://localhost:8081`
@@ -19,6 +21,10 @@ verifies the marked UAT database, takes a backup, grants only the existing setup
 authority, and checks the original development-data fingerprints. Its backup
 location and grant record are under `target/central-kpi-uat/attitude-setup-grant.json`.
 This command does not create configurations or periods and is not loaded by Spring.
+`enable-attitude-review` applies the same guarded process to the dedicated,
+unshared `UAT Central Superior` Role. It additionally verifies that Attitude
+assessments and answers have not changed. Its grant record is
+`target/central-kpi-uat/attitude-superior-grant.json`.
 
 ## Prepared test data
 
@@ -49,6 +55,10 @@ This command does not create configurations or periods and is not loaded by Spri
 5. Save incomplete answers as a Draft, reload, and verify persistence. Complete all
    required ratings and submit; expect read-only **Pending Review**.
 6. Check another employee frequency: all use the same annual opening date.
+7. Sign in as the UAT Superior, open **Team Reviews**, select the same period,
+   and open **Attitude Evaluations**. The submitted employee should appear as
+   **Pending Review**. Review Draft saving and final review are manual UAT actions;
+   granting the reviewer permission does not approve or edit the assessment.
 
 Do not change the computer clock, rewrite Open-period dates, or replace preserved
 configuration bindings to simulate opening. Do not submit answers merely to

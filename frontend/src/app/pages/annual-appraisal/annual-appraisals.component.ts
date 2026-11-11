@@ -73,7 +73,7 @@ export class AnnualAppraisalsComponent implements OnInit {
     return this.hrReview ? this.reviews.find(a => a.id === row.appraisalId)?.snapshot?.finalScore : row.readiness.performance.finalScore;
   }
   rowAction(row: AnnualAppraisalCandidate) {
-    if (this.period?.status !== 'OPEN' || row.status === 'APPROVED') return 'ANNUAL_APPRAISAL.VIEW';
+    if (!['OPEN', 'CLOSED'].includes(this.period?.status ?? '') || row.status === 'APPROVED') return 'ANNUAL_APPRAISAL.VIEW';
     if (this.hrReview) return row.status === 'PENDING_REVIEW' ? 'ANNUAL_APPRAISAL.REVIEW' : 'ANNUAL_APPRAISAL.VIEW';
     if (row.status === 'PENDING_REVIEW') return 'ANNUAL_APPRAISAL.VIEW';
     return 'ANNUAL_APPRAISAL.' + (row.status === 'RETURNED' ? 'REVISE' : row.status === 'DRAFT' ? 'CONTINUE_DRAFT' : 'PREPARE');

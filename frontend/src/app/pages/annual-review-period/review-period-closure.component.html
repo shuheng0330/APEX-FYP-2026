@@ -1,0 +1,111 @@
+@if (visible) {
+  <section class="card closure" aria-labelledby="closure-title" [attr.aria-busy]="loading || closing">
+    <div class="card-head closure-heading">
+      <div><h3 id="closure-title">{{ (isClosed ? 'REVIEW_PERIOD.CLOSURE.CLOSED_TITLE' : 'REVIEW_PERIOD.CLOSURE.TITLE') | translate }}</h3>
+        <p class="help">{{ (isClosed ? 'REVIEW_PERIOD.CLOSURE.CLOSED_HELP' : 'REVIEW_PERIOD.CLOSURE.HELP') | translate }}</p></div>
+      @if (!isClosed) {
+        <div class="actions">
+          <button nz-button type="button" [disabled]="locked" [nzLoading]="loading" (click)="refresh()">{{ 'REVIEW_PERIOD.CLOSURE.REFRESH' | translate }}</button>
+          <button nz-button nzType="primary" type="button" [disabled]="!canClose" [nzLoading]="closing" (click)="confirmClose()">{{ 'REVIEW_PERIOD.CLOSURE.CLOSE' | translate }}</button>
+        </div>
+      }
+    </div>
+    <div class="card-body">
+      @if (loading || closing) { <p role="status">{{ (closing ? 'REVIEW_PERIOD.CLOSURE.CLOSING' : 'REVIEW_PERIOD.CLOSURE.CHECKING') | translate }}</p> }
+      @if (isClosed) {
+        <p class="closure-state" role="status"><span class="status">{{ 'REVIEW_PERIOD.STATUS.CLOSED' | translate }}</span>
+          @if (closedAt) { <time [attr.datetime]="closedAt">{{ closedAt | date:'dd MMM yyyy, h:mm a':'+0800' }} (UTC+8)</time> }
+          @if (closedByName) { <span>{{ 'REVIEW_PERIOD.CLOSURE.CLOSED_BY' | translate:{ name: closedByName } }}</span> }
+        </p>
+        <p class="help">{{ 'REVIEW_PERIOD.CLOSURE.NO_REOPEN' | translate }}</p>
+      } @else {
+       @if (readiness; as ready) {
+        <p class="closure-state" role="status"><span class="status" [attr.data-status]="ready.canClose ? 'OPEN' : 'UPCOMING'">{{ (ready.canClose ? 'REVIEW_PERIOD.CLOSURE.READY' : 'REVIEW_PERIOD.CLOSURE.BLOCKED') | translate }}</span>
+          @if (ready.earliestCloseDate) { <span class="help">{{ 'REVIEW_PERIOD.CLOSURE.EARLIEST' | translate }} {{ ready.earliestCloseDate | date:'d MMM yyyy' }} (UTC+8)</span> }</p>
+        <dl class="closure-counts">
+          <div><dt>{{ 'REVIEW_PERIOD.CLOSURE.EMPLOYEES' | translate }}</dt><dd><strong>{{ ready.completedEmployees }}</strong><span> / {{ ready.totalEmployees }}</span></dd></div>
+          <div><dt>{{ 'REVIEW_PERIOD.CLOSURE.KPI' | translate }}</dt><dd><strong>{{ ready.kpiReviews.completed }}</strong><span> / {{ ready.kpiReviews.required }}</span></dd></div>
+          <div><dt>{{ 'REVIEW_PERIOD.CLOSURE.ATTITUDE' | translate }}</dt><dd><strong>{{ ready.attitudeEvaluations.completed }}</strong><span> / {{ ready.attitudeEvaluations.required }}</span></dd></div>
+        </dl>
+        <p class="help">{{ 'REVIEW_PERIOD.CLOSURE.COUNT_HELP' | translate }}</p>
+        @if (ready.blockers.length) {
+          <button nz-button nzType="link" type="button" class="closure-toggle" [attr.aria-expanded]="detailsVisible" aria-controls="closure-requirements" (click)="detailsVisible = !detailsVisible">{{ (detailsVisible ? 'REVIEW_PERIOD.CLOSURE.HIDE' : 'REVIEW_PERIOD.CLOSURE.SHOW') | translate }}</button>
+          @if (detailsVisible) {
+            <div id="closure-requirements" class="closure-requirements">
+             @if (periodRequirements.length) {
+              <section class="period-requirements" aria-labelledby="period-requirements-title">
+                <h4 id="period-requirements-title">{{ 'REVIEW_PERIOD.CLOSURE.PERIOD_REQUIREMENTS' | translate }}</h4>
+                @if (hasConfigurationRequirement && period.attitudeConfigurationId) {
+                  <div class="attitude-coverage-summary">
+                    <p><strong>{{ 'ATTITUDE_SETUP.CONFIGURATION_ASSIGNED' | translate }}:</strong> {{ assignedAttitudeConfiguration?.name || period.attitudeConfigurationName || ('REVIEW_PERIOD.NOT_SET' | translate) }}</p>
+                    @if (assignedAttitudeConfiguration) {
+                      <p><span class="status" [attr.data-status]="missingAttitudeRoles.length ? 'UPCOMING' : 'OPEN'">{{ (missingAttitudeRoles.length ? 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.INCOMPLETE' : 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.COMPLETE') | translate }}</span></p>
+                      @if (missingAttitudeRoles.length) {
+                        <p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.MISSING_LABEL' | translate }}</p>
+                        <ul>@for (role of missingAttitudeRoles; track role.roleId) { <li>{{ role.roleName }}@if (role.departmentName) { <span class="help"> · {{ role.departmentName }}</span> }</li> }</ul>
+                      }
+                    } @else { <p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.COVERAGE_UNAVAILABLE' | translate }}</p> }
+                  </div>
+                }
+                <ul class="period-requirement-list">@for (group of groupedPeriodRequirements; track $index) {
+                  @let blocker = group.blocker;
+                  <li><strong>{{ requirementTitle(blocker) }}</strong>
+                    @if (blocker.code === 'MEASUREMENT_NOT_ENDED' && ready.earliestCloseDate) {
+                      <p class="help">{{ 'REVIEW_PERIOD.CLOSURE.EARLIEST' | translate }} {{ ready.earliestCloseDate | date:'d MMM yyyy' }}.</p>
+                    } @else if (blocker.code === 'CONFIGURATION') {
+                      <p class="help closure-message">{{ configurationDetail(blocker) || ('REVIEW_PERIOD.CLOSURE.CONFIGURATION_DETAILS_UNAVAILABLE' | translate) }}</p>
+                    } @else { <p class="help closure-message">{{ blocker.message }}</p> }
+                    @for (member of group.members; track $index) {
+                     @if (member.participantId != null || member.employeeName || member.departmentName) {
+                      <p class="help requirement-context">{{ member.employeeName || ('REVIEW_PERIOD.CLOSURE.NAME_UNAVAILABLE' | translate) }}@if (member.departmentName) { <span> · {{ member.departmentName }}</span> }
+                        @if (member.checkpointStartDate && member.checkpointEndDate) { <span> · {{ member.checkpointStartDate | date:'dd MMM yyyy' }} - {{ member.checkpointEndDate | date:'dd MMM yyyy' }}</span> }
+                      </p>
+                     }
+                    }
+                  </li>
+                }</ul>
+                @if (hasConfigurationRequirement) {
+                  <div class="actions">
+                    @if (auth.hasRole('CAN_MANAGE_ATTITUDE_CONFIGURATION')) { <a nz-button nzType="link" class="attitude-setup-link" [routerLink]="['/kpi-administration/attitude-evaluation-setup']" [queryParams]="attitudeSetupParams">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.VIEW_SETUP' | translate }}</a> }
+                    <button nz-button nzType="link" type="button" class="configuration-link" [disabled]="locked" (click)="viewConfiguration.emit()">{{ 'REVIEW_PERIOD.CLOSURE.VIEW_CONFIGURATION' | translate }}</button>
+                  </div>
+                }
+              </section>
+             }
+             @if (employeeRequirements.length) {
+              <section class="employee-requirements" aria-labelledby="employee-requirements-title">
+               <div class="employee-requirements-heading"><h4 id="employee-requirements-title">{{ 'REVIEW_PERIOD.CLOSURE.EMPLOYEE_REQUIREMENTS' | translate }}</h4>
+                 <p class="help" aria-live="polite">{{ 'REVIEW_PERIOD.CLOSURE.EMPLOYEE_TASK_COUNT' | translate:{ count: employeeRequirements.length } }}</p></div>
+               <div class="table-scroll" tabindex="0" role="region" [attr.aria-label]="'REVIEW_PERIOD.CLOSURE.EMPLOYEE_REQUIREMENTS' | translate">
+              <table class="data-table closure-table"><thead><tr>
+                <th scope="col">{{ 'REVIEW_PERIOD.CLOSURE.REQUIREMENT' | translate }}</th>
+                <th scope="col">{{ 'REVIEW_PERIOD.CLOSURE.EMPLOYEE' | translate }}</th>
+                <th scope="col">{{ 'REVIEW_PERIOD.CLOSURE.CHECKPOINT' | translate }}</th>
+              </tr></thead><tbody>@for (blocker of visibleEmployeeRequirements; track $index) {
+                <tr><td><strong>{{ requirementTitle(blocker) }}</strong><p class="help closure-message">{{ blocker.message }}</p></td>
+                  <td>{{ blocker.employeeName || ('REVIEW_PERIOD.CLOSURE.NAME_UNAVAILABLE' | translate) }}@if (blocker.departmentName) { <p class="help">{{ blocker.departmentName }}</p> }</td>
+                  <td>@if (blocker.checkpointStartDate && blocker.checkpointEndDate) { {{ blocker.checkpointStartDate | date:'dd MMM yyyy' }} - {{ blocker.checkpointEndDate | date:'dd MMM yyyy' }} } @else { <span aria-label="-">-</span> }</td>
+                </tr>
+              }</tbody></table>
+               </div>
+               <div class="closure-pagination">
+                 <app-table-page-size-selector [pageSize]="employeePageSize" [sizeOptions]="employeePageSizes" (pageSizeChange)="changeEmployeePageSize($event)" />
+                 <nz-pagination [nzPageIndex]="employeePage" (nzPageIndexChange)="changeEmployeePage($event)" [nzPageSize]="employeePageSize" [nzTotal]="employeeRequirements.length" [nzSimple]="true" [nzDisabled]="locked" />
+               </div>
+              </section>
+             }
+            </div>
+          }
+        }
+        <p class="help closure-check-time">{{ 'REVIEW_PERIOD.CLOSURE.CHECKED' | translate }} <time [attr.datetime]="ready.checkedAt">{{ ready.checkedAt | date:'dd MMM yyyy, h:mm a':'+0800' }}</time> (UTC+8)</p>
+       }
+      }
+      @if (error) { <p class="error-box" role="alert">{{ 'REVIEW_PERIOD.CLOSURE.' + error | translate }}</p> }
+    </div>
+  </section>
+} @else if (error === 'NO_ACCESS') { <p class="error-box" role="alert">{{ 'REVIEW_PERIOD.CLOSURE.NO_ACCESS' | translate }}</p> }
+<ng-template #confirmation>
+  <p><strong>{{ period.name }}</strong></p>
+  <p>{{ 'REVIEW_PERIOD.CLOSURE.CONFIRM_HELP' | translate }}</p>
+  <p>{{ 'REVIEW_PERIOD.CLOSURE.CONTINUE_APPRAISALS' | translate }}</p>
+</ng-template>

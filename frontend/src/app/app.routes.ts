@@ -292,6 +292,7 @@ export const routes: Routes = [
         canActivate: [PermissionGuard],
         data: { requiredRoles: ['ROLE_USER'] },
       },
+      { path: 'access-denied', loadComponent: () => import('./components/access-denied.component').then(m => m.AccessDeniedComponent) },
       { path: '**', redirectTo: '/org-chart' }
     ]
   }

@@ -37,6 +37,7 @@ public interface AnnualKpiReviewPeriodMapper {
     @Mapping(target = "canDelete", ignore = true)
     @Mapping(target = "attitudeConfigurationId", source = "attitudeConfiguration.id")
     @Mapping(target = "attitudeConfigurationName", source = "attitudeConfiguration.name")
+    @Mapping(target = "closedByName", source = "closedBy.name")
     AnnualKpiReviewPeriodDto toDto(AnnualKpiReviewPeriod period);
 
     @Mapping(target = "roleId", source = "role.id")

@@ -37,9 +37,15 @@ public class AnnualPerformanceHistoryService {
     }
 
     public List<AnnualPerformanceHistoryDto> read(ReviewPeriodParticipant anchor) {
+        return readSelected(anchor,null);
+    }
+
+    /** Narrow trusted sources before reading any performance records. */
+    public List<AnnualPerformanceHistoryDto> readSelected(ReviewPeriodParticipant anchor, Set<Long> participantIds) {
         var end = anchor.getReviewPeriod().getEndDate();
         var start = LocalDate.of(end.getYear() - 4, 1, 1);
         return participants.findAllByStaffIdOrderByReviewPeriodStartDateDesc(anchor.getStaff().getId()).stream()
+                .filter(p -> participantIds==null || participantIds.contains(p.getId()))
                 .filter(p -> Objects.equals(p.getStaff().getId(), anchor.getStaff().getId()))
                 .filter(p -> !Objects.equals(p.getReviewPeriod().getId(), anchor.getReviewPeriod().getId()))
                 .filter(p -> p.getReviewPeriod().getStatus() == AnnualKpiReviewPeriodStatus.OPEN

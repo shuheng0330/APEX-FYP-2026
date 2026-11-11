@@ -67,6 +67,8 @@ class AnnualKpiReviewPeriodServiceImplTest {
         manager = role(2L, "Manager", ReviewFrequency.QUARTERLY);
         sales.setEmployeeLevel(EmployeeLevelFixtures.levels().get(3));
         manager.setEmployeeLevel(EmployeeLevelFixtures.levels().get(1));
+        var attitude = publishedAttitude(90L);
+        when(attitudeConfigurations.findById(90L)).thenReturn(Optional.of(attitude));
         when(roles.findAllByIdInAndIsDeletedIsFalse(anySet())).thenAnswer(invocation -> {
             Set<Long> ids = invocation.getArgument(0);
             return Stream.of(sales, manager).filter(r -> ids.contains(r.getId()) && !r.isDeleted()).toList();
@@ -664,26 +666,87 @@ class AnnualKpiReviewPeriodServiceImplTest {
         assertThatThrownBy(() -> service.publish(draft.getId(), actor)).hasMessageContaining("do not participate");
     }
 
-    @Test void immediateAndDraftPublicationBindAttitudeOnlyOnActualOpening() {
-        var attitude=new AttitudeConfiguration();attitude.setId(90L);
-        when(attitudeConfigurations.findFirstByStatusOrderByPublishedAtDescIdDesc(AttitudeConfigurationStatus.PUBLISHED)).thenReturn(Optional.of(attitude));
+    @Test void draftPreviewAndPublicationKeepTheExplicitPublishedSelection() {
         var request=validRequest();request.setStartDate(LocalDate.of(2025,1,1));request.setEndDate(LocalDate.of(2025,12,31));setSetup(request,request.getStartDate());
-        assertThat(service.preview(request,null).getAttitudeConfigurationId()).isNull();verifyNoInteractions(attitudeConfigurations);
-        var draft=service.create(request,false,actor);verifyNoInteractions(attitudeConfigurations);
+        assertThat(service.preview(request,null).getAttitudeConfigurationId()).isEqualTo(90L);
+        var draft=service.create(request,false,actor);
         assertThat(service.publish(draft.getId(),actor).getAttitudeConfigurationId()).isEqualTo(90L);
         request.setName("Other opening");assertThat(service.create(request,true,actor).getAttitudeConfigurationId()).isEqualTo(90L);
+        verify(attitudeConfigurations, never()).findFirstByStatusOrderByPublishedAtDescIdDesc(any());
     }
 
-    @Test void scheduledOpeningBindsOnceAndDoesNotReplaceAnExistingBinding() {
-        var first=new AttitudeConfiguration();first.setId(90L);
-        when(attitudeConfigurations.findFirstByStatusOrderByPublishedAtDescIdDesc(AttitudeConfigurationStatus.PUBLISHED)).thenReturn(Optional.of(first));
-        var dto=service.create(validRequest(),true,actor);assertThat(dto.getAttitudeConfigurationId()).isNull();verifyNoInteractions(attitudeConfigurations);
+    @Test void scheduledOpeningDoesNotReplaceTheConfigurationPinnedAtPublication() {
+        var dto=service.create(validRequest(),true,actor);assertThat(dto.getAttitudeConfigurationId()).isEqualTo(90L);
         var period=stored.get(dto.getId());period.setStartDate(LocalDate.now(clock));
+        var first=period.getAttitudeConfiguration();
         when(periods.findAllByStatusAndStartDateLessThanEqual(any(),any())).thenReturn(List.of(period));
         service.openDuePeriods();assertThat(period.getAttitudeConfiguration()).isSameAs(first);
-        var next=new AttitudeConfiguration();next.setId(91L);
-        when(attitudeConfigurations.findFirstByStatusOrderByPublishedAtDescIdDesc(AttitudeConfigurationStatus.PUBLISHED)).thenReturn(Optional.of(next));
         service.openDuePeriods();assertThat(period.getAttitudeConfiguration()).isSameAs(first);
+        verify(attitudeConfigurations, never()).findFirstByStatusOrderByPublishedAtDescIdDesc(any());
+    }
+
+    @Test void missingConfigurationAndUnmappedRolesAreAllowedInDraftButBlockBothPublicationPaths() {
+        var request=validRequest();request.setAttitudeConfigurationId(null);
+        var draft=service.create(request,false,actor);
+        assertThatThrownBy(()->service.publish(draft.getId(),actor)).hasMessageContaining("Select a published Attitude");
+        assertThatThrownBy(()->service.create(request,true,actor)).hasMessageContaining("Select a published Attitude");
+        assertThatThrownBy(()->service.preview(request,null)).hasMessageContaining("Select a published Attitude");
+        var configuration=attitudeConfigurations.findById(90L).orElseThrow();configuration.getRoleMappings().clear();
+        request.setAttitudeConfigurationId(90L);
+        var incomplete=service.update(draft.getId(),request,actor);
+        assertThat(incomplete.getStatus()).isEqualTo(AnnualKpiReviewPeriodStatus.DRAFT);
+        assertThatThrownBy(()->service.publish(draft.getId(),actor)).hasMessageContaining("Retail Sales");
+        assertThatThrownBy(()->service.create(request,true,actor)).hasMessageContaining("Retail Sales");
+        verifyNoInteractions(enrolment);
+    }
+
+    @Test void publicationRechecksActiveCriteriaAndAllSelectedRolesWithoutInventingAnExemption() {
+        var request=validRequest();request.setRoleConfigurations(List.of(frequency(1L,ReviewFrequency.MONTHLY),frequency(2L,ReviewFrequency.QUARTERLY)));
+        request.setAttitudeEvaluationWeight(BigDecimal.ZERO);request.setKpiPerformanceWeight(new BigDecimal("100"));
+        var draft=service.create(request,false,actor);
+        var configuration=attitudeConfigurations.findById(90L).orElseThrow();
+        configuration.getRoleMappings().removeIf(m->m.getRole().getId().equals(2L));
+        assertThatThrownBy(()->service.publish(draft.getId(),actor)).hasMessageContaining("Manager").hasMessageNotContaining("Retail Sales");
+        configuration.getCriteria().get(0).setActive(false);
+        assertThatThrownBy(()->service.publish(draft.getId(),actor)).hasMessageContaining("Manager, Retail Sales");
+    }
+
+    @Test void onlyPublishedSelectionsAreAcceptedAndUpcomingAssignmentsCannotBeChanged() {
+        var other=publishedAttitude(91L);other.setStatus(AttitudeConfigurationStatus.DRAFT);
+        when(attitudeConfigurations.findById(91L)).thenReturn(Optional.of(other));
+        var request=validRequest();request.setAttitudeConfigurationId(91L);
+        assertThatThrownBy(()->service.create(request,false,actor)).hasMessageContaining("published");
+        request.setAttitudeConfigurationId(999L);
+        assertThatThrownBy(()->service.create(request,false,actor)).hasMessageContaining("published");
+        request.setAttitudeConfigurationId(90L);var result=service.create(request,true,actor);
+        other.setStatus(AttitudeConfigurationStatus.PUBLISHED);request.setAttitudeConfigurationId(91L);
+        assertThatThrownBy(()->service.update(result.getId(),request,actor)).hasMessageContaining("frozen");
+        assertThatThrownBy(()->service.preview(request,result.getId())).hasMessageContaining("frozen");
+        assertThat(stored.get(result.getId()).getAttitudeConfiguration().getId()).isEqualTo(90L);
+    }
+
+    @Test void publishedChoicesExposeOnlyApplicableCoverageAndNeverDrafts() {
+        var published=publishedAttitude(90L);var draft=publishedAttitude(91L);draft.setStatus(AttitudeConfigurationStatus.DRAFT);
+        published.getRoleMappings().removeIf(m->m.getRole().getId().equals(2L));
+        when(attitudeConfigurations.findAllByOrderByCreatedAtDescIdDesc()).thenReturn(List.of(draft,published));
+        assertThat(service.attitudeConfigurations()).hasSize(1);
+        assertThat(service.attitudeConfigurations().get(0).coveredRoleIds()).containsExactly(1L);
+        published.getCriteria().get(0).setActive(false);
+        assertThat(service.attitudeConfigurations().get(0).coveredRoleIds()).isEmpty();
+        verify(periods,never()).saveAndFlush(any());
+    }
+
+    private AttitudeConfiguration publishedAttitude(Long id) {
+        var configuration=new AttitudeConfiguration();configuration.setId(id);configuration.setName("Published Attitude");
+        configuration.setStatus(AttitudeConfigurationStatus.PUBLISHED);
+        var criterion=new AttitudeCriterion();criterion.setId(1L);criterion.setConfiguration(configuration);
+        criterion.setActive(true);criterion.setCriterionType(AttitudeCriterionType.SHARED_CORE_VALUE);
+        configuration.getCriteria().add(criterion);
+        for(var role:List.of(sales,manager)) {
+            var mapping=new AttitudeRoleFormatMapping();mapping.setRole(role);mapping.setConfiguration(configuration);
+            mapping.setEvaluationFormat(AttitudeEvaluationFormat.MANAGER);configuration.getRoleMappings().add(mapping);
+        }
+        return configuration;
     }
 
     @Test void quarterlyDepartmentsStillGenerateMonthlyCompanyScheduleAndPreserveAverage() {
@@ -758,6 +821,7 @@ class AnnualKpiReviewPeriodServiceImplTest {
 
     static AnnualKpiReviewPeriodRequest validRequest() {
         var request = new AnnualKpiReviewPeriodRequest();
+        request.setAttitudeConfigurationId(90L);
         request.setFrequencyPolicy(KpiFrequencyPolicy.ROLE_BASED);
         request.setName("2027 Annual KPI Review");
         request.setStartDate(LocalDate.of(2027, 1, 1));

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.*;
 import java.util.*;
 
 public interface AnnualAppraisalRepository extends JpaRepository<AnnualAppraisal,Long> {
+    boolean existsByReviewPeriodId(Long reviewPeriodId);
     Optional<AnnualAppraisal> findByParticipantId(Long participantId);
     List<AnnualAppraisal> findAllByReviewPeriodIdOrderByUpdatedAtDescIdDesc(Long reviewPeriodId);
     List<AnnualAppraisal> findAllByEmployeeIdOrderBySubmittedAtDescIdDesc(UUID employeeId);

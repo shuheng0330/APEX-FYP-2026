@@ -1,0 +1,12 @@
+{
+  "periodName": "Fictional April-June 2025 Review", "startDate": "2025-04-01", "endDate": "2025-06-30",
+  "requiredResultsComplete": true, "frequency": "QUARTERLY", "consolidationMethod": "FINAL_CHECKPOINT",
+  "kpiWeight": 50, "attitudeWeight": 50, "scores": {"kpi": 77, "attitude": 80, "finalAppraisal": 78.50},
+  "facts": [
+    {"id": "D2", "scope": "LEVEL_RESULTS", "text": "Company 60%, Department 80%, Individual 80%. Allocation: Company 15%, Department 15%, Individual 70%. Individual KPIs and three Attitude criteria have Superior points 4/5, meaning Meets expectation in this fictional configuration. The Company result is not an Individual shortfall."}
+  ],
+  "history": [
+    {"id": "D3", "periodName": "Fictional 2024 Annual Review", "startDate": "2024-01-01", "endDate": "2024-12-31", "scores": {"kpi": null, "attitude": null, "finalAppraisal": 80}, "comparable": false, "comparisonNote": "Not Comparable: full-year duration and different annual consolidation settings. Do not infer improvement or deterioration."}
+  ],
+  "informationGaps": ["No comparable prior-period results; no 2023 results.", "Selected review is a three-month period, not a full year.", "No assessment of higher-role responsibilities.", "No applicable company promotion or pay criteria."]
+}

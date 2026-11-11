@@ -38,6 +38,7 @@ export const REVIEW_DATE_FIELDS = [
 export type ReviewDateField = typeof REVIEW_DATE_FIELDS[number];
 
 export type AnnualReviewPeriodRequest = Record<ReviewDateField, string | null> & {
+  attitudeConfigurationId?: number | null;
   name: string | null;
   frequencyPolicy?: KpiFrequencyPolicy;
   departmentConfigurations?: ReviewDepartmentConfiguration[];
@@ -61,6 +62,7 @@ export interface ReviewCheckpoint {
 }
 
 export interface AnnualReviewPeriod extends Omit<AnnualReviewPeriodRequest, 'roleConfigurations' | 'employeeLevelConfigurations'> {
+  attitudeConfigurationName?: string | null;
   id: number | null;
   referenceNumber: string | null;
   status: ReviewPeriodStatus;
@@ -70,8 +72,45 @@ export interface AnnualReviewPeriod extends Omit<AnnualReviewPeriodRequest, 'rol
   createdAt: string | null;
   updatedAt: string | null;
   participantsSnapshottedAt?: string | null;
+  closedAt?: string | null;
+  closedByName?: string | null;
   editMode?: 'FULL' | 'LIMITED' | 'READ_ONLY';
   canDelete?: boolean;
+}
+
+export interface ReviewPeriodAttitudeConfigurationOption {
+  id: number;
+  name: string;
+  publishedAt: string | null;
+  coveredRoleIds: number[];
+}
+
+export type ReviewPeriodClosureCode = 'PERIOD_NOT_OPEN' | 'MEASUREMENT_NOT_ENDED' | 'MISSING_ROSTER' | 'EMPTY_ROSTER'
+  | 'CONFIGURATION' | 'KPI_SELF_ASSESSMENT' | 'KPI_SUPERIOR_REVIEW' | 'COMPANY_RESULT' | 'DEPARTMENT_RESULT'
+  | 'KPI_SCORE' | 'ATTITUDE_SELF_ASSESSMENT' | 'ATTITUDE_SUPERIOR_REVIEW' | 'ATTITUDE_SCORE' | 'FINAL_SCORE' | 'HR_RECONCILIATION';
+export interface ReviewPeriodClosureBlocker {
+  code: ReviewPeriodClosureCode;
+  participantId: number | null;
+  employeeName: string | null;
+  departmentName: string | null;
+  checkpointId: number | null;
+  checkpointStartDate: string | null;
+  checkpointEndDate: string | null;
+  message: string | null;
+}
+export interface ReviewPeriodClosure {
+  reviewPeriodId: number;
+  status: ReviewPeriodStatus;
+  canClose: boolean;
+  earliestCloseDate: string | null;
+  checkedAt: string;
+  closedAt: string | null;
+  closedByName: string | null;
+  totalEmployees: number;
+  completedEmployees: number;
+  kpiReviews: { required: number; completed: number };
+  attitudeEvaluations: { required: number; completed: number };
+  blockers: ReviewPeriodClosureBlocker[];
 }
 
 export interface AnnualReviewCreationDefaults {

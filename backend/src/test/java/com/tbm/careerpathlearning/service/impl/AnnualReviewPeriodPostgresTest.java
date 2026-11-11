@@ -73,6 +73,7 @@ class AnnualReviewPeriodPostgresTest {
                     +"ADD COLUMN kpi_amendments_close_date date, ADD COLUMN kpi_amendments_changed_at timestamptz, ADD COLUMN kpi_amendments_changed_by uuid");
                 execute(connection,"ALTER TABLE annual_kpi_review_period ADD COLUMN assessment_model varchar(24) NOT NULL DEFAULT 'LEGACY_ALL_LEVELS'");
 
+                execute(connection, "ALTER TABLE " + schema + ".annual_kpi_review_period ADD COLUMN IF NOT EXISTS closed_by UUID");
                 var configuration = new Configuration();
                 configuration.setProperty("hibernate.connection.url", url);
                 configuration.setProperty("hibernate.connection.username", env.get("DB_USER"));
@@ -253,6 +254,23 @@ class AnnualReviewPeriodPostgresTest {
                         new com.tbm.careerpathlearning.service.PerformanceDepartmentResolver(factory.getRepository(OrgChartRepository.class),
                                 org.mockito.Mockito.mock(ParentChildNodeRepository.class))));
         var request = AnnualKpiReviewPeriodServiceImplTest.validRequest();
+        var attitude = new AttitudeConfiguration();
+        attitude.setName("Application workflow published attitude");
+        attitude.setStatus(AttitudeConfigurationStatus.PUBLISHED);
+        attitude.setCreatedAt(OffsetDateTime.now(clock));attitude.setUpdatedAt(OffsetDateTime.now(clock));
+        attitude.setCreatedBy(actor.getId());attitude.setUpdatedBy(actor.getId());
+        attitude.setPublishedAt(OffsetDateTime.now(clock));attitude.setPublishedBy(actor.getId());
+        var criterion = new AttitudeCriterion();criterion.setConfiguration(attitude);criterion.setName("Integrity");
+        criterion.setDescription("Recorded test behaviour");criterion.setCriterionType(AttitudeCriterionType.SHARED_CORE_VALUE);
+        criterion.setActive(true);criterion.setDisplayOrder(0);attitude.getCriteria().add(criterion);
+        var mapping = new AttitudeRoleFormatMapping();mapping.setConfiguration(attitude);mapping.setRole(role);
+        mapping.setEvaluationFormat(AttitudeEvaluationFormat.MANAGER);attitude.getRoleMappings().add(mapping);
+        for (int point = 1; point <= 5; point++) {
+            var rating = new AttitudeRatingDefinition();rating.setConfiguration(attitude);rating.setPoint(point);
+            rating.setLabel("Rating " + point);rating.setDescription("Expected behaviour " + point);attitude.getRatingDefinitions().add(rating);
+        }
+        factory.getRepository(AttitudeConfigurationRepository.class).saveAndFlush(attitude);
+        request.setAttitudeConfigurationId(attitude.getId());
         request.setName("Application workflow 2028");
         request.setStartDate(LocalDate.of(2028, 1, 1));
         request.setEndDate(LocalDate.of(2028, 12, 31));
@@ -288,6 +306,7 @@ class AnnualReviewPeriodPostgresTest {
             }
         }
         var overlapping = AnnualKpiReviewPeriodServiceImplTest.validRequest();
+        overlapping.setAttitudeConfigurationId(attitude.getId());
         overlapping.setName("Overlapping 2027");
         overlapping.setRoleConfigurations(request.getRoleConfigurations());
         assertThatThrownBy(() -> service.create(overlapping, true, actor.getId()))

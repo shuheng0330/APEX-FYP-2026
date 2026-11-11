@@ -1,0 +1,56 @@
+@if (authorised && visible) {
+  <section class="card insight-card" [attr.aria-labelledby]="'employee-ai-title-' + participantId" [attr.aria-busy]="loading || requesting">
+    <div class="card-head">
+      <div class="insight-heading"><h3 [id]="'employee-ai-title-' + participantId">{{ 'AI_INSIGHT.TITLE' | translate }}</h3>
+        @if (trusted) { <span class="status fictional">{{ 'EMPLOYEE_AI.FICTIONAL' | translate }}</span> }
+        @if (submittedView) { <span class="status">{{ 'EMPLOYEE_AI.SUBMITTED' | translate }}</span> }
+      </div>
+      <p class="help">{{ 'EMPLOYEE_AI.INTRO' | translate }}</p>
+      <p class="employee-insight-context"><strong>{{ employeeName }}</strong> · {{ reviewPeriodName }}</p>
+    </div>
+    <div class="card-body">
+      @if (!readOnly && !submittedView) {
+        <div class="employee-ai-actions">
+          <p class="help">{{ 'EMPLOYEE_AI.OPTIONAL' | translate }}</p>
+          @if (eligible) { <button nz-button type="button" [disabled]="!canGenerate" [nzLoading]="requesting && !paused" (click)="generate()">
+            {{ 'EMPLOYEE_AI.' + buttonKey | translate }}</button> }
+        </div>
+      }
+      <div class="generation-state" role="status" aria-live="polite" aria-atomic="true">
+        @if (loading) { <p>{{ 'EMPLOYEE_AI.LOADING' | translate }}</p> }
+        @if (pending && !paused) { <p><span class="status">{{ 'EMPLOYEE_AI.GENERATING' | translate }}</span></p> }
+        @if (!eligible && !submittedView && unavailableReason) { <p>{{ 'EMPLOYEE_AI.' + (unavailableReason === 'RESULTS_INCOMPLETE' ? 'INCOMPLETE' : 'NOT_EDITABLE') | translate }}</p> }
+        @if (message) { <p>{{ 'EMPLOYEE_AI.' + message | translate }}</p> }
+      </div>
+      @if (!readOnly && limits) {
+        <div class="generation-limits help">
+          <span>{{ 'EMPLOYEE_AI.ALLOWANCE' | translate:{remaining: limits.remainingAttempts, total: limits.dailyAllowance} }}</span>
+          @if (limits.remainingAttempts === 0) { <span>{{ 'EMPLOYEE_AI.RESET' | translate }} {{ limits.resetAt | date:'dd MMM yyyy, h:mm a' }}</span> }
+          @if (remainingSeconds > 0 && limits.remainingAttempts > 0) {
+            <span>@if (remainingSeconds <= 120) { {{ 'EMPLOYEE_AI.WAIT' | translate:{seconds: remainingSeconds} }} }
+              @else { {{ 'EMPLOYEE_AI.WAIT_AT' | translate }} }
+              <time [attr.datetime]="retryAt">({{ retryAt | date:'dd MMM, h:mm:ss a' }})</time></span>
+          }
+        </div>
+      }
+      @if (paused && pending && !readOnly) { <button nz-button type="button" [disabled]="requesting || disabled" (click)="check()">{{ 'AI_INSIGHT.CHECK' | translate }}</button> }
+      @if (message === 'LOAD_ERROR' || message === 'INVALID' || message === 'CONFLICT' || message === 'CHANGED') { <button nz-button type="button" [disabled]="loading || requesting || disabled" (click)="load()">{{ 'EMPLOYEE_AI.REFRESH' | translate }}</button> }
+      @if (displayed; as result) {
+        <div class="generated-heading">
+          <strong>{{ 'EMPLOYEE_AI.VERSION' | translate:{version: result.version} }}</strong>
+          <span class="generated-at">{{ 'AI_INSIGHT.GENERATED' | translate }} <time [attr.datetime]="result.completedAt">{{ result.completedAt | date:'dd MMM yyyy, h:mm a' }}</time></span>
+        </div>
+        @if (result.outdated) { <p class="outdated-insight" role="note"><strong>{{ 'EMPLOYEE_AI.OUTDATED' | translate }}</strong> {{ 'EMPLOYEE_AI.OUTDATED_HELP' | translate }}</p> }
+        @if (submittedView) { <p class="help submitted-insight-note">{{ 'EMPLOYEE_AI.RECORDED' | translate }}</p> }
+        @if (attempt?.status === 'FAILED' || (pending && attempt?.id !== result.id)) { <p class="help">{{ 'EMPLOYEE_AI.RETAINED' | translate }}</p> }
+        <dl class="insight-scores" [attr.aria-label]="'EMPLOYEE_AI.SCORES' | translate">
+          <div><dt>{{ 'AI_INSIGHT.KPI' | translate }}</dt><dd [class.missing-score]="result.evidence.scores.kpi == null">{{ result.evidence.scores.kpi == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (result.evidence.scores.kpi | number:'1.2-2') + '%' }}</dd></div>
+          <div><dt>{{ 'AI_INSIGHT.ATTITUDE' | translate }}</dt><dd [class.missing-score]="result.evidence.scores.attitude == null">{{ result.evidence.scores.attitude == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (result.evidence.scores.attitude | number:'1.2-2') + '%' }}</dd></div>
+          <div><dt>{{ 'AI_INSIGHT.FINAL' | translate }}</dt><dd [class.missing-score]="result.evidence.scores.finalAppraisal == null">{{ result.evidence.scores.finalAppraisal == null ? ('AI_INSIGHT.NOT_AVAILABLE' | translate) : (result.evidence.scores.finalAppraisal | number:'1.2-2') + '%' }}</dd></div>
+        </dl>
+        <app-appraisal-insight-summary [summary]="result.summary" [emphasizeNumbers]="true" />
+      } @else if (!loading && !pending && !message && eligible) { <p class="help">{{ 'EMPLOYEE_AI.EMPTY' | translate }}</p> }
+      <p class="ai-disclaimer" role="note">{{ displayed?.disclaimer || ('AI_INSIGHT.DISCLAIMER' | translate) }}</p>
+    </div>
+  </section>
+}

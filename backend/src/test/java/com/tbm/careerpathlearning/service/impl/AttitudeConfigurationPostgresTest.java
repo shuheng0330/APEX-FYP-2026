@@ -53,6 +53,7 @@ class AttitudeConfigurationPostgresTest {
                     +"ADD COLUMN IF NOT EXISTS kpi_amendments_close_date date, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_at timestamptz, ADD COLUMN IF NOT EXISTS kpi_amendments_changed_by uuid");
                 assertEquals(0,scalar(c,"SELECT count(*) FROM annual_kpi_review_period WHERE attitude_configuration_id IS NOT NULL"));
                 assertEquals(1,scalar(c,"SELECT count(*) FROM role_authority ra JOIN authority a ON a.id=ra.authority_id WHERE a.name='CAN_MANAGE_ATTITUDE_CONFIGURATION'"));
+                sql(c,"ALTER TABLE "+schema+".annual_kpi_review_period ADD COLUMN IF NOT EXISTS closed_by UUID");
                 var config=new Configuration();config.setProperty("hibernate.connection.url",url);config.setProperty("hibernate.connection.username",env.get("DB_USER"));
                 config.setProperty("hibernate.connection.password",env.get("DB_PASS"));config.setProperty("hibernate.hbm2ddl.auto","none");
                 config.setProperty("hibernate.default_schema",schema);

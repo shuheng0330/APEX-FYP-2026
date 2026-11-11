@@ -15,7 +15,10 @@
         @if (errorSection && !viewOnly) { <button nz-button nzType="link" (click)="focusSection(errorSection)">{{ ('REVIEW_PERIOD.SECTION.' + errorSection) | translate }}</button> }
       </div>
     }
-    @if (viewOnly && period) { <app-review-period-summary [period]="period"></app-review-period-summary> }
+    @if (viewOnly && period) {
+      <app-review-period-closure [period]="period" [attitudeConfigurations]="attitudeConfigurations" (closed)="periodClosed($event)" (viewConfiguration)="focusSection('configuration')" />
+      <app-review-period-summary id="review-configuration" class="saved-configuration" tabindex="-1" [period]="period"></app-review-period-summary>
+    }
     @else if (employeeLevels.length) {
       @if (limitedEdit) { <p class="notice">{{ (departmentBased ? 'REVIEW_PERIOD.DEPARTMENT_SCHEDULE.FROZEN' : 'KPI_PLAN.LIMITED_PERIOD_EDIT') | translate }}</p> }
       <p class="help">{{ 'FORM_VALIDATION.REQUIRED_HELP' | translate }}</p>
@@ -207,6 +210,37 @@
           <section class="card" id="review-attitude" tabindex="-1">
             <div class="card-head"><h3>{{ 'REVIEW_PERIOD.SECTION.attitude' | translate }}</h3></div>
             <div class="card-body schedule-sections">
+              <section class="configuration-selection" aria-labelledby="attitude-configuration-heading">
+                <h4 id="attitude-configuration-heading">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.TITLE' | translate }}</h4>
+                <p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.HELP' | translate }}</p>
+                <div class="field">
+                  <label for="attitudeConfigurationId">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.PUBLISHED' | translate }}</label>
+                  <nz-select nzId="attitudeConfigurationId" formControlName="attitudeConfigurationId" [nzDisabled]="busy || limitedEdit || loadingAttitudeConfigurations"
+                    [nzAllowClear]="!limitedEdit" [attr.aria-invalid]="!!attitudeSelectionIssue">
+                    @for (configuration of attitudeConfigurations ?? []; track configuration.id) {
+                      <nz-option [nzValue]="configuration.id" [nzLabel]="configuration.name + (configuration.publishedAt ? ' · ' + (configuration.publishedAt | date:'dd MMM yyyy, HH:mm') : '')"></nz-option>
+                    }
+                  </nz-select>
+                  @if (attitudeSelectionIssue; as issue) { <small class="field-error">{{ issue.key | translate:issue.params }}</small> }
+                </div>
+                @if (attitudeConfigurations === null) { <p class="help warning" role="status">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.LOAD_ERROR' | translate }}</p> }
+                @else if (!attitudeConfigurations.length) { <p class="help warning">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.EMPTY' | translate }}</p> }
+                @if (selectedAttitudeConfiguration && selectedRoleCount) {
+                  <p class="help attitude-coverage" role="status"><span class="status" [attr.data-status]="missingAttitudeRoles.length ? 'UPCOMING' : 'OPEN'">{{ (missingAttitudeRoles.length === 1 ? 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.MISSING_ONE' : missingAttitudeRoles.length ? 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.MISSING_COUNT' : 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.ALL_COVERED') | translate:{ count: missingAttitudeRoles.length } }}</span></p>
+                  @if (missingAttitudeRoles.length) {
+                    @if (missingAttitudeRoles.length > 5) { <button nz-button nzType="link" type="button" class="coverage-toggle" [attr.aria-expanded]="missingAttitudeRolesVisible" aria-controls="attitude-missing-roles" (click)="missingAttitudeRolesVisible = !missingAttitudeRolesVisible">{{ (missingAttitudeRolesVisible ? 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.HIDE_ROLES' : 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.VIEW_ROLES') | translate }}</button> }
+                    @if (missingAttitudeRoles.length <= 5 || missingAttitudeRolesVisible) {
+                      <ul class="attitude-role-list" id="attitude-missing-roles">@for (role of missingAttitudeRoles; track role.roleId) { <li>{{ role.roleName }}@if (role.departmentName) { <span class="help"> · {{ role.departmentName }}</span> }</li> }</ul>
+                    }
+                    <p class="help coverage-guidance">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.RESOLVE_HELP' | translate }}</p>
+                  }
+                }
+                <div class="actions configuration-actions">
+                  @if (!limitedEdit) { <button nz-button nzType="link" type="button" [disabled]="busy || loadingAttitudeConfigurations" [nzLoading]="loadingAttitudeConfigurations" (click)="refreshAttitudeConfigurations()">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.REFRESH' | translate }}</button> }
+                  @if (auth.hasRole('CAN_MANAGE_ATTITUDE_CONFIGURATION')) { <a nz-button nzType="link" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.VIEW_SETUP_NEW_TAB' | translate" [routerLink]="['/kpi-administration/attitude-evaluation-setup']" [queryParams]="attitudeSetupParams">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.VIEW_SETUP' | translate }}</a> }
+                  @else { <p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.CONTACT_ADMIN' | translate }}</p> }
+                </div>
+              </section>
               <section class="schedule-subsection" aria-labelledby="attitude-schedule-heading">
                 <h4 id="attitude-schedule-heading">{{ 'REVIEW_PERIOD.ATTITUDE_SCHEDULE' | translate }}</h4>
                 <p class="help">{{ 'REVIEW_PERIOD.ATTITUDE_HELP' | translate }}</p>

@@ -170,7 +170,7 @@ public class AnnualAppraisalServiceImpl implements AnnualAppraisalService {
         var blockers=submissionBlockers(a,evaluated,actor);dto.setSubmissionBlockers(blockers);
         List<String> reviewBlockers=new ArrayList<>();
         if(a.getStatus()!=AppraisalStatus.PENDING_REVIEW) reviewBlockers.add("Only Pending Review appraisals can be reviewed");
-        if(period.getStatus()!=AnnualKpiReviewPeriodStatus.OPEN) reviewBlockers.add("This Review Period is read-only");
+        if(!appraisalsAllowed(period)) reviewBlockers.add("This Review Period is read-only");
         if(!eligible(p) || !validRouting(a)) reviewBlockers.add("The employee or reporting relationship has changed; administrator review is required");
         if(Objects.equals(a.getSuperiorId(),actor)) reviewBlockers.add("You cannot review your own appraisal recommendation");
         if(Objects.equals(a.getEmployeeId(),actor)) reviewBlockers.add("You cannot review your own annual appraisal");
@@ -181,7 +181,7 @@ public class AnnualAppraisalServiceImpl implements AnnualAppraisalService {
         dto.setReviewBlockers(List.copyOf(reviewBlockers));
         List<String> actions=new ArrayList<>();
         if(has(SUBMIT) && Objects.equals(a.getSuperiorId(),actor) && currentSuperior(p,actor) && eligible(p)
-                && period.getStatus()==AnnualKpiReviewPeriodStatus.OPEN
+                && appraisalsAllowed(period)
                 && (a.getStatus()==AppraisalStatus.DRAFT || a.getStatus()==AppraisalStatus.RETURNED)) actions.add("SAVE_DRAFT");
         if(has(SUBMIT) && blockers.isEmpty()) actions.add("SUBMIT");
         if(canReturn && period.getHrFinalisationDeadline()!=null) actions.add("RETURN");
@@ -196,7 +196,7 @@ public class AnnualAppraisalServiceImpl implements AnnualAppraisalService {
         if(!Objects.equals(a.getSuperiorId(),actor) || !currentSuperior(a.getParticipant(),actor)) result.add("Only the submitting immediate Superior may submit this appraisal");
         if(!eligible(a.getParticipant())) result.add("The employee is no longer active or eligible");
         var period=a.getParticipant().getReviewPeriod();
-        if(period.getStatus()!=AnnualKpiReviewPeriodStatus.OPEN) result.add("Appraisals are actionable only while the Review Period is Open");
+        if(!appraisalsAllowed(period)) result.add("Appraisals are actionable only while the Review Period is Open or Closed");
         if(period.getAppraisalRecommendationDeadline()==null) result.add("The Appraisal Recommendation Deadline is not configured");
         result.addAll(evaluated.blockers());
         if(a.getRecommendation()==null) result.add("Select a Superior Recommendation");
@@ -225,16 +225,17 @@ public class AnnualAppraisalServiceImpl implements AnnualAppraisalService {
             throw new BadRequestException("The HR appraisal review deadline is not configured");
     }
     private void writableParticipant(ReviewPeriodParticipant p) {
-        if(p.getReviewPeriod().getStatus()!=AnnualKpiReviewPeriodStatus.OPEN) throw new BadRequestException("This Review Period is read-only");
+        if(!appraisalsAllowed(p.getReviewPeriod())) throw new BadRequestException("This Review Period is read-only");
         if(!eligible(p)) throw new BadRequestException("The employee is no longer active or eligible");
     }
+    private boolean appraisalsAllowed(AnnualKpiReviewPeriod period) {
+        return period.getStatus()==AnnualKpiReviewPeriodStatus.OPEN || period.getStatus()==AnnualKpiReviewPeriodStatus.CLOSED;
+    }
     private boolean eligible(ReviewPeriodParticipant p) {
-        var employee=p.getStaff();return !employee.isDeleted() && employee.getAccountStatus()==StaffAccountStatus.ACTIVE
-                && employee.getRole()!=null && !employee.getRole().isDeleted() && employee.getRole().isPerformanceReviewEligible();
+        return AnnualAppraisalAccessRules.eligible(p);
     }
     private boolean currentSuperior(ReviewPeriodParticipant p,UUID actor) {
-        var manager=p.getStaff().getManager();return manager!=null && Objects.equals(manager.getId(),actor)
-                && !Objects.equals(p.getStaff().getId(),actor) && !manager.isDeleted() && manager.getAccountStatus()==StaffAccountStatus.ACTIVE;
+        return AnnualAppraisalAccessRules.currentSuperior(p,actor);
     }
     private boolean validRouting(AnnualAppraisal a) {return currentSuperior(a.getParticipant(),a.getSuperiorId());}
     private boolean sourceChanged(AnnualAppraisal a,AnnualAppraisalReadinessDto current) {

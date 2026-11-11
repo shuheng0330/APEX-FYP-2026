@@ -16,13 +16,14 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { AnnualReviewCreationDefaults, AnnualReviewPeriod, AnnualReviewPeriodRequest, calendarDate, ConsolidationMethod,
   EmployeeLevelConfiguration, editableReviewPeriod, pickerDate, REVIEW_DATE_FIELDS, REVIEW_FREQUENCIES, ReviewFrequency,
-  ReviewRoleConfiguration, ReviewDepartmentConfiguration, KpiFrequencyPolicy, weightTotal } from '../../models/annual-review-period.model';
+  ReviewRoleConfiguration, ReviewDepartmentConfiguration, ReviewPeriodClosure, ReviewPeriodAttitudeConfigurationOption, KpiFrequencyPolicy, weightTotal } from '../../models/annual-review-period.model';
 import { EmployeeLevel } from '../../models/role.model';
 import { AnnualReviewPeriodService } from '../../services/annual-review-period.service';
 import { RoleService } from '../../services/role.service';
 import { AuthService } from '../../services/auth.service';
 import { ReviewPeriodSummaryComponent } from './review-period-summary.component';
 import { ReviewDeadlineGuideComponent } from './review-deadline-guide.component';
+import { ReviewPeriodClosureComponent } from './review-period-closure.component';
 import { FINAL_DEADLINES, ReviewSection, ReviewValidationIssue, SETUP_DEADLINES, validateReviewConfiguration } from './review-period.validation';
 
 function roleForm(option: ReviewRoleConfiguration, selected: boolean) {
@@ -40,7 +41,7 @@ function levelForm(level: EmployeeLevel, saved?: EmployeeLevelConfiguration) {
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, ReactiveFormsModule, TranslateModule, NzButtonModule,
     NzInputModule, NzInputNumberModule, NzDatePickerModule, NzSelectModule, NzCheckboxModule, NzRadioModule,
-    NzModalModule, ReviewPeriodSummaryComponent, ReviewDeadlineGuideComponent],
+    NzModalModule, ReviewPeriodSummaryComponent, ReviewDeadlineGuideComponent, ReviewPeriodClosureComponent],
   templateUrl: './review-period-form.component.html', styleUrl: './review-period.scss'
 })
 export class ReviewPeriodFormComponent implements OnInit {
@@ -79,6 +80,7 @@ export class ReviewPeriodFormComponent implements OnInit {
   readonly roleRows = new FormArray<ReturnType<typeof roleForm>>([]);
   readonly levelRows = new FormArray<ReturnType<typeof levelForm>>([]);
   readonly form = new FormGroup({ ...this.dates, name: new FormControl<string | null>(null),
+    attitudeConfigurationId: new FormControl<number | null>(null),
     kpiPerformanceWeight: new FormControl<number | null>(50), attitudeEvaluationWeight: new FormControl<number | null>(50),
     annualKpiConsolidationMethod: new FormControl<ConsolidationMethod | null>(null),
     selfAssessmentDaysAfterCheckpoint: new FormControl<number | null>(null),
@@ -88,6 +90,19 @@ export class ReviewPeriodFormComponent implements OnInit {
   previewPeriod: AnnualReviewPeriod | null = null;
   employeeLevels: EmployeeLevel[] = [];
   roleOptions: ReviewRoleConfiguration[] = [];
+  attitudeConfigurations: ReviewPeriodAttitudeConfigurationOption[] | null = null;
+  loadingAttitudeConfigurations = false;
+  missingAttitudeRolesVisible = false;
+  private attitudeSelectionEstablished = false;
+  get selectedAttitudeConfiguration() { return this.attitudeConfigurations?.find(c => c.id === this.form.controls.attitudeConfigurationId.value); }
+  get missingAttitudeRoles() { return this.selectedAttitudeConfiguration
+    ? this.selectedRoles.filter(r => !this.selectedAttitudeConfiguration!.coveredRoleIds.includes(r.roleId)) : []; }
+  get attitudeSetupParams() { return { configurationId: this.form.controls.attitudeConfigurationId.value,
+    reviewPeriodId: this.period?.id ?? null }; }
+  get attitudeSelectionIssue() {
+    const issue = this.fieldIssue('attitudeConfigurationId');
+    return this.attitudeConfigurations?.length && issue?.key.endsWith('.REQUIRED') ? issue : undefined;
+  }
   issues: ReviewValidationIssue[] = [];
   draftReadinessShown = false;
   loading = true;
@@ -113,9 +128,17 @@ export class ReviewPeriodFormComponent implements OnInit {
     private route: ActivatedRoute, private router: Router, private modal: NzModalService,
     private translate: TranslateService, private message: NzMessageService) {}
 
+  periodClosed(result: ReviewPeriodClosure): void {
+    if (this.period?.id !== result.reviewPeriodId || result.status !== 'CLOSED') return;
+    const newlyClosed = this.period.status !== 'CLOSED';
+    this.period = { ...this.period, status: 'CLOSED', closedAt: result.closedAt, closedByName: result.closedByName };
+    if (newlyClosed) this.message.success(this.translate.instant('REVIEW_PERIOD.CLOSURE.SUCCESS'));
+  }
+
   ngOnInit(): void {
     this.route.paramMap.pipe(switchMap(params => {
-      this.loading = true; this.error = ''; this.errorSection = null; this.period = null; this.previewPeriod = null;
+      this.loading = true; this.error = ''; this.errorSection = null; this.period = null; this.previewPeriod = null; this.attitudeConfigurations = null;
+      this.attitudeSelectionEstablished = false; this.missingAttitudeRolesVisible = false;
       this.defaults$.next(null);
       const id = params.get('id');
       this.viewOnly = this.route.snapshot.data['viewOnly'] === true;
@@ -125,11 +148,13 @@ export class ReviewPeriodFormComponent implements OnInit {
       }
       return forkJoin({ period: id ? this.api.get(Number(id)) : of(null),
         roles: this.viewOnly ? of([] as ReviewRoleConfiguration[]) : this.api.roles(),
+        attitudeConfigurations: this.api.attitudeConfigurations().pipe(catchError(() => of(null))),
         levels: this.viewOnly ? of([] as EmployeeLevel[]) : this.roleService.getEmployeeLevels()
       }).pipe(catchError(error => { this.setError(error); return of(null); }), finalize(() => this.loading = false));
     }), takeUntilDestroyed(this.destroyRef)).subscribe(data => {
       if (!data) return;
       this.period = data.period;
+      this.attitudeConfigurations = data.attitudeConfigurations;
       this.viewOnly = this.viewOnly || (!!data.period && !editableReviewPeriod(data.period));
       this.employeeLevels = data.levels;
       this.populate(data.period, data.roles);
@@ -152,9 +177,13 @@ export class ReviewPeriodFormComponent implements OnInit {
       this.previewPeriod = null;
       if (this.issues.length) this.validate(this.publishingValidation);
     });
+    this.form.controls.attitudeConfigurationId.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.attitudeSelectionEstablished = true; this.missingAttitudeRolesVisible = false;
+    });
   }
 
   private populate(period: AnnualReviewPeriod | null, options: ReviewRoleConfiguration[]): void {
+    this.attitudeSelectionEstablished = !!period;
     this.consolidationCopied = false;
     this.frequencyPolicy = period ? period.frequencyPolicy ?? 'ROLE_BASED' : 'DEPARTMENT_BASED';
     this.departmentSchedules = new Map((period?.departmentConfigurations ?? []).map(c => [c.departmentId, c.reviewFrequency]));
@@ -174,23 +203,35 @@ export class ReviewPeriodFormComponent implements OnInit {
     if (period) {
       for (const field of REVIEW_DATE_FIELDS) this.dates[field].setValue(pickerDate(period[field]), { emitEvent: false });
       this.form.patchValue({ name: period.name, kpiPerformanceWeight: period.kpiPerformanceWeight,
+        attitudeConfigurationId: period.attitudeConfigurationId ?? null,
         attitudeEvaluationWeight: period.attitudeEvaluationWeight, annualKpiConsolidationMethod: period.annualKpiConsolidationMethod,
         selfAssessmentDaysAfterCheckpoint: period.selfAssessmentDaysAfterCheckpoint,
         superiorAssessmentDaysAfterSelfDeadline: period.superiorAssessmentDaysAfterSelfDeadline }, { emitEvent: false });
     }
     this.form.markAsPristine();
     if (!period) this.form.controls.annualKpiConsolidationMethod.setValue('FINAL_CHECKPOINT', { emitEvent: false });
+    this.selectInitialAttitudeConfiguration();
     if (this.limitedEdit) {
       this.roleRows.disable({ emitEvent: false }); this.levelRows.disable({ emitEvent: false });
       this.form.controls.kpiPerformanceWeight.disable({ emitEvent: false });
       this.form.controls.attitudeEvaluationWeight.disable({ emitEvent: false });
       this.form.controls.annualKpiConsolidationMethod.disable({ emitEvent: false });
+      this.form.controls.attitudeConfigurationId.disable({ emitEvent: false });
       if (this.frozenSchedule) {
         this.dates.startDate.disable({ emitEvent: false }); this.dates.endDate.disable({ emitEvent: false });
         this.form.controls.selfAssessmentDaysAfterCheckpoint.disable({ emitEvent: false });
         this.form.controls.superiorAssessmentDaysAfterSelfDeadline.disable({ emitEvent: false });
       }
     }
+  }
+
+  private selectInitialAttitudeConfiguration(): void {
+    if (this.period || this.attitudeSelectionEstablished || !this.attitudeConfigurations?.length) return;
+    const publishedAt = (value: string | null) => { const date = Date.parse(value ?? ''); return Number.isFinite(date) ? date : -Infinity; };
+    const latest = [...this.attitudeConfigurations].sort((a, b) =>
+      publishedAt(b.publishedAt) - publishedAt(a.publishedAt) || b.id - a.id)[0];
+    this.form.controls.attitudeConfigurationId.setValue(latest.id, { emitEvent: false });
+    this.attitudeSelectionEstablished = true;
   }
 
   get departments(): string[] { return [...new Set(this.roleOptions.map(r => r.departmentName).filter((name): name is string => !!name))].sort(); }
@@ -266,6 +307,7 @@ export class ReviewPeriodFormComponent implements OnInit {
     const dates = Object.fromEntries(REVIEW_DATE_FIELDS.map(field => [field, calendarDate(value[field])])) as Record<typeof REVIEW_DATE_FIELDS[number], string | null>;
     const weights = this.levelRows.getRawValue();
     return { ...dates, name: value.name?.trim() || null,
+      attitudeConfigurationId: value.attitudeConfigurationId,
       frequencyPolicy: this.frequencyPolicy,
       departmentConfigurations: this.departmentBased ? this.selectedDepartments.flatMap(department => {
         const reviewFrequency = this.departmentSchedules.get(department.departmentId);
@@ -282,22 +324,41 @@ export class ReviewPeriodFormComponent implements OnInit {
   validate(publish: boolean): boolean {
     this.publishingValidation = publish;
     this.issues = validateReviewConfiguration(this.request(), publish, this.employeeLevels.map(l => l.id), this.roleOptions, this.limitedEdit);
+    if (publish) this.issues.push(...this.attitudePublicationIssues());
     return !this.issues.length;
+  }
+  private attitudePublicationIssues(): ReviewValidationIssue[] {
+    if (this.limitedEdit) return [];
+    const issue = (key: string, params?: Record<string, string>): ReviewValidationIssue[] =>
+      [{ section: 'attitude', field: 'attitudeConfigurationId', key: `REVIEW_PERIOD.ATTITUDE_CONFIGURATION.${key}`, params }];
+    if (this.attitudeConfigurations === null) return issue('LOAD_ERROR');
+    if (!this.selectedAttitudeConfiguration) return issue('REQUIRED');
+    return this.missingAttitudeRoles.length ? issue('MISSING_ROLES', { roles: this.missingAttitudeRoles.map(r => r.roleName).join(', ') }) : [];
+  }
+  refreshAttitudeConfigurations(): void {
+    if (this.loadingAttitudeConfigurations || this.busy) return;
+    this.loadingAttitudeConfigurations = true;
+    this.api.attitudeConfigurations().pipe(catchError(() => of(null)), finalize(() => this.loadingAttitudeConfigurations = false),
+      takeUntilDestroyed(this.destroyRef)).subscribe(options => {
+      this.attitudeConfigurations = options; this.previewPeriod = null;
+      this.selectInitialAttitudeConfiguration();
+      if (this.issues.length) this.validate(this.publishingValidation);
+    });
   }
   sectionIssues(section: ReviewSection): ReviewValidationIssue[] { return this.issues.filter(issue => issue.section === section); }
   fieldIssue(field: string): ReviewValidationIssue | undefined { return this.issues.find(issue => issue.field === field) ?? this.draftReadiness.find(issue => issue.field === field); }
   draftSectionIssues(section: ReviewSection) { return this.draftReadiness.filter(issue => issue.section === section); }
   get draftReadiness() {
     return this.draftReadinessShown && this.period?.status === 'DRAFT'
-      ? validateReviewConfiguration(this.request(), true, this.employeeLevels.map(l => l.id), this.roleOptions) : [];
+      ? [...validateReviewConfiguration(this.request(), true, this.employeeLevels.map(l => l.id), this.roleOptions), ...this.attitudePublicationIssues()] : [];
   }
   levelField(field: string, levelId: number) { return `${field === 'companyKpiWeight' ? 'company' : field === 'departmentKpiWeight' ? 'department' : 'individual'}-${levelId}`; }
-  focusSection(section: ReviewSection): void {
+  focusSection(section: ReviewSection | 'configuration'): void {
     const card = document.getElementById(`review-${section}`);
     card?.scrollIntoView({ behavior: 'smooth', block: 'start' }); card?.focus({ preventScroll: true });
   }
   private check(publish: boolean): boolean {
-    if (this.busy || this.loadingDefaults || this.loadingRoles || this.viewOnly) return false;
+    if (this.busy || this.loadingDefaults || this.loadingRoles || this.loadingAttitudeConfigurations || this.viewOnly) return false;
     this.error = '';
     this.errorSection = null;
     if (this.validate(publish)) return true;
@@ -344,6 +405,6 @@ export class ReviewPeriodFormComponent implements OnInit {
   private setError(error: { error?: { message?: string } }): void {
     this.error = error.error?.message || this.translate.instant('REVIEW_PERIOD.SAVE_ERROR');
     this.errorSection = /overlap|name already exists/i.test(this.error) ? 'basic'
-      : /applicable role/i.test(this.error) ? 'roles' : null;
+      : /attitude evaluation/i.test(this.error) ? 'attitude' : /applicable role/i.test(this.error) ? 'roles' : null;
   }
 }

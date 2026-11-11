@@ -17,6 +17,8 @@ import java.util.List;
 
 @Data
 public class AnnualKpiReviewPeriodRequest {
+    @Positive
+    private Long attitudeConfigurationId;
     private com.tbm.careerpathlearning.enums.KpiFrequencyPolicy frequencyPolicy;
     @Valid
     private List<@NotNull ReviewPeriodDepartmentConfigurationDto> departmentConfigurations;
