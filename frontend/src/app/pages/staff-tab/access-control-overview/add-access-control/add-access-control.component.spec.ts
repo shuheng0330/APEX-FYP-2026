@@ -1,23 +1,54 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { TestBed } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { TranslateModule } from '@ngx-translate/core';
+import { of } from 'rxjs';
 import { AddAccessControlComponent } from './add-access-control.component';
+import { AuthorityService } from '../../../../services/authority.service';
+import { AuthService } from '../../../../services/auth.service';
+import { LoadingService } from '../../../../services/loading.service';
+import { OrgChartService } from '../../../../services/orgChart.service';
+import { RoleService } from '../../../../services/role.service';
+import { NzModalService } from 'ng-zorro-antd/modal';
 
-describe('AddAccessControlComponent', () => {
-  let component: AddAccessControlComponent;
-  let fixture: ComponentFixture<AddAccessControlComponent>;
-
+describe('AddAccessControlComponent permission presentation', () => {
+  const api = { getStaffAccessControlOverview: jasmine.createSpy().and.returnValue(of({permissions: [], departments: []})),
+    grantAccess: jasmine.createSpy().and.returnValue(of(undefined)), editGrantedAccess: jasmine.createSpy().and.returnValue(of(undefined)) };
+  const auth = { hasRole: jasmine.createSpy().and.returnValue(true), refresh: jasmine.createSpy().and.returnValue(of(null)) };
+  const modal = { confirm: jasmine.createSpy() };
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [AddAccessControlComponent]
-    })
-    .compileComponents();
-
-    fixture = TestBed.createComponent(AddAccessControlComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
+    api.grantAccess.calls.reset(); api.editGrantedAccess.calls.reset(); auth.refresh.calls.reset(); modal.confirm.calls.reset();
+    await TestBed.configureTestingModule({imports: [AddAccessControlComponent, TranslateModule.forRoot()], providers: [
+      provideNoopAnimations(), {provide: AuthorityService, useValue: api}, {provide: AuthService, useValue: auth},
+      {provide: LoadingService, useValue: {show: jasmine.createSpy(), hide: jasmine.createSpy()}},
+      {provide: OrgChartService, useValue: {getAllOrgChart: () => of([])}},
+      {provide: RoleService, useValue: {getAllRoles: () => of([])}}, {provide: NzModalService, useValue: modal}
+    ]}).compileComponents();
+  });
+  it('creates without changing grants', () => {
+    const fixture = TestBed.createComponent(AddAccessControlComponent); fixture.detectChanges();
+    expect(fixture.componentInstance).toBeTruthy();
+    expect(api.grantAccess).not.toHaveBeenCalled(); expect(api.editGrantedAccess).not.toHaveBeenCalled();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('preserves existing validation and exact ID payloads', () => {
+    const page = TestBed.createComponent(AddAccessControlComponent).componentInstance;
+    page.submit(); expect(api.grantAccess).not.toHaveBeenCalled();
+    page.validateForm.setValue({department: 2, role: 3, authorities: [1, 2]});
+    page.submit();
+    expect(api.grantAccess).toHaveBeenCalledWith(2, 3, [1, 2]);
+
+  });
+  it('cancellation closes and resets without saving', () => {
+    const page = TestBed.createComponent(AddAccessControlComponent).componentInstance;
+    page.validateForm.setValue({department: 2, role: 3, authorities: [1]});
+    page.close(); expect(page.visible$.value).toBeFalse();
+    expect(api.grantAccess).not.toHaveBeenCalled();
+  });
+  it('renders the shared selector in its existing drawer', async () => {
+    const fixture = TestBed.createComponent(AddAccessControlComponent); const page = fixture.componentInstance;
+    page.translatedAuthorityList = [{id: 1, name: 'ROLE_USER', label: 'auth.role.user', description: 'basic'}];
+    page.visible$.next(true); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(document.querySelector('app-permission-selector')).not.toBeNull();
+    page.close(); fixture.detectChanges();
   });
 });

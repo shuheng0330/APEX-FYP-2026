@@ -38,25 +38,14 @@
             </div>
         </div>
         <div nz-row [nzGutter]="8">
-            <div nz-col nzSpan="18">
+<div nz-col nzSpan="24">
                 <nz-form-item>
                     <nz-form-label [nzSm]="6" [nzXs]="24" nzRequired nzLabelAlign="left">
                         {{ 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.INPUT.ACCESS' | translate}}
                     </nz-form-label>
                     <nz-form-control [nzErrorTip]="( 'PAGE.STAFF.ACCESS_CONTROL_OVERVIEW.ADD.ERR.ACCESS' | translate)">
-                        <nz-checkbox-wrapper>
-                            <nz-checkbox-group formControlName="authorities">
-                                @for(authority of translatedAuthorityList; track authority){
-                                <nz-form-label nzLabelAlign="left" nzNoColon>
-                                    <label nz-checkbox nzValue="{{authority.id}}">{{authority.label}}
-                                        <nz-icon nzType="info-circle" nzTheme="outline"
-                                            [nzTooltipTitle]="authority.description" nzTooltipPlacement="top"
-                                            nz-tooltip />
-                                    </label>
-                                </nz-form-label><br />
-                                }
-                            </nz-checkbox-group>
-                        </nz-checkbox-wrapper>
+                        <app-permission-selector formControlName="authorities"
+                            [permissions]="translatedAuthorityList" idType="number" />
                     </nz-form-control>
                 </nz-form-item>
             </div>

@@ -1,5 +1,6 @@
 import { Component, EventEmitter, HostListener, inject, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { PermissionSelectorComponent } from '../../../../components/permission-selector/permission-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FormsModule, NonNullableFormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 
@@ -27,7 +28,7 @@ import { LoadingService } from '../../../../services/loading.service';
 
 @Component({
   selector: 'app-add-access-control',
-  imports: [CommonModule, ReactiveFormsModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule,
+  imports: [PermissionSelectorComponent, CommonModule, ReactiveFormsModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule,
     NzSelectModule, TranslateModule, NzCheckboxModule, FormsModule, NzIconModule,
     NzToolTipModule, NzModalModule, NzEmptyModule],
   templateUrl: './add-access-control.component.html',

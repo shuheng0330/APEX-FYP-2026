@@ -1,4 +1,156 @@
 {
+  "ACCESS_PERMISSIONS": {
+  "LEGACY_PRESERVED": "Existing permissions not shown here are preserved when you save.",
+  "ROLE_IMPACT": "Permissions are granted to this Job Role and affect employees assigned to it, not individual employees.",
+  "SEARCH": "Search permissions by name or business task",
+  "TOTAL": "{{selected}} permissions selected",
+  "COUNT": "{{selected}} of {{total}} selected",
+  "EMPTY": "No matching permissions.",
+  "LEGACY": "Existing evaluation access",
+  "UNKNOWN": "Additional permission supplied by the system. Confirm its purpose before changing access.",
+  "GROUPS": {
+    "BASIC": "Basic Employee Access",
+    "STAFF": "Staff & Organisation",
+    "ACCESS": "Job Roles & Access",
+    "TRAINING": "Training & Competency",
+    "PERIOD": "Review Periods",
+    "PLANNING": "KPI Planning & Revisions",
+    "ASSESSMENT": "Performance Assessment & Attitude",
+    "APPRAISAL": "Staff Appraisal",
+    "ANALYTICS": "Performance Analytics",
+    "OTHER": "Other Permissions"
+  },
+  "ITEMS": {
+    "ROLE_USER": {
+      "LABEL": "Basic Employee Access",
+      "DESCRIPTION": "Access your own profile, learning and eligible employee performance tasks."
+    },
+    "CAN_VIEW_STAFF": {
+      "LABEL": "View Staff",
+      "DESCRIPTION": "View staff information across the organisation."
+    },
+    "CAN_MANAGE_STAFF": {
+      "LABEL": "Manage Staff",
+      "DESCRIPTION": "Create and maintain staff accounts."
+    },
+    "CAN_MANAGE_ORG_CHART": {
+      "LABEL": "Manage Organisation Structure",
+      "DESCRIPTION": "Maintain departments and the organisation structure."
+    },
+    "CAN_MANAGE_ROLE": {
+      "LABEL": "Manage Job Roles",
+      "DESCRIPTION": "Maintain departmental Job Roles and their settings."
+    },
+    "CAN_VIEW_ACCESS_CONTROL": {
+      "LABEL": "View Access Permissions",
+      "DESCRIPTION": "View permission assignments for Job Roles without changing them."
+    },
+    "CAN_MANAGE_ACCESS_CONTROL": {
+      "LABEL": "Manage Access Permissions",
+      "DESCRIPTION": "Grant or revoke Job Role permissions and administer trainer access. Changes can affect multiple employees."
+    },
+    "CAN_MANAGE_COMPETENCY": {
+      "LABEL": "Manage Competencies",
+      "DESCRIPTION": "Maintain competency information used across the system."
+    },
+    "CAN_MANAGE_TRAINING": {
+      "LABEL": "Manage Training",
+      "DESCRIPTION": "Manage courses you own and associated training activities, subject to existing scope checks."
+    },
+    "CAN_ASSIGN_TRAINING": {
+      "LABEL": "Assign Training",
+      "DESCRIPTION": "Assign courses across the organisation and access related training results."
+    },
+    "CAN_MANAGE_LEARNING_MATERIAL": {
+      "LABEL": "Manage Learning Materials",
+      "DESCRIPTION": "Create and maintain learning materials."
+    },
+    "CAN_MANAGE_EVALUATION": {
+      "LABEL": "Manage Competency Evaluations",
+      "DESCRIPTION": "Use existing competency-evaluation functionality. Also permits viewing other employees' SOP competency scores; this is not the annual KPI assessment permission."
+    },
+    "CAN_MANAGE_EVALUATION_CYCLE": {
+      "LABEL": "Manage Competency Evaluation Cycles",
+      "DESCRIPTION": "Manage existing competency evaluation cycles and related reviews. Also permits viewing other employees' SOP competency scores; this is not Annual KPI Review Period management."
+    },
+    "CAN_MANAGE_ANNUAL_KPI_REVIEW_PERIOD": {
+      "LABEL": "Manage Annual KPI Review Periods",
+      "DESCRIPTION": "Configure, publish and close Annual KPI Review Periods, subject to readiness checks."
+    },
+    "CAN_MANAGE_COMPANY_KPI": {
+      "LABEL": "Manage Company KPI Plans",
+      "DESCRIPTION": "Prepare and publish Company KPI plans and manage associated results within existing rules."
+    },
+    "CAN_MANAGE_DEPARTMENT_KPI": {
+      "LABEL": "Prepare Department KPI Plans",
+      "DESCRIPTION": "Prepare and submit assigned Department KPI plans and enter associated results within your scope. Does not grant approval authority."
+    },
+    "CAN_APPROVE_DEPARTMENT_KPI": {
+      "LABEL": "Review Department KPI Plans",
+      "DESCRIPTION": "Approve or return Department KPI plans and applicable revisions."
+    },
+    "CAN_REVIEW_INDIVIDUAL_KPI": {
+      "LABEL": "Review Individual KPI Plans",
+      "DESCRIPTION": "Review direct reports' KPI plans and applicable revisions or assisted preparation, subject to reporting-line checks."
+    },
+    "CAN_AUTHORIZE_INDIVIDUAL_KPI_ASSISTANCE": {
+      "LABEL": "Authorise Individual KPI Assistance",
+      "DESCRIPTION": "Approve or reject requests for a Superior to help prepare an employee's Individual KPI plan."
+    },
+    "CAN_MANAGE_KPI_AMENDMENTS": {
+      "LABEL": "Manage KPI Revision Access",
+      "DESCRIPTION": "Manage amendment availability and cancel permitted unfinished Company or Department revisions."
+    },
+    "CAN_REVISE_COMPANY_KPI": {
+      "LABEL": "Revise Company KPI Plans",
+      "DESCRIPTION": "Prepare and confirm Company KPI revisions under existing rules."
+    },
+    "CAN_PREPARE_DEPARTMENT_KPI_REVISION": {
+      "LABEL": "Prepare Department KPI Revisions",
+      "DESCRIPTION": "Prepare requested Department revisions for the existing approval and confirmation process."
+    },
+    "CAN_MANAGE_INDIVIDUAL_KPI_REVISIONS": {
+      "LABEL": "Prepare Individual KPI Revisions",
+      "DESCRIPTION": "Request and prepare exceptional Individual KPI revisions for Superior approval."
+    },
+    "CAN_ENTER_COMPANY_KPI_RESULTS": {
+      "LABEL": "Enter Company KPI Results",
+      "DESCRIPTION": "Enter Company results only for Review Periods where you also have an explicit result-entrant assignment. Does not allow plan editing."
+    },
+    "CAN_REVIEW_KPI_ASSESSMENT": {
+      "LABEL": "Conduct Superior KPI Assessments",
+      "DESCRIPTION": "Review routed employee KPI submissions and record Superior ratings for employees within your authorised scope."
+    },
+    "CAN_MANAGE_ATTITUDE_CONFIGURATION": {
+      "LABEL": "Manage Attitude Evaluation Setup",
+      "DESCRIPTION": "Create and publish evaluation criteria, rating definitions and Job Role formats. Initial assignment is available only where permitted."
+    },
+    "CAN_REVIEW_ATTITUDE_EVALUATION": {
+      "LABEL": "Conduct Superior Attitude Evaluations",
+      "DESCRIPTION": "Review submitted employee Attitude Self-Assessments and record Superior ratings within your authorised scope."
+    },
+    "CAN_SUBMIT_ANNUAL_APPRAISAL": {
+      "LABEL": "Prepare & Submit Appraisal Recommendations",
+      "DESCRIPTION": "Prepare and submit annual recommendations for direct reports. AI insights have separate eligibility safeguards; performance-profile viewing requires its own permission."
+    },
+    "CAN_REVIEW_ANNUAL_APPRAISAL": {
+      "LABEL": "Review & Finalise Annual Appraisals",
+      "DESCRIPTION": "Approve, override or return eligible submitted recommendations, subject to existing self-review restrictions."
+    },
+    "CAN_VIEW_TEAM_PERFORMANCE": {
+      "LABEL": "View Direct Reports' Performance",
+      "DESCRIPTION": "View current direct reports' performance. Does not grant assessment or appraisal actions."
+    },
+    "CAN_VIEW_DEPARTMENT_PERFORMANCE": {
+      "LABEL": "View Department Performance",
+      "DESCRIPTION": "View performance for your authorised Department. Does not grant review actions."
+    },
+    "CAN_VIEW_ORGANISATION_PERFORMANCE": {
+      "LABEL": "View Organisation Performance",
+      "DESCRIPTION": "View organisation performance, summary exports and authorised drill-downs, subject to privacy safeguards. Does not grant HR decision authority."
+    }
+  }
+},
     "ACCESS_DENIED": {
         "TITLE": "Access Denied",
         "HELP": "You do not have permission to view this page. Contact your administrator if you need access.",
