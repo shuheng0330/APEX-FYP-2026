@@ -333,6 +333,62 @@ h6 {
   border-radius: 6px !important;
 }
 
+/*
+ * Course pickers' lists on Generated Material Review, Quiz Review and the Training Scoreboard (VR-11):
+ * wider than the box, with the whole course name over up to two lines and the version in its own column,
+ * so a long name never hides v1 or v2. The list sits outside the page, so this has to be global; only
+ * selects with nzDropdownClassName="course-picker-dropdown" get it (ng-zorro puts that class on the overlay
+ * pane around the list). Every option is 52px tall, matching COURSE_OPTION_HEIGHT_PX in sop.util.ts: the
+ * list assumes all options are that height.
+ */
+.cdk-overlay-pane.course-picker-dropdown {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.course-picker-dropdown .ant-select-item {
+  height: 52px;
+  padding: 6px 12px;
+}
+
+.course-picker-dropdown .ant-select-item-option-content {
+  white-space: normal;
+}
+
+.course-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 40px;
+}
+
+.course-option-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.course-option-meta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--tbm-muted);
+  white-space: nowrap;
+}
+
+.course-option-version {
+  font-weight: 600;
+  color: var(--tbm-text);
+}
+
 @media (max-width: 1000px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

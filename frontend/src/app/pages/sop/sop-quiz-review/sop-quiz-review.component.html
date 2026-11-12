@@ -11,17 +11,28 @@
         <label nz-radio-button nzValue="CURRENT">Current</label>
         <label nz-radio-button nzValue="ARCHIVED">Archived</label>
       </nz-radio-group>
+      <!-- VR-11: a wider list that shows the whole course name, with the version in its own column -->
       <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
-                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a course'" [nzDisabled]="regenerating">
+                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a course'" [nzDisabled]="regenerating"
+                 nzDropdownClassName="course-picker-dropdown" [nzDropdownMatchSelectWidth]="false" nzPlacement="bottomRight"
+                 [nzOptionHeightPx]="optionHeight">
         @for (s of completedSops; track s.id) {
-          <nz-option [nzValue]="s.id" [nzLabel]="optionLabel(s)"></nz-option>
+          <nz-option nzCustomContent [nzValue]="s.id" [nzLabel]="optionLabel(s)">
+            <span class="course-option">
+              <span class="course-option-title">{{ s.title }}</span>
+              <span class="course-option-meta">
+                <span class="course-option-version">{{ optionVersion(s) }}</span>
+                <span>{{ optionModules(s) }}</span>
+              </span>
+            </span>
+          </nz-option>
         }
       </nz-select>
     </div>
   </div>
 
-  <nz-spin [nzSpinning]="loading">
-    @if (!loading && !document) {
+  <nz-spin [nzSpinning]="loading || openingNewest">
+    @if (!loading && !openingNewest && !document) {
       <div class="empty-workbench surface-panel">
         <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'Select an archived course to view or restore it' : 'Select a course to review its quizzes'"></nz-empty>
       </div>

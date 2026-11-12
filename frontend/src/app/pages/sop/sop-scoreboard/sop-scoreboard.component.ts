@@ -20,6 +20,7 @@ import {
   EnrollmentProgress, Scoreboard, ScoreboardRecord, ScoreboardStatus
 } from '../../../models/sop-scoreboard.model';
 import { LearningModuleState } from '../../../models/sop-learning.model';
+import { COURSE_OPTION_HEIGHT_PX } from '../sop.util';
 
 type StatusFilter = 'ALL' | ScoreboardStatus | 'OVERDUE';
 
@@ -181,6 +182,13 @@ export class SopScoreboardComponent implements OnInit {
     this.courseId = null;
     this.status = 'ALL';
     this.applyFilters();
+  }
+
+  readonly optionHeight = COURSE_OPTION_HEIGHT_PX;
+
+  /** "replaced" or "archived", under the version in the course list (VR-11). */
+  courseState(c: Scoreboard['courses'][number]): string {
+    return [c.superseded ? 'replaced' : '', c.archived ? 'archived' : ''].filter(Boolean).join(', ');
   }
 
   get departmentOptions(): string[] {

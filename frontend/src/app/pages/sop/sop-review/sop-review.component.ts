@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -26,7 +27,8 @@ import {
 import { environment } from '../../../../environments/environment';
 import { SopContentViewComponent, parseRichContent } from '../../../components/sop-content-view/sop-content-view.component';
 import {
-  CourseView, MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, courseOptionLabel, courseReady, draftQuestion, formatDuration, startsDraft
+  COURSE_OPTION_HEIGHT_PX, CourseView, MAX_DURATION_MINUTES, MIN_DURATION_MINUTES, NO_AUTO_OPEN, autoOpenAllowed, courseOptionLabel,
+  courseOptionModules, courseOptionVersion, courseReady, courseViewFrom, courseViewQuery, draftQuestion, formatDuration, startsDraft
 } from '../sop.util';
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
@@ -87,8 +89,16 @@ export class SopReviewComponent implements OnInit {
   historyLoading = false;
 
   readonly optionLabel = courseOptionLabel;
+  readonly optionVersion = courseOptionVersion;
+  readonly optionModules = courseOptionModules;
+  readonly optionHeight = COURSE_OPTION_HEIGHT_PX;
   /** After a change moved to a new draft, the module to open there. */
   private pendingModuleOrder: number | null = null;
+  /** Waiting for the course list, to open its newest course instead of an empty page. */
+  openingNewest = false;
+  private readonly destroyRef = inject(DestroyRef);
+  /** Read while the router builds the page: by ngOnInit its navigation, and the state it carried, are gone. */
+  private readonly mayOpenNewest = autoOpenAllowed(inject(Router));
 
   constructor(
     private sopService: SopService,
@@ -99,8 +109,11 @@ export class SopReviewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadList();
+    this.view = courseViewFrom(this.route.snapshot.queryParamMap);
     const idParam = this.route.snapshot.paramMap.get('id');
+    // No course in the address: open the newest one rather than an empty page.
+    this.openingNewest = !idParam && this.mayOpenNewest;
+    this.loadList();
     if (idParam) {
       this.selectedSopId = +idParam;
       this.loadDetail(this.selectedSopId);
@@ -108,9 +121,28 @@ export class SopReviewComponent implements OnInit {
   }
 
   private loadList(): void {
-    this.sopService.list(false, this.view === 'ARCHIVED').subscribe(docs => {
-      this.completedSops = docs.filter(d => d.generationStatus === 'COMPLETED');
+    // A page that was left (the address changed to another course) does nothing more with its list.
+    this.sopService.list(false, this.view === 'ARCHIVED').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: docs => {
+        this.completedSops = docs.filter(d => d.generationStatus === 'COMPLETED');
+        this.openNewestIfNone();
+      },
+      error: () => this.openingNewest = false
     });
+  }
+
+  /**
+   * Opens the newest course in the list (the server lists newest first) when none is open. The address stays
+   * /sop/review, so the Back button leaves the page instead of coming straight back to it.
+   */
+  private openNewestIfNone(): void {
+    if (!this.openingNewest) return;
+    this.openingNewest = false;
+    const newest = this.completedSops[0];
+    if (newest && this.selectedSopId == null && !this.document) {
+      this.selectedSopId = newest.id;
+      this.loadDetail(newest.id);
+    }
   }
 
   setView(view: CourseView): void {
@@ -119,7 +151,9 @@ export class SopReviewComponent implements OnInit {
     this.document = undefined;
     this.modules = [];
     this.selectedSopId = null;
-    this.router.navigate(['/sop/review']);
+    this.openingNewest = true;
+    // The address keeps the choice, so it holds if the page is built afresh; switching adds no Back step.
+    this.router.navigate(['/sop/review'], { queryParams: courseViewQuery(view), replaceUrl: true });
     this.loadList();
   }
 
@@ -138,14 +172,17 @@ export class SopReviewComponent implements OnInit {
 
   /** The draft is gone: back to the live version. */
   onDiscarded(draft: SopDocument): void {
-    this.loadList();
     if (draft.liveVersionId) {
+      this.loadList();
       this.onSelectSop(draft.liveVersionId);
     } else {
+      // A new course's only draft: open the newest course left.
       this.document = undefined;
       this.modules = [];
       this.selectedSopId = null;
+      this.openingNewest = true;
       this.router.navigate(['/sop/review']);
+      this.loadList();
     }
   }
 
@@ -162,6 +199,8 @@ export class SopReviewComponent implements OnInit {
   /** A restored course is current again, and its owner can change it. */
   onRestored(doc: SopDocument): void {
     this.view = 'CURRENT';
+    // Drop ?view=archived, so reloading the page doesn't go back to the Archived list.
+    this.router.navigate([], { relativeTo: this.route, queryParams: courseViewQuery('CURRENT'), replaceUrl: true });
     this.loadList();
     this.loadDetail(doc.id);
   }
@@ -208,10 +247,12 @@ export class SopReviewComponent implements OnInit {
     this.document = undefined;
     this.modules = [];
     this.selectedSopId = null;
+    this.openingNewest = false;
     if (!e.error?.message) {
       this.message.error('Could not load SOP detail.');
     }
-    this.router.navigate(['/sop/review']);
+    // Back to the list, without opening the newest course: it may be the one that just failed.
+    this.router.navigate(['/sop/review'], { queryParams: courseViewQuery(this.view), state: NO_AUTO_OPEN });
   }
 
   // --- course settings (FR-07-15) ---
