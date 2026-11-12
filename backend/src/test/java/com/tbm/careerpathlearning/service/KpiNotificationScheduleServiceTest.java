@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import java.time.*;
 import java.util.*;
 import static com.tbm.careerpathlearning.enums.AuthorityName.*;
@@ -77,7 +78,8 @@ class KpiNotificationScheduleServiceTest {
         var criterion=new AttitudeCriterion();criterion.setId(31L);criterion.setActive(true);criterion.setCriterionType(AttitudeCriterionType.SHARED_CORE_VALUE);config.getCriteria().add(criterion);
         period.setAttitudeConfiguration(config);
         participant=participant(7L,bob);roster.add(participant);
-        when(periods.findAllByStatus(AnnualKpiReviewPeriodStatus.OPEN)).thenAnswer(i->List.of(period));
+        when(periods.findAllByStatus(any(AnnualKpiReviewPeriodStatus.class))).thenAnswer(i->
+                period.getStatus()==i.getArgument(0)?List.of(period):List.of());
         when(participants.findAllByReviewPeriodId(1L)).thenAnswer(i->roster);
         april=checkpoint(2L,ReviewFrequency.MONTHLY,"2027-04-01","2027-04-30");may=checkpoint(3L,ReviewFrequency.MONTHLY,"2027-05-01","2027-05-31");
         june=checkpoint(4L,ReviewFrequency.MONTHLY,"2027-06-01","2027-06-30");quarter=checkpoint(5L,ReviewFrequency.QUARTERLY,"2027-04-01","2027-06-30");
@@ -155,32 +157,89 @@ class KpiNotificationScheduleServiceTest {
         bob.setManager(hr);carol.setManager(hr);notices.clear();keys.clear();service.scanToday();assertTrue(notices.isEmpty());
     }
 
-    @Test void readinessControlsAppraisalSubmissionRemindersWithoutCreatingDraftsOrChangingScores() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void readinessControlsAppraisalSubmissionRemindersWithoutCreatingDraftsOrChangingScores(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         date("2027-07-18");service.scanToday();assertTrue(notices.isEmpty());
         when(readiness.readyForNotification(participant)).thenReturn(true);service.scanToday();
         assertEquals(1,notices.size());assertEquals(alice.getId(),notices.get(0).recipient());assertTrue(notices.get(0).link().contains("team-appraisals"));
         verify(appraisals,never()).save(any());verify(assessments,never()).save(any());
     }
 
-    @Test void hrRemindersExcludeOwnAppraisalsAndSubmittersAndAllowReviewOfChangedResults() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void hrRemindersExcludeOwnAppraisalsAndSubmittersAndAllowReviewOfChangedResults(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         var a=appraisal(AppraisalStatus.PENDING_REVIEW);savedAppraisals.put(7L,a);
         grants.get(bob.getRole().getId()).add(CAN_REVIEW_ANNUAL_APPRAISAL);grants.get(alice.getRole().getId()).add(CAN_REVIEW_ANNUAL_APPRAISAL);
         date("2027-07-25");service.scanToday();assertEquals(1,notices.size());assertEquals(hr.getId(),notices.get(0).recipient());
         assertTrue(notices.get(0).link().contains("appraisals/review"));verifyNoInteractions(readiness);
     }
 
-    @Test void returnedAppraisalsRemindSuperiorWhileApprovedAndChangedRoutingAreReadOnly() {
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void returnedAppraisalsRemindSuperiorWhileApprovedAndChangedRoutingAreReadOnly(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);
         date("2027-07-18");when(readiness.readyForNotification(participant)).thenReturn(true);
         var a=appraisal(AppraisalStatus.RETURNED);savedAppraisals.put(7L,a);service.scanToday();assertEquals(1,notices.size());
         notices.clear();keys.clear();a.setStatus(AppraisalStatus.APPROVED);service.scanToday();assertTrue(notices.isEmpty());
         a.setStatus(AppraisalStatus.DRAFT);a.setSuperiorId(hr.getId());service.scanToday();assertTrue(notices.isEmpty());
     }
 
-    @Test void closedPeriodsAndInactiveOrIneligibleParticipantsProduceNoTasks() {
-        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);service.scanToday();assertTrue(notices.isEmpty());
-        period.setStatus(AnnualKpiReviewPeriodStatus.OPEN);bob.setAccountStatus(StaffAccountStatus.INACTIVE);
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void inactiveOrIneligibleParticipantsProduceNoTasks(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);date("2027-07-18");when(readiness.readyForNotification(participant)).thenReturn(true);
+        bob.setAccountStatus(StaffAccountStatus.INACTIVE);
         when(results.eligibleParticipants(anyLong(),anyLong())).thenReturn(0L);service.scanToday();assertTrue(notices.isEmpty());
         bob.setAccountStatus(StaffAccountStatus.ACTIVE);bob.getRole().setPerformanceReviewEligible(false);service.scanToday();assertTrue(notices.isEmpty());
+    }
+
+    @ParameterizedTest @CsvSource({"2027-07-01","2027-07-04","2027-07-08","2027-07-11","2027-07-15"})
+    void closedPeriodsNeverScanSetupAssessmentOrCentralResultTasks(String day) {
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);date(day);
+        period.setKpiSetupDeadline(LocalDate.parse(day).plusDays(3));periodPlans.clear();savePending(participant);
+        service.scanToday();assertTrue(notices.isEmpty());
+        verifyNoInteractions(plans,checkpoints,assessments,attitudes,versions,results,delegates,assistance,kpiAvailability);
+        verifyNoInteractions(readiness);
+    }
+
+    @ParameterizedTest @CsvSource({"2027-07-17,0","2027-07-18,1","2027-07-21,0","2027-07-22,1","2027-07-23,0"})
+    void closedAppraisalSubmissionRemindersKeepExistingDeadlineBoundaries(String day,int count) {
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);date(day);
+        when(readiness.readyForNotification(participant)).thenReturn(true);
+        service.scanToday();service.scanToday();assertEquals(count,notices.size());
+        assertTrue(notices.stream().allMatch(n->n.recipient().equals(alice.getId()) && n.link().contains("team-appraisals")));
+        assertTrue(savedAppraisals.isEmpty());verify(appraisals,never()).save(any());
+    }
+
+    @ParameterizedTest @CsvSource({"2027-07-24,0","2027-07-25,1","2027-07-28,0","2027-07-29,1","2027-07-30,0"})
+    void closedHrReviewRemindersKeepExistingDeadlineBoundaries(String day,int count) {
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);date(day);
+        savedAppraisals.put(7L,appraisal(AppraisalStatus.PENDING_REVIEW));
+        service.scanToday();service.scanToday();assertEquals(count,notices.size());
+        assertTrue(notices.stream().allMatch(n->n.recipient().equals(hr.getId()) && n.link().contains("appraisals/review")));
+        verifyNoInteractions(readiness);
+    }
+
+    @Test void appraisalReminderGroupingAndKeysSurvivePeriodClosureWithoutDuplicates() {
+        var carol=account("Carol",ROLE_USER);carol.setManager(alice);var p=participant(8L,carol);roster.add(p);
+        when(readiness.readyForNotification(any())).thenReturn(true);date("2027-07-18");service.scanToday();
+        assertEquals(1,notices.size());var originalKey=notices.get(0).key();
+        period.setStatus(AnnualKpiReviewPeriodStatus.CLOSED);service.scanToday();service.scanToday();
+        assertEquals(1,notices.size());assertEquals(originalKey,notices.get(0).key());
+        assertTrue(originalKey.contains("reminder:1:APPRAISAL_SUBMISSION:2027-07-21:DUE_SOON"));
+        date("2027-07-22");service.scanToday();service.scanToday();assertEquals(2,notices.size());
+        assertTrue(notices.stream().allMatch(n->n.recipient().equals(alice.getId())));
+        assertTrue(notices.get(1).key().contains("APPRAISAL_SUBMISSION:2027-07-21:OVERDUE"));
+    }
+
+    @ParameterizedTest @EnumSource(value=AnnualKpiReviewPeriodStatus.class,names={"OPEN","CLOSED"})
+    void appraisalRemindersSkipRevokedAuthoritiesAndMissingPublicationRoster(AnnualKpiReviewPeriodStatus status) {
+        period.setStatus(status);date("2027-07-18");when(readiness.readyForNotification(participant)).thenReturn(true);
+        grants.get(alice.getRole().getId()).remove(CAN_SUBMIT_ANNUAL_APPRAISAL);
+        service.scanToday();assertTrue(notices.isEmpty());
+        savedAppraisals.put(7L,appraisal(AppraisalStatus.PENDING_REVIEW));date("2027-07-25");
+        grants.get(hr.getRole().getId()).remove(CAN_REVIEW_ANNUAL_APPRAISAL);service.scanToday();assertTrue(notices.isEmpty());
+        period.setParticipantsSnapshottedAt(null);clearInvocations(participants,appraisals);
+        service.scanToday();verifyNoInteractions(participants,appraisals);
     }
 
     @Test void upcomingPeriodsHaveSetupRemindersButNoAssessmentOrResultEntryNotices() {

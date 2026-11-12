@@ -6,6 +6,7 @@
       <div><dt>{{ 'REVIEW_PERIOD.FIELD.endDate' | translate }}</dt><dd>{{ period.endDate ? (period.endDate | date:'dd MMM yyyy') : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
       <div><dt>{{ 'REVIEW_PERIOD.SECTION.composition' | translate }}</dt><dd>{{ period.kpiPerformanceWeight ?? '-' }}% {{ 'REVIEW_PERIOD.KPI_PERFORMANCE' | translate }} / {{ period.attitudeEvaluationWeight ?? '-' }}% {{ 'REVIEW_PERIOD.ATTITUDE' | translate }}</dd></div>
       <div><dt>{{ 'REVIEW_PERIOD.SECTION.consolidation' | translate }}</dt><dd>{{ period.annualKpiConsolidationMethod ? (('REVIEW_PERIOD.CONSOLIDATION.' + period.annualKpiConsolidationMethod) | translate) : ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
+      <div><dt>{{ 'REVIEW_PERIOD.ATTITUDE_CONFIGURATION.TITLE' | translate }}</dt><dd>{{ period.attitudeConfigurationName || ('REVIEW_PERIOD.NOT_SET' | translate) }}</dd></div>
     </dl>
     <p class="help">{{ 'REVIEW_PERIOD.PERIOD_END_HELP' | translate }}</p>
   </div>

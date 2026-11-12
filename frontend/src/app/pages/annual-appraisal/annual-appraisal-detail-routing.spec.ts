@@ -14,7 +14,8 @@ import { routes } from '../../app.routes';
 import { AnnualAppraisalService } from '../../services/annual-appraisal.service';
 import { AuthService } from '../../services/auth.service';
 import { AnnualAppraisalDetailComponent } from './annual-appraisal-detail.component';
-import { appraisal, candidate, performance, period, clearAppraisalNavigationState } from './annual-appraisal-test-fixtures';
+import { AppraisalInsightService } from '../../services/appraisal-insight.service';
+import { appraisal, candidate, performance, period, clearAppraisalNavigationState, unavailableEmployeeInsights } from './annual-appraisal-test-fixtures';
 
 @Component({ standalone: true, template: '<p>Queue or destination</p>' })
 class DestinationComponent {}
@@ -44,6 +45,7 @@ describe('Appraisal detail route lifecycle', () => {
         { path: 'appraisals/review', component: DestinationComponent }, { path: 'access-denied', component: DestinationComponent },
         { path: 'elsewhere', component: DestinationComponent }, { path: '', component: DestinationComponent }]),
       provideLocationMocks(), provideNoopAnimations(), { provide: AnnualAppraisalService, useValue: api },
+      { provide: AppraisalInsightService, useValue: unavailableEmployeeInsights },
       { provide: AuthService, useValue: { userId: 'alice', hasRole: (p: string) => grants.includes(p) } },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline] }
     ] }).compileComponents();

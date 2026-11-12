@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.*;
 import java.util.*;
 
 public interface AttitudeAssessmentRepository extends JpaRepository<AttitudeAssessment,Long> {
+    List<AttitudeAssessment> findAllByReviewPeriodIdOrderByIdAsc(Long reviewPeriodId);
     @Query("select a from AttitudeAssessment a where a.participant.id in :participantIds")
     List<AttitudeAssessment> findPerformanceAssessments(Collection<Long> participantIds);
     Optional<AttitudeAssessment> findByParticipantId(Long participantId);

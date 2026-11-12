@@ -6,6 +6,7 @@ import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { DownOutline, LeftOutline, RightOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
 import { of, Subject } from 'rxjs';
 import { AnnualAppraisalService } from '../../services/annual-appraisal.service';
+import { AppraisalInsightService } from '../../services/appraisal-insight.service';
 import { AuthService } from '../../services/auth.service';
 import { AnnualAppraisalCandidate } from '../../models/annual-appraisal.model';
 import { AnnualAppraisalsComponent } from './annual-appraisals.component';
@@ -16,14 +17,17 @@ describe('Annual appraisal queues', () => {
   let fixture: ComponentFixture<AnnualAppraisalsComponent>;
   let component: AnnualAppraisalsComponent;
   let api: jasmine.SpyObj<AnnualAppraisalService>;
+  let previews: jasmine.SpyObj<AppraisalInsightService>;
   let router: Router;
   let state: AnnualAppraisalNavigationState;
   async function setup(hr = false, grants = [hr ? 'CAN_REVIEW_ANNUAL_APPRAISAL' : 'CAN_SUBMIT_ANNUAL_APPRAISAL']) {
     api = jasmine.createSpyObj('AnnualAppraisalService', ['periods', 'team', 'reviews']);
     api.periods.and.returnValue(of([period])); api.team.and.returnValue(of([candidate()])); api.reviews.and.returnValue(of([]));
+    previews = jasmine.createSpyObj('AppraisalInsightService', ['scenarios']); previews.scenarios.and.returnValue(of([]));
     await TestBed.configureTestingModule({ imports: [AnnualAppraisalsComponent, TranslateModule.forRoot()], providers: [
       provideRouter([]), provideNoopAnimations(), { provide: ActivatedRoute, useValue: { snapshot: { data: { hrReview: hr } } } },
       { provide: AnnualAppraisalService, useValue: api },
+      { provide: AppraisalInsightService, useValue: previews },
       { provide: AuthService, useValue: { userId: hr ? 'david' : 'alice', hasRole: (p: string) => grants.includes(p) } },
       { provide: NZ_ICONS, useValue: [DownOutline, LeftOutline, RightOutline, LoadingOutline] }
     ] }).compileComponents();
@@ -41,6 +45,15 @@ describe('Annual appraisal queues', () => {
     await setup(true); expect(api.reviews).toHaveBeenCalledOnceWith(2); expect(api.team).not.toHaveBeenCalled();
     expect(component.statuses).toEqual(['PENDING_REVIEW', 'RETURNED', 'APPROVED']);
   });
+  for (const hr of [false, true]) {
+    it(`keeps the ${hr ? 'HR review' : 'Team Appraisals'} list free of AI previews and scenario requests`, async () => {
+      await setup(hr);
+      expect(fixture.nativeElement.querySelector('.data-table')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('app-appraisal-insight-preview')).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-employee-appraisal-insight')).toBeNull();
+      expect(previews.scenarios).not.toHaveBeenCalled();
+    });
+  }
   it('places pending performance results before ready appraisals without changing the default filter', async () => {
     await setup();
     const translate = TestBed.inject(TranslateService);
@@ -85,6 +98,20 @@ describe('Annual appraisal queues', () => {
     expect<number | null>(component.periodId).toBe(3); component.search = 'Bob'; component.changePeriod(2);
     expect<number | null>(component.periodId).toBe(2); expect(component.search).toBe(''); expect(api.team).toHaveBeenCalledWith(2);
   });
+  for (const hr of [false, true]) {
+    it(`labels Closed-period ${hr ? 'HR' : 'Superior'} actions without changing filters or granting authority`, async () => {
+      await setup(hr); api.periods.and.returnValue(of([{ ...period, status: 'CLOSED' }])); component.loadPeriods();
+      fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('ANNUAL_APPRAISAL.CLOSED_PERIOD');
+      expect(component.rowAction(candidate({ status: 'PENDING_REVIEW' }))).toBe(hr ? 'ANNUAL_APPRAISAL.REVIEW' : 'ANNUAL_APPRAISAL.VIEW');
+      expect(component.rowAction(candidate({ status: 'APPROVED' }))).toBe('ANNUAL_APPRAISAL.VIEW');
+      expect(component.rowAction(candidate({ status: 'RETURNED' }))).toBe(hr ? 'ANNUAL_APPRAISAL.VIEW' : 'ANNUAL_APPRAISAL.REVISE');
+      if (!hr) {
+        expect(component.rowAction(candidate({ status: 'DRAFT' }))).toBe('ANNUAL_APPRAISAL.CONTINUE_DRAFT');
+        expect(component.rowAction(candidate({ status: null, appraisalId: null }))).toBe('ANNUAL_APPRAISAL.PREPARE');
+      }
+      expect(component.filter).toBe(hr ? 'PENDING_REVIEW' : 'READY');
+    });
+  }
   it('restores the application scroll container after the queue has reloaded', async () => {
     await setup();
     const scroll = document.createElement('div'); scroll.className = 'main-content';

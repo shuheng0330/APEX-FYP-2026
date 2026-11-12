@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { HttpInterceptorFn, HttpRequest, HttpEvent, HttpHandlerFn } from '@angular/common/http';
 import { Observable, throwError, switchMap, catchError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../environments/environment';
 
 export const JwtInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, next: HttpHandlerFn): Observable<HttpEvent<any>> => {
     const authService = inject(AuthService);
@@ -17,7 +18,10 @@ export const JwtInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, next: H
 
     return next(authReq).pipe(
         catchError((err) => {
-            if (err.status === 401) {
+            const url = req.url.split('?')[0];
+            const authEndpoint = url.startsWith(`${environment.authBaseUrl}/`);
+            // A failed refresh/login is terminal; never recursively refresh a refresh request.
+            if (err.status === 401 && (!authEndpoint || url === `${environment.authBaseUrl}/me`)) {
                 return authService.refresh(false).pipe(
                     switchMap(() => {
                         const newToken = authService.getAccessToken();

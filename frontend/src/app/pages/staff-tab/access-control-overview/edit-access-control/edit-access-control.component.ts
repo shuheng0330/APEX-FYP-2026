@@ -1,5 +1,6 @@
 import { Component, EventEmitter, HostListener, inject, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { PermissionSelectorComponent } from '../../../../components/permission-selector/permission-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FormsModule, NonNullableFormBuilder, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 
@@ -23,7 +24,7 @@ import { AuthService } from '../../../../services/auth.service';
 
 @Component({
   selector: 'app-edit-access-control',
-  imports: [CommonModule, ReactiveFormsModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule,
+  imports: [PermissionSelectorComponent, CommonModule, ReactiveFormsModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule,
     NzSelectModule, TranslateModule, NzCheckboxModule, FormsModule, NzIconModule,
     NzToolTipModule, NzModalModule],
   templateUrl: './edit-access-control.component.html',

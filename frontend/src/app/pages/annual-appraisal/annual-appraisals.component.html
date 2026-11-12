@@ -24,7 +24,7 @@
     </div></section>
     @if (periodError) { <div class="error-box" role="alert">{{ periodError }}</div> }
     @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
-    @if (period && period.status !== 'OPEN') { <div class="notice">{{ 'ANNUAL_APPRAISAL.READ_ONLY_PERIOD' | translate }}</div> }
+    @if (period && period.status !== 'OPEN') { <div class="notice">{{ (period.status === 'CLOSED' ? 'ANNUAL_APPRAISAL.CLOSED_PERIOD' : 'ANNUAL_APPRAISAL.READ_ONLY_PERIOD') | translate }}</div> }
     @if (loading) { <p role="status">{{ 'ANNUAL_APPRAISAL.LOADING' | translate }}</p> }
     @if (periodId && !periodError) {
       <section class="review-status-tabs appraisal-status-tabs" [attr.aria-label]="'ANNUAL_APPRAISAL.STATUS_LABEL' | translate">

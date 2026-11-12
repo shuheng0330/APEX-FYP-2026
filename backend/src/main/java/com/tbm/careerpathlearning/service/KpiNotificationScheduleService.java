@@ -51,10 +51,14 @@ public class KpiNotificationScheduleService {
     public void scanToday() {
         LocalDate today=LocalDate.now(clock);
         var groups=new LinkedHashMap<Group,Reminder>();
-        for(var status:List.of(AnnualKpiReviewPeriodStatus.UPCOMING,AnnualKpiReviewPeriodStatus.OPEN)) {
+        for(var status:List.of(AnnualKpiReviewPeriodStatus.UPCOMING,AnnualKpiReviewPeriodStatus.OPEN,AnnualKpiReviewPeriodStatus.CLOSED)) {
             for(var period:periods.findAllByStatus(status)) {
                 if(period.getStatus()!=status || period.getParticipantsSnapshottedAt()==null) continue;
                 var roster=participants.findAllByReviewPeriodId(period.getId()).stream().filter(notify::eligible).toList();
+                if(status==AnnualKpiReviewPeriodStatus.CLOSED) {
+                    for(var p:roster) appraisalReminders(p,today,groups);
+                    continue;
+                }
                 var periodPlans=plans.findAllByReviewPeriodId(period.getId());
                 setupReminders(period,roster,periodPlans,today,groups);
                 if(status!=AnnualKpiReviewPeriodStatus.OPEN) continue;

@@ -123,6 +123,7 @@ class CentralKpiResultPublicationPostgresTest {
         sql(new ClassPathResource("db/migration/annual-kpi/V46__central_kpi_result_foundation.sql")
                 .getContentAsString(StandardCharsets.UTF_8));
 
+        sql("ALTER TABLE " + schema + ".annual_kpi_review_period ADD COLUMN IF NOT EXISTS closed_by UUID");
         var configuration = new Configuration();
         configuration.setProperty("hibernate.connection.url", url);
         configuration.setProperty("hibernate.connection.username", env.get("DB_USER"));

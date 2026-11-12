@@ -105,6 +105,9 @@ public class AnnualKpiReviewPeriod {
 
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "closed_by", foreignKey = @ForeignKey(name = "fk_review_period_closed_by"))
+    private Staff closedBy;
     @Column(name="participants_snapshotted_at")
     private OffsetDateTime participantsSnapshottedAt;
     @Column(nullable=false) private boolean kpiAmendmentsEnabled;

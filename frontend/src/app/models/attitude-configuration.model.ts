@@ -38,6 +38,22 @@ export interface AttitudePeriodConfiguration {
   unmappedRoleNames: string[];
   canBindInitially: boolean;
 }
+export interface AttitudeAssignmentRequest {
+  requestId: string;
+  expectedConfigurationId: number;
+  configurationId: number;
+  reason: string;
+}
+export interface AttitudeAssignmentState {
+  period: AttitudePeriodConfiguration;
+  canUpdate: boolean;
+  blockers: string[];
+  choices: { id: number; name: string; publishedAt: string | null; missingRoleNames: string[] }[];
+  assessments: { id: number; participantId: number; employeeName: string; roleName: string | null; departmentName: string | null;
+    status: 'DRAFT' | 'PENDING_REVIEW' | 'REVIEWED'; configurationId: number }[];
+  activity: { id: number; previousConfigurationName: string; configurationName: string; actorName: string | null; recordedAt: string; reason: string }[];
+  replayed: boolean;
+}
 export interface AttitudeValidationIssue { section: 'details' | 'ratings' | 'criteria' | 'roles'; key: string; }
 
 export function attitudeTextError(value: string | null | undefined, required: boolean, limit: number): string | null {

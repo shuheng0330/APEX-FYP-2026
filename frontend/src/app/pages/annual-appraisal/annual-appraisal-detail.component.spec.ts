@@ -14,14 +14,17 @@ import { AnnualAppraisal, AnnualAppraisalActivity, AnnualAppraisalCandidate, Ann
 import { KpiPeriodContext } from '../../models/kpi-plan.model';
 import { AnnualAppraisalDetailComponent } from './annual-appraisal-detail.component';
 import { AnnualAppraisalPerformanceComponent } from './annual-appraisal-performance.component';
+import { EmployeeAppraisalInsightComponent } from './employee-appraisal-insight.component';
+import { AppraisalInsightService } from '../../services/appraisal-insight.service';
 
-import { appraisal, candidate, performance, period, readiness, clearAppraisalNavigationState } from './annual-appraisal-test-fixtures';
+import { appraisal, candidate, performance, period, readiness, clearAppraisalNavigationState, unavailableEmployeeInsights, employeeAiState } from './annual-appraisal-test-fixtures';
 import { reviewLayout } from '../kpi-plan/review-navigation.test-layout';
 
 describe('Full-page annual appraisal details', () => {
   let fixture: ComponentFixture<AnnualAppraisalDetailComponent>;
   let component: AnnualAppraisalDetailComponent;
   let api: jasmine.SpyObj<AnnualAppraisalService>;
+  let insights: jasmine.SpyObj<AppraisalInsightService>;
   let modal: { confirm: jasmine.Spy<NzModalService['confirm']> };
   let hrReview: boolean;
   let permissions: string[];
@@ -35,10 +38,13 @@ describe('Full-page annual appraisal details', () => {
     api.performanceHistory.and.returnValue(of([]));
     api.create.and.returnValue(of(appraisal())); api.update.and.returnValue(of(appraisal({ lockVersion: 2 })));
     api.submit.and.returnValue(of(appraisal({ status: 'PENDING_REVIEW', snapshot: performance(), allowedActions: [] })));
+    insights = jasmine.createSpyObj('AppraisalInsightService', ['employeeState', 'generateEmployee', 'employeeGeneration', 'submitted']);
+    insights.employeeState.and.callFake(unavailableEmployeeInsights.employeeState); insights.submitted.and.callFake(unavailableEmployeeInsights.submitted);
     params = new Subject<ParamMap>();
     route = { snapshot: { data: { hrReview }, paramMap: convertToParamMap({}) }, paramMap: params.asObservable() };
     await TestBed.configureTestingModule({ imports: [AnnualAppraisalDetailComponent, TranslateModule.forRoot()], providers: [
       provideRouter([]), provideNoopAnimations(), { provide: ActivatedRoute, useValue: route },
+      { provide: AppraisalInsightService, useValue: insights },
       { provide: AnnualAppraisalService, useValue: api }, { provide: AuthService, useValue: { userId: hr ? 'david' : 'alice', hasRole: (p: string) => permissions.includes(p) } },
       { provide: NZ_ICONS, useValue: [CloseOutline, DownOutline, LeftOutline, RightOutline, LoadingOutline] }
     ] }).compileComponents();
@@ -102,6 +108,30 @@ describe('Full-page annual appraisal details', () => {
     expect(api.history).toHaveBeenCalledOnceWith(7); expect(component.dirty).toBeFalse(); expect(component.readonly).toBeFalse();
     fixture.detectChanges(); expect(detailSectionOrder()).toEqual(['results', 'trend', 'history', 'recommendation']);
     expect(fixture.nativeElement.querySelectorAll('#annual-justification').length).toBe(1);
+  });
+  for (const status of ['OPEN', 'CLOSED'] as const) {
+  it(`places optional unsaved employee insight below justification in ${status} without saving or blocking submission`, async () => {
+    await setup(); insights.employeeState.and.returnValue(of({ ...employeeAiState(), eligible: true, unavailableReason: null }));
+    api.periods.and.returnValue(of([{ ...period, status }]));
+    open(candidate({ appraisalId: null, status: null })); fixture.detectChanges();
+    component.justification = 'Unsaved human justification'; component.recommendation = 'PROMOTION';
+    const child = fixture.debugElement.query(By.directive(EmployeeAppraisalInsightComponent)).componentInstance as EmployeeAppraisalInsightComponent;
+    const pending = new Subject<import('../../models/appraisal-insight.model').EmployeeInsightResult>(); insights.generateEmployee.and.returnValue(pending);
+    child.generate(); fixture.detectChanges();
+    const form = fixture.nativeElement.querySelector('#annual-justification') as HTMLElement;
+    const insight = fixture.nativeElement.querySelector('app-employee-appraisal-insight') as HTMLElement;
+    expect(form.compareDocumentPosition(insight) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(child.participantId).toBe(7); expect(child.appraisalId).toBeNull(); expect(component.justification).toBe('Unsaved human justification');
+    expect(insights.generateEmployee).toHaveBeenCalledOnceWith(7, jasmine.any(String), false);
+    expect(component.dirty).toBeTrue(); expect(component.canStartSubmit).toBeTrue(); expect(api.create).not.toHaveBeenCalled(); expect(api.update).not.toHaveBeenCalled();
+  });
+  }
+  it('binds HR to the latest recorded submission by event ID, not later activity or timestamps', async () => {
+    await openHr({ activity: [submission(3), submission(8, 'RESUBMITTED'), submission(10, 'RETURNED')], status: 'PENDING_REVIEW' });
+    const child = fixture.debugElement.query(By.directive(EmployeeAppraisalInsightComponent)).componentInstance as EmployeeAppraisalInsightComponent;
+    expect(child.readOnly).toBeTrue(); expect(child.hrReview).toBeTrue(); expect(child.submissionActivityId).toBe(8);
+    expect(insights.submitted).toHaveBeenCalledWith(10, 8); expect(insights.employeeState).not.toHaveBeenCalled(); expect(insights.generateEmployee).not.toHaveBeenCalled();
+    expect(component.hasHrActions).toBeTrue();
   });
   it('saves incomplete Drafts before readiness, including after a validation attempt', async () => {
     await setup(); open(candidate({ appraisalId: null, status: null }));
@@ -343,12 +373,47 @@ describe('Full-page annual appraisal details', () => {
     api.history.and.returnValue(of([appraisal({ status: 'APPROVED', employeeId: 'carol' })])); component.loadHistory(true);
     expect(component.historyError).toBe(''); expect(component.history.length).toBe(1);
   });
-  it('keeps Closed and Pending submissions read-only regardless of local input', async () => {
-    await setup(); api.periods.and.returnValue(of([{ ...period, status: 'CLOSED' }])); open(candidate({ appraisalId: null }));
+  it('keeps Upcoming and Pending submissions read-only regardless of local input', async () => {
+    await setup(); api.periods.and.returnValue(of([{ ...period, status: 'UPCOMING' }])); open(candidate({ appraisalId: null }));
     expect(component.readonly).toBeTrue(); component.saveDraft(); expect(api.create).not.toHaveBeenCalled();
     api.periods.and.returnValue(of([period])); api.get.and.returnValue(of(appraisal({ status: 'PENDING_REVIEW', snapshot: performance(), allowedActions: [] })));
     open(candidate()); expect(component.readonly).toBeTrue(); expect(component.frozen).toBeTrue();
   });
+  for (const status of ['DRAFT', 'RETURNED'] as const) {
+    it(`allows a Closed-period ${status} to be saved/submitted only through existing server actions`, async () => {
+      await setup(); api.periods.and.returnValue(of([{ ...period, status: 'CLOSED' }]));
+      api.get.and.returnValue(of(appraisal({ status, reviewPeriodStatus: 'CLOSED' }))); open(); fixture.detectChanges();
+      expect(component.readonly).toBeFalse(); expect(component.showRecommendationForm).toBeTrue(); expect(component.canStartSubmit).toBeTrue();
+      expect(fixture.nativeElement.textContent).toContain('ANNUAL_APPRAISAL.CLOSED_PERIOD');
+      component.justification = 'A human revision with evidence'; component.saveDraft(); expect(api.update).toHaveBeenCalled();
+      component.requestSubmit(); answerConfirmation(true); expect(api.submit).toHaveBeenCalled();
+      expect(component.frozen).toBeTrue(); expect(component.readonly).toBeTrue();
+    });
+  }
+  it('keeps Closed-period AI backend-controlled, and submission available when AI is ineligible', async () => {
+    await setup(); api.periods.and.returnValue(of([{ ...period, status: 'CLOSED' }]));
+    open(candidate({ appraisalId: null, status: null })); fixture.detectChanges();
+    const child = fixture.debugElement.query(By.directive(EmployeeAppraisalInsightComponent)).componentInstance as EmployeeAppraisalInsightComponent;
+    child.generate(); expect(insights.generateEmployee).not.toHaveBeenCalled(); expect(api.create).not.toHaveBeenCalled();
+    expect(component.canStartSubmit).toBeTrue();
+  });
+  for (const decision of ['APPROVE', 'RETURN', 'OVERRIDE_AND_APPROVE'] as const) {
+    it(`retains authorised HR ${decision} actions in Closed periods with exact submitted insight retrieval`, async () => {
+      await setup(true); api.periods.and.returnValue(of([{ ...period, status: 'CLOSED' }]));
+      api.get.and.returnValue(of(appraisal({ reviewPeriodStatus: 'CLOSED', status: 'PENDING_REVIEW', snapshot: performance(),
+        allowedActions: ['APPROVE', 'RETURN', 'OVERRIDE_AND_APPROVE'], activity: [submission(12)] }))); open(); fixture.detectChanges();
+      expect(component.canReview(decision)).toBeTrue();
+      const child = fixture.debugElement.query(By.directive(EmployeeAppraisalInsightComponent)).componentInstance as EmployeeAppraisalInsightComponent;
+      expect(child.readOnly).toBeTrue(); expect(insights.submitted).toHaveBeenCalledWith(10, 12); child.generate();
+      expect(insights.generateEmployee).not.toHaveBeenCalled();
+      component.beginDecision(decision); component.reason = 'Human HR decision'; component.finalDecision = 'PROMOTION';
+      api.approve.and.returnValue(of(appraisal({ status: 'APPROVED', allowedActions: [] })));
+      api.returnForRevision.and.returnValue(of(appraisal({ status: 'RETURNED', allowedActions: [] })));
+      api.overrideApprove.and.returnValue(of(appraisal({ status: 'APPROVED', allowedActions: [] })));
+      component.confirmDecision(decision);
+      expect(decision === 'APPROVE' ? api.approve : decision === 'RETURN' ? api.returnForRevision : api.overrideApprove).toHaveBeenCalled();
+    });
+  }
   it('loads HR submissions only, shows frozen scores, and honours server allowedActions', async () => {
     await setup(true); expect(api.team).not.toHaveBeenCalled();
     const pending = appraisal({ status: 'PENDING_REVIEW', snapshot: performance(), allowedActions: ['RETURN'], sourceChanged: true });

@@ -81,6 +81,12 @@ class AnnualPerformanceHistoryServiceTest {
     }
     AnnualPerformanceHistoryDto row() { return service.read(anchor).get(0); }
 
+    @Test void trustedSelectionFiltersBeforeRetrievingUnapprovedHistoricalPerformance() {
+        assertTrue(service.readSelected(anchor,Set.of()).isEmpty());
+        verifyNoInteractions(appraisals,activity,readiness);
+        assertEquals(1,service.readSelected(anchor,Set.of(historical.getId())).size());
+    }
+
     @ParameterizedTest @EnumSource(value = AppraisalStatus.class, names = {"PENDING_REVIEW", "RETURNED", "APPROVED"})
     void submittedStatesUseRecordedScoresWithoutNeedingCurrentCompletion(AppraisalStatus status) {
         appraisal.setStatus(status);

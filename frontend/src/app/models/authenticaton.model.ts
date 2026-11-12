@@ -4,3 +4,8 @@ export interface LoginResponse {
     accessToken: string;
     roles?: string[];
 }
+
+export interface CurrentUserResponse {
+    userId: string;
+    roles?: string[];
+}

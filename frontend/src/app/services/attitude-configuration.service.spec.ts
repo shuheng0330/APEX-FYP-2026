@@ -40,4 +40,12 @@ describe('Attitude configuration API', () => {
     expect(binding.request.method).toBe('POST'); expect(binding.request.body).toEqual({ configurationId: 7 });
     expect(binding.request.withCredentials).toBeTrue(); expect(binding.request.headers.get('X-Skip-Error-Handler')).toBe('true'); binding.flush({});
   });
+  it('reads correction readiness and updates only by explicit version-checked request', () => {
+    api.assignment(4).subscribe(); const state=http.expectOne(`${base}/periods/4/assignment`);
+    expect(state.request.method).toBe('GET'); expect(state.request.withCredentials).toBeTrue(); state.flush({});
+    const data={ requestId: '10000000-0000-0000-0000-000000000001', expectedConfigurationId: 1, configurationId: 2, reason: 'Complete Role coverage' };
+    api.updateAssignment(4,data).subscribe(); const request=http.expectOne(`${base}/periods/4/assignment`);
+    expect(request.request.method).toBe('POST'); expect(request.request.body).toEqual(data);
+    expect(request.request.headers.get('X-Skip-Error-Handler')).toBe('true'); request.flush({});
+  });
 });

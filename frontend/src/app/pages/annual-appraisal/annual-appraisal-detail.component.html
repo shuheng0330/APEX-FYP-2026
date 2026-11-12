@@ -37,6 +37,7 @@
   @if (error) { <div class="error-box" role="alert">{{ error }}</div> }
   @if (success) { <div class="notice" role="status">{{ success }}</div> }
   @if (candidate) {
+      @if (period?.status === 'CLOSED') { <p class="notice">{{ 'ANNUAL_APPRAISAL.CLOSED_PERIOD' | translate }}</p> }
       @if (selected?.sourceChanged) { <div class="draft-readiness">{{ (frozen ? 'ANNUAL_APPRAISAL.SOURCE_CHANGED' : 'ANNUAL_APPRAISAL.UPDATED_SOURCES') | translate }}</div> }
       @if (displayedBlockers.length) { <div class="draft-readiness"><strong>{{ 'ANNUAL_APPRAISAL.BEFORE_CONTINUING' | translate }}</strong><ul>@for (blocker of displayedBlockers; track $index) { <li>{{ blocker }}</li> }</ul></div> }
       @if (selected?.status === 'RETURNED' && selected?.latestReturnReason) {
@@ -62,6 +63,7 @@
             </div>
           </div>
         </section>
+        <ng-container [ngTemplateOutlet]="insightSection" />
       }
       @if (performance; as scores) { <app-annual-appraisal-performance [performance]="scores" [frozen]="frozen" /> }
       @if (hrReview && selected?.status !== 'APPROVED') { <ng-container [ngTemplateOutlet]="recommendationSection" /> }
@@ -156,6 +158,13 @@
           }
         }
       </div></section>
+      <ng-container [ngTemplateOutlet]="insightSection" />
+      </ng-template>
+      <ng-template #insightSection>
+        <app-employee-appraisal-insight [participantId]="candidate.participantId" [appraisalId]="selected?.id ?? null"
+          [employeeName]="candidate.employeeName || ''" [reviewPeriodName]="period?.name || ''" [hrReview]="hrReview"
+          [readOnly]="readonly || !showRecommendationForm" [submittedOnly]="hrReview || frozen" [disabled]="locked || accessChanged" [recordVersion]="selected?.lockVersion ?? null"
+          [submissionActivityId]="submittedActivityId" />
       </ng-template>
       @if (selected) {
         <section class="appraisal-secondary"><button class="text-action" type="button" [attr.aria-expanded]="activityVisible" aria-controls="annual-activity" (click)="toggleActivity()">{{ (activityVisible ? 'ANNUAL_APPRAISAL.HIDE_ACTIVITY' : 'ANNUAL_APPRAISAL.VIEW_ACTIVITY') | translate }}</button>
