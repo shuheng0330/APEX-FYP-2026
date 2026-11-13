@@ -108,9 +108,6 @@
         }
       } @else {
         {{ s.venue }}{{ s.delivery === 'HYBRID' ? ', or online' : '' }}
-        @if (mapsUrl) {
-          <br /><a [href]="mapsUrl" target="_blank" rel="noopener"><nz-icon nzType="environment"></nz-icon> Open in Google Maps</a>
-        }
       }
     </dd>
 
