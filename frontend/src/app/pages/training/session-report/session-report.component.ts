@@ -39,6 +39,14 @@ export class SessionReportComponent implements OnChanges {
     this.load();
   }
 
+  /**
+   * Someone on the list gave an IC or passport number on the HRDC form, so the Excel file has it in full and its
+   * download is logged. Built from the same data as the file.
+   */
+  get hasIdNumbers(): boolean {
+    return !!this.report?.people.some(p => !!p.idNumber);
+  }
+
   download(): void {
     if (this.downloading) return;
     this.downloading = true;

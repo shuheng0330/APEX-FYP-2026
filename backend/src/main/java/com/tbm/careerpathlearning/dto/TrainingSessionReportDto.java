@@ -32,6 +32,8 @@ public class TrainingSessionReportDto {
     private TrainingSessionStatus status;
     private TrainingSessionTiming timing;
     private String cancelReason;
+    /** Registering asks for the HRDC details (FR-13-03). */
+    private boolean registrationForm;
 
     private int capacity;
     private int registered;
@@ -51,6 +53,8 @@ public class TrainingSessionReportDto {
     private LocalDateTime submittedAt;
     private String submittedByName;
     private List<Person> people = new ArrayList<>();
+    /** Why IC or passport numbers are blank, on screen and in the Excel file; null when none are. */
+    private String idNumberNote;
     private List<TrainingAttendanceSheetDto.Evidence> evidence = new ArrayList<>();
     private LocalDateTime generatedAt;
     private String generatedByName;
