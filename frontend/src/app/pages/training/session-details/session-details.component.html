@@ -119,9 +119,7 @@
 
     @if (s.trainingType) {
       <dt>Training type</dt>
-      <dd>{{ typeLabels[s.trainingType] }}
-        <span class="muted">· {{ s.trainingType === 'OTHER' ? "doesn't count towards the training KPI" : 'counts towards the training KPI' }}</span>
-      </dd>
+      <dd>{{ typeLabels[s.trainingType] }}</dd>
     }
 
     <dt>Audience</dt>
