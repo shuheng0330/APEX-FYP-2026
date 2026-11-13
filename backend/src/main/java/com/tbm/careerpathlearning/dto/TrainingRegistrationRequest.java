@@ -10,6 +10,4 @@ public class TrainingRegistrationRequest {
     private String phone;
     /** One of TBM's branches. */
     private String branch;
-    /** The person agreed to the PDPA notice. */
-    private boolean pdpaConsent;
 }

@@ -112,7 +112,6 @@ class TrainingReportTest {
         form.setIdNumber(idNumber);
         form.setPhone("012-345 6789");
         form.setBranch("IOI Mall Damansara");
-        form.setPdpaConsent(true);
         registrations.register(id(), form, viewer);
     }
 

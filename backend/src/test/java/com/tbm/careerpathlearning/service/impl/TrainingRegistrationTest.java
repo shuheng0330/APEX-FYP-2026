@@ -127,12 +127,11 @@ class TrainingRegistrationTest {
         registrations.register(id, new TrainingRegistrationRequest(), viewer);
     }
 
-    private static TrainingRegistrationRequest form(String id, String phone, String branch, boolean consent) {
+    private static TrainingRegistrationRequest form(String id, String phone, String branch) {
         TrainingRegistrationRequest r = new TrainingRegistrationRequest();
         r.setIdNumber(id);
         r.setPhone(phone);
         r.setBranch(branch);
-        r.setPdpaConsent(consent);
         return r;
     }
 
@@ -264,7 +263,7 @@ class TrainingRegistrationTest {
     // --- the HRDC form --------------------------------------------------------------------
 
     @Test
-    @DisplayName("The HRDC form is filled from the staff record and asks for IC, phone, branch and PDPA consent (FR-13-03)")
+    @DisplayName("The HRDC form is filled from the staff record and asks for IC, phone and branch (FR-13-03)")
     void hrdcForm() {
         Long id = session(r -> r.setRegistrationForm(true));
 
@@ -277,17 +276,14 @@ class TrainingRegistrationTest {
                 "Setapak Central"), filled.getBranches().get("Kuala Lumpur"));
         refused("Enter your IC number (12 digits) or passport number.", () -> register(id, asAisyah));
         refused("Enter a phone number, for example 012-345 6789.",
-                () -> registrations.register(id, form("900101-14-5678", "12", "Bangsar Village", true), asAisyah));
+                () -> registrations.register(id, form("900101-14-5678", "12", "Bangsar Village"), asAisyah));
         refused("Choose your branch.",
-                () -> registrations.register(id, form("900101-14-5678", "012-345 6789", "Penang", true), asAisyah));
-        refused("Tick the box to agree to the PDPA notice before registering.",
-                () -> registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village", false), asAisyah));
+                () -> registrations.register(id, form("900101-14-5678", "012-345 6789", "Penang"), asAisyah));
 
-        registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village", true), asAisyah);
+        registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village"), asAisyah);
 
         TrainingRegistration saved = registrationOf(id, aisyah);
         assertEquals("900101145678", saved.getIdNumber());
-        assertNotNull(saved.getPdpaConsentAt());
         assertFalse(last().body().contains("5678"), "HRDC details never go into a notification");
     }
 
@@ -295,7 +291,7 @@ class TrainingRegistrationTest {
     @DisplayName("The trainer and HR see the HRDC details, IC in full; the Super Admin sees the list without them")
     void peopleList() {
         Long id = session(r -> r.setRegistrationForm(true));
-        registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village", true), asAisyah);
+        registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village"), asAisyah);
         TrainingViewer asSuperAdmin = new TrainingViewer(store.person("Super Admin", null).getId(), false, false, true);
 
         TrainingPersonDto row = registrations.people(id, asWeiMing).get(0);
@@ -317,9 +313,9 @@ class TrainingRegistrationTest {
             r.setCapacity(1);
             r.setRegistrationForm(true);
         });
-        registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village", true), asAisyah);
-        registrations.register(id, form("A1234567", "+60 12 345 6789", "IOI Mall Damansara", true), asRavi);
-        registrations.register(id, form("910202-10-1111", "019-876 5432", "Setapak Central", true), asSiti);
+        registrations.register(id, form("900101-14-5678", "012-345 6789", "Bangsar Village"), asAisyah);
+        registrations.register(id, form("A1234567", "+60 12 345 6789", "IOI Mall Damansara"), asRavi);
+        registrations.register(id, form("910202-10-1111", "019-876 5432", "Setapak Central"), asSiti);
 
         registrations.cancelMine(id, asAisyah);
 

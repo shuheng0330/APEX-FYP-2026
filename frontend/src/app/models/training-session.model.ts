@@ -341,7 +341,6 @@ export interface TrainingRegistrationRequest {
   idNumber?: string;
   phone?: string;
   branch?: string;
-  pdpaConsent?: boolean;
 }
 
 /** One person on a session, as its trainer and HR see them. */

@@ -68,7 +68,7 @@ public class TrainingRegistration {
     @Column(name = "branch", length = 60)
     private String branch;
 
-    /** When the person agreed to the PDPA notice. */
+    /** When the person agreed to the PDPA notice. Not set since 13 Nov 2026, when the form dropped the notice; kept so the table is unchanged. */
     @Column(name = "pdpa_consent_at")
     private LocalDateTime pdpaConsentAt;
 

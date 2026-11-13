@@ -103,7 +103,6 @@ public class TrainingRegistrationServiceImpl implements TrainingRegistrationServ
             r.setIdNumber(form.idNumber());
             r.setPhone(form.phone());
             r.setBranch(form.branch());
-            r.setPdpaConsentAt(now);
         }
         trainingRegistrationRepository.save(r);
         accept(invitation, now);
@@ -412,9 +411,6 @@ public class TrainingRegistrationServiceImpl implements TrainingRegistrationServ
         }
         if (!TrainingBranches.isBranch(r.getBranch())) {
             throw new BadRequestException("Choose your branch.");
-        }
-        if (!r.isPdpaConsent()) {
-            throw new BadRequestException("Tick the box to agree to the PDPA notice before registering.");
         }
         return new Form(id, phone, r.getBranch());
     }
