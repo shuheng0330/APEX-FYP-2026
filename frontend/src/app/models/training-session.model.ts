@@ -279,6 +279,8 @@ export interface TrainingSessionReport {
   status: TrainingSessionStatus;
   timing: TrainingSessionTiming;
   cancelReason?: string;
+  /** Registering asks for the HRDC details (FR-13-03). */
+  registrationForm: boolean;
   capacity: number;
   registered: number;
   waitlisted: number;
@@ -294,6 +296,8 @@ export interface TrainingSessionReport {
   submittedAt?: string;
   submittedByName?: string;
   people: TrainingReportPerson[];
+  /** Why IC or passport numbers are blank, as in the Excel file; absent when none are. */
+  idNumberNote?: string;
   evidence: TrainingEvidence[];
   generatedAt: string;
   generatedByName?: string;
@@ -337,7 +341,6 @@ export interface TrainingRegistrationRequest {
   idNumber?: string;
   phone?: string;
   branch?: string;
-  pdpaConsent?: boolean;
 }
 
 /** One person on a session, as its trainer and HR see them. */

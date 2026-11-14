@@ -48,8 +48,6 @@ export interface RichContent {
   tools: string[];
   sections: ContentSection[];
   keyTerms: KeyTerm[];
-  /** 'offline' when built from the SOP text because the AI was unavailable. */
-  source?: 'offline';
 }
 
 export interface SopDocument {

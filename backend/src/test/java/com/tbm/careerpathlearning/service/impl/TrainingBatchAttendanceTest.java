@@ -112,7 +112,6 @@ class TrainingBatchAttendanceTest {
         form.setIdNumber(idNumber);
         form.setPhone("012-345 6789");
         form.setBranch("Bangsar Village");
-        form.setPdpaConsent(true);
         registrations.register(id, form, viewer);
     }
 

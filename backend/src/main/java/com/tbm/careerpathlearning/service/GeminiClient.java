@@ -44,6 +44,11 @@ public class GeminiClient {
 
     private static final int MAX_ATTEMPTS = 4;
 
+    /** Added to a prompt only when personal data in it is hidden behind labels (FR-06-17). */
+    private static final String MASKED_NOTE = "\n\nNote: personal details in this text are hidden behind labels in square brackets,"
+            + " such as [IC_NUMBER] or [NAME]. Keep a label exactly as written if you need it, never guess what it hides,"
+            + " and do not write quiz questions about it.";
+
     private final WebClient webClient;
     @Autowired private GeminiDispatchGate coordination;
 
@@ -190,13 +195,15 @@ public class GeminiClient {
     /**
      * Sends the prompt to Gemini asking for a JSON response and returns the raw
      * JSON text from the first candidate. Retries with backoff on transient
-     * 429/503 responses.
+     * 429/503 responses. Personal data is masked before the first attempt, so a
+     * retry sends the same masked text.
      */
     public String generateJson(String prompt) {
+        String safePrompt = withPersonalDataMasked(prompt);
         WebClientResponseException last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                return callOnce(prompt);
+                return callOnce(safePrompt);
             } catch (WebClientResponseException e) {
                 int code = e.getStatusCode().value();
                 boolean retryable = (code == 429 || code == 503);
@@ -218,6 +225,15 @@ public class GeminiClient {
         }
         String detail = last == null ? "unknown error" : (last.getStatusCode().value() + " " + last.getResponseBodyAsString());
         throw new RuntimeException("Gemini request failed: " + detail);
+    }
+
+    /** The prompt as Gemini may see it. If the filter fails this throws, so nothing is sent (FR-06-17). */
+    private String withPersonalDataMasked(String prompt) {
+        SensitiveDataFilter.Result masked = SensitiveDataFilter.mask(prompt);
+        if (masked.total() > 0) {
+            log.info("Masked personal data in an AI prompt: {}", masked.counts()); // counts only, never the values
+        }
+        return SensitiveDataFilter.hasLabels(masked.text()) ? masked.text() + MASKED_NOTE : masked.text();
     }
 
     protected void waitBeforeSopRetry(long seconds) throws InterruptedException { Thread.sleep(seconds*1000); }

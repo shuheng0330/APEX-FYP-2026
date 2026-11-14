@@ -35,6 +35,7 @@
 .link-button:hover { color: var(--tbm-text); }
 
 /* Refetch keeps the frame: hold the last render, slightly faded */
+.load-alert { margin-bottom: 16px; }
 .board { display: flex; flex-direction: column; gap: 14px; transition: opacity .2s; }
 .board.refreshing { opacity: .6; }
 

@@ -3,24 +3,35 @@
     <div>
       <span class="section-kicker">Manual review gate</span>
       <h1>Generated Material Review</h1>
-      <p>Review and approve AI-generated training material before it becomes a course.</p>
+      <p>Review and approve generated training material before it becomes a course.</p>
     </div>
     <div class="course-picker">
       <nz-radio-group [ngModel]="view" (ngModelChange)="setView($event)" nzSize="small" aria-label="Which courses">
         <label nz-radio-button nzValue="CURRENT">Current</label>
         <label nz-radio-button nzValue="ARCHIVED">Archived</label>
       </nz-radio-group>
+      <!-- VR-11: a wider list that shows the whole course name, with the version in its own column -->
       <nz-select [(ngModel)]="selectedSopId" (ngModelChange)="onSelectSop($event)"
-                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a completed SOP'">
+                 [nzPlaceHolder]="view === 'ARCHIVED' ? 'Select an archived course' : 'Select a completed SOP'"
+                 nzDropdownClassName="course-picker-dropdown" [nzDropdownMatchSelectWidth]="false" nzPlacement="bottomRight"
+                 [nzOptionHeightPx]="optionHeight">
         @for (s of completedSops; track s.id) {
-          <nz-option [nzValue]="s.id" [nzLabel]="optionLabel(s)"></nz-option>
+          <nz-option nzCustomContent [nzValue]="s.id" [nzLabel]="optionLabel(s)">
+            <span class="course-option">
+              <span class="course-option-title">{{ s.title }}</span>
+              <span class="course-option-meta">
+                <span class="course-option-version">{{ optionVersion(s) }}</span>
+                <span>{{ optionModules(s) }}</span>
+              </span>
+            </span>
+          </nz-option>
         }
       </nz-select>
     </div>
   </div>
 
-  <nz-spin [nzSpinning]="loading">
-    @if (!loading && !document) {
+  <nz-spin [nzSpinning]="loading || openingNewest">
+    @if (!loading && !openingNewest && !document) {
       <div class="empty-workbench surface-panel">
         <nz-empty [nzNotFoundContent]="view === 'ARCHIVED' ? 'Select an archived course to view or restore it' : 'Select a completed SOP to begin reviewing'"></nz-empty>
       </div>
@@ -144,7 +155,7 @@
                   <label class="edit-field-label">Module title
                     <input nz-input [(ngModel)]="module.title" />
                   </label>
-                  <label class="edit-field-label">AI Summary
+                  <label class="edit-field-label">Summary
                     <textarea nz-input [(ngModel)]="er.summary" [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
                   </label>
 
@@ -381,7 +392,7 @@
             <!-- Preview mode: rich rendered content -->
             @if (!editMode[module.id]) {
               <div class="content-scroll">
-                <app-sop-content-view [content]="module.content" [reviewer]="true"></app-sop-content-view>
+                <app-sop-content-view [content]="module.content"></app-sop-content-view>
               </div>
             }
 

@@ -44,6 +44,8 @@ export const routes: Routes = [
     path: '',
     canActivate: [AuthGuard],
     children: [
+      // The site's own address opens My Learning, the first page after signing in.
+      { path: '', pathMatch: 'full', redirectTo: 'my-learning' },
       {
         path: 'appraisals/organisation-performance', canActivate: [PermissionGuard],
         data: { requiredRoles: ['CAN_VIEW_ORGANISATION_PERFORMANCE'] },

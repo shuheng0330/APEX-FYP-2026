@@ -4,6 +4,7 @@ import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { catchError, exhaustMap, filter, of, timer } from 'rxjs';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
@@ -19,6 +20,7 @@ import {
   EnrollmentProgress, Scoreboard, ScoreboardRecord, ScoreboardStatus
 } from '../../../models/sop-scoreboard.model';
 import { LearningModuleState } from '../../../models/sop-learning.model';
+import { COURSE_OPTION_HEIGHT_PX } from '../sop.util';
 
 type StatusFilter = 'ALL' | ScoreboardStatus | 'OVERDUE';
 
@@ -75,7 +77,7 @@ const MODULE_TAGS: Record<LearningModuleState, { label: string; color: string }>
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterLink,
-    NzButtonModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzInputModule, NzSelectModule, NzSpinModule,
+    NzAlertModule, NzButtonModule, NzDrawerModule, NzEmptyModule, NzIconModule, NzInputModule, NzSelectModule, NzSpinModule,
     NzSwitchModule, NzTableModule, NzTagModule
   ],
   templateUrl: './sop-scoreboard.component.html',
@@ -98,6 +100,8 @@ export class SopScoreboardComponent implements OnInit {
   data?: Scoreboard;
   loading = true;
   refreshing = false;
+  /** The last load failed: said on the page, so a failure never looks like an empty scoreboard. */
+  loadFailed = false;
   autoRefresh = true;
   updatedAt?: Date;
 
@@ -138,11 +142,18 @@ export class SopScoreboardComponent implements OnInit {
   private receive(data: Scoreboard | null): void {
     this.loading = false;
     this.refreshing = false;
+    this.loadFailed = !data;
     if (data) {
       this.data = data;
       this.updatedAt = new Date();
       this.applyFilters();
     }
+  }
+
+  get loadError(): string {
+    return this.updatedAt
+      ? `Couldn't refresh the scoreboard. These figures are from ${formatDate(this.updatedAt, 'HH:mm:ss', 'en-US')}. Press Refresh to try again.`
+      : "Couldn't load the scoreboard. Press Refresh to try again, or sign in again if it keeps happening.";
   }
 
   // --- filters (FR-10-03): one row that scopes the tiles, the chart and the table ----------
@@ -171,6 +182,13 @@ export class SopScoreboardComponent implements OnInit {
     this.courseId = null;
     this.status = 'ALL';
     this.applyFilters();
+  }
+
+  readonly optionHeight = COURSE_OPTION_HEIGHT_PX;
+
+  /** "replaced" or "archived", under the version in the course list (VR-11). */
+  courseState(c: Scoreboard['courses'][number]): string {
+    return [c.superseded ? 'replaced' : '', c.archived ? 'archived' : ''].filter(Boolean).join(', ');
   }
 
   get departmentOptions(): string[] {

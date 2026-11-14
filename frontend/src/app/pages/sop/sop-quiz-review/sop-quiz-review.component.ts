@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -15,7 +16,10 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { SopService } from '../../../services/sop.service';
-import { CourseView, MIN_QUIZ_QUESTIONS, courseOptionLabel, courseReady, draftQuestion, startsDraft } from '../sop.util';
+import {
+  COURSE_OPTION_HEIGHT_PX, CourseView, MIN_QUIZ_QUESTIONS, NO_AUTO_OPEN, autoOpenAllowed, courseOptionLabel, courseOptionModules,
+  courseOptionVersion, courseReady, courseViewFrom, courseViewQuery, draftQuestion, startsDraft
+} from '../sop.util';
 import { CourseArchivedNoteComponent } from '../course-archived-note/course-archived-note.component';
 import { CourseVersionNoteComponent } from '../course-version-note/course-version-note.component';
 import {
@@ -47,7 +51,7 @@ const STATE_META: Record<QuizState, { label: string; color: string }> = {
 const ACTION_META: Record<QuizReviewAction, { label: string; color: string }> = {
   APPROVED:    { label: 'Approved',       color: 'green' },
   REJECTED:    { label: 'Rejected',       color: 'red' },
-  REGENERATED: { label: 'AI regenerated', color: 'cyan' },
+  REGENERATED: { label: 'Regenerated', color: 'cyan' },
   EDITED:      { label: 'Edited',         color: 'blue' },
   COPIED:      { label: 'Copied to draft', color: 'purple' }
 };
@@ -108,10 +112,28 @@ export class SopQuizReviewComponent implements OnInit {
     { value: 'TRUE_FALSE', label: 'True / False' },
     { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank' }
   ];
+  /** True while editing a question saved as fill-in-the-blank before that type was dropped. */
+  private editingFillIn = false;
+
+  /**
+   * The types the question form offers: Multiple choice and True/False (FR-08-01).
+   * An older fill-in-the-blank question keeps its own type while it's edited.
+   */
+  get typeChoices(): { value: QuizQuestionType; label: string }[] {
+    return this.types.filter(t => t.value !== 'FILL_IN_THE_BLANK' || this.editingFillIn);
+  }
 
   readonly optionLabel = courseOptionLabel;
+  readonly optionVersion = courseOptionVersion;
+  readonly optionModules = courseOptionModules;
+  readonly optionHeight = COURSE_OPTION_HEIGHT_PX;
   /** After a change moved to a new draft, the module to open there. */
   private pendingModuleOrder: number | null = null;
+  /** Waiting for the course list, to open its newest course instead of an empty page. */
+  openingNewest = false;
+  private readonly destroyRef = inject(DestroyRef);
+  /** Read while the router builds the page: by ngOnInit its navigation, and the state it carried, are gone. */
+  private readonly mayOpenNewest = autoOpenAllowed(inject(Router));
 
   constructor(
     private sopService: SopService,
@@ -122,8 +144,11 @@ export class SopQuizReviewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadList();
+    this.view = courseViewFrom(this.route.snapshot.queryParamMap);
     const idParam = this.route.snapshot.paramMap.get('id');
+    // No course in the address: open the newest one rather than an empty page.
+    this.openingNewest = !idParam && this.mayOpenNewest;
+    this.loadList();
     if (idParam) {
       this.selectedSopId = +idParam;
       this.loadDetail(this.selectedSopId);
@@ -131,9 +156,28 @@ export class SopQuizReviewComponent implements OnInit {
   }
 
   private loadList(): void {
-    this.sopService.list(false, this.view === 'ARCHIVED').subscribe(docs => {
-      this.completedSops = docs.filter(d => d.generationStatus === 'COMPLETED');
+    // A page that was left (the address changed to another course) does nothing more with its list.
+    this.sopService.list(false, this.view === 'ARCHIVED').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: docs => {
+        this.completedSops = docs.filter(d => d.generationStatus === 'COMPLETED');
+        this.openNewestIfNone();
+      },
+      error: () => this.openingNewest = false
     });
+  }
+
+  /**
+   * Opens the newest course in the list (the server lists newest first) when none is open. The address stays
+   * /sop/quiz-review, so the Back button leaves the page instead of coming straight back to it.
+   */
+  private openNewestIfNone(): void {
+    if (!this.openingNewest) return;
+    this.openingNewest = false;
+    const newest = this.completedSops[0];
+    if (newest && this.selectedSopId == null && !this.document) {
+      this.selectedSopId = newest.id;
+      this.loadDetail(newest.id);
+    }
   }
 
   setView(view: CourseView): void {
@@ -143,7 +187,9 @@ export class SopQuizReviewComponent implements OnInit {
     this.modules = [];
     this.selectedSopId = null;
     this.selectedModuleId = null;
-    this.router.navigate(['/sop/quiz-review']);
+    this.openingNewest = true;
+    // The address keeps the choice, so it holds if the page is built afresh; switching adds no Back step.
+    this.router.navigate(['/sop/quiz-review'], { queryParams: courseViewQuery(view), replaceUrl: true });
     this.loadList();
   }
 
@@ -162,14 +208,17 @@ export class SopQuizReviewComponent implements OnInit {
 
   /** The draft is gone: back to the live version. */
   onDiscarded(draft: SopDocument): void {
-    this.loadList();
     if (draft.liveVersionId) {
+      this.loadList();
       this.onSelectSop(draft.liveVersionId);
     } else {
+      // A new course's only draft: open the newest course left.
       this.document = undefined;
       this.modules = [];
       this.selectedSopId = null;
+      this.openingNewest = true;
       this.router.navigate(['/sop/quiz-review']);
+      this.loadList();
     }
   }
 
@@ -187,6 +236,8 @@ export class SopQuizReviewComponent implements OnInit {
   /** A restored course is current again, and its owner can change it. */
   onRestored(doc: SopDocument): void {
     this.view = 'CURRENT';
+    // Drop ?view=archived, so reloading the page doesn't go back to the Archived list.
+    this.router.navigate([], { relativeTo: this.route, queryParams: courseViewQuery('CURRENT'), replaceUrl: true });
     this.loadList();
     this.loadDetail(doc.id);
   }
@@ -200,10 +251,12 @@ export class SopQuizReviewComponent implements OnInit {
     this.document = undefined;
     this.modules = [];
     this.selectedSopId = null;
+    this.openingNewest = false;
     if (!e.error?.message) {
       this.message.error('Could not load the SOP.');
     }
-    this.router.navigate(['/sop/quiz-review']);
+    // Back to the list, without opening the newest course: it may be the one that just failed.
+    this.router.navigate(['/sop/quiz-review'], { queryParams: courseViewQuery(this.view), state: NO_AUTO_OPEN });
   }
 
   onSelectSop(id: number): void {
@@ -371,6 +424,20 @@ export class SopQuizReviewComponent implements OnInit {
     return Math.max(MIN_QUIZ_QUESTIONS, module.quiz.length);
   }
 
+  /** The note under Questions per attempt: what staff get from this quiz, and whether the number can change. */
+  perAttemptNote(module: SopModule, editable: boolean): string {
+    const total = module.quiz.length;
+    if (total < MIN_QUIZ_QUESTIONS) {
+      return `The quiz needs at least ${MIN_QUIZ_QUESTIONS} questions first.`;
+    }
+    if (total === MIN_QUIZ_QUESTIONS || (!editable && module.questionsPerAttempt >= total)) {
+      return `This quiz has ${total} questions, so staff get all of them in each attempt.`;
+    }
+    return editable
+      ? `Staff get this many questions, picked at random from the ${total} in this quiz (minimum ${MIN_QUIZ_QUESTIONS}). Changes start from their next attempt.`
+      : `Staff get ${module.questionsPerAttempt} questions, picked at random from the ${total} in this quiz.`;
+  }
+
   /** Applies to the version staff are taking, from their next attempt: it changes no question. */
   savePerAttempt(): void {
     const module = this.selectedModule;
@@ -450,6 +517,7 @@ export class SopQuizReviewComponent implements OnInit {
     const options = q.questionType === 'FILL_IN_THE_BLANK' ? [] : [...q.options];
     this.adding = false;
     this.editingId = q.id;
+    this.editingFillIn = q.questionType === 'FILL_IN_THE_BLANK';
     this.draft = {
       questionType: q.questionType,
       questionText: q.questionText,
@@ -464,6 +532,7 @@ export class SopQuizReviewComponent implements OnInit {
   cancelEdit(): void {
     this.editingId = null;
     this.adding = false;
+    this.editingFillIn = false;
     this.draft = null;
   }
 

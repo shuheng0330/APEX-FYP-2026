@@ -125,6 +125,7 @@ public class TrainingReportServiceImpl implements TrainingReportService {
         r.setStatus(s.getStatus());
         r.setTiming(s.timing(now));
         r.setCancelReason(s.getCancelReason());
+        r.setRegistrationForm(s.isRegistrationForm());
         r.setCapacity(s.getCapacity());
         r.setRegistered(registered.size());
         r.setWaitlisted((int) registrations.stream().filter(x -> x.getStatus() == TrainingRegistrationStatus.WAITLISTED).count());
@@ -156,6 +157,8 @@ public class TrainingReportServiceImpl implements TrainingReportService {
             r.getPeople().add(p);
         }
         r.getPeople().sort(Comparator.comparing(p -> Objects.toString(p.getName(), ""), String.CASE_INSENSITIVE_ORDER));
+        boolean collected = registered.values().stream().anyMatch(x -> x.getIdNumber() != null);
+        r.setIdNumberNote(idNumberNote(s.isRegistrationForm(), collected, details, r.getPeople()));
         r.setAttended((int) r.getPeople().stream().filter(p -> "ATTENDED".equals(p.getStatus())).count());
         r.setAbsent((int) r.getPeople().stream().filter(p -> "ABSENT".equals(p.getStatus())).count());
         r.setNotRecorded(r.getPeople().size() - r.getAttended() - r.getAbsent());
@@ -183,6 +186,30 @@ public class TrainingReportServiceImpl implements TrainingReportService {
         r.setGeneratedAt(now);
         r.setGeneratedByName(name(staff, viewer.userId()));
         return r;
+    }
+
+    /**
+     * Why IC or passport numbers are blank (FR-13-03): the session doesn't ask for the HRDC form, the viewer may not see
+     * them, or some people never filled the form in. Null when nobody is on the list or nothing is blank.
+     *
+     * @param collected someone registered gave an IC or passport number, perhaps before the form was switched off
+     */
+    static String idNumberNote(boolean form, boolean collected, boolean details, List<TrainingSessionReportDto.Person> people) {
+        if (people.isEmpty()) return null;
+        if (!form && !collected) {
+            return "This session doesn't use the HRDC registration form, so IC or passport numbers and branches weren't collected.";
+        }
+        if (!details) {
+            return "IC or passport numbers are shown only to the session's trainer and HR.";
+        }
+        long missing = people.stream().filter(p -> p.getIdNumber() == null).count();
+        if (missing == 0) return null;
+        String who = missing == 1 ? "1 person has" : missing + " people have";
+        return form
+                ? "This session needs the HRDC details, but " + who + " no IC or passport number: walk-ins and people the "
+                + "trainer or HR add directly don't fill in the form. Collect their details before the HRDC claim."
+                : "The registration form was switched off after some people registered, so " + who
+                + " no IC or passport number.";
     }
 
     /** One sheet: the session, its numbers, then the people and the evidence, all as text Excel won't change. */
@@ -235,6 +262,9 @@ public class TrainingReportServiceImpl implements TrainingReportService {
             }
             if (r.getPeople().isEmpty()) {
                 book.row(sheet, i++, book.note, "Nobody registered or attended.");
+            }
+            if (r.getIdNumberNote() != null) {
+                book.row(sheet, i++, book.note, r.getIdNumberNote());
             }
             i++;
             book.row(sheet, i++, book.label, "Evidence");

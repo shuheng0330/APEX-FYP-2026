@@ -26,9 +26,6 @@ export class SopContentViewComponent {
     this.rich = parseRichContent(this.raw);
   }
 
-  /** Reviewers are also told when the material was generated offline instead of by the AI. */
-  @Input() reviewer = false;
-
   /** Resolve a stored media path to a URL the browser can load. */
   mediaSrc(url?: string): string {
     if (!url) { return ''; }

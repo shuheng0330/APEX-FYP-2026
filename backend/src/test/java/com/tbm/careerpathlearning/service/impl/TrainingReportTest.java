@@ -112,7 +112,6 @@ class TrainingReportTest {
         form.setIdNumber(idNumber);
         form.setPhone("012-345 6789");
         form.setBranch("IOI Mall Damansara");
-        form.setPdpaConsent(true);
         registrations.register(id(), form, viewer);
     }
 
@@ -269,6 +268,49 @@ class TrainingReportTest {
         }
         assertEquals(2, exports().size());
         assertEquals("Session report with IC numbers", exports().get(1).getDetail());
+    }
+
+    @Test
+    @DisplayName("The report and its file say why IC numbers are blank: no HRDC form, hidden, or never given (FR-13-03)")
+    void blankIdNumbers() throws IOException {
+        assertTrue(reports.report(id(), asWeiMing).isRegistrationForm());
+        assertNull(reports.report(id(), asWeiMing).getIdNumberNote()); // nobody on the list yet
+        register(asAisyah, "010203-10-1234");
+        assertNull(reports.report(id(), asWeiMing).getIdNumberNote()); // everyone gave theirs
+        assertEquals("IC or passport numbers are shown only to the session's trainer and HR.",
+                reports.report(id(), asSuperAdmin).getIdNumberNote());
+
+        store.clock.set(LocalDateTime.of(today.plusDays(8), LocalTime.of(9, 30)).atZone(ClockConfig.ZONE).toInstant());
+        attendance.addWalkIn(id(), karim.getId(), null, asWeiMing);
+        String missing = "This session needs the HRDC details, but 1 person has no IC or passport number: walk-ins and "
+                + "people the trainer or HR add directly don't fill in the form. Collect their details before the HRDC claim.";
+        assertEquals(missing, reports.report(id(), asHr).getIdNumberNote());
+        try (XSSFWorkbook workbook = open(reports.reportFile(id(), asWeiMing))) {
+            List<List<String>> rows = rows(workbook.getSheet("Report"));
+            assertEquals("", person(rows, "Karim Abdullah").get(2)); // the IC cell stays blank
+            assertTrue(rows.stream().anyMatch(r -> !r.isEmpty() && r.get(0).equals(missing)));
+        }
+
+        // Switched off after Nur Aisyah registered: her IC is still there, so the note doesn't say none was collected.
+        store.sessions.get(id()).setRegistrationForm(false);
+        assertEquals("The registration form was switched off after some people registered, so 1 person has no IC or "
+                + "passport number.", reports.report(id(), asWeiMing).getIdNumberNote());
+    }
+
+    @Test
+    @DisplayName("A session without the HRDC form says so instead of leaving the IC column unexplained")
+    void noForm() throws IOException {
+        store.sessions.get(id()).setRegistrationForm(false);
+        registrations.register(id(), new TrainingRegistrationRequest(), asAisyah);
+        String none = "This session doesn't use the HRDC registration form, so IC or passport numbers and branches weren't collected.";
+        assertEquals(none, reports.report(id(), asWeiMing).getIdNumberNote());
+        assertEquals(none, reports.report(id(), asSuperAdmin).getIdNumberNote());
+        try (XSSFWorkbook workbook = open(reports.reportFile(id(), asWeiMing))) {
+            List<List<String>> rows = rows(workbook.getSheet("Report"));
+            assertEquals("", person(rows, "Nur Aisyah").get(2));
+            assertTrue(rows.stream().anyMatch(r -> !r.isEmpty() && r.get(0).equals(none)));
+        }
+        assertTrue(exports().isEmpty()); // no IC numbers, so the download isn't logged as an export
     }
 
     @Test

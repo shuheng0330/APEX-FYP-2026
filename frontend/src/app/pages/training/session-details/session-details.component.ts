@@ -19,7 +19,7 @@ import { SessionPeopleComponent } from '../session-people/session-people.compone
 import { SessionReportComponent } from '../session-report/session-report.component';
 import { SessionSignupComponent } from '../session-signup/session-signup.component';
 import {
-  DELIVERY_LABELS, KIND_LABELS, STATUS_LABELS, TIMING_LABELS, TRAINING_TYPE_LABELS, isLink, mapsLink, timeRange
+  DELIVERY_LABELS, KIND_LABELS, STATUS_LABELS, TIMING_LABELS, TRAINING_TYPE_LABELS, isLink, timeRange
 } from '../training.util';
 
 /**
@@ -87,10 +87,6 @@ export class SessionDetailsComponent implements OnChanges {
     if (this.s.status === 'CANCELLED') return 'red';
     if (this.s.status === 'ARCHIVED' || this.s.timing === 'ENDED') return 'default';
     return this.s.timing === 'IN_PROGRESS' ? 'processing' : 'blue';
-  }
-
-  get mapsUrl(): string | null {
-    return mapsLink(this.s);
   }
 
   get seatsPercent(): number {
