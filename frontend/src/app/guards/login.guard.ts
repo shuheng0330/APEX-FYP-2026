@@ -13,7 +13,7 @@ export class LoginGuard implements CanActivate {
             take(1),
             tap(isLoggedIn => {
                 if (isLoggedIn) {
-                    this.router.navigate(['/org-chart']);
+                    this.router.navigate(['/my-learning']);
                 }
             }),
             map(isLoggedIn => !isLoggedIn)
