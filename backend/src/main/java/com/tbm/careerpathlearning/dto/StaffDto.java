@@ -1,5 +1,6 @@
 package com.tbm.careerpathlearning.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tbm.careerpathlearning.enums.StaffAccountStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,6 +15,7 @@ import java.util.UUID;
 public class StaffDto {
 
     private UUID id;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
     private String name;
     private String email;
