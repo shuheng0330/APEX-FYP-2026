@@ -19,11 +19,13 @@
       <span>{{ 'ANNUAL_APPRAISAL.FREQUENCY' | translate }}: <span class="status">{{ 'ANNUAL_APPRAISAL.FREQUENCIES.' + performance.reviewFrequency | translate }}</span></span>
       <span>{{ 'ANNUAL_APPRAISAL.CONSOLIDATION' | translate }}: <span class="status">{{ performance.consolidationMethod ? ('ANNUAL_APPRAISAL.METHODS.' + performance.consolidationMethod | translate) : '-' }}</span></span>
     </div>
+    @if (showDetails) {
     <button type="button" class="text-action" [attr.aria-expanded]="details" [attr.aria-controls]="'performance-' + contextId" (click)="details = !details">
       {{ (details ? 'ANNUAL_APPRAISAL.HIDE_RESULTS' : 'ANNUAL_APPRAISAL.VIEW_RESULTS') | translate }}</button>
     }
+    }
   </div>
-  @if (details && !summaryOnly) {
+  @if (showDetails && details && !summaryOnly) {
     <div [id]="'performance-' + contextId">
       <div class="table-scroll"><table class="data-table">
         <thead><tr><th>{{ 'ANNUAL_APPRAISAL.CHECKPOINT' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.STATUS_LABEL' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.SCORE' | translate }}</th><th>{{ 'ANNUAL_APPRAISAL.ACTIONS' | translate }}</th></tr></thead>

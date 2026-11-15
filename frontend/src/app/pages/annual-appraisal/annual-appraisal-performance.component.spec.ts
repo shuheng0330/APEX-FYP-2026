@@ -28,6 +28,17 @@ describe('Annual appraisal performance presentation', () => {
     fixture.componentRef.setInput('performance', { ...snapshot(), finalScore: 20 }); fixture.detectChanges();
     expect(fixture.componentInstance.details).toBeFalse(); expect(fixture.nativeElement.querySelector('#performance-history-10')).toBeNull(); fixture.destroy();
   });
+  it('hides the redundant detail action without removing scores or metadata', () => {
+    const fixture = TestBed.createComponent(AnnualAppraisalPerformanceComponent);
+    fixture.componentRef.setInput('performance', snapshot());
+    fixture.componentRef.setInput('showDetails', false); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.text-action')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.score-grid dd').length).toBe(3);
+    expect(fixture.nativeElement.querySelector('.performance-metadata')).not.toBeNull();
+    fixture.componentInstance.details = true; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('table')).toBeNull(); fixture.destroy();
+  });
+
   it('shows frequency and consolidation as neutral reusable badges', () => {
     const fixture = TestBed.createComponent(AnnualAppraisalPerformanceComponent);
     fixture.componentRef.setInput('performance', snapshot()); fixture.detectChanges();
