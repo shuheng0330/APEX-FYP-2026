@@ -110,6 +110,25 @@ describe('Staff / My Performance dashboard', () => {
     fixture.componentInstance.changePeriod(2);
     expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { reviewPeriodId: 2, participantId: null }, queryParamsHandling: 'merge' })); fixture.destroy();
   });
+  it('balances the approved summary without a duplicate detail action on desktop and mobile', () => {
+    const data = staffDashboard(); data.approvedAppraisal = staffAppraisal(); api.dashboard.and.returnValue(of(data));
+    const fixture = create();
+    const card: HTMLElement = fixture.nativeElement.querySelector('.approved-outcome');
+    expect(card.querySelector('button')).toBeNull();
+    expect(card.querySelectorAll('.outcome-summary > div').length).toBe(3);
+    expect(card.textContent).toContain(data.approvedAppraisal.period.name);
+    expect(card.textContent).toContain('STAFF_PERFORMANCE.OUTCOME_HELP');
+    for (const width of [360, 1200]) {
+      const layout = reviewLayout(fixture.nativeElement, width);
+      try {
+        const summary = layout.root.querySelector<HTMLElement>('.outcome-summary')!;
+        expect(summary.scrollWidth).toBeLessThanOrEqual(summary.clientWidth + 1);
+        expect(layout.window.getComputedStyle(summary).gridTemplateColumns.split(' ').length).toBe(width === 360 ? 1 : 3);
+      } finally { layout.remove(); }
+    }
+    fixture.destroy();
+  });
+
   it('opens approved outcomes with recorded scores and omits confidential fields from self views', async () => {
     const outcome = staffAppraisal(); outcome.internalDetails = { recommendation: 'PROMOTION', justification: 'PRIVATE JUSTIFICATION', overrideReason: 'PRIVATE REASON', reviewedLate: false, recordedPerformance: null };
     const data = staffDashboard(); data.approvedAppraisal = outcome; api.dashboard.and.returnValue(of(data)); api.appraisal.and.returnValue(of(outcome));
@@ -261,7 +280,12 @@ describe('Staff / My Performance dashboard', () => {
     expect(cards.querySelectorAll('dt')[2].textContent).toBe('Status');
     expect(cards.textContent).not.toContain('Appraisal status');
     expect(cards.textContent).not.toContain('Annual Values'); expect(cards.textContent).toContain('0.00%');
+    TestBed.inject(TranslateService).setTranslation('en', { ATTITUDE_ASSESSMENT: { GUIDE_TITLE: 'Attitude Evaluation Scoring Guide' } }, true);
     fixture.componentInstance.drawer = 'attitude'; const body = await drawer(fixture);
+    body.querySelector<HTMLButtonElement>('app-kpi-scoring-guide button')!.click();
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(document.querySelector('.ant-modal-title')?.textContent).toContain('Attitude Evaluation Scoring Guide');
+    expect(document.querySelector('.ant-modal-title')?.textContent).not.toContain('ATTITUDE_ASSESSMENT.SCORING_GUIDE');
     expect(body.querySelector('.attitude-summary')?.textContent).toContain('ATTITUDE_SETUP.FORMAT.SALES');
     expect(body.querySelector('.self-answers .rating-label')?.textContent).toBe('Configured Attitude label');
     expect(body.querySelector('.superior-answers .rating-label')).toBeNull();

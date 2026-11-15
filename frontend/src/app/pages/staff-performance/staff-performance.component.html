@@ -39,12 +39,13 @@
     }
     @if (view.approvedAppraisal; as outcome) {
       <section class="card approved-outcome" aria-labelledby="approved-outcome-title"><div class="card-body">
-        <div class="section-heading"><div><h3 id="approved-outcome-title">{{ 'STAFF_PERFORMANCE.APPROVED_OUTCOME' | translate }}</h3>
-          <p class="help outcome-period">{{ outcome.period.name }}</p>
-          <p><span class="status" data-status="APPROVED">{{ 'ANNUAL_APPRAISAL.STATUS.APPROVED' | translate }}</span>
-            <strong class="outcome-decision">{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + outcome.finalDecision | translate }}</strong></p>
-          <p class="help">{{ 'ANNUAL_APPRAISAL.APPROVED_ON' | translate }}: {{ outcome.approvedAt | date:'dd MMM yyyy' }}</p></div>
-          <button nz-button type="button" (click)="openAppraisal(outcome)">{{ 'ANNUAL_APPRAISAL.VIEW_HISTORY_DETAILS' | translate }}</button></div>
+        <div class="section-heading"><h3 id="approved-outcome-title">{{ 'STAFF_PERFORMANCE.APPROVED_OUTCOME' | translate }}</h3>
+          <span class="status" data-status="APPROVED">{{ 'ANNUAL_APPRAISAL.STATUS.APPROVED' | translate }}</span></div>
+        <dl class="outcome-summary">
+          <div><dt>{{ 'ANNUAL_APPRAISAL.PERIOD' | translate }}</dt><dd class="outcome-period">{{ outcome.period.name }}</dd></div>
+          <div><dt>{{ 'ANNUAL_APPRAISAL.HR_FINAL_DECISION' | translate }}</dt><dd class="outcome-decision">{{ 'ANNUAL_APPRAISAL.RECOMMENDATIONS.' + outcome.finalDecision | translate }}</dd></div>
+          <div><dt>{{ 'ANNUAL_APPRAISAL.APPROVED_ON' | translate }}</dt><dd>{{ outcome.approvedAt | date:'dd MMM yyyy' }}</dd></div>
+        </dl>
         <p class="help">{{ 'STAFF_PERFORMANCE.OUTCOME_HELP' | translate }}</p>
         @if (outcome.comparisonStatus === 'DIFFERENT') { <p class="help">{{ 'STAFF_PERFORMANCE.CORRECTED_HELP' | translate }}</p> }
       </div></section>
@@ -139,7 +140,7 @@
         @if (drawer === 'attitude') {
           <p class="help">{{ view.employee.name }} · {{ view.period.name }} · {{ view.attitude.configurationName }}</p>
           <ng-container [ngTemplateOutlet]="attitudeSummary" [ngTemplateOutletContext]="{ $implicit: view.attitude }" />
-          <app-kpi-scoring-guide [ratings]="view.attitude.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.SCORING_GUIDE" />
+          <app-kpi-scoring-guide [ratings]="view.attitude.ratingDefinitions" titleKey="ATTITUDE_ASSESSMENT.GUIDE_TITLE" />
           @for (criterion of view.attitude.criteria; track criterion.id) { <section class="card"><div class="card-body"><h3>{{ criterion.name }}</h3><p class="help">{{ criterion.description }}</p>
             <div class="comparison-grid"><div class="self-answers"><h4>{{ 'STAFF_PERFORMANCE.SELF_RATING' | translate }}</h4><strong class="saved-point">{{ criterion.selfPoint == null ? ('ANNUAL_APPRAISAL.PENDING' | translate) : criterion.selfPoint + ' / 5' }}</strong>
                 @if (attitudeRatingLabel(criterion.selfPoint); as label) { <span class="rating-label">{{ label }}</span> }

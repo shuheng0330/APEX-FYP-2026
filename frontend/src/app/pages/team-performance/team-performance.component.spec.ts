@@ -107,6 +107,27 @@ describe('Team Performance dashboard', () => {
     const back = link.queryParams['returnUrl']; expect(performanceReturnUrl(back)).toBe(back); expect(back).toContain('search=Carol'); expect(back).toContain('scope=TEAM');
     query.next(convertToParamMap({})); fixture.detectChanges(); expect(page.rows.length).toBe(2); fixture.destroy();
   });
+  for (const metric of ['kpi', 'attitude', 'final', 'change'] as const) {
+    it(`sorts ${metric} decimals numerically in both directions with stable ties and missing values last`, () => {
+      const data = teamDashboard();
+      data.employees = [78.5, null, 9.5, 100, 78.5, 0].map((score, index) => ({
+        ...data.employees[0], participantId: index + 1, name: `Employee ${index}`,
+        scores: { ...data.employees[0].scores, annualKpiScore: score, attitudeScore: score, finalScore: score },
+        yearOnYear: { percentagePoints: score, status: score === null ? 'NO_PREVIOUS_PERIOD' : 'AVAILABLE', previousPeriodId: null }
+      }));
+      api.dashboard.and.returnValue(of(data)); const fixture = create(); const page = fixture.componentInstance;
+      query.next(convertToParamMap({ sort: metric, direction: 'asc' })); fixture.detectChanges();
+      expect(page.rows.map(e => e.participantId)).toEqual([6, 3, 1, 5, 4, 2]);
+      expect(fixture.nativeElement.querySelector('[aria-sort="ascending"]')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.sort-summary')).toBeNull();
+      query.next(convertToParamMap({ sort: metric, direction: 'desc' })); fixture.detectChanges();
+      expect(page.rows.map(e => e.participantId)).toEqual([4, 1, 5, 3, 6, 2]);
+      expect(fixture.nativeElement.querySelector('[aria-sort="descending"]')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.sort-summary')).toBeNull();
+      fixture.destroy();
+    });
+  }
+
   it('keeps pending values last in numeric sorting and does not filter team summary totals', () => {
     const fixture = create(); const page = fixture.componentInstance; page.sort = 'kpi'; page.descending = true;
     expect(page.rows.map(e => e.name)).toEqual(['Bob', 'Carol']); page.result = 'AVAILABLE';

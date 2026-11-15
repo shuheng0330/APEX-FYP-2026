@@ -33,7 +33,11 @@
 .comparison-grid .saved-point { display: block; font-size: 22px; color: var(--tbm-primary); }
 .comparison-grid .rating-label { display: block; color: var(--tbm-primary); margin-top: 6px; font-size: 13px; }
 .comparison-grid .saved-comment { margin: 16px 0 0; }
-.outcome-decision { margin-left: 12px; }
+.outcome-summary { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px 24px; margin: 18px 0; }
+.outcome-summary > div { min-width: 0; overflow-wrap: anywhere; }
+.outcome-summary dt { color: var(--tbm-muted); font-size: 13px; margin-bottom: 6px; }
+.outcome-summary dd { margin: 0; font-weight: 600; }
+.outcome-decision { color: var(--tbm-primary); }
 .attitude-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
 .attitude-summary > div { padding: 16px; border-radius: 8px; background: var(--tbm-surface-subtle); min-width: 0; }
 .attitude-summary dt { font-size: 12px; color: var(--tbm-muted); margin-bottom: 8px; }
@@ -89,6 +93,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .checkpoint-metrics > div:first-child { border-left: 0; padding-left: 0; }
 }
 @media (max-width: 600px) {
+  .outcome-summary { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .comparison-grid, .attitude-summary { grid-template-columns: minmax(0, 1fr); }
   .comparison-grid .superior-answers { border-left: 0; border-top: 1px solid var(--tbm-border); padding: 18px 0 0; }
   .performance-heading { padding: 16px; }
