@@ -5,7 +5,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
 import { NzModalService } from 'ng-zorro-antd/modal';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { KpiCentralResultsComponent } from './kpi-central-results.component';
 import { KpiCentralResultService } from '../../services/kpi-central-result.service';
 import { StaffService } from '../../services/staff.service';
@@ -181,6 +181,82 @@ describe('Central KPI results', () => {
     expect(page.editable).toBeFalse();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.result-item textarea').length).toBe(0);
+  });
+
+  for (const level of ['COMPANY', 'DEPARTMENT'] as const) {
+    it(`shows shared evidence guidance once for an editable ${level} Draft`, () => {
+      api.optionsForPeriod.and.returnValue(of([{ planVersionId: 2, versionNumber: 1, level,
+        departmentId: level === 'DEPARTMENT' ? 2 : null, departmentName: level === 'DEPARTMENT' ? 'IT' : null,
+        currentVersion: true }]));
+      api.list.and.returnValue(of([{ ...result('DRAFT', 3, '103 units'), level }]));
+      page.load(); fixture.detectChanges();
+      const guidance = fixture.nativeElement.querySelectorAll('.evidence-guidance');
+      expect(guidance.length).toBe(1);
+      expect(guidance[0].textContent).toContain('MY_ASSESSMENTS.EVIDENCE_GUIDANCE');
+      expect(fixture.nativeElement.querySelector('input[type="file"]').accept).toBe('.pdf,.png,.jpg,.jpeg');
+      expect(fixture.nativeElement.querySelector('.item-evidence button').disabled).toBeFalse();
+    });
+  }
+
+  it('keeps downloads but hides upload guidance and mutation controls for published results', () => {
+    const published = result('PUBLISHED', 3, '103 units');
+    published.items[0].evidence = [{ id: 21, itemId: 7, originalFilename: 'proof.pdf', contentType: 'application/pdf',
+      sizeBytes: 5, uploadedBy: 'owner', uploadedAt: '2025-02-02T00:00:00Z' }];
+    api.list.and.returnValue(of([published])); page.load(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.evidence-guidance')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[type="file"]')).toBeNull();
+    const buttons = fixture.nativeElement.querySelectorAll('.item-evidence button');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toContain('KPI_RESULTS.DOWNLOAD');
+  });
+
+  it('wraps evidence guidance on mobile and retains native keyboard-accessible upload controls', () => {
+    TestBed.inject(TranslateService).setTranslation('en', { MY_ASSESSMENTS: {
+      EVIDENCE_GUIDANCE: 'PDF, PNG or JPEG. Default file limit: 10 MB. Attaching evidence also saves your current Draft answers.'
+    } }, true);
+    page.startDraft(); fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.item-evidence button');
+    expect(button.tabIndex).toBe(0);
+    const layout = reviewLayout(fixture.nativeElement, 360);
+    try {
+      const guidance = layout.root.querySelector<HTMLElement>('.evidence-guidance')!;
+      expect(guidance.scrollWidth).toBeLessThanOrEqual(guidance.clientWidth + 1);
+      expect(guidance.getBoundingClientRect().right).toBeLessThanOrEqual(361);
+    } finally { layout.remove(); }
+    page.busy = true; fixture.detectChanges();
+    expect(button.disabled).toBeTrue();
+  });
+
+  it('ignores cancelled file selection without saving or uploading', () => {
+    page.startDraft();
+    page.items[0].actualAchievement = '103 units'; page.items[0].point = 3;
+    const input = { files: [], value: '' } as unknown as HTMLInputElement;
+    page.attachEvidence(page.items[0], { target: input } as unknown as Event);
+    expect(api.update).not.toHaveBeenCalled(); expect(api.upload).not.toHaveBeenCalled();
+    expect(page.dirty).toBeTrue();
+  });
+
+  it('rejects empty evidence using the shared accessible validation message', () => {
+    page.startDraft();
+    page.items[0].actualAchievement = '103 units'; page.items[0].point = 3;
+    const input = { files: [new File([], 'empty.pdf')], value: 'empty.pdf' } as unknown as HTMLInputElement;
+    page.attachEvidence(page.items[0], { target: input } as unknown as Event);
+    fixture.detectChanges();
+    expect(input.value).toBe('');
+    expect(api.update).not.toHaveBeenCalled(); expect(api.upload).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('MY_ASSESSMENTS.EMPTY_FILE');
+  });
+
+  it('preserves saved Draft answers and reports server upload rejection', () => {
+    page.startDraft();
+    page.items[0].actualAchievement = '103 units'; page.items[0].point = 3;
+    api.upload.and.returnValue(throwError(() => ({ error: { message: 'Attach a valid PDF, PNG or JPEG' } })));
+    const input = { files: [new File(['invalid'], 'proof.pdf')], value: 'proof.pdf' } as unknown as HTMLInputElement;
+    page.attachEvidence(page.items[0], { target: input } as unknown as Event);
+    fixture.detectChanges();
+    expect(page.items[0].actualAchievement).toBe('103 units'); expect(page.items[0].point).toBe(3);
+    expect(page.items[0].evidence).toEqual([]); expect(page.busy).toBeFalse();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('Attach a valid PDF, PNG or JPEG');
   });
 
   it('saves pending answers before evidence upload and advances the lock version', () => {
