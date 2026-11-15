@@ -36,10 +36,20 @@
                aria-label="Department">
       @for (d of departmentOptions; track d) { <nz-option [nzValue]="d" [nzLabel]="d"></nz-option> }
     </nz-select>
+    <!-- VR-11: a wider list that shows the whole course name, with the version in its own column -->
     <nz-select class="filter wide" nzAllowClear nzShowSearch nzPlaceHolder="All courses" [(ngModel)]="courseId"
-               (ngModelChange)="applyFilters()" aria-label="Course">
+               (ngModelChange)="applyFilters()" aria-label="Course"
+               nzDropdownClassName="course-picker-dropdown" [nzDropdownMatchSelectWidth]="false" [nzOptionHeightPx]="optionHeight">
       @for (c of data?.courses ?? []; track c.id) {
-        <nz-option [nzValue]="c.id" [nzLabel]="c.title + ' · v' + c.versionNo + (c.superseded ? ' (replaced)' : '') + (c.archived ? ' (archived)' : '')"></nz-option>
+        <nz-option nzCustomContent [nzValue]="c.id" [nzLabel]="c.title + ' · v' + c.versionNo + (c.superseded ? ' (replaced)' : '') + (c.archived ? ' (archived)' : '')">
+          <span class="course-option">
+            <span class="course-option-title">{{ c.title }}</span>
+            <span class="course-option-meta">
+              <span class="course-option-version">v{{ c.versionNo }}</span>
+              <span>{{ courseState(c) }}</span>
+            </span>
+          </span>
+        </nz-option>
       }
     </nz-select>
     <nz-select class="filter" [(ngModel)]="status" (ngModelChange)="applyFilters()" aria-label="Status">
@@ -50,7 +60,12 @@
     }
   </div>
 
+  @if (loadFailed) {
+    <nz-alert class="load-alert" nzType="error" nzShowIcon [nzMessage]="loadError" role="alert"></nz-alert>
+  }
+
   <nz-spin [nzSpinning]="loading">
+    @if (data || !loadFailed) {
     <div class="board" [class.refreshing]="refreshing">
 
       <!-- Headline numbers (FR-10-01) -->
@@ -257,6 +272,7 @@
         </p>
       </section>
     </div>
+    }
   </nz-spin>
 </div>
 

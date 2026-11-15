@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { By } from '@angular/platform-browser';
 import { NzSelectComponent } from 'ng-zorro-antd/select';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NZ_ICONS } from 'ng-zorro-antd/icon';
 import { CloseOutline, DownOutline, LoadingOutline } from '@ant-design/icons-angular/icons';
@@ -13,6 +13,7 @@ import { KpiRevisionService } from '../../services/kpi-revision.service';
 import { AuthService } from '../../services/auth.service';
 import { KpiRevision } from '../../models/kpi-revision.model';
 import { revisionFixture, revisionPlan } from './kpi-revision.test-data';
+import { reviewLayout } from './review-navigation.test-layout';
 
 describe('KPI revision review queue and amendment controls', () => {
   let fixture: ComponentFixture<KpiRevisionsComponent>; let page: KpiRevisionsComponent;
@@ -33,6 +34,51 @@ describe('KPI revision review queue and amendment controls', () => {
     TestBed.overrideProvider(NzModalService, { useValue: modal }); await TestBed.compileComponents();
   });
   function start() { fixture = TestBed.createComponent(KpiRevisionsComponent); page = fixture.componentInstance; fixture.detectChanges(); }
+  it('retains unavailable-notification guidance outside the heading row', () => {
+    start(); page.target.unavailable = true; fixture.detectChanges();
+    const notice: HTMLElement = fixture.nativeElement.querySelector('app-notification-target');
+    expect(notice.querySelector('[role="status"]')?.textContent).toContain('NOTIFICATIONS.TARGET_UNAVAILABLE');
+    expect(notice.querySelector('button')?.textContent).toContain('NOTIFICATIONS.RETURN_WORKSPACE');
+    expect(fixture.nativeElement.querySelector('.revision-queue-heading').contains(notice)).toBeFalse();
+  });
+  it('retains unavailable-notification guidance outside the heading row', () => {
+    start(); page.target.unavailable = true; fixture.detectChanges();
+    const notice: HTMLElement = fixture.nativeElement.querySelector('app-notification-target');
+    expect(notice.querySelector('[role="status"]')?.textContent).toContain('NOTIFICATIONS.TARGET_UNAVAILABLE');
+    expect(notice.querySelector('button')?.textContent).toContain('NOTIFICATIONS.RETURN_WORKSPACE');
+    expect(fixture.nativeElement.querySelector('.revision-queue-heading').contains(notice)).toBeFalse();
+  });
+  for (const superior of [false, true]) {
+    it(`aligns the ${superior ? 'Superior' : 'organisation'} heading and compact Refresh across viewport sizes`, () => {
+      const translate = TestBed.inject(TranslateService);
+      translate.setTranslation('en', { KPI_REVISIONS: { TITLE: 'KPI Revisions', INDIVIDUAL_TITLE: 'Individual KPI Revisions',
+        HELP: 'Arrange changes to confirmed KPI Plans.', SUPERIOR_HELP: 'Prepare or approve changes to employee plans.', REFRESH: 'Refresh' } }); translate.use('en');
+      fixture = TestBed.createComponent(KpiRevisionsComponent); page = fixture.componentInstance;
+      fixture.componentRef.setInput('superiorOnly', superior); fixture.componentRef.setInput('sharedPeriod', superior);
+      if (superior) fixture.componentRef.setInput('periodId', 4);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.revision-queue-heading app-notification-target')).toBeNull();
+      expect(fixture.nativeElement.querySelectorAll('.revision-filters:not(.employee-filters) > .field').length).toBe(superior ? 2 : 3);
+      const refresh: HTMLButtonElement = fixture.nativeElement.querySelector('.revision-refresh');
+      expect(refresh.tabIndex).toBe(0); expect(refresh.disabled).toBeFalse();
+      for (const width of [360, 768, 1440]) {
+        const layout = reviewLayout(fixture.nativeElement, width);
+        try {
+          const heading = layout.root.querySelector<HTMLElement>('.revision-queue-heading')!;
+          const title = heading.querySelector('h3')!.getBoundingClientRect();
+          expect(Math.abs(title.left - heading.getBoundingClientRect().left)).toBeLessThan(2);
+          const button = layout.root.querySelector<HTMLElement>('.revision-refresh')!.getBoundingClientRect();
+          const filters = layout.root.querySelector<HTMLElement>('.revision-filters')!;
+          expect(button.width).toBeLessThan(160);
+          expect(Math.abs(button.right - filters.getBoundingClientRect().right)).toBeLessThan(2);
+          expect(filters.scrollWidth).toBeLessThanOrEqual(filters.clientWidth + 1);
+          expect(heading.scrollWidth).toBeLessThanOrEqual(heading.clientWidth + 1);
+        } finally { layout.remove(); }
+      }
+      api.list.calls.reset(); refresh.click(); expect(api.list).toHaveBeenCalled();
+      page.busy = true; fixture.detectChanges(); expect(refresh.disabled).toBeTrue();
+    });
+  }
   it('selects an Open period and scopes both plans and revisions to it', () => {
     start(); expect(page.periodId).toBe(4); expect(api.plans).toHaveBeenCalledWith(4); expect(api.list).toHaveBeenCalledWith(4);
     expect(api.access).not.toHaveBeenCalled();

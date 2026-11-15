@@ -65,7 +65,7 @@
         </section>
         <ng-container [ngTemplateOutlet]="insightSection" />
       }
-      @if (performance; as scores) { <app-annual-appraisal-performance [performance]="scores" [frozen]="frozen" /> }
+      @if (performance; as scores) { <app-annual-appraisal-performance [performance]="scores" [frozen]="frozen" [showDetails]="false" /> }
       @if (hrReview && selected?.status !== 'APPROVED') { <ng-container [ngTemplateOutlet]="recommendationSection" /> }
       <app-annual-performance-trend [history]="performanceHistory" [current]="performance || null" [currentPeriod]="period"
         [employeeId]="candidate.employeeId" [employeeName]="candidate.employeeName || ''" [loading]="performanceHistoryLoading" [error]="!!performanceHistoryError" />
@@ -166,6 +166,7 @@
           [readOnly]="readonly || !showRecommendationForm" [submittedOnly]="hrReview || frozen" [disabled]="locked || accessChanged" [recordVersion]="selected?.lockVersion ?? null"
           [submissionActivityId]="submittedActivityId" />
       </ng-template>
+      <ng-template #activitySection>
       @if (selected) {
         <section class="appraisal-secondary"><button class="text-action" type="button" [attr.aria-expanded]="activityVisible" aria-controls="annual-activity" (click)="toggleActivity()">{{ (activityVisible ? 'ANNUAL_APPRAISAL.HIDE_ACTIVITY' : 'ANNUAL_APPRAISAL.VIEW_ACTIVITY') | translate }}</button>
           @if (activityVisible) {
@@ -198,6 +199,7 @@
           }
         </section>
       }
+      </ng-template>
       @if (showHrDecisions) {
         <section class="card hr-decisions" aria-labelledby="hr-decision-title">
           <div class="card-head"><h3 id="hr-decision-title">{{ 'ANNUAL_APPRAISAL.DECISION.TITLE' | translate }}</h3>
@@ -226,6 +228,7 @@
           </div>
         </section>
       }
+      <ng-container [ngTemplateOutlet]="activitySection" />
   }
 </div>
 

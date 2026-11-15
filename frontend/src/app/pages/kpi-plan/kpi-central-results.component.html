@@ -185,6 +185,9 @@
               </div>
             </article>
           }
+          @if (editable && items.length) {
+            <p class="help evidence-guidance">{{ 'MY_ASSESSMENTS.EVIDENCE_GUIDANCE' | translate }}</p>
+          }
         </section>
         @if (editable) {
           <div class="footer-actions">

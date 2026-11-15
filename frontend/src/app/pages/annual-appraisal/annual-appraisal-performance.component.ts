@@ -13,6 +13,7 @@ export class AnnualAppraisalPerformanceComponent implements OnChanges {
   @Input({ required: true }) performance!: Pick<AnnualAppraisalSnapshot, 'annualKpiScore' | 'attitudeScore' | 'finalScore' | 'kpiWeight' | 'attitudeWeight' | 'consolidationMethod' | 'reviewFrequency'>
     & Partial<Pick<AnnualAppraisalSnapshot, 'checkpoints' | 'attitude'>>;
   @Input() summaryOnly = false;
+  @Input() showDetails = true;
   @Input() frozen = false;
   @Input() contextId = 'current';
   details = false;

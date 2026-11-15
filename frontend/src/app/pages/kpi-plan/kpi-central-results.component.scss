@@ -32,6 +32,7 @@
 .point-option.selected span { background: var(--tbm-primary); border-color: var(--tbm-primary); color: white; font-weight: 700; }
 .point-option input:focus-visible + span { outline: 2px solid var(--tbm-primary); outline-offset: 3px; }
 .item-evidence { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 16px; }
+.evidence-guidance { margin: 0; padding: 0 20px 16px; overflow-wrap: anywhere; }
 .file-row { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
 .file-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .unsaved { margin-right: auto; }

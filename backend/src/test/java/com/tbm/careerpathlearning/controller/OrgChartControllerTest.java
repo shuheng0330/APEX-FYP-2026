@@ -100,6 +100,39 @@ class OrgChartControllerTest {
     // --- 2. Show Org Chart ---
 
     @Test
+    void showOrgChart_ShouldNeverExposeNestedManagerPasswords() throws Exception {
+        OrgChartDto hr = new OrgChartDto();
+        hr.setId(3L);
+        hr.setName("HR Department");
+        hr.setType(OrgChartType.D);
+        ParentChildNodeDto relation = new ParentChildNodeDto();
+        relation.setParentId(1L);
+        relation.setChildId(3L);
+        RoleDto role = new RoleDto();
+        role.setId(196L);
+        role.setName("HR Manager");
+        role.setOrgChart(hr);
+        StaffDto manager = new StaffDto(UUID.randomUUID());
+        manager.setName("Adrian Lim");
+        manager.setPassword("manager-test-hash");
+        StaffDto staff = new StaffDto(UUID.randomUUID());
+        staff.setName("David Lim");
+        staff.setPassword("staff-test-hash");
+        staff.setManager(manager);
+        staff.setRole(role);
+        when(orgChartService.findAllByIsDeletedIsFalse()).thenReturn(List.of(mockDept, hr));
+        when(parentChildNodeService.findAllByRelationType(RelationType.ORG_CHART)).thenReturn(List.of(relation));
+        when(roleService.getAllByDeletedIsFalse()).thenReturn(List.of(role));
+        when(staffService.findAllByIsDeletedIsFalse()).thenReturn(List.of(staff));
+
+        mockMvc.perform(get("/api/orgChart/show-org-chart").principal(authentication))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].children[0].data.departmentNode.staffs['196'][0].name").value("David Lim"))
+                .andExpect(jsonPath("$[0].children[0].data.departmentNode.staffs['196'][0].password").doesNotExist())
+                .andExpect(jsonPath("$[0].children[0].data.departmentNode.staffs['196'][0].manager.password").doesNotExist());
+    }
+
+    @Test
     void showOrgChart_ShouldBuildHierarchy() throws Exception {
         OrgChartDto child = new OrgChartDto();
         child.setId(2L);

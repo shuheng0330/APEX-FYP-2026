@@ -62,18 +62,6 @@ export function startOfWeek(date: Date): Date {
   return addDays(date, -((date.getDay() + 6) % 7));
 }
 
-/**
- * A Google Maps search for the venue of a session held in person: its pinned location, or else the venue's text.
- * Works without a Maps key.
- */
-export function mapsLink(s: TrainingSession): string | null {
-  if (s.delivery === 'ONLINE') return null;
-  if (s.latitude != null && s.longitude != null) {
-    return `https://www.google.com/maps/search/?api=1&query=${s.latitude},${s.longitude}`;
-  }
-  return s.venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.venue)}` : null;
-}
-
 /** Whether the text is a single web address, such as an online meeting link. */
 export function isLink(text: string | null | undefined): boolean {
   return !!text && /^https?:\/\/\S+$/i.test(text.trim());

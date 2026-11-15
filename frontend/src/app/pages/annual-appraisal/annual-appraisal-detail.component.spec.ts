@@ -184,7 +184,7 @@ describe('Full-page annual appraisal details', () => {
     { hr: false, status: 'PENDING_REVIEW', order: ['results', 'trend', 'history', 'recommendation', 'activity'] },
     { hr: false, status: 'RETURNED', order: ['return', 'results', 'trend', 'history', 'recommendation', 'activity'] },
     { hr: false, status: 'APPROVED', order: ['decision', 'results', 'trend', 'history', 'activity'] },
-    { hr: true, status: 'PENDING_REVIEW', order: ['results', 'recommendation', 'trend', 'history', 'activity', 'actions'] },
+    { hr: true, status: 'PENDING_REVIEW', order: ['results', 'recommendation', 'trend', 'history', 'actions', 'activity'] },
     { hr: true, status: 'RETURNED', order: ['return', 'results', 'recommendation', 'trend', 'history', 'activity'] },
     { hr: true, status: 'APPROVED', order: ['decision', 'results', 'trend', 'history', 'activity'] }
   ] as const) {
@@ -598,13 +598,13 @@ describe('Full-page annual appraisal details', () => {
     } finally { frame.remove(); }
   });
 
-  it('places HR decisions after activity, with no duplicate header actions or inline form', async () => {
+  it('places appraisal activity below HR decisions, with no duplicate header actions or inline form', async () => {
     await openHr(); const root: HTMLElement = fixture.nativeElement;
     const section = root.querySelector<HTMLElement>('.hr-decisions')!;
     expect(root.querySelectorAll('.detail-actions button').length).toBe(1);
     expect(section.querySelectorAll('.hr-action-button').length).toBe(3);
     expect(section.querySelectorAll('.decision-info').length).toBe(3);
-    expect(root.querySelector('.appraisal-secondary')!.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(root.querySelector('.appraisal-secondary')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(getComputedStyle(section).position).toBe('static');
     expect(root.querySelector('#annual-decision')).toBeNull(); expect(document.querySelector('.decision-modal')).toBeNull();
     expect(root.querySelector('.detail-deadline')).not.toBeNull();

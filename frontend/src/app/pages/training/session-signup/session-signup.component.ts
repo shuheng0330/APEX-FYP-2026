@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -14,11 +13,6 @@ import { TrainingRegistrationForm, TrainingSession } from '../../../models/train
 import { TrainingSessionService } from '../../../services/training-session.service';
 import { timeRange } from '../training.util';
 
-/** Why the HRDC details are asked for (FR-13-03, NFR-014). */
-export const PDPA_NOTICE = 'TBM collects your IC or passport number, phone number and branch only to register you with HRDC '
-  + '(Human Resources Development Corporation) for this training. Only the session\'s trainer and HR can see them, and they '
-  + 'are erased if you cancel. Under the Personal Data Protection Act 2010 you can ask HR to see or correct them.';
-
 /**
  * The signed-in person's own place on a session (FR-13): register (always confirmed first), join the waitlist, take up
  * or decline an offered seat, answer an invitation, or cancel. The server checks every rule again.
@@ -27,7 +21,7 @@ export const PDPA_NOTICE = 'TBM collects your IC or passport number, phone numbe
   selector: 'app-session-signup',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzCheckboxModule, NzIconModule, NzInputModule,
+    CommonModule, FormsModule, NzAlertModule, NzButtonModule, NzIconModule, NzInputModule,
     NzPopconfirmModule, NzSelectModule
   ],
   templateUrl: './session-signup.component.html',
@@ -37,7 +31,6 @@ export class SessionSignupComponent implements OnChanges {
   @Input({ required: true }) session!: TrainingSession;
   @Output() changed = new EventEmitter<TrainingSession>();
 
-  readonly pdpaNotice = PDPA_NOTICE;
   readonly timeRange = timeRange;
 
   /** The confirm step is open: a summary, or the HRDC form. */
@@ -49,7 +42,6 @@ export class SessionSignupComponent implements OnChanges {
   idNumber = '';
   phone = '';
   branch: string | null = null;
-  pdpaConsent = false;
   busy = false;
 
   constructor(private sessions: TrainingSessionService, private message: NzMessageService) {}
@@ -91,7 +83,6 @@ export class SessionSignupComponent implements OnChanges {
     if (!/^(\d{12}|[A-Z0-9]{6,20})$/.test(id)) return 'Enter your IC number (12 digits) or passport number.';
     if (!/^\+?\d[\d -]{7,18}$/.test(this.phone.trim())) return 'Enter a phone number, for example 012-345 6789.';
     if (!this.branch) return 'Choose your branch.';
-    if (!this.pdpaConsent) return 'Tick the box to agree to the PDPA notice.';
     return null;
   }
 
@@ -112,7 +103,7 @@ export class SessionSignupComponent implements OnChanges {
   confirmRegistration(): void {
     if (this.formProblem) return;
     const request = this.s.registrationForm
-      ? { idNumber: this.idNumber, phone: this.phone, branch: this.branch ?? undefined, pdpaConsent: this.pdpaConsent }
+      ? { idNumber: this.idNumber, phone: this.phone, branch: this.branch ?? undefined }
       : {};
     this.run(this.sessions.register(this.s.id, request), updated => updated.myStatus === 'WAITLISTED'
       ? `The session is full, so you're number ${updated.myWaitlistPosition} on the waitlist.`
@@ -148,7 +139,6 @@ export class SessionSignupComponent implements OnChanges {
         this.declineReason = '';
         this.idNumber = this.phone = '';
         this.branch = null;
-        this.pdpaConsent = false;
         this.message.success(done(updated));
         this.changed.emit(updated);
       },

@@ -88,7 +88,8 @@ export class SessionFormComponent implements OnInit {
   roleIds: number[] = [];
   staffIds: string[] = [];
   selfRegistration = true;
-  registrationForm = false;
+  /** On for a new session, as most training is claimed from HRDC (13 Nov 2026). */
+  registrationForm = true;
   registrationCutoff: Date | null = null;
   waitlistEnabled = true;
   /** Also save the set-up as a reusable template (FR-12-08). */
@@ -306,7 +307,7 @@ export class SessionFormComponent implements OnInit {
     this.roleIds = [...(r.roleIds ?? [])];
     this.staffIds = [...(r.staffIds ?? [])];
     this.selfRegistration = r.selfRegistration ?? true;
-    this.registrationForm = !!r.registrationForm;
+    this.registrationForm = r.registrationForm ?? true;
     this.waitlistEnabled = r.waitlistEnabled ?? true;
   }
 

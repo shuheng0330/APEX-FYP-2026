@@ -319,7 +319,7 @@ export class KpiCentralResultsComponent implements OnInit {
   attachEvidence(item: CentralResultItem, event: Event) {
     const input = event.target as HTMLInputElement; const file = input.files?.[0]; input.value = '';
     if (!file || !this.editable || this.busy || !this.validDraft()) return;
-    if (!file.size) { this.error = this.translate.instant('KPI_RESULTS.EMPTY_FILE'); return; }
+    if (!file.size) { this.error = this.translate.instant('MY_ASSESSMENTS.EMPTY_FILE'); return; }
     const operation = (this.dirty ? this.persist() : of(this.result!)).pipe(switchMap(saved => {
       const itemId = saved.items.find(i => i.kpi.id === item.kpi.id)?.id;
       return itemId == null ? throwError(() => ({ error: { message: this.translate.instant('KPI_RESULTS.READINESS_CHANGED') } }))

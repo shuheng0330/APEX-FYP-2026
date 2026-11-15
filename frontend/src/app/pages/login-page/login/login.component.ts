@@ -26,7 +26,7 @@ import { AuthShellComponent } from '../../../components/auth-shell/auth-shell.co
 })
 
 export class LoginComponent implements OnInit {
-  private landingPage: any = '/org-chart';
+  private landingPage: any = '/my-learning';
   private forgotPasswordPage: any = '/forgot-password';
   private firstTimeLoginPage: any = '/first-time-login';
   private defaultErrorTitleKey: any = "NOTIFICATION.ERR.TITLE";
