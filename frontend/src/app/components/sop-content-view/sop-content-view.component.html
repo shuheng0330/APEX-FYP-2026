@@ -1,20 +1,9 @@
 @if (rich; as r) {
-  @if (reviewer && r.source === 'offline') {
-    <div class="offline-note">
-      <nz-icon nzType="disconnect"></nz-icon>
-      <span>Generated offline from the SOP text because the AI was unavailable. Review it carefully before approving.</span>
-    </div>
-  }
-
   <!-- Summary -->
   @if (r.summary) {
     <div class="ai-summary-box">
       <div class="ai-label">
-        @if (reviewer && r.source !== 'offline') {
-          <nz-icon nzType="robot"></nz-icon> AI SUMMARY
-        } @else {
-          <nz-icon nzType="file-text"></nz-icon> SUMMARY
-        }
+        <nz-icon nzType="file-text"></nz-icon> SUMMARY
       </div>
       <p>{{ r.summary }}</p>
     </div>

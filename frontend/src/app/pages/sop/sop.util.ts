@@ -1,3 +1,4 @@
+import { ParamMap, Params, Router } from '@angular/router';
 import { SopDocument, SopModule } from '../../models/sop.model';
 
 /** The SOP files accepted, for the file picker; the same list as the server's (FR-06-01, FR-06-08). */
@@ -14,6 +15,31 @@ export const MAX_DURATION_MINUTES = 24 * 60;
 /** The course lists on Upload and the review pages: current courses, or archived ones (FR-06-14). */
 export type CourseView = 'CURRENT' | 'ARCHIVED';
 
+/**
+ * The review pages keep the Archived list in the address as ?view=archived. Leaving a course's address
+ * (/sop/review/5) builds the page afresh, and this is how the fresh page knows to stay on Archived.
+ */
+export function courseViewQuery(view: CourseView): Params {
+  return view === 'ARCHIVED' ? { view: 'archived' } : {};
+}
+
+/** The list a review page opens on: Archived when the address says ?view=archived, otherwise Current. */
+export function courseViewFrom(query: ParamMap | undefined): CourseView {
+  return query?.get('view') === 'archived' ? 'ARCHIVED' : 'CURRENT';
+}
+
+/** Navigation state that stops a review page opening the newest course: one just failed to open. */
+export const NO_AUTO_OPEN = { autoOpen: false };
+
+/**
+ * Whether a review page opened with no course in its address should open the newest course in its list,
+ * so it never starts on an empty page. Not straight after a course failed to open, so it can't loop.
+ * Call it while the router builds the page (a field initializer): by ngOnInit the navigation has finished.
+ */
+export function autoOpenAllowed(router: Router): boolean {
+  return router.getCurrentNavigation()?.extras.state?.['autoOpen'] !== false;
+}
+
 /** Asked before restoring an archived course (FR-06-16, decision D3). */
 export const RESTORE_QUESTION =
   'Restore this course? It becomes Live again. Staff who were withdrawn are not re-enrolled; assign it to them again if needed.';
@@ -22,6 +48,22 @@ export const RESTORE_QUESTION =
 export function courseOptionLabel(doc: SopDocument): string {
   return `${doc.title} · v${doc.versionNo}${doc.courseStatus === 'DRAFT' ? ' draft' : ''} (${doc.moduleCount} modules)`;
 }
+
+/** "v2 draft": shown in its own column in the course pickers' list, so a long title never hides it (VR-11). */
+export function courseOptionVersion(doc: SopDocument): string {
+  return `v${doc.versionNo}${doc.courseStatus === 'DRAFT' ? ' draft' : ''}`;
+}
+
+/** "5 modules", under the version in the course pickers' list. */
+export function courseOptionModules(doc: SopDocument): string {
+  return `${doc.moduleCount} ${doc.moduleCount === 1 ? 'module' : 'modules'}`;
+}
+
+/**
+ * Each option in a course picker's list is this tall: up to two lines of the course name, with the version beside it.
+ * The list assumes every option is the same height, so styles.scss (.course-picker-dropdown) uses the same number.
+ */
+export const COURSE_OPTION_HEIGHT_PX = 52;
 
 /** Whether a quiz change or a rejection starts a new draft version: staff are taking this live course (FR-07-16). */
 export function startsDraft(doc: SopDocument | undefined): boolean {

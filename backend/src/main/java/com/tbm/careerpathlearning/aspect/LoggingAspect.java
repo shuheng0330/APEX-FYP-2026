@@ -17,8 +17,13 @@ import org.springframework.stereotype.Component;
 public class LoggingAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggingAspect.class);
+    /*
+     * DocumentParserService returns a whole SOP's text, so it is never logged: personal data in it must stay out of
+     * the logs (FR-06-17). GeminiClient, which holds the AI prompts, is @MetadataOnlyLogging: only method names.
+     */
     private static final String APPLICATION_METHOD = "execution(* com.tbm.careerpathlearning..*(..))"
-            + " && !within(com.tbm.careerpathlearning.aspect.MetadataOnlyLogScope)";
+            + " && !within(com.tbm.careerpathlearning.aspect.MetadataOnlyLogScope)"
+            + " && !within(com.tbm.careerpathlearning.service.DocumentParserService)";
 
     // Intercept all methods
     @Before(APPLICATION_METHOD)

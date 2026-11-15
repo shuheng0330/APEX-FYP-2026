@@ -66,7 +66,7 @@ class TrainingRegistrationControllerTest {
     void staffActForThemselves() throws Exception {
         when(trainingService.get(any(), any())).thenReturn(new TrainingSessionDto());
         TrainingViewer me = new TrainingViewer(user, false, false, false);
-        String body = "{\"staffId\":\"" + UUID.randomUUID() + "\",\"branch\":\"Bangsar Village\",\"pdpaConsent\":true}";
+        String body = "{\"staffId\":\"" + UUID.randomUUID() + "\",\"branch\":\"Bangsar Village\"}";
 
         mockMvc.perform(as(post("/api/trainings/7/register"), "ROLE_USER").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());

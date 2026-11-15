@@ -56,8 +56,8 @@ public class SopGenerationService {
 
     private static final Set<QuizQuestionType> GENERATED_TYPES = EnumSet.of(QuizQuestionType.MULTIPLE_CHOICE, QuizQuestionType.TRUE_FALSE);
 
-    /** Marks a module's content as built offline, so the review page can flag it. */
-    private static final String OFFLINE_SOURCE = "offline";
+    /** The first entry in every generated module's history: it doesn't say whether the AI or the offline builder wrote it. */
+    public static final String GENERATED_DETAIL = "Generated from the uploaded SOP.";
 
     @Autowired private SopDocumentRepository sopDocumentRepository;
     @Autowired private SopModuleRepository sopModuleRepository;
@@ -106,6 +106,13 @@ public class SopGenerationService {
                 throw new RuntimeException("The document appears to be empty.");
             }
 
+            // The AI and the offline builder both work from this copy; the stored text stays as uploaded (FR-06-17).
+            SensitiveDataFilter.Result masked = SensitiveDataFilter.mask(text);
+            if (masked.total() > 0) {
+                log.info("Masked personal data in document {} before generating: {}", sopDocumentId, masked.counts()); // counts only
+            }
+            text = masked.text();
+
             updateStatus(doc, SopGenerationStatus.GENERATING, null);
 
             // Phase A — plan: break the SOP into modules that together cover every section.
@@ -116,7 +123,7 @@ public class SopGenerationService {
 
             if (planned.isEmpty()) {
                 // The AI could not plan the SOP at all: build every module from its text instead.
-                List<GeneratedSopContent.GeneratedModule> offline = localSopGenerator.generate(doc.getTitle(), text);
+                List<GeneratedSopContent.GeneratedModule> offline = localSopGenerator.generate(SensitiveDataFilter.mask(doc.getTitle()).text(), text);
                 if (offline.isEmpty()) {
                     throw new RuntimeException("The AI is unavailable and no modules could be built from this document's text.");
                 }
@@ -124,11 +131,10 @@ public class SopGenerationService {
                 for (int i = 0; i < offline.size(); i++) {
                     GeneratedSopContent.GeneratedModule gm = offline.get(i);
                     gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), gm.getTitle(), asked));
-                    self.saveModuleWithQuiz(doc.getId(), i + 1, gm, true);
+                    self.saveModuleWithQuiz(doc.getId(), i + 1, gm);
                     asked.addAll(questionTexts(gm.getQuiz()));
                 }
-                updateStatus(doc, SopGenerationStatus.COMPLETED,
-                        "The AI was unavailable, so all modules were generated offline from the SOP text. Review them carefully before approving.");
+                updateStatus(doc, SopGenerationStatus.COMPLETED, null);
                 log.info("SOP generation completed offline for document {} ({} modules)", sopDocumentId, offline.size());
                 return;
             }
@@ -155,19 +161,18 @@ public class SopGenerationService {
                         firstOffline = saved + 1;
                     }
                 }
-                boolean fromOffline = gm == null;
-                if (fromOffline) {
+                if (gm == null) {
                     gm = offline.get(i);
                     if (gm == null) {
                         continue; // no SOP text matched this planned module
                     }
                 }
                 gm.setQuiz(fullQuiz(gm.getSections(), gm.getQuiz(), gm.getTitle(), asked));
-                self.saveModuleWithQuiz(doc.getId(), ++saved, gm, fromOffline);
+                self.saveModuleWithQuiz(doc.getId(), ++saved, gm);
                 asked.addAll(questionTexts(gm.getQuiz()));
             }
 
-            updateStatus(doc, SopGenerationStatus.COMPLETED, offlineNote(firstOffline, saved));
+            updateStatus(doc, SopGenerationStatus.COMPLETED, null);
             log.info("SOP generation completed for document {} ({} modules, 2-phase{})", sopDocumentId, saved,
                     firstOffline > 0 ? ", offline from module " + firstOffline : "");
         } catch (Exception e) {
@@ -191,27 +196,26 @@ public class SopGenerationService {
 
     /** Persist one expanded module and its quiz (incremental, so progress is visible live). */
     @Transactional
-    public void saveModuleWithQuiz(Long sopDocumentId, int order, GeneratedSopContent.GeneratedModule gm, boolean offline) {
+    public void saveModuleWithQuiz(Long sopDocumentId, int order, GeneratedSopContent.GeneratedModule gm) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         SopModule module = new SopModule();
         module.setSopDocumentId(sopDocumentId);
         module.setModuleOrder(order);
         module.setTitle(stripModulePrefix(safe(gm.getTitle(), "Module " + order)));
-        module.setContent(serializeRichContent(gm, offline));
+        module.setContent(serializeRichContent(gm));
         module.setReviewStatus(ReviewStatus.PENDING);
         module.setCreatedAt(now);
         module.setUpdatedAt(now);
         SopModule savedModule = sopModuleRepository.save(module);
         // The first entry in the module's material history (FR-07-14).
         sopMaterialReviewEventRepository.save(SopMaterialReviewEvent.of(savedModule.getId(), MaterialReviewAction.GENERATED,
-                offline ? "Built from the SOP text because the AI was unavailable. Review it carefully."
-                        : "Written by the AI from the uploaded SOP.", null, now));
+                GENERATED_DETAIL, null, now));
 
         saveQuestions(savedModule.getId(), gm.getQuiz(), now, ReviewStatus.PENDING);
     }
 
     /** Serialize the structured content fields to JSON for storage in the content column. */
-    private String serializeRichContent(GeneratedSopContent.GeneratedModule gm, boolean offline) {
+    private String serializeRichContent(GeneratedSopContent.GeneratedModule gm) {
         try {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("summary", gm.getSummary() != null ? gm.getSummary() : "");
@@ -219,9 +223,6 @@ public class SopGenerationService {
             map.put("tools", gm.getTools() != null ? gm.getTools() : List.of());
             map.put("sections", gm.getSections() != null ? gm.getSections() : List.of());
             map.put("keyTerms", gm.getKeyTerms() != null ? gm.getKeyTerms() : List.of());
-            if (offline) {
-                map.put("source", OFFLINE_SOURCE);
-            }
             return objectMapper.writeValueAsString(map);
         } catch (Exception e) {
             return gm.getSummary() != null ? gm.getSummary() : "";
@@ -239,7 +240,7 @@ public class SopGenerationService {
 
         OffsetDateTime now = OffsetDateTime.now(clock);
         module.setTitle(safe(gm.getTitle(), module.getTitle()));
-        module.setContent(serializeRichContent(gm, false));
+        module.setContent(serializeRichContent(gm));
         module.setReviewStatus(ReviewStatus.REGENERATED);
         module.setRejectionReason(reason);
         module.setUpdatedAt(now);
@@ -529,15 +530,6 @@ public class SopGenerationService {
     // --- helpers -------------------------------------------------------------
 
     /** Status note when the AI dropped out part-way; null when every module came from the AI. */
-    private String offlineNote(int firstOffline, int saved) {
-        if (firstOffline == 0 || firstOffline > saved) {
-            return null;
-        }
-        String modules = firstOffline == saved ? "module " + saved + " was" : "modules " + firstOffline + "-" + saved + " were";
-        return "The AI became unavailable, so " + modules
-                + " generated offline from the SOP text. Review them carefully before approving.";
-    }
-
     /** Sleep between Gemini calls so we stay within the free-tier requests-per-minute limit. */
     private void pace() {
         if (callDelayMs <= 0) {

@@ -5,7 +5,9 @@ import com.tbm.careerpathlearning.enums.ReviewStatus;
 import com.tbm.careerpathlearning.enums.SopAssignmentMode;
 import com.tbm.careerpathlearning.enums.SopGenerationStatus;
 import com.tbm.careerpathlearning.exception.ForbiddenRequestException;
+import com.tbm.careerpathlearning.enums.MaterialReviewAction;
 import com.tbm.careerpathlearning.model.SopDocument;
+import com.tbm.careerpathlearning.model.SopMaterialReviewEvent;
 import com.tbm.careerpathlearning.model.SopModule;
 import com.tbm.careerpathlearning.model.Staff;
 import com.tbm.careerpathlearning.service.LocalSopGenerator;
@@ -71,7 +73,7 @@ class SopMaterialHistoryTest {
     }
 
     @Test
-    @DisplayName("A generated module's history starts with how it was made: by the AI, or from the SOP text without it")
+    @DisplayName("A generated module's history starts the same way, whether the AI wrote it or it was built from the SOP text")
     void generationStartsTheHistory() {
         SopDocument byAi = store.doc(2L, "Cash Handling v2", trainer.getId());
         byAi.setGenerationStatus(SopGenerationStatus.PENDING);
@@ -84,8 +86,8 @@ class SopMaterialHistoryTest {
         for (SopModule m : aiModules) {
             List<SopMaterialReviewEventDto> h = history(m);
             assertEquals(List.of("GENERATED"), actions(h), m.getTitle());
-            assertEquals("Written by the AI from the uploaded SOP.", h.get(0).getDetail());
-            assertNull(h.get(0).getActorName(), "the AI wrote it");
+            assertEquals("Generated from the uploaded SOP.", h.get(0).getDetail());
+            assertNull(h.get(0).getActorName(), "no person wrote it");
         }
 
         SopDocument offline = store.doc(3L, "Cash Handling v3", trainer.getId());
@@ -100,8 +102,43 @@ class SopMaterialHistoryTest {
         for (SopModule m : offlineModules) {
             List<SopMaterialReviewEventDto> h = history(m);
             assertEquals(List.of("GENERATED"), actions(h), m.getTitle());
-            assertEquals("Built from the SOP text because the AI was unavailable. Review it carefully.", h.get(0).getDetail());
+            assertEquals("Generated from the uploaded SOP.", h.get(0).getDetail());
         }
+    }
+
+    private void saved(MaterialReviewAction action, String detail) {
+        store.repository(com.tbm.careerpathlearning.repository.SopMaterialReviewEventRepository.class)
+                .save(SopMaterialReviewEvent.of(first.getId(), action, detail, null, store.now()));
+    }
+
+    @Test
+    @DisplayName("Entries saved with the old wording no longer name the AI or the offline build; a trainer's own words stay")
+    void oldEntriesAreReworded() {
+        String earlier = " Approvals and rejections made before review history was kept aren't listed here.";
+        for (String[] entry : new String[][] {
+                {"Written by the AI from the uploaded SOP.", "Generated from the uploaded SOP."},
+                {"Written by the AI from the uploaded SOP." + earlier, "Generated from the uploaded SOP." + earlier},
+                {"Built from the SOP text because the AI was unavailable. Review it carefully.", "Generated from the uploaded SOP."},
+                {"Built from the SOP text because the AI was unavailable." + earlier, "Generated from the uploaded SOP." + earlier}}) {
+            store.materialEvents.clear();
+            saved(MaterialReviewAction.GENERATED, entry[0]);
+            assertEquals(entry[1], history(first).get(0).getDetail());
+        }
+        for (String[] entry : new String[][] {
+                {"Rewritten by the AI from the trainer's feedback, with a new quiz to match.", "Rewritten from the trainer's feedback, with a new quiz to match."},
+                {"Rewritten by the AI after the material was rejected, with a new quiz to match.", "Rewritten after the material was rejected, with a new quiz to match."}}) {
+            store.materialEvents.clear();
+            saved(MaterialReviewAction.REGENERATED, entry[0]);
+            assertEquals(entry[1], history(first).get(0).getDetail());
+        }
+
+        String reason = "Written by the AI from the uploaded SOP. Rewritten by the AI is what it says, so fix it";
+        store.materialEvents.clear();
+        saved(MaterialReviewAction.REJECTED, reason);
+        assertEquals(reason, history(first).get(0).getDetail(), "the reason a trainer typed");
+        store.materialEvents.clear();
+        saved(MaterialReviewAction.GENERATED, null);
+        assertNull(history(first).get(0).getDetail());
     }
 
     @Test
@@ -139,14 +176,14 @@ class SopMaterialHistoryTest {
     }
 
     @Test
-    @DisplayName("A rejection records the reason and who gave it, then the AI's regeneration, newest first")
+    @DisplayName("A rejection records the reason and who gave it, then the regeneration, newest first")
     void rejectionIsRecorded() {
         courses.rejectModule(first.getId(), "  Add the cash drop steps  ", owner);
 
         List<SopMaterialReviewEventDto> h = history(first);
         assertEquals(List.of("REGENERATED", "REJECTED"), actions(h));
-        assertNull(h.get(0).getActorName(), "the AI regenerated it");
-        assertEquals("Rewritten by the AI from the trainer's feedback, with a new quiz to match.", h.get(0).getDetail());
+        assertNull(h.get(0).getActorName(), "no person regenerated it");
+        assertEquals("Rewritten from the trainer's feedback, with a new quiz to match.", h.get(0).getDetail());
         assertEquals("Tan Wei Ming", h.get(1).getActorName());
         assertEquals("Add the cash drop steps", h.get(1).getDetail());
         assertEquals(ReviewStatus.REGENERATED, store.modules.get(first.getId()).getReviewStatus());
